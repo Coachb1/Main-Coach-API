@@ -1,0 +1,35 @@
+import logging
+
+from django.core.exceptions import (
+    ValidationError as DjangoValidationError,
+    PermissionDenied,
+)
+from django.http import Http404
+from rest_framework import exceptions as drf_exceptions
+from rest_framework.views import exception_handler as drf_exception_handler
+
+logger = logging.getLogger(__name__)
+
+
+def custom_exception_handler(exception, context):
+    logger.exception(exception)
+
+    exc = exception
+    if isinstance(exception, DjangoValidationError):
+        if hasattr(exception, 'message_dict'):
+            exc = drf_exceptions.ValidationError(
+                detail={'error': exception.message_dict}
+            )
+        elif hasattr(exception, 'message'):
+            exc = drf_exceptions.ValidationError(detail={'error': exception.message})
+        elif hasattr(exception, 'messages'):
+            exc = drf_exceptions.ValidationError(detail={'error': exception.messages})
+    elif isinstance(exception, Http404):
+        exc = drf_exceptions.NotFound()
+    elif isinstance(exception, PermissionDenied):
+        exc = drf_exceptions.PermissionDenied()
+    elif (not isinstance(exception, drf_exceptions.APIException)
+          and isinstance(exception, Exception)):
+        exc = drf_exceptions.APIException(detail=str(exception))
+
+    return drf_exception_handler(exc, context)
