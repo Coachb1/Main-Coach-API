@@ -27,7 +27,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["uid", "name", "identities", "created", "updated"]
+        fields = ["uid", "name", "role", "identities", "created", "updated"]
 
     def get_identities(self, instance: User):
         return IdentityUserViewSerializer(instance=get_user_identities(instance.uid), many=True).data

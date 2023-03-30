@@ -4,7 +4,6 @@ import binascii
 from django.contrib.auth.hashers import check_password
 from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.authentication import get_authorization_header
 
 from clients.models import Client
 
@@ -16,9 +15,10 @@ class ClientBasicAuthentication(BaseAuthentication):
     www_authenticate_realm = 'api'
 
     def authenticate(self, request) -> tuple[Client, None]:
-        auth = get_authorization_header(request).split()
+        auth = request.META.get('HTTP_AUTHORIZATION', b'')
+        auth = auth.split()
 
-        if not auth or auth[0].lower() != b'basic':
+        if not auth or auth[0].lower() != 'basic':
             return None, None
 
         if len(auth) == 1:

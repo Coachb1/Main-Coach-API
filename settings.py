@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "clients.apps.ClientsConfig",
     "users.apps.UsersConfig",
     "identities.apps.IdentitiesConfig",
+    "tests.apps.TestsConfig",
 ]
 
 MIDDLEWARE = [
