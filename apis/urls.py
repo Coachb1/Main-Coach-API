@@ -5,4 +5,5 @@ urlpatterns = [
     path("", include("apis.clients.urls")),
     path("", include("apis.tenants.urls")),
     path("", include("apis.tests.urls")),
+    path("", include("apis.tests_invites.urls")),
 ]
