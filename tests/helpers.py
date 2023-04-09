@@ -1,13 +1,16 @@
 import logging
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from commons.timeit import timeit
 from tenants.models import Tenant
 from tests.models import Test
+from tests.models import TestAttemptSession
 from tests.models import TestInvite
 from tests.models import TestQuestion
+from tests.models import TestQuestionResponse
 from users.models import User
 
 logger = logging.getLogger(__name__)
@@ -85,3 +88,75 @@ def create_test_invite(tenant: Tenant,
     logger.info("created test invite for tenant %s", tenant.uid)
 
     return test_invite
+
+
+@timeit
+def create_test_question_answer_session(tenant: Tenant,
+                                        test_id: str,
+                                        test_invite_id: str,
+                                        participant_id: str) -> TestAttemptSession:
+    try:
+        test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
+    except Test.DoesNotExist as e:
+        logger.exception("failed to create session, test with id %s does not exist", test_id)
+        raise serializers.ValidationError("invalid test id")
+
+    if test_invite_id:
+        try:
+            test_invite = TestInvite.objects.get(tenant_id=tenant.uid, uid=test_invite_id, deleted=0)
+        except Test.DoesNotExist as e:
+            logger.exception("failed to create session, test_invite with id %s does not exist", test_invite_id)
+            raise serializers.ValidationError("invalid test_invite_id")
+
+    try:
+        participant = User.objects.get(tenant_id=tenant.uid, uid=participant_id, deleted=0)
+    except User.DoesNotExist as e:
+        logger.exception("failed to create session, participant with id %s does not exist", test_id)
+        raise serializers.ValidationError("invalid participant id")
+
+    test_attempt_session = TestAttemptSession.objects.create(
+        tenant_id=tenant.uid,
+        test_id=test_id,
+        participant_id=participant_id,
+        test_invite_id=test_invite_id,
+        started_at=timezone.now(),
+    )
+
+    logger.info("created test_attempt_session for tenant %s", tenant.uid)
+
+    return test_attempt_session
+
+
+@timeit
+def create_test_question_answer(tenant: Tenant,
+                                test_attempt_session_id: str,
+                                question_id: str,
+                                response_file: str = None,
+                                response_text: str = None) -> TestQuestionResponse:
+    if not response_file and not response_text:
+        raise serializers.ValidationError("either response_file or response_text should be present")
+
+    try:
+        session = TestAttemptSession.objects.get(tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
+    except TestAttemptSession.DoesNotExist as e:
+        logger.exception("failed to get session, test attempt session with id %s does not exist",
+                         test_attempt_session_id)
+        raise serializers.ValidationError("invalid test_attempt_session_id")
+
+    try:
+        question = TestQuestion.objects.get(tenant_id=tenant.uid, uid=question_id, deleted=0)
+    except TestAttemptSession.DoesNotExist as e:
+        logger.exception("failed to get question, question with id %s does not exist", question_id)
+        raise serializers.ValidationError("invalid question_id")
+
+    test_question_response = TestQuestionResponse.objects.create(
+        tenant_id=tenant.uid,
+        test_attempt_session_id=test_attempt_session_id,
+        question_id=question_id,
+        response_text=response_text,
+        response_file=response_file
+    )
+
+    logger.info("created test_question_response for tenant %s", tenant.uid)
+
+    return test_question_response

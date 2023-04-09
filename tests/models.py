@@ -44,10 +44,10 @@ class TestInvite(TenantAwareModel):
 class TestAttemptSession(TenantAwareModel):
     test_id = models.CharField(max_length=255, db_index=True)
     participant_id = models.CharField(max_length=255, db_index=True)
-    test_invite_id = models.CharField(max_length=255, unique=True)
+    test_invite_id = models.CharField(max_length=255, null=True)
 
     expires_at = models.DateTimeField(null=True)
-    started_at = models.DateTimeField()
+    started_at = models.DateTimeField(null=True)
     finished_at = models.DateTimeField(null=True)
     status = models.CharField(max_length=255, choices=TestAttemptSessionStatusChoices,
                               default=TestAttemptSessionStatusChoices.in_progress)
