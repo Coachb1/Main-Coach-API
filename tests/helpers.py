@@ -4,8 +4,11 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
+from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
+from tests.choices import InteractionModeChoices, TestQuestionResponseEvaluationStatusChoices
 from tests.models import Test
 from tests.models import TestAttemptSession
 from tests.models import TestInvite
@@ -159,4 +162,51 @@ def create_test_question_answer(tenant: Tenant,
 
     logger.info("created test_question_response for tenant %s", tenant.uid)
 
+    test_question_response = process_test_response(test_question_response)
+
     return test_question_response
+
+
+@timeit
+def process_test_response(test_question_response: TestQuestionResponse):
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+    test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+    participant = User.objects.get(uid=test_attempt_session.participant_id)
+
+    if test.interaction_mode != InteractionModeChoices.text:
+        if test.interaction_mode == InteractionModeChoices.audio:
+            test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+                test_question_response.response_file)
+        elif test.interaction_mode == InteractionModeChoices.video:
+            test_question_response.response_text = ""
+        test_question_response.save(update_fields=["response_text", "updated"])
+
+    prompt = get_chat_conversation_prompt(question.question, test_question_response.response_text)
+    test_question_response.feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
+
+    return test_question_response
+
+
+def get_chat_conversation_prompt(question: str,
+                                 candidate_reply: str):
+    bot_name = "CoachBot"
+    bot_intro = f"I am a professional instructor named '{bot_name}'. My task is to evaluate, enrich and increase " \
+                f"understanding of a candidate. I will read the 'QUESTION' and 'CANDIDATE_REPLY', and then I will " \
+                f"proceed with my task."
+    bot_purpose = "I will now evaluate, enrich and increase understanding of 'CANDIDATE_REPLY' related to the 'QUESTION'"
+
+    return f"""
+{bot_intro}
+
+QUESTION:
+{question}
+
+CANDIDATE_REPLY: 
+{candidate_reply}
+
+{bot_purpose}:
+{bot_name}:
+"""

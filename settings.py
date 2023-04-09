@@ -124,3 +124,6 @@ LOGGING = {
         },
     },
 }
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+COACH_WHISPER_BASE_URL = os.getenv("COACH_WHISPER_BASE_URL")

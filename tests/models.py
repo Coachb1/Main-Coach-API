@@ -52,6 +52,8 @@ class TestAttemptSession(TenantAwareModel):
     status = models.CharField(max_length=255, choices=TestAttemptSessionStatusChoices,
                               default=TestAttemptSessionStatusChoices.in_progress)
 
+    feedback_text = models.TextField(null=True, blank=True)
+
     class Meta:
         db_table = "test_attempt_session"
 
@@ -64,6 +66,8 @@ class TestQuestionResponse(TenantAwareModel):
     evaluation_status = models.CharField(max_length=255,
                                          choices=TestQuestionResponseEvaluationStatusChoices,
                                          default=TestQuestionResponseEvaluationStatusChoices.init)
+
+    feedback_text = models.TextField(null=True, blank=True)
 
     class Meta:
         db_table = "test_question_response"
