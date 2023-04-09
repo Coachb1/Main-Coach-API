@@ -16,6 +16,8 @@ DEBUG = "t" in os.getenv("DJANGO_DEBUG")
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS").split(",")
 
+ENV = os.getenv("ENV")
+
 REFRESH_TOKEN_EXPIRY_UNIT = "days"
 REFRESH_TOKEN_EXPIRY_VALUE = 30
 
@@ -39,11 +41,25 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'urls'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("MYSQL_DBNAME"),
+        "USER": os.getenv("MYSQL_USER"),
+        "PASSWORD": os.getenv("MYSQL_PASSWORD"),
+        "HOST": os.getenv("MYSQL_HOST"),  # Or an IP Address that your DB is hosted on
+        "PORT": os.getenv("MYSQL_PORT"),
     }
 }
+
+if ENV == "local":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
