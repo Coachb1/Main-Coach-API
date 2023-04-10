@@ -1,5 +1,6 @@
 from rest_framework import mixins
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apis.accounts.aggregator import create_user_account
@@ -8,6 +9,7 @@ from apis.accounts.serializers import AccountSerializer
 from apis.accounts.serializers import SetupAccountSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
+from identities.helpers import get_user_via_identity
 from users.models import User
 
 
@@ -32,3 +34,14 @@ class AccountsViewSet(ApiViewSet,
                                    identity_context=IdentityCreateContextDto(**identity_context))
 
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_201_CREATED)
+
+    @action(methods=["GET"],
+            detail=False,
+            url_path=r"identities/(?P<identity_type>[^\s]+)/(?P<identity_value>[^\s]+)")
+    def get_account_via_identity(self, request, identity_type, identity_value, *args, **kwargs):
+        user = get_user_via_identity(
+            tenant=request.tenant,
+            identity_type=identity_type,
+            identity_value=identity_value
+        )
+        return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)

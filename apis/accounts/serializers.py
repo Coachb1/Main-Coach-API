@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from identities.helpers import get_user_identities
-from identities.serializers import IdentityUserViewSerializer
 from users.choices import UserRoleChoice
 from users.models import User
 
@@ -23,11 +21,6 @@ class SetupAccountSerializer(serializers.Serializer):
 
 
 class AccountSerializer(serializers.ModelSerializer):
-    identities = serializers.SerializerMethodField(method_name="get_identities")
-
     class Meta:
         model = User
-        fields = ["uid", "name", "role", "identities", "created", "updated"]
-
-    def get_identities(self, instance: User):
-        return IdentityUserViewSerializer(instance=get_user_identities(instance.uid), many=True).data
+        fields = ["uid", "name", "role", "created", "updated"]
