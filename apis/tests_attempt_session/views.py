@@ -15,6 +15,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient,)
+    lookup_field = "uid"
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)

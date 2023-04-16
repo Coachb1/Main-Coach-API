@@ -15,6 +15,7 @@ class Test(TenantAwareModel):
 
     class Meta:
         db_table = "test"
+        ordering = ("-id", )
 
 
 class TestQuestion(TenantAwareModel):
@@ -29,6 +30,7 @@ class TestQuestion(TenantAwareModel):
 
     class Meta:
         db_table = "test_question"
+        ordering = ("id", )
 
 
 class TestInvite(TenantAwareModel):
@@ -56,6 +58,7 @@ class TestAttemptSession(TenantAwareModel):
 
     class Meta:
         db_table = "test_attempt_session"
+        ordering = ("-id", )
 
 
 class TestQuestionResponse(TenantAwareModel):
