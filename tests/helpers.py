@@ -25,7 +25,7 @@ def create_test(tenant: Tenant,
                 title: str,
                 description: str,
                 interaction_mode: str,
-                is_trainer_mode_enabled: bool,
+                test_type: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -40,7 +40,7 @@ def create_test(tenant: Tenant,
             title=title,
             description=description,
             interaction_mode=interaction_mode,
-            is_trainer_mode_enabled=is_trainer_mode_enabled,
+            test_type=test_type,
         )
 
         test_questions = []

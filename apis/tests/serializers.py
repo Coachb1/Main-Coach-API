@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from tests.choices import InteractionModeChoices, QuestionTypeChoices
+from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices
 from tests.models import Test, TestQuestion
 
 
@@ -19,7 +19,7 @@ class CreateTestSerializer(serializers.Serializer):
     title = serializers.CharField()
     description = serializers.CharField()
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
-    is_trainer_mode_enabled = serializers.BooleanField()
+    test_type = serializers.ChoiceField(choices=TestTypeChoices)
     questions = CreateTestQuestionSerializer(many=True)
 
 
@@ -34,8 +34,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Test
-        fields = ["uid", "title", "description", "interaction_mode", "is_trainer_mode_enabled", "questions",
-                  "created", "updated"]
+        fields = ["uid", "title", "description", "interaction_mode", "test_type", "questions", "created", "updated"]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data

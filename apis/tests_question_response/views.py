@@ -1,6 +1,9 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
+from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
+from apis.tests_question_response.filtersets import TestQuestionResponseFilterSet
 from apis.tests_question_response.serializers import TestQuestionResponseSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
@@ -15,6 +18,10 @@ class TestQuestionResponseViewSet(ApiViewSet,
     queryset = TestQuestionResponse.objects.filter(deleted=0)
     serializer_class = TestQuestionResponseSerializer
     permission_classes = (IsAuthenticatedClient,)
+    filter_backends = (DjangoFilterBackend, OrderingFilter)
+    filterset_class = TestQuestionResponseFilterSet
+    ordering_fields = ("id", )
+    lookup_field = "uid"
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)

@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, TestAttemptSessionStatusChoices
+from tests.choices import InteractionModeChoices, TestAttemptSessionStatusChoices, TestTypeChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 
@@ -11,11 +11,11 @@ class Test(TenantAwareModel):
     title = models.CharField(max_length=255, db_index=True)
     description = models.CharField(max_length=255)
     interaction_mode = models.CharField(max_length=255, choices=InteractionModeChoices)
-    is_trainer_mode_enabled = models.BooleanField(default=False)
+    test_type = models.CharField(max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
 
     class Meta:
         db_table = "test"
-        ordering = ("-id", )
+        ordering = ("-id",)
 
 
 class TestQuestion(TenantAwareModel):
@@ -30,7 +30,7 @@ class TestQuestion(TenantAwareModel):
 
     class Meta:
         db_table = "test_question"
-        ordering = ("id", )
+        ordering = ("id",)
 
 
 class TestInvite(TenantAwareModel):
@@ -58,7 +58,7 @@ class TestAttemptSession(TenantAwareModel):
 
     class Meta:
         db_table = "test_attempt_session"
-        ordering = ("-id", )
+        ordering = ("-id",)
 
 
 class TestQuestionResponse(TenantAwareModel):
@@ -76,3 +76,5 @@ class TestQuestionResponse(TenantAwareModel):
         db_table = "test_question_response"
 
         unique_together = (("test_attempt_session_id", "question_id"),)
+
+        ordering = ("id",)

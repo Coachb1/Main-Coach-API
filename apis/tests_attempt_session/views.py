@@ -1,4 +1,6 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
+from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
@@ -15,6 +17,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient,)
+    filter_backends = (DjangoFilterBackend, OrderingFilter)
+    ordering_fields = ("id", )
     lookup_field = "uid"
 
     def get_queryset(self):

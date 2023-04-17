@@ -13,8 +13,9 @@ class LogRequestMiddleware(MiddlewareMixin):
     def process_request(self, request):
         trace_id = str(uuid.uuid4())
         set_trace_id(trace_id)
+        logger.info("request %s ", request.path)
 
     def process_response(self, request, response):
-        logger.info("request %s , response %s", request.path, response)
+        logger.info("response %s", response)
         response["x-trace-id"] = get_trace_id()
         return response
