@@ -20,6 +20,7 @@ class CreateTestSerializer(serializers.Serializer):
     description = serializers.CharField()
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
+    evaluation_prompt = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
 
 
@@ -34,7 +35,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Test
-        fields = ["uid", "title", "description", "interaction_mode", "test_type", "questions", "created", "updated"]
+        fields = ["uid", "title", "description", "evaluation_prompt", "interaction_mode", "test_type", "questions", "created", "updated"]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data

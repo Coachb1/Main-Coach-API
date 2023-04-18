@@ -12,6 +12,7 @@ class Test(TenantAwareModel):
     description = models.CharField(max_length=255)
     interaction_mode = models.CharField(max_length=255, choices=InteractionModeChoices)
     test_type = models.CharField(max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
+    evaluation_prompt = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
