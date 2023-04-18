@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from apis.documents.serializer import DocumentViewSerializer, DocumentCreateSerializer
@@ -7,9 +8,12 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from documents.helpers import create_document, get_document_url
 from documents.models import Document
+from rest_framework import mixins
 
 
-class DocumentViewSet(ApiViewSet):
+class DocumentViewSet(ApiViewSet,
+                      mixins.ListModelMixin,
+                      mixins.RetrieveModelMixin):
     queryset = Document.objects.filter(deleted=0)
     serializer_class = DocumentViewSerializer
     permission_classes = (IsAuthenticatedClient,)
@@ -18,7 +22,8 @@ class DocumentViewSet(ApiViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
-    def create(self, request, *args, **kwargs):
+    @action(methods=["POST"], parser_classes=(MultiPartParser, ), url_path="upload")
+    def upload_document_view(self, request, *args, **kwargs):
         serializer = DocumentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
