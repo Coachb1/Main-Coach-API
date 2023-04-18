@@ -5,8 +5,8 @@ from commons.timeit import timeit
 
 
 @timeit
-def get_url(bucket, key):
-    s3 = boto3.client('s3', config=Config(signature_version='s3v4'))
+def get_url(region_name, bucket, key):
+    s3 = boto3.client('s3', region_name=region_name, config=Config(signature_version='s3v4'))
 
     return s3.generate_presigned_url(
         ClientMethod='get_object',

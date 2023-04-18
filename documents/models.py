@@ -9,6 +9,7 @@ class Document(TenantAwareModel):
 
     object_id = models.TextField()
     bucket_name = models.TextField()
+    region_name = models.TextField()
     doc_type = models.CharField(max_length=255, choices=DocTypeChoice)
     content_type = models.CharField(max_length=255)
     size = models.CharField(max_length=255)

@@ -16,11 +16,13 @@ def create_document(tenant: Tenant,
 
     object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{str(uuid.uuid4())}.{file_extension}"
     bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
+    region_name = "ap-south-1"
 
     s3_upload(
         file=file,
         bucket_name=bucket_name,
-        s3_file_name=object_id
+        s3_file_name=object_id,
+        region_name=region_name
     )
 
     doc = Document.objects.create(
@@ -28,6 +30,7 @@ def create_document(tenant: Tenant,
         display_name=display_name,
         object_id=object_id,
         bucket_name=bucket_name,
+        region_name=region_name,
         doc_type=doc_type,
         content_type=file.content_type,
         size=file.size,
@@ -40,4 +43,4 @@ def create_document(tenant: Tenant,
 
 
 def get_document_url(doc: Document) -> str:
-    return get_url(doc.bucket_name, doc.object_id)
+    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
