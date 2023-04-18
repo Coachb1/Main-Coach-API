@@ -22,7 +22,7 @@ class DocumentViewSet(ApiViewSet,
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
-    @action(methods=["POST"], parser_classes=(MultiPartParser, ), url_path="upload")
+    @action(methods=["POST"], detail=False, parser_classes=(MultiPartParser, ), url_path="upload")
     def upload_document_view(self, request, *args, **kwargs):
         serializer = DocumentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
