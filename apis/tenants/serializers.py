@@ -6,4 +6,5 @@ from tenants.models import Tenant
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
-        fields = ["uid", "name", "subdomain_prefix", "subscription", "deleted", "created", "updated"]
+        fields = ["uid", "name", "subdomain_prefix", "document_storage_bucket_name", "subscription", "deleted",
+                  "created", "updated"]

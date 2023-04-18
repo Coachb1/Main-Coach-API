@@ -8,6 +8,7 @@ class Tenant(MyModel):
     name = models.TextField()
     subdomain_prefix = models.CharField(max_length=255, unique=True)
     subscription = models.CharField(max_length=255, choices=SubscriptionChoices, default=SubscriptionChoices.paused)
+    document_storage_bucket_name = models.TextField(default="")
 
     class Meta:
         db_table = 'tenant'

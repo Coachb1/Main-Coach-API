@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "users.apps.UsersConfig",
     "identities.apps.IdentitiesConfig",
     "tests.apps.TestsConfig",
+    "documents.apps.DocumentsConfig",
 ]
 
 MIDDLEWARE = [

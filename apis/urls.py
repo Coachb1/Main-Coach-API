@@ -8,4 +8,5 @@ urlpatterns = [
     path("", include("apis.tests_invites.urls")),
     path("", include("apis.tests_attempt_session.urls")),
     path("", include("apis.tests_question_response.urls")),
+    path("", include("apis.documents.urls")),
 ]

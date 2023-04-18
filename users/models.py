@@ -11,6 +11,7 @@ class User(TenantAwareModel):
 
     class Meta:
         db_table = "user"
+        ordering = ("-id",)
 
     @property
     def can_login(self):
