@@ -27,12 +27,12 @@ class DocumentViewSet(ApiViewSet,
         serializer = DocumentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        test, test_questions = create_document(
+        doc = create_document(
             tenant=request.tenant,
             **serializer.validated_data
         )
 
-        return Response(self.serializer_class(instance=test).data, status=status.HTTP_201_CREATED)
+        return Response(self.serializer_class(instance=doc).data, status=status.HTTP_201_CREATED)
 
     @action(methods=["GET"], detail=True, url_path="url")
     def get_doc_url_view(self, request, *args, **kwargs):
