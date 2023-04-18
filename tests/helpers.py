@@ -26,7 +26,7 @@ def create_test(tenant: Tenant,
                 description: str,
                 interaction_mode: str,
                 test_type: str,
-                evaluation_prompt: str,
+                test_related_context: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -42,7 +42,7 @@ def create_test(tenant: Tenant,
             description=description,
             interaction_mode=interaction_mode,
             test_type=test_type,
-            evaluation_prompt=evaluation_prompt,
+            test_related_context=test_related_context,
         )
 
         test_questions = []
@@ -184,7 +184,11 @@ def process_test_response(test_question_response: TestQuestionResponse):
             test_question_response.response_text = ""
         test_question_response.save(update_fields=["response_text", "updated"])
 
-    prompt = get_chat_conversation_prompt(question.question, test_question_response.response_text)
+    test_related_context = test.test_related_context
+    prompt = get_chat_conversation_prompt(
+        question=question.question,
+        candidate_reply=test_question_response.response_text,
+        test_related_context=test_related_context)
     test_question_response.feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
@@ -193,7 +197,17 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
 
 def get_chat_conversation_prompt(question: str,
-                                 candidate_reply: str):
+                                 candidate_reply: str,
+                                 test_related_context: str):
+    if test_related_context:
+        return get_chat_conversation_prompt_with_context(
+            question=question, candidate_reply=candidate_reply, test_related_context=test_related_context)
+    else:
+        return get_chat_conversation_prompt_without_context(question=question, candidate_reply=candidate_reply)
+
+
+def get_chat_conversation_prompt_without_context(question: str,
+                                                 candidate_reply: str):
     bot_name = "CoachBot"
     bot_intro = f"I am a professional instructor named '{bot_name}'. My task is to evaluate, enrich and increase " \
                 f"understanding of a candidate. I will read the 'QUESTION' and 'CANDIDATE_REPLY', and then I will " \
@@ -205,6 +219,32 @@ def get_chat_conversation_prompt(question: str,
 
 QUESTION:
 {question}
+
+CANDIDATE_REPLY: 
+{candidate_reply}
+
+{bot_purpose}:
+{bot_name}:
+"""
+
+
+def get_chat_conversation_prompt_with_context(question: str,
+                                              candidate_reply: str,
+                                              test_related_context: str):
+    bot_name = "CoachBot"
+    bot_intro = f"I am a professional instructor named '{bot_name}'. My task is to evaluate, enrich and increase " \
+                f"understanding of a candidate based about the 'QUESTION'. I will read the 'QUESTION', 'TEST_CONTEXT' and 'CANDIDATE_REPLY', and then I will " \
+                f"proceed with my task."
+    bot_purpose = "I will now evaluate, enrich and increase understanding of 'CANDIDATE_REPLY' related to the 'QUESTION' and use 'TEST_CONTEXT' as overall context to judge the 'CANDIDATE_REPLY'"
+
+    return f"""
+{bot_intro}
+
+QUESTION:
+{question}
+
+TEST_CONTEXT:
+{test_related_context}
 
 CANDIDATE_REPLY: 
 {candidate_reply}
