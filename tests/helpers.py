@@ -174,7 +174,7 @@ def process_test_response(test_question_response: TestQuestionResponse):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
     test = Test.objects.get(uid=test_attempt_session.test_id)
-    participant = User.objects.get(uid=test_attempt_session.participant_id)
+    # participant = User.objects.get(uid=test_attempt_session.participant_id)
 
     if test.interaction_mode != InteractionModeChoices.text:
         if test.interaction_mode == InteractionModeChoices.audio:
@@ -185,10 +185,12 @@ def process_test_response(test_question_response: TestQuestionResponse):
         test_question_response.save(update_fields=["response_text", "updated"])
 
     test_related_context = test.test_related_context
-    prompt = get_chat_conversation_prompt(
+    prompt = get_chat_conversation_prompt_v2(
+        test_title=test.title,
+        test_related_context=test_related_context,
         question=question.question,
-        candidate_reply=test_question_response.response_text,
-        test_related_context=test_related_context)
+        question_context=question.subjective_answer,
+        candidate_reply=test_question_response.response_text)
     test_question_response.feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
@@ -252,3 +254,33 @@ CANDIDATE_REPLY:
 {bot_purpose}:
 {bot_name}:
 """
+
+
+def get_chat_conversation_prompt_v2(test_title: str,
+                                    test_related_context: str,
+                                    question: str,
+                                    question_context: str,
+                                    candidate_reply: str):
+    prompt = f"Title: {test_title}"
+    if test_related_context:
+        prompt = f"{prompt}\nGlobal Context: {test_related_context}."
+
+    prompt = f"{prompt}\nQuestion: {question}"
+
+    if question_context:
+        prompt = f"{prompt}\nExpert Suggestions: {question_context}"
+
+    prompt = f"{prompt}\nCandidate answer: {candidate_reply}"
+
+    last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title". The feedback length should be between 100 and 150 words"""
+
+    if test_related_context and question_context:
+        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Please take into account the human expert guidance as supplied in the "Expert Suggestions" while providing the feedback. Feedback must be based on  "Title" and "Global Context".The feedback length should be between 100 and 150 words"""
+    elif test_related_context:
+        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" and "Global Context ".The feedback length should be between 100 and 150 words"""
+    elif question_context:
+        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Please take into account the human expert guidance as supplied in the "Expert Suggestions" while providing the feedback. Feedback must be based on  "Title" and "Expert Suggestions".The feedback length should be between 100 and 150 words"""
+
+    prompt = f"{prompt}\n\n{last_line}"
+
+    return prompt

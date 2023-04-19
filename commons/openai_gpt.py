@@ -42,6 +42,7 @@ def gpt3_completion(prompt,
                     max_tokens=4000,
                     freq_pen=0.0,
                     pres_pen=0.0) -> GPTResponse:
+    logger.info(f"prompt: {prompt}")
     prompt_tokens = num_tokens_for_prompt(prompt)
 
     max_retry = 3
@@ -62,6 +63,8 @@ def gpt3_completion(prompt,
             text = response['choices'][0]['text'].strip()
             text = re.sub('[\r\n]+', '\n', text)
             text = re.sub('[\t ]+', ' ', text)
+
+            logger.info(f"text: {text}")
             return GPTResponse(raw=response, text=text)
         except Exception as e:
             logger.exception('Error communicating with OpenAI err: %s', e)
