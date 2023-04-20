@@ -319,7 +319,7 @@ Please provide communication and subject matter feedback for a candidate who has
 4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
 """
     else:
-        f"""
+        return f"""
 Title: {test_title}. 
 Customer question:  {question} 
 Candidate answer:  {candidate_reply}
