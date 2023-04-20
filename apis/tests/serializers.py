@@ -8,7 +8,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=QuestionTypeChoices)
     question = serializers.CharField()
     media_link = serializers.CharField(required=False)
-    subjective_answer = serializers.CharField(required=False)
+    subjective_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     objective_answer = serializers.CharField(required=False)
     mcq_options = serializers.JSONField(required=False)
     mcq_answer = serializers.CharField(required=False)
