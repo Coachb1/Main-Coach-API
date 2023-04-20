@@ -72,10 +72,11 @@ class TestQuestionResponse(TenantAwareModel):
                                          default=TestQuestionResponseEvaluationStatusChoices.init)
 
     feedback_text = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_question_response"
 
-        unique_together = (("test_attempt_session_id", "question_id"),)
+        unique_together = (("test_attempt_session_id", "question_id", "deleted"),)
 
         ordering = ("id",)
