@@ -11,7 +11,7 @@ class TestQuestionResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestQuestionResponse
         fields = ["uid", "test_attempt_session_id", "question_id", "question", "response_file", "response_text",
-                  "feedback_text", "evaluation_status", "created", "updated"]
+                  "feedback_text", "metadata", "evaluation_status", "created", "updated"]
 
     def get_question(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(uid=instance.question_id).last(), many=False).data

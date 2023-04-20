@@ -1,5 +1,7 @@
 import uuid
 
+from django.utils import timezone
+
 from commons.s3_get_url import get_url
 from commons.s3_upload import s3_upload
 from documents.models import Document
@@ -13,8 +15,8 @@ def create_document(tenant: Tenant,
                     doc_type: str,
                     file) -> Document:
     file_extension = display_name.rsplit(".", 1)[-1]
-
-    object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{str(uuid.uuid4())}.{file_extension}"
+    date_str = timezone.now().date().isoformat()
+    object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{date_str}/{str(uuid.uuid4())}.{file_extension}"
     bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
     region_name = "ap-south-1"
 
