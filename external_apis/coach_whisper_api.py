@@ -9,24 +9,48 @@ class CoachWhisperApi(object):
     http_helper = HTTPHelper(base_url=settings.COACH_WHISPER_BASE_URL)
 
     @timeit
-    def get_transcribe_from_audio(self, audio_url) -> str:
+    def get_transcribe_from_audio(self, file_url) -> str:
         try:
-            response = self._get_transcribe_from_audio(audio_url)
+            response = self._get_transcribe_from_audio(file_url)
             if not response:
                 raise ValueError("empty transcript received")
         except Exception as e:
-            send_slack_message({"audio_url": audio_url, "error": str(e)})
+            send_slack_message({"file_url": file_url, "error": str(e)})
             raise e
 
         return response
 
-    def _get_transcribe_from_audio(self, audio_url) -> str:
+    def _get_transcribe_from_audio(self, file_url) -> str:
         url = self.http_helper.get_url("transcribe/")
 
         response = self.http_helper.post(
             url=url,
             json={
-                "file_url": audio_url
+                "file_url": file_url
+            }
+        )
+
+        return response.json().get("text")
+
+    @timeit
+    def get_transcribe_from_video(self, file_url) -> str:
+        try:
+            response = self._get_transcribe_from_video(file_url)
+            if not response:
+                raise ValueError("empty transcript received")
+        except Exception as e:
+            send_slack_message({"file_url": file_url, "error": str(e)})
+            raise e
+
+        return response
+
+    def _get_transcribe_from_video(self, file_url) -> str:
+        url = self.http_helper.get_url("transcribe/video/")
+
+        response = self.http_helper.post(
+            url=url,
+            json={
+                "file_url": file_url
             }
         )
 

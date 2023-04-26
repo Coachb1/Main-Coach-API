@@ -181,7 +181,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
             test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
                 test_question_response.response_file)
         elif test.interaction_mode == InteractionModeChoices.video:
-            test_question_response.response_text = ""
+            test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+                test_question_response.response_file)
         test_question_response.save(update_fields=["response_text", "updated"])
 
     prompt = get_chat_conversation_prompt_v3(
