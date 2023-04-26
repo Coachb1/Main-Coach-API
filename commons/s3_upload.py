@@ -1,10 +1,19 @@
+import logging
+
 import boto3
 
+from commons.timeit import timeit
 
+logger = logging.getLogger(__name__)
+
+
+@timeit
 def s3_upload(file,
               bucket_name: str,
               s3_file_name: str,
               region_name: str):
-    s3 = boto3.client('s3', region_name=region_name)
-
+    logger.info("trying s3_upload %s", s3_file_name)
+    session = boto3.session.Session()
+    s3 = session.client('s3', region_name=region_name)
     s3.upload_fileobj(file, bucket_name, s3_file_name)
+    logger.info("success s3_upload %s", s3_file_name)
