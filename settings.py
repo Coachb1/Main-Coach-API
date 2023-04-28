@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "identities.apps.IdentitiesConfig",
     "tests.apps.TestsConfig",
     "documents.apps.DocumentsConfig",
+    "coaching_conversations.apps.CoachingConversationsConfig",
 ]
 
 MIDDLEWARE = [
