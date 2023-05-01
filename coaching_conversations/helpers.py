@@ -125,9 +125,7 @@ def continue_coaching_conversation(tenant: Tenant,
                 participant_message_url
             )
 
-        reply_to_conversation.save(update_fields=["participant_message_text",
-                                                  "participant_message_url",
-                                                  "updated"])
+        reply_to_conversation.save(update_fields=["participant_message_text", "updated"])
 
     #
     # test = Test.objects.get(

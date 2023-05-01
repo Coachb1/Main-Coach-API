@@ -8,8 +8,8 @@ class InitializeCoachingConversationSerializer(serializers.Serializer):
 
 
 class ReplyCoachingConversationSerializer(serializers.Serializer):
-    participant_message_text = serializers.CharField(required=False, default="")
-    participant_message_url = serializers.CharField(required=False, default="")
+    participant_message_text = serializers.CharField(required=False, default="", allow_null=True, allow_blank=True)
+    participant_message_url = serializers.CharField(required=False, default="", allow_null=True, allow_blank=True)
 
     def validate(self, attrs):
         if not attrs.get("participant_message_url") and not attrs.get("participant_message_text"):
