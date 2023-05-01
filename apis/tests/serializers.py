@@ -8,6 +8,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=QuestionTypeChoices)
     question = serializers.CharField()
     media_link = serializers.CharField(required=False)
+    gpt_prompt_override = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     subjective_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     objective_answer = serializers.CharField(required=False)
     mcq_options = serializers.JSONField(required=False)
@@ -22,12 +23,13 @@ class CreateTestSerializer(serializers.Serializer):
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
     test_related_context = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
+    gpt_prompt_override = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
         model = TestQuestion
-        fields = ["uid", "question_type", "media_link", "question", "mcq_options", "created", "updated"]
+        fields = ["uid", "question_type", "media_link", "question", "gpt_prompt_override", "mcq_options", "created", "updated"]
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
@@ -35,7 +37,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Test
-        fields = ["uid", "title", "description", "test_related_context", "interaction_mode", "test_type", "questions", "created", "updated"]
+        fields = ["uid", "title", "description", "gpt_prompt_override", "test_related_context", "interaction_mode", "test_type", "questions", "created", "updated"]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data

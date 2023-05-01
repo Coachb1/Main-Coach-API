@@ -13,6 +13,7 @@ class Test(TenantAwareModel):
     interaction_mode = models.CharField(max_length=255, choices=InteractionModeChoices)
     test_type = models.CharField(max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
     test_related_context = models.TextField(null=True, blank=True, default=None)
+    gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
@@ -28,6 +29,7 @@ class TestQuestion(TenantAwareModel):
     objective_answer = models.TextField(null=True, blank=True)
     mcq_options = models.JSONField(null=True, blank=True)
     mcq_answer = models.TextField(null=True, blank=True)
+    gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_question"
