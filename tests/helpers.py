@@ -1,4 +1,5 @@
 import logging
+from string import Template
 
 from django.db import transaction
 from django.utils import timezone
@@ -26,6 +27,7 @@ def create_test(tenant: Tenant,
                 description: str,
                 interaction_mode: str,
                 test_type: str,
+                gpt_prompt_override: str,
                 test_related_context: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
@@ -39,6 +41,7 @@ def create_test(tenant: Tenant,
             tenant_id=tenant.uid,
             creator_id=creator.uid,
             title=title,
+            gpt_prompt_override=gpt_prompt_override,
             description=description,
             interaction_mode=interaction_mode,
             test_type=test_type,
@@ -53,6 +56,7 @@ def create_test(tenant: Tenant,
                     test_id=test.uid,
                     question_type=question.get("question_type"),
                     media_link=question.get("media_link"),
+                    gpt_prompt_override=question.get("gpt_prompt_override"),
                     question=question.get("question"),
                     subjective_answer=question.get("subjective_answer"),
                     objective_answer=question.get("objective_answer"),
@@ -185,11 +189,21 @@ def process_test_response(test_question_response: TestQuestionResponse):
                 test_question_response.response_file)
         test_question_response.save(update_fields=["response_text", "updated"])
 
-    prompt = get_chat_conversation_prompt_v3(
-        test_title=test.title,
-        question=question.question,
-        question_context=question.subjective_answer,
-        candidate_reply=test_question_response.response_text)
+    if question.gpt_prompt_override or test.gpt_prompt_override:
+        prompt = get_overridden_prompt(
+            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+            test_title=test.title,
+            question=question.question,
+            question_context=question.subjective_answer,
+            candidate_reply=test_question_response.response_text
+        )
+    else:
+        prompt = get_chat_conversation_prompt_v3(
+            test_title=test.title,
+            question=question.question,
+            question_context=question.subjective_answer,
+            candidate_reply=test_question_response.response_text)
+
     gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
     if not gpt_feedback.text:
         # delete this response
@@ -214,120 +228,54 @@ def process_test_response(test_question_response: TestQuestionResponse):
     return test_question_response
 
 
-def get_chat_conversation_prompt(question: str,
-                                 candidate_reply: str,
-                                 test_related_context: str):
-    if test_related_context:
-        return get_chat_conversation_prompt_with_context(
-            question=question, candidate_reply=candidate_reply, test_related_context=test_related_context)
-    else:
-        return get_chat_conversation_prompt_without_context(question=question, candidate_reply=candidate_reply)
-
-
-def get_chat_conversation_prompt_without_context(question: str,
-                                                 candidate_reply: str):
-    bot_name = "CoachBot"
-    bot_intro = f"I am a professional instructor named '{bot_name}'. My task is to evaluate, enrich and increase " \
-                f"understanding of a candidate. I will read the 'QUESTION' and 'CANDIDATE_REPLY', and then I will " \
-                f"proceed with my task."
-    bot_purpose = "I will now evaluate, enrich and increase understanding of 'CANDIDATE_REPLY' related to the 'QUESTION'"
-
-    return f"""
-{bot_intro}
-
-QUESTION:
-{question}
-
-CANDIDATE_REPLY: 
-{candidate_reply}
-
-{bot_purpose}:
-{bot_name}:
-"""
-
-
-def get_chat_conversation_prompt_with_context(question: str,
-                                              candidate_reply: str,
-                                              test_related_context: str):
-    bot_name = "CoachBot"
-    bot_intro = f"I am a professional instructor named '{bot_name}'. My task is to evaluate, enrich and increase " \
-                f"understanding of a candidate based about the 'QUESTION'. I will read the 'QUESTION', 'TEST_CONTEXT' and 'CANDIDATE_REPLY', and then I will " \
-                f"proceed with my task."
-    bot_purpose = "I will now evaluate, enrich and increase understanding of 'CANDIDATE_REPLY' related to the 'QUESTION' and use 'TEST_CONTEXT' as overall context to judge the 'CANDIDATE_REPLY'"
-
-    return f"""
-{bot_intro}
-
-QUESTION:
-{question}
-
-TEST_CONTEXT:
-{test_related_context}
-
-CANDIDATE_REPLY: 
-{candidate_reply}
-
-{bot_purpose}:
-{bot_name}:
-"""
-
-
-def get_chat_conversation_prompt_v2(test_title: str,
-                                    test_related_context: str,
-                                    question: str,
-                                    question_context: str,
-                                    candidate_reply: str):
-    prompt = f"Title: {test_title}"
-    if test_related_context:
-        prompt = f"{prompt}\nGlobal Context: {test_related_context}."
-
-    prompt = f"{prompt}\nQuestion: {question}"
-
-    if question_context:
-        prompt = f"{prompt}\nExpert Suggestions: {question_context}"
-
-    prompt = f"{prompt}\nCandidate answer: {candidate_reply}"
-
-    last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title". The feedback length should be between 100 and 150 words"""
-
-    if test_related_context and question_context:
-        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Please take into account the human expert guidance as supplied in the "Expert Suggestions" while providing the feedback. Feedback must be based on  "Title" and "Global Context".The feedback length should be between 100 and 150 words"""
-    elif test_related_context:
-        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" and "Global Context ".The feedback length should be between 100 and 150 words"""
-    elif question_context:
-        last_line = """Please provide critical and developmental feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Please take into account the human expert guidance as supplied in the "Expert Suggestions" while providing the feedback. Feedback must be based on  "Title" and "Expert Suggestions".The feedback length should be between 100 and 150 words"""
-
-    prompt = f"{prompt}\n\n{last_line}"
-
-    return prompt
-
-
 def get_chat_conversation_prompt_v3(test_title: str,
                                     question: str,
                                     question_context: str,
                                     candidate_reply: str):
     if question_context:
-        return f"""
-Title: {test_title}. 
-Customer question:  {question} 
-Expert Suggestions:  {question_context} 
-Candidate answer:  {candidate_reply}
- 
-Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-1) What went well ? - 50 words minimum
-2) What did not work ? - 50 words minimum 
-3) Generate a sample candidate answer response.
-4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
-"""
+        template = Template(
+            """
+            Title: ${test_title}. 
+            Customer question:  ${question} 
+            Expert Suggestions:  ${question_context} 
+            Candidate answer:  ${candidate_reply}
+    
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            1) What went well ? - 50 words minimum
+            2) What did not work ? - 50 words minimum 
+            3) Generate a sample candidate answer response.
+            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+            """
+        )
+        return template.substitute(test_title=test_title,
+                                   question=question,
+                                   question_context=question_context,
+                                   candidate_reply=candidate_reply)
     else:
-        return f"""
-Title: {test_title}. 
-Customer question:  {question} 
-Candidate answer:  {candidate_reply}
+        template = Template(
+            """
+            Title: ${test_title}. 
+            Customer question:  ${question} 
+            Candidate answer:  ${candidate_reply}
+            
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            1) What went well ? - 50 words minimum
+            2) What did not work ? - 50 words minimum 
+            3) Generate a sample candidate answer response.
+            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+            """
+        )
+        return template.substitute(test_title=test_title,
+                                   question=question,
+                                   candidate_reply=candidate_reply)
 
-Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-1) What went well ? - 50 words minimum
-2) What did not work ? - 50 words minimum 
-3) Generate a sample candidate answer response.
-4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
-"""
+
+def get_overridden_prompt(prompt_template: str,
+                          test_title: str,
+                          question: str,
+                          question_context: str,
+                          candidate_reply: str):
+    return Template(prompt_template).safe_substitute(test_title=test_title,
+                                                     question=question,
+                                                     question_context=question_context,
+                                                     candidate_reply=candidate_reply)
