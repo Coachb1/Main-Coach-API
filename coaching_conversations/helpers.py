@@ -47,12 +47,12 @@ def create_test_coaching_conversation_session(tenant: Tenant,
 
 def get_coaching_conversation_prompt(candidate_data_str):
     return f"""
-Context:{candidate_data_str} \n\nImagine you are an interviewer 
+Context:{candidate_data_str} \n\nImagine you are an life coach 
 who has just asked some question to which the candidate responds with the above 
-\"Context\". Provide development feedback to the candidate based on their response, 
+\"Context\". Provide developmental response to the candidate based on their answers, 
 and also ask a question to further explore their skills and knowledge in this domain. 
 Please make sure to provide elaborate feedback and it should be intertwined 
-with the question in a way that creates a cohesive conversation. 
+with the question in a way that creates a cohesive conversation.
 """
 
 
