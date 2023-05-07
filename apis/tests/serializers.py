@@ -29,7 +29,14 @@ class CreateTestSerializer(serializers.Serializer):
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
         model = TestQuestion
-        fields = ["uid", "question_type", "media_link", "question", "gpt_prompt_override", "mcq_options", "created", "updated"]
+        fields = ["uid",
+                  "question_type",
+                  "media_link",
+                  "question",
+                  "gpt_prompt_override",
+                  "mcq_options",
+                  "created",
+                  "updated"]
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
@@ -37,7 +44,17 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Test
-        fields = ["uid", "title", "description", "gpt_prompt_override", "test_related_context", "interaction_mode", "test_type", "questions", "created", "updated"]
+        fields = ["uid",
+                  "test_code",
+                  "title",
+                  "description",
+                  "gpt_prompt_override",
+                  "test_related_context",
+                  "interaction_mode",
+                  "test_type",
+                  "questions",
+                  "created",
+                  "updated"]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data

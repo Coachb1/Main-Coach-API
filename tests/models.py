@@ -14,6 +14,7 @@ class Test(TenantAwareModel):
     test_type = models.CharField(max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
     test_related_context = models.TextField(null=True, blank=True, default=None)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
+    test_code = models.CharField(max_length=64, null=True)
 
     class Meta:
         db_table = "test"
