@@ -1,8 +1,10 @@
 import logging
+import string
 from string import Template
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 from commons.openai_gpt import gpt3_completion
@@ -18,6 +20,31 @@ from tests.models import TestQuestionResponse
 from users.models import User
 
 logger = logging.getLogger(__name__)
+
+STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
+
+TEST_CODE_LENGTH = 6
+TEST_CODE_GENERATION_MAX_RETRY = 4
+
+
+@timeit
+def get_unique_test_code(tenant: Tenant) -> str:
+    global TEST_CODE_LENGTH
+
+    test_code = get_random_string(length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+    retries = 0
+    while Test.objects.filter(tenant_id=tenant.uid,
+                              test_code=test_code,
+                              deleted=0).exists():
+        if retries >= TEST_CODE_GENERATION_MAX_RETRY:
+            TEST_CODE_LENGTH += 1
+            retries = 0
+            logger.info("[get_unique_test_code] increased length of test code to %s", TEST_CODE_LENGTH)
+
+        test_code = get_random_string(length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+        retries += 1
+
+    return test_code
 
 
 @timeit
@@ -46,6 +73,7 @@ def create_test(tenant: Tenant,
             interaction_mode=interaction_mode,
             test_type=test_type,
             test_related_context=test_related_context,
+            test_code=get_unique_test_code(tenant)
         )
 
         test_questions = []
