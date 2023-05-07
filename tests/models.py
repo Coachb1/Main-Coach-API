@@ -20,6 +20,10 @@ class Test(TenantAwareModel):
         db_table = "test"
         ordering = ("-id",)
 
+        unique_together = (
+            ("tenant_id", "test_code", "deleted"),
+        )
+
 
 class TestQuestion(TenantAwareModel):
     test_id = models.CharField(max_length=255, db_index=True)
