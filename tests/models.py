@@ -35,6 +35,9 @@ class TestQuestion(TenantAwareModel):
     mcq_options = models.JSONField(null=True, blank=True)
     mcq_answer = models.TextField(null=True, blank=True)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
+    key_learning_point = models.TextField(null=True, blank=True, default=None)
+    key_learning_skills = models.TextField(null=True, blank=True, default=None)
+    flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_question"

@@ -15,3 +15,7 @@ def tenant_from_request(request):
 def tenant_from_client(client: Client) -> Tenant:
     if client:
         return Tenant.objects.get(uid=client.tenant_id)
+
+
+def tenant_from_tenant_id(tenant_id) -> Tenant:
+    return Tenant.objects.get(uid=tenant_id, deleted=0)

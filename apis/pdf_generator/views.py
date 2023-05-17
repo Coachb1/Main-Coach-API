@@ -13,18 +13,15 @@ from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from users.models import User
 
 
-def home(request):
-    return HttpResponse("Hello, PDF-Generator!")
-
-
-def card(request, text, template_id):
-    return render(
-        request,
-        f"card/{template_id}.html",
-        {
-            'text': text,
-        }
-    )
+#
+# def card(request, text, template_id):
+#     return render(
+#         request,
+#         f"card/{template_id}.html",
+#         {
+#             'text': text,
+#         }
+#     )
 
 
 class GetPDF(View):
