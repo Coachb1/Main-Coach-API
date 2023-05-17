@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- From Django, I'll be getting Test and Test Session ID, Participant ID, questions, responses and feedback to those responses-->
+    <!-- Generate a good html to showcase such values -->
+    <h1>Interaction Session Transcript</h1>
+    <!-- <h2>Test: {{ test_name }}</h2> -->
+    <h2>Participant: {{ participant_name }}</h2>
+    <h2>Interaction Date: {{ test_started_at }}</h2>
+
+    <h2>Responses</h2>
+    <hr />
+
+    {% for ele in qa %}
+    <h3>Question</h3>
+    <p>{{ ele.question_text }}</p>
+    <h3>Response</h3>
+    <p>{{ ele.response_text }}</p>
+    <h3>Feedback</h3>
+    <p>{{ ele.feedback_text }}</p>
+    <hr />
+    {% endfor %}
+  </body>
+</html>
