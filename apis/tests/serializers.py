@@ -13,6 +13,8 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     objective_answer = serializers.CharField(required=False)
     mcq_options = serializers.JSONField(required=False)
     mcq_answer = serializers.CharField(required=False)
+    key_learning_point = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    key_learning_skills = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class CreateTestSerializer(serializers.Serializer):
@@ -53,6 +55,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "interaction_mode",
                   "test_type",
                   "questions",
+                  "key_learning_point",
+                  "key_learning_skills",
                   "created",
                   "updated"]
 

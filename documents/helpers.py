@@ -44,5 +44,10 @@ def create_document(tenant: Tenant,
     return doc
 
 
+def get_document_url_from_doc_id(doc_uid: str) -> str:
+    doc = Document.objects.get(uid=doc_uid)
+    return get_document_url(doc)
+
+
 def get_document_url(doc: Document) -> str:
     return get_url(doc.region_name, doc.bucket_name, doc.object_id)

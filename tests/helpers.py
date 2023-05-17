@@ -90,6 +90,16 @@ def create_test(tenant: Tenant,
                     objective_answer=question.get("objective_answer"),
                     mcq_options=question.get("mcq_options"),
                     mcq_answer=question.get("mcq_answer"),
+                    key_learning_point=(
+                            question.get("key_learning_point")
+                            or get_question_key_learning_point(test_title=title,
+                                                               test_question=question.get("question"))
+                    ),
+                    key_learning_skills=(
+                            question.get("key_learning_skills")
+                            or get_question_key_learning_skills(test_title=title,
+                                                                test_question=question.get("question"))
+                    ),
                 )
             )
 
@@ -307,3 +317,53 @@ def get_overridden_prompt(prompt_template: str,
                                                      question=question,
                                                      question_context=question_context,
                                                      candidate_reply=candidate_reply)
+
+
+@timeit
+def get_question_key_learning_point(test_title,
+                                    test_question):
+    prompt = Template(
+        """
+TestTitle: ${test_title}
+Question: ${question_text}
+
+For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
+
+Output:
+"""
+    ).safe_substitute(
+        test_title=test_title,
+        question_text=test_question
+    )
+
+    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+
+    if not gpt_feedback.text:
+        raise ValueError("unable to get key_learning_point")
+
+    return gpt_feedback.text
+
+
+@timeit
+def get_question_key_learning_skills(test_title,
+                                     test_question):
+    prompt = Template(
+        """
+TestTitle: ${test_title}
+Question: ${question_text}
+
+For given "Question" for the "TestTitle" extract skills that can be learned from a key learning from an ideal answer to the "Question"  as "Output". The "Output" should have comma separated skills where all skills are in small case.
+
+Output:
+"""
+    ).safe_substitute(
+        test_title=test_title,
+        question_text=test_question
+    )
+
+    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+
+    if not gpt_feedback.text:
+        raise ValueError("unable to get key_learning_skills")
+
+    return gpt_feedback.text
