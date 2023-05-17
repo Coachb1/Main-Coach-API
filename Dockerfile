@@ -20,6 +20,10 @@ RUN pip install -r requirements.txt
 
 ADD . /code/
 
+RUN cp /code/wkhtml/wkhtmltopdf /usr/bin
+
+RUN cp /code/wkhtml/wkhtmltoimage /usr/bin
+
 EXPOSE 8000
 
 RUN chmod +x /code/web_server.sh
