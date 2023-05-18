@@ -9,7 +9,8 @@ from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url_from_doc_id
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
-from tests.models import Test, TestQuestion, TestAttemptSession
+from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
+from users.models import User
 
 options = {
     'page-size': 'Letter',
@@ -130,7 +131,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         t = render_to_string(
             f"pdf_generator/reports/report.html", {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
 
-        css = os.path.join(settings.BASE_DIR, 'pdf_generator',
+        css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                            'reports', 'static', 'styles_report.css')
 
         pdf = convert_html_to_pdf(t, css)
