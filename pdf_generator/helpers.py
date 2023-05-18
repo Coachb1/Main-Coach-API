@@ -1,6 +1,6 @@
 import os
 import tempfile
-
+import imgkit
 import pdfkit
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -23,7 +23,26 @@ def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
 
 
-def get_flash_cards_from_test(test: Test):
+def convert_html_to_image(html_str, css_file):
+    option = {
+        'enable-local-file-access': "",
+    }
+
+    with tempfile.NamedTemporaryFile(suffix=".png") as tmp_file:
+        imgkit.from_string(html_str, tmp_file.file.name, option, css=css_file)
+        data = tmp_file.file.read()
+
+    return data
+
+
+def get_flash_cards_from_test(test: Test, file_format="png"):
+    content_type = "image/x-png"
+
+    if file_format == "png":
+        content_type = "image/x-png"
+    elif file_format == "pdf":
+        content_type = "application/pdf"
+
     tenant = tenant_from_tenant_id(test.tenant_id)
     test_question_list = get_test_questions_from_test(test)
 
@@ -46,22 +65,26 @@ def get_flash_cards_from_test(test: Test):
                                                             "text": question.key_learning_point}
         )
 
-        flash_cards.append(
-            (question.uid, convert_html_to_pdf(flash_card_html, css_file)))
+        if file_format == "pdf":
+            flash_cards.append(
+                (question.uid, convert_html_to_pdf(flash_card_html, css_file)))
+        else:
+            flash_cards.append(
+                (question.uid, convert_html_to_image(flash_card_html, css_file)))
 
     saved_flash_cards = []
     for flash_card in flash_cards:
         question_uid, pdf_data = flash_card
         with tempfile.NamedTemporaryFile() as pdf_file:
             pdf_file.write(pdf_data)
-            pdf_file.content_type = "application/pdf"
+            pdf_file.content_type = content_type
             pdf_file.size = len(pdf_data)
 
             doc = create_document(
                 tenant=tenant,
                 owner_type=DocOwnerTypeChoice.system,
                 owner_id=tenant.uid,
-                display_name=f"flash_card_{question_uid}.pdf",
+                display_name=f"flash_card_{question_uid}.{file_format}",
                 doc_type=DocTypeChoice.FLASH_CARD,
                 file=pdf_file
             )
