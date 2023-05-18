@@ -35,6 +35,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "question_type",
                   "media_link",
                   "question",
+                  "key_learning_point",
+                  "key_learning_skills",
                   "gpt_prompt_override",
                   "mcq_options",
                   "created",
@@ -55,8 +57,6 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "interaction_mode",
                   "test_type",
                   "questions",
-                  "key_learning_point",
-                  "key_learning_skills",
                   "created",
                   "updated"]
 
