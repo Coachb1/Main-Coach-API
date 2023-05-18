@@ -59,7 +59,7 @@ def get_flash_cards_from_test(test: Test):
                 tenant=tenant,
                 owner_type=DocOwnerTypeChoice.system,
                 owner_id=tenant.uid,
-                display_name=f"flash_card_{question_uid}",
+                display_name=f"flash_card_{question_uid}.pdf",
                 doc_type=DocTypeChoice.FLASH_CARD,
                 file=pdf_file
             )
