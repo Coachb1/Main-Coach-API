@@ -1,11 +1,13 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
+from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.helpers import create_test_question_answer_session
 from tests.models import TestAttemptSession
 
