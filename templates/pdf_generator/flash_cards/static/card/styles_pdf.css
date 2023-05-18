@@ -53,6 +53,7 @@ img {
 .company-name {
   display: flex;
   flex-wrap: wrap;
+  width: 100vw;
 }
 
 h3 {

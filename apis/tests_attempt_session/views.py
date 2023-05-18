@@ -40,3 +40,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
+
+    @action(methods=["GET"], detail=True, url_path="report")
+    def get_test_report(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        report_url = get_report_from_test_attempt_session(test_attempt_session)
+        return Response({"report_url": report_url}, status=status.HTTP_200_OK)

@@ -10,9 +10,12 @@ class Test(TenantAwareModel):
     creator_id = models.CharField(max_length=255, db_index=True)
     title = models.CharField(max_length=255, db_index=True)
     description = models.CharField(max_length=255)
-    interaction_mode = models.CharField(max_length=255, choices=InteractionModeChoices)
-    test_type = models.CharField(max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
-    test_related_context = models.TextField(null=True, blank=True, default=None)
+    interaction_mode = models.CharField(
+        max_length=255, choices=InteractionModeChoices)
+    test_type = models.CharField(
+        max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
+    test_related_context = models.TextField(
+        null=True, blank=True, default=None)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
     test_code = models.CharField(max_length=64, null=True)
 
@@ -27,7 +30,8 @@ class Test(TenantAwareModel):
 
 class TestQuestion(TenantAwareModel):
     test_id = models.CharField(max_length=255, db_index=True)
-    question_type = models.CharField(max_length=255, choices=QuestionTypeChoices)
+    question_type = models.CharField(
+        max_length=255, choices=QuestionTypeChoices)
     media_link = models.TextField(null=True, blank=True)
     question = models.TextField(null=True, blank=True)
     subjective_answer = models.TextField(null=True, blank=True)
@@ -66,6 +70,8 @@ class TestAttemptSession(TenantAwareModel):
                               default=TestAttemptSessionStatusChoices.in_progress)
 
     feedback_text = models.TextField(null=True, blank=True)
+    report_doc_id = models.TextField(
+        null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
@@ -87,6 +93,7 @@ class TestQuestionResponse(TenantAwareModel):
     class Meta:
         db_table = "test_question_response"
 
-        unique_together = (("test_attempt_session_id", "question_id", "deleted"),)
+        unique_together = (
+            ("test_attempt_session_id", "question_id", "deleted"),)
 
         ordering = ("id",)
