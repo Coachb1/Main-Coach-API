@@ -23,7 +23,14 @@ def add_line_breaks(text, max_length=10):
     lines = []
     current_line = ""
     for word in words:
-        if len(current_line) + len(word) <= max_length:
+        if len(word) > max_length:
+            num_parts = len(word) 
+            for i in range(num_parts):
+                part = word[i * max_length : (i + 1) * max_length] + "-"
+                lines.append(part)
+            remaining_part = word[num_parts * max_length:] + "\n"
+            lines.append(remaining_part)
+        elif len(current_line) + len(word) <= max_length:
             current_line += word + " "
         else:
             lines.append(current_line.strip())
@@ -126,7 +133,25 @@ def create_mindmap(data, file_ptr):
         node_labels = {node: node.replace('\n', '\n') for node in graph.nodes()}
 
         # Set node sizes based on label lengths
-        node_sizes = [300 + len(node) * 300 for node in graph.nodes()]
+        node_sizes = []
+        for node in graph.nodes():
+            label_length = len(node)
+            node_type = graph.nodes[node]['fillcolor']
+            
+            # Set different multipliers based on node types
+            if node_type == test_node_color:
+                multiplier = 350
+            elif node_type == question_node_color:
+                multiplier = 350
+            elif node_type == ideal_answer_node_color:
+                multiplier = 280
+            elif node_type == learning_node_color:
+                multiplier = 450
+            else:
+                multiplier = 300
+            
+            node_size = 300 + label_length * multiplier
+            node_sizes.append(node_size)
 
         # Set node and edge colors
         node_colors = [graph.nodes[node]['fillcolor'] for node in graph.nodes()]
@@ -139,8 +164,26 @@ def create_mindmap(data, file_ptr):
         pos = {node: (x, y + 1) for node, (x, y) in pos.items()}
 
         # Increase figure size based on the number of nodes
-        fig_width = max(10.0, len(graph.nodes) * 1.2)
-        fig_height = max(6.0, len(graph.nodes) * 1.2)
+        fig_width = 30.0
+        fig_height = 20.0
+
+        num_primary_content = len(data['content'])
+        
+        if num_primary_content == 1:
+            fig_width = 30.0
+            fig_height = 20.0
+
+        elif num_primary_content == 2:
+            fig_width = max(40.0, len(graph.nodes) * 1.2)
+            fig_height = max(40.0, len(graph.nodes) * 1.2)
+
+        elif num_primary_content == 3:
+            fig_width = max(50.0, len(graph.nodes) * 1.2)
+            fig_height = max(50.0, len(graph.nodes) * 1.2)
+
+        else:
+            fig_width = max(60.0, len(graph.nodes) * 1.2)
+            fig_height = max(60.0, len(graph.nodes) * 1.2)
 
         # Border
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
@@ -159,7 +202,7 @@ def create_mindmap(data, file_ptr):
         font_path = settings.TEMPLATES_DIR.joinpath("mindmap").joinpath("Poppins-Regular.ttf")
 
         fm.fontManager.addfont(font_path)
-        title = 'Programming Test'
+        title = data['test_name']
         ax.set_title(title, y=1.0, pad=-60, size=30, weight='bold', fontfamily='Poppins')
 
         # Logo
