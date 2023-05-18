@@ -1,5 +1,13 @@
 FROM python:3.11-buster
 
+RUN apt-get update
+
+RUN apt-get install -y build-essential libssl-dev libxrender-dev wget gdebi
+
+RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.buster_amd64.deb
+
+RUN gdebi --n wkhtmltox_0.12.6-1.buster_amd64.deb
+
 ENV PYTHONUNBUFFERED 1
 
 RUN mkdir /code
@@ -19,10 +27,6 @@ ADD requirements.txt /code/requirements.txt
 RUN pip install -r requirements.txt
 
 ADD . /code/
-
-RUN cp /code/wkhtml/wkhtmltopdf /usr/bin
-
-RUN cp /code/wkhtml/wkhtmltoimage /usr/bin
 
 EXPOSE 8000
 
