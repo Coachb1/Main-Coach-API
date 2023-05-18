@@ -1,11 +1,13 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
+from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.helpers import create_test_question_answer_session
 from tests.models import TestAttemptSession
 
@@ -40,3 +42,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
+
+    @action(methods=["GET"], detail=True, url_path="report")
+    def get_test_report(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        report_url = get_report_from_test_attempt_session(test_attempt_session)
+        return Response({"report_url": report_url}, status=status.HTTP_200_OK)
