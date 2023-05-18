@@ -35,7 +35,7 @@ def convert_html_to_image(html_str, css_file):
     return data
 
 
-def get_flash_cards_from_test(test: Test, file_format="png"):
+def get_flash_cards_from_test(test: Test, file_format="pdf"):
     content_type = "image/x-png"
 
     if file_format == "png":
