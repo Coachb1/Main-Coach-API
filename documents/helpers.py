@@ -14,6 +14,8 @@ def create_document(tenant: Tenant,
                     display_name: str,
                     doc_type: str,
                     file) -> Document:
+    file.seek(0)
+
     file_extension = display_name.rsplit(".", 1)[-1]
     date_str = timezone.now().date().isoformat()
     object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{date_str}/{str(uuid.uuid4())}.{file_extension}"
