@@ -146,7 +146,7 @@ def create_mindmap(data, file_ptr):
             elif node_type == ideal_answer_node_color:
                 multiplier = 280
             elif node_type == learning_node_color:
-                multiplier = 450
+                multiplier = 550
             else:
                 multiplier = 300
             
