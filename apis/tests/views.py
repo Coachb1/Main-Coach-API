@@ -9,6 +9,7 @@ from apis.tests.serializers import CreateTestSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
+from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import create_test
 from tests.models import Test
@@ -44,3 +45,9 @@ class TestViewSet(ApiViewSet,
         test = self.get_object()
         flash_card_urls = get_flash_cards_from_test(test)
         return Response({"flash_cards": flash_card_urls}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="mindmap")
+    def get_test_mindmap(self, request, *args, **kwargs):
+        test = self.get_object()
+        url = get_mindmap_url_from_test(test)
+        return Response({"url": url}, status=status.HTTP_200_OK)

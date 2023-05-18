@@ -1,9 +1,22 @@
 import json
-import networkx as nx
-import matplotlib.pyplot as plt
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-import matplotlib.image as mpimg
+import logging
+import tempfile
+
 import matplotlib.font_manager as fm
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import networkx as nx
+from django.conf import settings
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+from documents.choices import DocOwnerTypeChoice, DocTypeChoice
+from documents.helpers import create_document, get_document_url_from_doc_id
+from tenants.helpers import tenant_from_tenant_id
+from tests.db_helpers import get_test_questions_from_test
+from tests.models import Test
+
+logger = logging.getLogger(__name__)
+
 
 def add_line_breaks(text, max_length=10):
     words = text.split()
@@ -20,11 +33,60 @@ def add_line_breaks(text, max_length=10):
     return '\n'.join(lines)
 
 
-def create_mindmap(json_data, filepath):
-    
-    try:
-        data = json.loads(json_data)
+def get_mindmap_url_from_test(test: Test):
+    mindmap_doc_id = get_mindmap_doc_id_from_test(test)
+    return get_document_url_from_doc_id(mindmap_doc_id)
 
+
+def get_mindmap_doc_id_from_test(test: Test):
+    if test.mindmap_doc_id:
+        return test.mindmap_doc_id
+
+    tenant = tenant_from_tenant_id(test.tenant_id)
+
+    test_title = test.title
+
+    test_question_list = get_test_questions_from_test(test)
+
+    content = []
+
+    for question in test_question_list:
+        content.append(
+            {
+                "question": question.question,
+                "ideal_answer": question.key_learning_point,
+                "learnings": question.key_learning_skills.split(",")
+            }
+        )
+
+    data = {
+        "test_name": test_title,
+        "content": content
+    }
+
+    with tempfile.NamedTemporaryFile(suffix=".png") as temp_mindmap:
+        create_mindmap(data, temp_mindmap)
+
+        temp_mindmap.content_type = "image/x-png"
+        temp_mindmap.size = 0
+
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"mindmap_{test.uid}.png",
+            doc_type=DocTypeChoice.MIND_MAP,
+            file=temp_mindmap
+        )
+
+    test.mindmap_doc_id = doc.uid
+    test.save(update_fields=["mindmap_doc_id", "updated"])
+
+    return test.mindmap_doc_id
+
+
+def create_mindmap(data, file_ptr):
+    try:
         graph = nx.DiGraph()
 
         # Set edge colors for font, test name, questions, and ideal answers
@@ -77,8 +139,8 @@ def create_mindmap(json_data, filepath):
         pos = {node: (x, y + 1) for node, (x, y) in pos.items()}
 
         # Increase figure size based on the number of nodes
-        fig_width = max(10, len(graph.nodes) * 1.2)
-        fig_height = max(6, len(graph.nodes) * 1.2)
+        fig_width = max(10.0, len(graph.nodes) * 1.2)
+        fig_height = max(6.0, len(graph.nodes) * 1.2)
 
         # Border
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
@@ -94,24 +156,26 @@ def create_mindmap(json_data, filepath):
         ax.axis('off')
 
         # Title
-        font_path = './static/Poppins-Regular.ttf'
+        font_path = settings.TEMPLATES_DIR.joinpath("mindmap").joinpath("Poppins-Regular.ttf")
+
         fm.fontManager.addfont(font_path)
         title = 'Programming Test'
         ax.set_title(title, y=1.0, pad=-60, size=30, weight='bold', fontfamily='Poppins')
 
         # Logo
-        image_path = './static/coachbot-1.png' 
+        image_path = settings.TEMPLATES_DIR.joinpath("mindmap").joinpath("coachbot-1.png")
         image = mpimg.imread(image_path)
         imagebox = OffsetImage(image, zoom=0.15)
         imagebox.image.axes = ax
-        ab = AnnotationBbox(imagebox, (1, 1), xybox=(-70, -70), xycoords='axes fraction', boxcoords="offset points", frameon=False)
+        ab = AnnotationBbox(imagebox, (1, 1), xybox=(-70, -70), xycoords='axes fraction', boxcoords="offset points",
+                            frameon=False)
         ax.add_artist(ab)
 
         # Displaying and saving the graph
         plt.tight_layout()
-        fig.savefig('Draft.png', bbox_inches='tight')
+        fig.savefig(file_ptr, bbox_inches='tight')
         return True
-    
+
     except Exception as e:
-        print(f"Error in create_mindmap: {str(e)}")
-        return False
+        logger.exception(f"Error in create_mindmap: {str(e)}")
+        raise e

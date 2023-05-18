@@ -15,6 +15,7 @@ class Test(TenantAwareModel):
     test_related_context = models.TextField(null=True, blank=True, default=None)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
     test_code = models.CharField(max_length=64, null=True)
+    mindmap_doc_id = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"

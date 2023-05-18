@@ -8,6 +8,8 @@ RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkh
 
 RUN gdebi --n wkhtmltox_0.12.6-1.buster_amd64.deb
 
+RUN apt-get install -y graphviz graphviz-dev
+
 ENV PYTHONUNBUFFERED 1
 
 RUN mkdir /code
