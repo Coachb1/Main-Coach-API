@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ./manage.py migrate
-gunicorn --bind 0.0.0.0:"${WEB_SERVER_PORT:=8000}" -k gevent \
+gunicorn --bind 0.0.0.0:"${WEB_SERVER_PORT:=8000}"\
          --timeout 60 \
          --graceful-timeout 30 \
          --workers 5 \
