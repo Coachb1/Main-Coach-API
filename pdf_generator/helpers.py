@@ -117,7 +117,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     tenant = tenant_from_tenant_id(test_attempt_session.tenant_id)
     test_id = test_attempt_session.test_id
-    test = Test.objects.get(uid=test_id)
+    # test = Test.objects.get(uid=test_id)
     participant_id = test_attempt_session.participant_id
     participant_name = User.objects.get(uid=participant_id).name
     test_started_at = test_attempt_session.started_at
@@ -139,6 +139,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             if response.question_id == question_id:
                 participant_response = response
                 break
+
         if participant_response is None:
             continue
 
@@ -151,32 +152,32 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             "feedback_text": feedback_text
         })
 
-        t = render_to_string(
-            f"pdf_generator/reports/report.html", {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
+    t = render_to_string(
+        f"pdf_generator/reports/report.html", {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
 
-        css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
-                           'reports', 'static', 'styles_report.css')
+    css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
+                       'reports', 'static', 'styles_report.css')
 
-        pdf = convert_html_to_pdf(t, css)
+    pdf = convert_html_to_pdf(t, css)
 
-        with tempfile.NamedTemporaryFile() as pdf_file:
-            pdf_file.write(pdf)
-            pdf_file.content_type = "application/pdf"
-            pdf_file.size = len(pdf)
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
 
-            doc = create_document(
-                tenant=tenant,
-                owner_type=DocOwnerTypeChoice.system,
-                owner_id=tenant.uid,
-                display_name=f"report_{test_attempt_session.uid}.pdf",
-                doc_type=DocTypeChoice.REPORT,
-                file=pdf_file
-            )
-
-        TestAttemptSession.objects.filter(
-            uid=test_attempt_session.uid
-        ).update(
-            report_doc_id=doc.uid
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"report_{test_attempt_session.uid}.pdf",
+            doc_type=DocTypeChoice.REPORT,
+            file=pdf_file
         )
 
-        return get_document_url_from_doc_id(doc.uid)
+    TestAttemptSession.objects.filter(
+        uid=test_attempt_session.uid
+    ).update(
+        report_doc_id=doc.uid
+    )
+
+    return get_document_url_from_doc_id(doc.uid)
