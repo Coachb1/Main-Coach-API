@@ -24,7 +24,8 @@ def add_line_breaks(text, max_length=10):
     current_line = ""
     for word in words:
         if len(word) > max_length:
-            num_parts = len(word) 
+            # Break the word into multiple parts
+            num_parts = len(word)
             for i in range(num_parts):
                 part = word[i * max_length : (i + 1) * max_length] + "-"
                 lines.append(part)
@@ -71,17 +72,17 @@ def get_mindmap_doc_id_from_test(test: Test):
         "content": content
     }
 
-    with tempfile.NamedTemporaryFile(suffix=".png") as temp_mindmap:
+    with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_mindmap:
         create_mindmap(data, temp_mindmap)
 
-        temp_mindmap.content_type = "image/x-png"
+        temp_mindmap.content_type = "application/pdf"
         temp_mindmap.size = 0
 
         doc = create_document(
             tenant=tenant,
             owner_type=DocOwnerTypeChoice.system,
             owner_id=tenant.uid,
-            display_name=f"mindmap_{test.uid}.png",
+            display_name=f"mindmap_{test.uid}.pdf",
             doc_type=DocTypeChoice.MIND_MAP,
             file=temp_mindmap
         )
@@ -119,7 +120,17 @@ def create_mindmap(data, file_ptr):
             graph.add_edge(test_name, question, color=test_question_edge_color, arrowhead='vee')
 
             # Create ideal answer nodes and edges from question nodes
-            ideal_answer = add_line_breaks(content['ideal_answer'], max_length=30)
+            max_length = 17
+            if len(ideal_answer)<200:
+                max_length = 17
+            elif len(ideal_answer)<300:
+                max_length = 30
+            elif len(ideal_answer)<600:
+                max_length = 40
+            else:
+                max_length = 45
+            
+            ideal_answer = add_line_breaks(content['ideal_answer'], max_length=max_length)
             graph.add_node(ideal_answer, shape='box', color='none', style='filled', fillcolor=ideal_answer_node_color)
             graph.add_edge(question, ideal_answer, color=question_ideal_answer_edge_color, arrowhead='vee')
 
@@ -216,7 +227,7 @@ def create_mindmap(data, file_ptr):
 
         # Displaying and saving the graph
         plt.tight_layout()
-        fig.savefig(file_ptr, bbox_inches='tight')
+        plt.savefig(file_ptr, format='pdf', bbox_inches='tight')
         return True
 
     except Exception as e:
