@@ -121,11 +121,11 @@ def create_mindmap(data, file_ptr):
 
             # Create ideal answer nodes and edges from question nodes
             max_length = 17
-            if len(ideal_answer)<200:
+            if len(content['ideal_answer'])<200:
                 max_length = 17
-            elif len(ideal_answer)<300:
+            elif len(content['ideal_answer'])<300:
                 max_length = 30
-            elif len(ideal_answer)<600:
+            elif len(content['ideal_answer'])<600:
                 max_length = 40
             else:
                 max_length = 45
