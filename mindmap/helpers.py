@@ -24,14 +24,11 @@ def add_line_breaks(text, max_length=10):
     current_line = ""
     for word in words:
         if len(word) > max_length:
-            # Break the word into multiple parts
-            num_parts = len(word)
-            for i in range(num_parts):
-                part = word[i * max_length : (i + 1) * max_length] + "-"
-                lines.append(part)
-            remaining_part = word[num_parts * max_length:] + "\n"
-            lines.append(remaining_part)
-        elif len(current_line) + len(word) <= max_length:
+            # Break the word into multiple parts with hyphens
+            parts = [word[i:i + max_length] + "-" for i in range(0, len(word), max_length)]
+            parts[-1] = parts[-1].rstrip("-")  # Remove trailing hyphen from the last part
+            lines.extend(parts)
+        elif len(current_line) + len(word) + 1 <= max_length:  # Consider space after each word
             current_line += word + " "
         else:
             lines.append(current_line.strip())
@@ -110,39 +107,51 @@ def create_mindmap(data, file_ptr):
         learning_node_color = '#71C456'
 
         # Create central test node
-        test_name = add_line_breaks(data['test_name'])
+        test_name = add_line_breaks(f"0.0 " + data['test_name'], max_length=11)
         graph.add_node(test_name, shape='circle', color='none', style='filled', fillcolor=test_node_color)
 
         # Create question nodes and edges from test node
-        for content in data['content']:
-            question = add_line_breaks(content['question'], max_length=18)
-            graph.add_node(question, shape='box', color='none', style='filled', fillcolor=question_node_color)
-            graph.add_edge(test_name, question, color=test_question_edge_color, arrowhead='vee')
+        for i, content in enumerate(data['content']):
+            # Create question nodes and edges from test node (commented out) if needed in future
+            
+            # question = add_line_breaks(content['question'], max_length=17)
+            # graph.add_node(question, shape='box', color='none', style='filled', fillcolor=question_node_color)
+            # graph.add_edge(test_name, question, color=test_question_edge_color, arrowhead='vee')
 
             # Create ideal answer nodes and edges from question nodes
-            max_length = 17
-            if len(content['ideal_answer'])<200:
-                max_length = 17
-            elif len(content['ideal_answer'])<300:
-                max_length = 30
-            elif len(content['ideal_answer'])<600:
-                max_length = 40
+            max_length_ideal_answer = 17
+            len_ideal_answer = len(content['ideal_answer'])
+            if len_ideal_answer<200:
+                max_length_ideal_answer = 17
+            elif len_ideal_answer<300:
+                max_length_ideal_answer = 30
+            elif len_ideal_answer<600:
+                max_length_ideal_answer = 40
             else:
-                max_length = 45
-            
-            ideal_answer = add_line_breaks(content['ideal_answer'], max_length=max_length)
+                max_length_ideal_answer = 45
+
+            ideal_answer = add_line_breaks(f"{i}.{i} " + content['ideal_answer'], max_length=max_length_ideal_answer)
             graph.add_node(ideal_answer, shape='box', color='none', style='filled', fillcolor=ideal_answer_node_color)
-            graph.add_edge(question, ideal_answer, color=question_ideal_answer_edge_color, arrowhead='vee')
+            graph.add_edge(test_name, ideal_answer, color=question_ideal_answer_edge_color, arrowhead='vee')
 
             # Create learning nodes and edges from ideal answer nodes
-            for learning in content['learnings']:
-                learning = add_line_breaks(learning, max_length=20)
+            for j, learning in enumerate(content['learnings']):
+                max_length_learning = 17
+                len_learrning = len(learning)
+                if len_learrning<30:
+                    max_length_learning = 17
+                elif len_learrning<50:
+                    max_length_learning = 20
+                else:
+                    max_length_learning = 25
+
+                learning = add_line_breaks(f"{i}.{j} " + learning, max_length=max_length_learning)
                 graph.add_node(learning, shape='box', color='none', style='filled', fillcolor=learning_node_color)
                 graph.add_edge(ideal_answer, learning, color=ideal_answer_learning_edge_color, arrowhead='vee')
 
         # Set node labels
-        node_labels = {node: node.replace('\n', '\n') for node in graph.nodes()}
-
+        node_labels = {node: node.replace('\n', '\n')[4:] for node in graph.nodes()}
+        
         # Set node sizes based on label lengths
         node_sizes = []
         for node in graph.nodes():
@@ -151,17 +160,17 @@ def create_mindmap(data, file_ptr):
             
             # Set different multipliers based on node types
             if node_type == test_node_color:
-                multiplier = 350
+                multiplier = 450
             elif node_type == question_node_color:
                 multiplier = 350
             elif node_type == ideal_answer_node_color:
-                multiplier = 280
+                multiplier = 400
             elif node_type == learning_node_color:
-                multiplier = 550
+                multiplier = 650
             else:
                 multiplier = 300
             
-            node_size = 300 + label_length * multiplier
+            node_size = 300 + label_length * multiplier * 1.6
             node_sizes.append(node_size)
 
         # Set node and edge colors
@@ -175,18 +184,18 @@ def create_mindmap(data, file_ptr):
         pos = {node: (x, y + 1) for node, (x, y) in pos.items()}
 
         # Increase figure size based on the number of nodes
-        fig_width = 30.0
-        fig_height = 20.0
+        fig_width = 35.0
+        fig_height = 25.0
 
         num_primary_content = len(data['content'])
-        
+
         if num_primary_content == 1:
-            fig_width = 30.0
-            fig_height = 20.0
+            fig_width = 35.0
+            fig_height = 25.0
 
         elif num_primary_content == 2:
-            fig_width = max(40.0, len(graph.nodes) * 1.2)
-            fig_height = max(40.0, len(graph.nodes) * 1.2)
+            fig_width = max(45.0, len(graph.nodes) * 1.2)
+            fig_height = max(45.0, len(graph.nodes) * 1.2)
 
         elif num_primary_content == 3:
             fig_width = max(50.0, len(graph.nodes) * 1.2)
@@ -204,7 +213,7 @@ def create_mindmap(data, file_ptr):
         # Draw the graph with networkx and graphviz (Graphviz needs to be installed in the system)
         nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_shape='o', node_size=node_sizes)
         nx.draw_networkx_edges(graph, pos, edge_color=edge_colors, arrowsize=10)
-        nx.draw_networkx_labels(graph, pos, labels=node_labels, font_color=default_font_color, font_size=10)
+        nx.draw_networkx_labels(graph, pos, labels=node_labels, font_color=default_font_color, font_size=17)
 
         # Remove axis
         ax.axis('off')
