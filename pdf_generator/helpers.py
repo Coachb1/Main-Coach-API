@@ -22,6 +22,11 @@ options = {
 def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
 
+# SAM CHANGES
+def convert_htmllist_to_pdf(htmllist, css_file):
+    return pdfkit.from_string('\n'.join(htmllist), False, options, css=css_file)
+# SAM CHANGES END
+
 
 def convert_html_to_image(html_str, css_file):
     option = {
@@ -36,12 +41,10 @@ def convert_html_to_image(html_str, css_file):
 
 
 def get_flash_cards_from_test(test: Test, file_format="pdf"):
-    content_type = "image/x-png"
 
-    if file_format == "png":
-        content_type = "image/x-png"
-    elif file_format == "pdf":
-        content_type = "application/pdf"
+    if test.flash_card_doc_id:
+        return [get_document_url_from_doc_id(test.flash_card_doc_id)]
+
 
     tenant = tenant_from_tenant_id(test.tenant_id)
     test_question_list = get_test_questions_from_test(test)
@@ -54,61 +57,68 @@ def get_flash_cards_from_test(test: Test, file_format="pdf"):
                             'styles_pdf.css')
 
     test_question_flash_card_doc_id_map = {}
+
+    flash_card_html_strings = []
     flash_cards = []
+
     for question in test_question_list:
-        if question.flash_card_doc_id:
-            test_question_flash_card_doc_id_map[question.uid] = question.flash_card_doc_id
-            continue
 
         flash_card_html = render_to_string(
             "pdf_generator/flash_cards/flash_card_1.html", {"heading": test.title,
                                                             "text": question.key_learning_point}
         )
 
-        if file_format == "pdf":
-            flash_cards.append(
-                (question.uid, convert_html_to_pdf(flash_card_html, css_file)))
-        else:
-            flash_cards.append(
-                (question.uid, convert_html_to_image(flash_card_html, css_file)))
+        flash_card_html_strings.append(flash_card_html)
 
-    saved_flash_cards = []
-    for flash_card in flash_cards:
-        question_uid, pdf_data = flash_card
-        with tempfile.NamedTemporaryFile() as pdf_file:
-            pdf_file.write(pdf_data)
-            pdf_file.content_type = content_type
-            pdf_file.size = len(pdf_data)
 
-            doc = create_document(
-                tenant=tenant,
-                owner_type=DocOwnerTypeChoice.system,
-                owner_id=tenant.uid,
-                display_name=f"flash_card_{question_uid}.{file_format}",
-                doc_type=DocTypeChoice.FLASH_CARD,
-                file=pdf_file
-            )
+    pdf = convert_htmllist_to_pdf(flash_card_html_strings, css_file)
 
-        saved_flash_cards.append((question_uid, doc.uid))
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
 
-    for saved_flash_card in saved_flash_cards:
-        question_uid, doc_uid = saved_flash_card
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"flash_card_{test.uid}.pdf",
+            doc_type=DocTypeChoice.FLASH_CARD,
+            file=pdf_file
+        )
 
-        test_question_flash_card_doc_id_map[question_uid] = doc_uid
-
-        TestQuestion.objects.filter(
-            uid=question_uid
+        Test.objects.filter(
+            uid=test.uid
         ).update(
             flash_card_doc_id=doc_uid
         )
 
-    flash_card_urls = []
-    for doc_uid in test_question_flash_card_doc_id_map.values():
-        flash_card_urls.append(
-            get_document_url_from_doc_id(doc_uid)
-        )
+     # SAM CHANGES END
 
-    return flash_card_urls
+
+    # saved_flash_cards = []
+    # for flash_card in flash_cards:
+    #     question_uid, pdf_data = flash_card
+    #     with tempfile.NamedTemporaryFile() as pdf_file:
+    #         pdf_file.write(pdf_data)
+    #         pdf_file.content_type = content_type
+    #         pdf_file.size = len(pdf_data)
+
+    #         doc = create_document(
+    #             tenant=tenant,
+    #             owner_type=DocOwnerTypeChoice.system,
+    #             owner_id=tenant.uid,
+    #             display_name=f"flash_card_{question_uid}.{file_format}",
+    #             doc_type=DocTypeChoice.FLASH_CARD,
+    #             file=pdf_file
+    #         )
+
+    #     saved_flash_cards.append((question_uid, doc.uid))
+
+
+
+    return [get_document_url_from_doc_id(doc.uid)]
+
 
 
 def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
