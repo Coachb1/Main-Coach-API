@@ -1,6 +1,5 @@
 import os
 import tempfile
-import imgkit
 import pdfkit
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -26,18 +25,6 @@ def convert_html_to_pdf(html_str, css_file):
 def convert_htmllist_to_pdf(htmllist, css_file):
     return pdfkit.from_string('\n'.join(htmllist), False, options, css=css_file)
 # SAM CHANGES END
-
-
-def convert_html_to_image(html_str, css_file):
-    option = {
-        'enable-local-file-access': "",
-    }
-
-    with tempfile.NamedTemporaryFile(suffix=".png") as tmp_file:
-        imgkit.from_string(html_str, tmp_file.file.name, option, css=css_file)
-        data = tmp_file.file.read()
-
-    return data
 
 
 def get_flash_cards_from_test(test: Test, file_format="pdf"):

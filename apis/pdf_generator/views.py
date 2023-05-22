@@ -165,7 +165,6 @@ def generate_report(request, test_session_id):
 # ROUGH DEPENDENCIES
 import os
 import tempfile
-import imgkit
 import pdfkit
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -244,9 +243,9 @@ def get_flash_cards_from_test(request, test_id):
             # SAM CHANGES
             flash_card_html_strings.append(flash_card_html)
             # SAM CHANGES END
-        else:
-            flash_cards.append(
-                (question.uid, convert_html_to_image(flash_card_html, css_file)))
+        # else:
+        #     flash_cards.append(
+        #         (question.uid, convert_html_to_image(flash_card_html, css_file)))
 
     # SAM CHANGES
     pdf = convert_htmllist_to_pdf(flash_card_html_strings, css_file)
