@@ -28,6 +28,10 @@ ADD requirements.txt /code/requirements.txt
 
 RUN pip install -r requirements.txt
 
+RUN apt-get update && apt-get install -y curl sudo
+RUN curl -Ls https://download.newrelic.com/install/newrelic-cli/scripts/install.sh | sudo bash
+RUN echo "export PATH=\"/root/.newrelic/bin:${PATH}\"" >> /root/.bashrc
+
 ADD . /code/
 
 EXPOSE 8000
