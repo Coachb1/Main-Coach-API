@@ -2,9 +2,10 @@ import json
 import logging
 import tempfile
 
+import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 import networkx as nx
 from django.conf import settings
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
@@ -166,7 +167,7 @@ def create_mindmap(data, file_ptr):
             elif node_type == ideal_answer_node_color:
                 multiplier = 400
             elif node_type == learning_node_color:
-                multiplier = 650
+                multiplier = 620
             else:
                 multiplier = 300
             
@@ -200,13 +201,18 @@ def create_mindmap(data, file_ptr):
         elif num_primary_content == 3:
             fig_width = max(50.0, len(graph.nodes) * 1.2)
             fig_height = max(50.0, len(graph.nodes) * 1.2)
-
         else:
             fig_width = max(60.0, len(graph.nodes) * 1.2)
             fig_height = max(60.0, len(graph.nodes) * 1.2)
 
+
+        multiplier_factor = 0.55
+
+        if num_primary_content >=7:
+            multiplier_factor = 0.65
+
         # Border
-        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+        fig, ax = plt.subplots(figsize=(fig_width * multiplier_factor, fig_height * multiplier_factor))
         fig.patch.set_edgecolor('#00c091')  # Set border color
         fig.patch.set_linewidth(50)  # Set border thickness
 
@@ -222,8 +228,10 @@ def create_mindmap(data, file_ptr):
         font_path = settings.TEMPLATES_DIR.joinpath("mindmap").joinpath("Poppins-Regular.ttf")
 
         fm.fontManager.addfont(font_path)
-        title = data['test_name']
-        ax.set_title(title, y=1.0, pad=-60, size=30, weight='bold', fontfamily='Poppins')
+        title_text = data['test_name']
+        title = ax.set_title(title_text, y=1.0, pad=-60, size=34, weight='bold', fontfamily='Poppins')
+        title.set_color('#dc143c')
+        title.set_path_effects([pe.withStroke(linewidth=2, foreground='#dc143c')])
 
         # Logo
         image_path = settings.TEMPLATES_DIR.joinpath("mindmap").joinpath("coachbot-1.png")
