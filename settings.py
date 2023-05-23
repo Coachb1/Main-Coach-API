@@ -32,10 +32,12 @@ INSTALLED_APPS = [
     "tests.apps.TestsConfig",
     "documents.apps.DocumentsConfig",
     "coaching_conversations.apps.CoachingConversationsConfig",
+    "web_auth.apps.WebAuthConfig",
 ]
 
 MIDDLEWARE = [
     "commons.LogRequestMiddleware.LogRequestMiddleware",
+    "web_auth.middlewares.UserAuthenticationMiddleware",
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
 ]
