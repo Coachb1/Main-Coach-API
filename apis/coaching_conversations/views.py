@@ -7,6 +7,7 @@ from rest_framework.filters import OrderingFilter
 from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer
+from clients.permissions import IsAuthenticatedClient
 from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
@@ -15,6 +16,7 @@ from commons.viewset import ApiViewSet
 class CoachingConversationViewSet(ApiViewSet,
                                   mixins.ListModelMixin):
     queryset = CoachingConversation.objects.filter(deleted=0)
+    permission_classes = (IsAuthenticatedClient,)
     serializer_class = CoachingConversationDisplaySerializer
     filter_backends = (DjangoFilterBackend, OrderingFilter)
     filterset_class = CoachingConversationFilterSet
