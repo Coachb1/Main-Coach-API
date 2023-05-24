@@ -108,7 +108,7 @@ def create_mindmap(data, file_ptr):
         learning_node_color = '#71C456'
 
         # Create central test node
-        test_name = add_line_breaks(f"0.0 " + data['test_name'], max_length=11)
+        test_name = f"0.0 " + add_line_breaks(data['test_name'], max_length=11)
         graph.add_node(test_name, shape='circle', color='none', style='filled', fillcolor=test_node_color)
 
         # Create question nodes and edges from test node
@@ -131,22 +131,22 @@ def create_mindmap(data, file_ptr):
             else:
                 max_length_ideal_answer = 45
 
-            ideal_answer = add_line_breaks(f"{i}.{i} " + content['ideal_answer'], max_length=max_length_ideal_answer)
+            ideal_answer = f"{i}.{i} " + add_line_breaks(content['ideal_answer'], max_length=max_length_ideal_answer)
             graph.add_node(ideal_answer, shape='box', color='none', style='filled', fillcolor=ideal_answer_node_color)
             graph.add_edge(test_name, ideal_answer, color=question_ideal_answer_edge_color, arrowhead='vee')
 
             # Create learning nodes and edges from ideal answer nodes
             for j, learning in enumerate(content['learnings']):
-                max_length_learning = 17
+                max_length_learning = 14
                 len_learrning = len(learning)
                 if len_learrning<30:
-                    max_length_learning = 17
+                    max_length_learning = 14
                 elif len_learrning<50:
                     max_length_learning = 20
                 else:
                     max_length_learning = 25
 
-                learning = add_line_breaks(f"{i}.{j} " + learning, max_length=max_length_learning)
+                learning = f"{i}.{j} " + add_line_breaks(learning, max_length=max_length_learning)
                 graph.add_node(learning, shape='box', color='none', style='filled', fillcolor=learning_node_color)
                 graph.add_edge(ideal_answer, learning, color=ideal_answer_learning_edge_color, arrowhead='vee')
 
@@ -167,7 +167,7 @@ def create_mindmap(data, file_ptr):
             elif node_type == ideal_answer_node_color:
                 multiplier = 400
             elif node_type == learning_node_color:
-                multiplier = 620
+                multiplier = 650
             else:
                 multiplier = 300
             
