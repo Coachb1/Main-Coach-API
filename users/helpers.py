@@ -5,6 +5,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
 from users.models import User
+from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens, logout_entity
 
 logger = logging.getLogger(__name__)
@@ -60,3 +61,20 @@ def logout_user(user: User):
         entity_identifier_key="uid",
         entity_identifier_value=user.uid
     )
+
+
+def upsert_user_attributes(user: User, tag: str, attributes: dict) -> UserAttribute:
+    if not attributes:
+        return
+
+    user_attribute, created = UserAttribute.objects.get_or_create(
+        tenant_id=user.tenant_id,
+        user_id=user.uid,
+        tag=tag
+    )
+
+    updated_attributes = user_attribute.attributes or {}
+    updated_attributes.update(attributes)
+    user_attribute.attributes = updated_attributes
+    user_attribute.save()
+    return user_attribute
