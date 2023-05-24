@@ -21,17 +21,11 @@ options = {
 def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
 
-# SAM CHANGES
-def convert_htmllist_to_pdf(htmllist, css_file):
-    return pdfkit.from_string('\n'.join(htmllist), False, options, css=css_file)
-# SAM CHANGES END
 
-
-def get_flash_cards_from_test(test: Test, file_format="pdf"):
+def get_flash_cards_from_test(test: Test):
 
     if test.flash_card_doc_id:
         return [get_document_url_from_doc_id(test.flash_card_doc_id)]
-
 
     tenant = tenant_from_tenant_id(test.tenant_id)
     test_question_list = get_test_questions_from_test(test)
@@ -57,8 +51,7 @@ def get_flash_cards_from_test(test: Test, file_format="pdf"):
 
         flash_card_html_strings.append(flash_card_html)
 
-
-    pdf = convert_htmllist_to_pdf(flash_card_html_strings, css_file)
+    pdf = convert_html_to_pdf("\n".join(flash_card_html_strings), css_file)
 
     with tempfile.NamedTemporaryFile() as pdf_file:
         pdf_file.write(pdf)
@@ -77,11 +70,8 @@ def get_flash_cards_from_test(test: Test, file_format="pdf"):
         Test.objects.filter(
             uid=test.uid
         ).update(
-            flash_card_doc_id=doc_uid
+            flash_card_doc_id=doc.uid
         )
-
-     # SAM CHANGES END
-
 
     # saved_flash_cards = []
     # for flash_card in flash_cards:
@@ -102,10 +92,7 @@ def get_flash_cards_from_test(test: Test, file_format="pdf"):
 
     #     saved_flash_cards.append((question_uid, doc.uid))
 
-
-
     return [get_document_url_from_doc_id(doc.uid)]
-
 
 
 def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
