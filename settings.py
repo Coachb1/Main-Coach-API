@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "tests.apps.TestsConfig",
     "documents.apps.DocumentsConfig",
     "coaching_conversations.apps.CoachingConversationsConfig",
+    "skills.apps.SkillsConfig",
 ]
 
 MIDDLEWARE = [
@@ -147,3 +148,4 @@ LOGGING = {
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 COACH_WHISPER_BASE_URL = os.getenv("COACH_WHISPER_BASE_URL")
 SLACK_MESSAGE_WEBHOOK_URL = os.getenv('SLACK_MESSAGE_WEBHOOK_URL')
+ANTHROPIC_KEY = os.getenv('ANTHROPIC_KEY')

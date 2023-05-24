@@ -1,0 +1,27 @@
+import anthropic
+from django.conf import settings
+
+ANTHROPIC_KEY = settings.ANTHROPIC_KEY
+
+def anthropic_completion(prompt, max_tokens):
+    client = anthropic.Client(ANTHROPIC_KEY)
+    response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}', model='claude-instant-v1', max_tokens_to_sample=max_tokens, stop_sequences=[anthropic.HUMAN_PROMPT])
+    return response['completion']
+
+prompt1 = '''
+"Question:" In the recent pandemic conditions, work from home has become common. How well do you find yourself prepared to lead a remote team? "Answer:" I’ll try to lead by Conducting one-on-one and group meetings for ongoing projects more frequently while keeping them precise.
+
+Following a structured and detailed feedback system to ensure that the team members do not repeat their mistakes.
+
+Using project management tools to involve team members and create project status visibility.
+
+Creating opportunities for team bonding and levity. 
+
+"Required from anthropic:" Rate this answer as "very good", "good", "average", "bad", "very bad". In terms of "strategic thinking" Reply in “one” or “two” words.
+'''
+
+prompt2 = '''
+"Question:" In the recent pandemic conditions, work from home has become common. How well do you find yourself prepared to lead a remote team? "Answer:" I’ll try to make my team send me report every hour.
+
+"Required from anthropic:" Rate this answer as very good, good, average, bad, very bad. In terms of "leadership quality" Reply in “one” or “two” words.
+'''
