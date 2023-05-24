@@ -9,9 +9,4 @@ def evaluate_response(question_text, response_text, skills):
 
     response = anthropic_completion(prompt, len(skills) * 20)
 
-    # print('#'*50)
-    # print(response)
-    # print('#'*50)
-    # print()
-
     return json.loads(response)

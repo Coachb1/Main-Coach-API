@@ -1,9 +1,4 @@
-# create an abstract class for skills
-
-from enum import Enum
-
-class Skills(Enum):
-    # ['teamwork', 'leadership', 'people management', 'conflict management', 'negotiation', 'strategic thinking', 'project management', 'time management', 'adaptability', 'engagement', 'empathy', 'communication', 'confidence', 'clarity']
+class Skills:
     TEAMWORK = 'teamwork'
     LEADERSHIP = 'leadership'
     PEOPLE_MANAGEMENT = 'people management'

@@ -254,32 +254,28 @@ def process_test_response(test_question_response: TestQuestionResponse):
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    # THREAD FUNCTION 1
-    t1 = threading.Thread(target=get_gpt3_feedback_and_save_it, args=(test_question_response, prompt))
-    t1.start()
+    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    if not gpt_feedback.text:
+        # delete this response
+        test_question_response.deleted = test_question_response.deleted + 1
+        test_question_response.save()
+        raise ValueError("unable to get feedback for %s", test_question_response.uid)
 
-    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-    # if not gpt_feedback.text:
-    #     # delete this response
-    #     test_question_response.deleted = test_question_response.deleted + 1
-    #     test_question_response.save()
-    #     raise ValueError("unable to get feedback for %s", test_question_response.uid)
+    test_question_response.metadata = {
+        "gpt": {
+            "prompt": prompt,
+            "response": {
+                "raw": gpt_feedback.raw,
+                "text": gpt_feedback.text,
+            }
+        }
+    }
 
-    # test_question_response.metadata = {
-    #     "gpt": {
-    #         "prompt": prompt,
-    #         "response": {
-    #             "raw": gpt_feedback.raw,
-    #             "text": gpt_feedback.text,
-    #         }
-    #     }
-    # }
+    test_question_response.feedback_text = gpt_feedback.text
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
 
-    # test_question_response.feedback_text = gpt_feedback.text
-    # test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
-    # test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
-
-    # 1 Evaluating TestResponse based on skills required in the question [SAM CHANGES]
+    # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     required_skills = question.key_learning_skills.split(",")
     required_skills = [skill.strip() for skill in required_skills]
     required_skills = [skill.lower() for skill in required_skills]
@@ -318,33 +314,13 @@ def process_test_response(test_question_response: TestQuestionResponse):
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
 
-    t1.join()
-
     return test_question_response
 
-def get_gpt3_feedback_and_save_it(test_question_response: TestQuestionResponse, prompt):
-    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-    if not gpt_feedback.text:
-        # delete this response
-        test_question_response.deleted = test_question_response.deleted + 1
-        test_question_response.save()
-        raise ValueError("unable to get feedback for %s", test_question_response.uid)
-
-    test_question_response.metadata = {
-        "gpt": {
-            "prompt": prompt,
-            "response": {
-                "raw": gpt_feedback.raw,
-                "text": gpt_feedback.text,
-            }
-        }
-    }
-
-    test_question_response.feedback_text = gpt_feedback.text
-    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
-    test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
-
 def calc_score(test_attempt_session: TestAttemptSession):
+    with transaction.atomic():
+        return _calc_score(test_attempt_session)
+
+def _calc_score(test_attempt_session: TestAttemptSession):
     """
     This function calculates the score for the test attempt session and update the skills_rating field in this object
     Also it uses these skills rating to update the skills table
@@ -381,76 +357,36 @@ def calc_score(test_attempt_session: TestAttemptSession):
     test_attempt_session.save(update_fields=["skills_rating", "status"])
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id, tenant_id=test_attempt_session.tenant_id)
 
-    try:
-        skills_rating_object = SkillsRating.objects.get(candidate_id=participant_id)
-    except SkillsRating.DoesNotExist:
-        skills_rating_object = SkillsRating.objects.create(candidate_id=participant_id)
+    updated_fields = []
 
-    if skills_rating_object:
-        for skill, rating in skills_rating.items():
-            # lg(skill)
-            # lg(Skills.teamwork)
-            # lg(skill == Skills.teamwork)
-            # lg(rating)
-            if skill == 'teamwork':
-                skills_rating_object.teamwork_score += rating
-                skills_rating_object.teamwork_question_count += skills_count[skill]
-            elif skill == 'leadership':
-                skills_rating_object.leadership_score += rating
-                skills_rating_object.leadership_question_count += skills_count[skill]
-            elif skill == 'people_management':
-                skills_rating_object.people_management_score += rating
-                skills_rating_object.people_management_question_count += skills_count[skill]
-            elif skill == 'conflict_management':
-                skills_rating_object.conflict_management_score += rating
-                skills_rating_object.conflict_management_question_count += skills_count[skill]
-            elif skill == 'negotiation':
-                skills_rating_object.negotiation_score += rating
-                skills_rating_object.negotiation_question_count += skills_count[skill]
-            elif skill == 'strategic_thinking':
-                skills_rating_object.strategic_thinking_score += rating
-                skills_rating_object.strategic_thinking_question_count += skills_count[skill]
-            elif skill == 'project_management':
-                skills_rating_object.project_management_score += rating
-                skills_rating_object.project_management_question_count += skills_count[skill]
-            elif skill == 'time_management':
-                skills_rating_object.time_management_score += rating
-                skills_rating_object.time_management_question_count += skills_count[skill]
-            elif skill == 'adaptability':
-                skills_rating_object.adaptability_score += rating
-                skills_rating_object.adaptability_question_count += skills_count[skill]
-            elif skill == 'engagement':
-                skills_rating_object.engagement_score += rating
-                skills_rating_object.engagement_question_count += skills_count[skill]
-            elif skill == 'empathy':
-                skills_rating_object.empathy_score += rating
-                skills_rating_object.empathy_question_count += skills_count[skill]
-            elif skill == 'communication':
-                skills_rating_object.communication_score += rating
-                skills_rating_object.communication_question_count += skills_count[skill]
-            elif skill == 'confidence':
-                skills_rating_object.confidence_score += rating
-                skills_rating_object.confidence_question_count += skills_count[skill]
-            elif skill == 'clarity':
-                skills_rating_object.clarity_score += rating
-                skills_rating_object.clarity_question_count += skills_count[skill]
-            
+    for skill, rating in skills_rating.items():
         
-        skills_rating_object.total_questions_attempted += attempted_count
+        score_field = f"{skill}_score"
+        question_count_field = f"{skill}_question_count"
+        average_score_field = f"{skill}_average_score"
 
-        skills_rating_object.total_tests_attempted += 1
+        updated_fields.append(score_field)
+        updated_fields.append(question_count_field)
+        updated_fields.append(average_score_field)
 
-        skills_rating_object.save(update_fields=["teamwork_score", "teamwork_question_count", 
-        "leadership_score", "leadership_question_count", "people_management_score", 
-        "people_management_question_count", "conflict_management_score", 
-        "conflict_management_question_count", "negotiation_score", "negotiation_question_count",
-        "strategic_thinking_score", "strategic_thinking_question_count", "project_management_score",
-        "project_management_question_count", "time_management_score", "time_management_question_count", 
-        "adaptability_score", "adaptability_question_count", "engagement_score", 
-        "engagement_question_count", "empathy_score", "empathy_question_count", "communication_score", 
-        "communication_question_count", "confidence_score", "confidence_question_count", "clarity_score",
-        "clarity_question_count", "total_questions_attempted", "total_tests_attempted"])
+        setattr(skills_rating_object, score_field, rating)
+        setattr(skills_rating_object, question_count_field, skills_count[skill])
+
+        if skills_count[skill] == 0:
+            setattr(skills_rating_object, average_score_field, 0)
+        else:
+            setattr(skills_rating_object, average_score_field, rating / skills_count[skill])
+    
+    skills_rating_object.total_questions_attempted += attempted_count
+    skills_rating_object.total_tests_attempted += 1
+
+    updated_fields.append("total_questions_attempted")
+    updated_fields.append("total_tests_attempted")
+    updated_fields.append("updated")
+
+    skills_rating_object.save(update_fields=updated_fields)
 
 
 def get_chat_conversation_prompt_v3(test_title: str,
