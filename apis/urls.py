@@ -11,4 +11,5 @@ urlpatterns = [
     path("", include("apis.documents.urls")),
     path("", include("apis.coaching_conversations.urls")),
     path("", include("apis.web_auth.urls")),
+    path("", include("apis.skills.urls")),
 ]

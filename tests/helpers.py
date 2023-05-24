@@ -53,12 +53,6 @@ def get_unique_test_code(tenant: Tenant) -> str:
 
     return test_code
 
-def lg(text):
-    print('*'*50)
-    print(text)
-    print('*'*50)
-    print()
-
 @timeit
 def create_test(tenant: Tenant,
                 creator_id: str,
@@ -347,14 +341,18 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         attempted_count += 1
         
     skills_rating_score = {}
+    test_score = 0
     # calculate average skills rating
     for skill in skills_rating:
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
+        test_score += skills_rating_score[skill]
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
+    test_attempt_session.test_score = test_score
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
-    test_attempt_session.save(update_fields=["skills_rating", "status"])
+
+    test_attempt_session.save(update_fields=["skills_rating", "test_score", "status", "updated"])
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
     skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id, tenant_id=test_attempt_session.tenant_id)

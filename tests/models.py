@@ -75,6 +75,7 @@ class TestAttemptSession(TenantAwareModel):
     report_doc_id = models.TextField(
         null=True, blank=True, default=None)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
+    test_score = models.FloatField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
