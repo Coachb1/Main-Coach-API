@@ -74,6 +74,7 @@ class TestAttemptSession(TenantAwareModel):
     feedback_text = models.TextField(null=True, blank=True)
     report_doc_id = models.TextField(
         null=True, blank=True, default=None)
+    skills_rating = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
@@ -90,6 +91,7 @@ class TestQuestionResponse(TenantAwareModel):
                                          default=TestQuestionResponseEvaluationStatusChoices.init)
 
     feedback_text = models.TextField(null=True, blank=True)
+    skills_rating = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
