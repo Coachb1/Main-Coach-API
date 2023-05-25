@@ -361,9 +361,10 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
+    test_attempt_session.finished_at = timezone.now()
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    test_attempt_session.save(update_fields=["skills_rating", "test_score", "status", "updated"])
+    test_attempt_session.save(update_fields=["skills_rating", "test_score", "status", "finished_at", "updated"])
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
     skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
@@ -508,6 +509,7 @@ def get_test_report(test: Test) -> str:
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
         test_id=test.uid,
+        status=TestAttemptSessionStatusChoices.completed,
         deleted=0
     ).order_by(
         "-test_score"

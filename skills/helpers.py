@@ -1,12 +1,11 @@
-from commons.anthropic import anthropic_completion
 import json
-from django.db.models import Sum
 
+from commons.anthropic import anthropic_completion
 from skills.models import SkillsRating
-from users.models import User
-
-from tests.models import TestAttemptSession
 from tests.choices import TestAttemptSessionStatusChoices
+from tests.models import TestAttemptSession
+from users.db import get_user_display_name
+from users.models import User
 
 
 def evaluate_response(question_text, response_text, skills):
@@ -21,7 +20,6 @@ def evaluate_response(question_text, response_text, skills):
 
 
 def top_N_leadership_board(skills, N, tenant_id):
-
     top_participants = SkillsRating.objects.filter(
         deleted=0,
         skills_info__has_any_keys=skills,
@@ -33,23 +31,9 @@ def top_N_leadership_board(skills, N, tenant_id):
 
     # get participants name 
     for participant in top_participants:
-        participant.name = User.objects.get(uid=participant.participant_id).name
-    
+        participant.name = get_user_display_name(User.objects.get(uid=participant.participant_id))
+
     return top_participants
-
-
-def top_participants_for_test(test_id):
-
-    # Get objects of TestAttemptSession for the test_id and status=completed and sorted by test_score
-    test_attempt_sessions = TestAttemptSession.objects.filter(
-        deleted=0,
-        test_id=test_id,
-        status=TestAttemptSessionStatusChoices.completed
-    ).order_by(
-        '-test_score'
-    )
-
-    return test_attempt_sessions
 
 
 def get_participant_info(participant: User):
@@ -63,7 +47,7 @@ def get_participant_info(participant: User):
     )
 
     participant_info = {
-        "name": participant.name,
+        "name": get_user_display_name(participant),
         "role": participant.role,
         "skills_info": participant_skill_rating_object[0]['skills_info'],
         "total_questions_attempted": participant_skill_rating_object[0]['total_questions_attempted'],

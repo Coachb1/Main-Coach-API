@@ -86,3 +86,12 @@ def get_user_skills_report_attribute(user: User) -> UserAttribute:
         user_id=user.uid,
         tag="skills_report"
     ).last()
+
+
+def get_user_attribute(user: User,
+                       tag: str) -> UserAttribute:
+    return UserAttribute.objects.filter(
+        tenant_id=user.tenant_id,
+        user_id=user.uid,
+        tag=tag
+    ).last()
