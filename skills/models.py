@@ -3,6 +3,18 @@ from django.db import models
 from tenants.models import TenantAwareModel
 
 
+class SkillIndex(TenantAwareModel):
+    display = models.TextField()
+    slug = models.SlugField(max_length=255, db_index=True)
+    description = models.TextField(null=True, blank=True, default="")
+
+    class Meta:
+        db_table = 'skills_index'
+        unique_together = (
+            ('tenant_id', 'slug', 'deleted'),
+        )
+
+
 class SkillsRating(TenantAwareModel):
     # Default 0 value for all the skills
     participant_id = models.CharField(max_length=255, db_index=True)

@@ -17,7 +17,7 @@ from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from external_apis.coach_whisper_api import coach_whisper_api
 from pdf_generator.helpers import convert_html_to_pdf
-from skills.helpers import evaluate_response, get_participant_info
+from skills.helpers import evaluate_response, get_participant_info, upsert_into_skill_index
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -92,8 +92,7 @@ def create_test(tenant: Tenant,
 
         test_questions = []
         for question in questions:
-            test_questions.append(
-                TestQuestion.objects.create(
+            test_q = TestQuestion.objects.create(
                     tenant_id=tenant.uid,
                     test_id=test.uid,
                     question_type=question.get("question_type"),
@@ -115,7 +114,11 @@ def create_test(tenant: Tenant,
                                                                 test_question=question.get("question"))
                     ),
                 )
-            )
+
+            upsert_into_skill_index(tenant_id=tenant.uid,
+                                    skills=test_q.key_learning_skills.split(","))
+
+            test_questions.append(test_q)
 
     logger.info("created test for tenant %s", tenant.uid)
 
