@@ -5,13 +5,13 @@ from tenants.models import TenantAwareModel
 
 class SkillIndex(TenantAwareModel):
     display = models.TextField()
-    slug = models.SlugField(max_length=255, db_index=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True, default="")
 
     class Meta:
         db_table = 'skills_index'
         unique_together = (
-            ('tenant_id', 'slug', 'deleted'),
+            ('tenant_id', 'name', 'deleted'),
         )
 
 
