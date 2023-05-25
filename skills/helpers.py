@@ -1,9 +1,10 @@
 import json
 
+from django.utils.text import slugify
+
 from commons.anthropic import anthropic_completion
-from skills.models import SkillsRating
-from tests.choices import TestAttemptSessionStatusChoices
-from tests.models import TestAttemptSession
+from skills.models import SkillsRating, SkillIndex
+from tenants.models import Tenant
 from users.db import get_user_display_name
 from users.models import User
 
@@ -68,3 +69,22 @@ def get_top_participant_skills(skills, q_set, top_n=10):
     )[:top_n]
 
     return top_participant_skills
+
+
+def upsert_into_skill_index(tenant_id: str,
+                            skills: list):
+    if not skills:
+        return
+
+    for skill in skills:
+        if not skill:
+            continue
+
+        display = skill
+        slug = slugify(skill)
+        if not slug:
+            continue
+
+        SkillIndex.objects.get_or_create(tenant_id=tenant_id,
+                                         slug=slug,
+                                         defaults=dict(display=display))
