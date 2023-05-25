@@ -15,7 +15,7 @@ class SkillsRating(TenantAwareModel):
     class Meta:
         db_table = 'skills_rating'
         unique_together = (
-            ('participant_id', 'tenant_id', 'deleted'),
+            ('tenant_id', 'participant_id', 'deleted'),
         )
 
 # example: {'tenant-id': '123', 'label':'Super Manager', 'required_rating': 'leadership > 90, conflict_management > 80'}

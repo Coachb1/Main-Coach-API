@@ -3,6 +3,7 @@ import json
 from django.db.models import Sum
 
 from skills.models import SkillsRating
+from users.models import User
 
 from tests.models import TestAttemptSession
 from tests.choices import TestAttemptSessionStatusChoices
@@ -46,4 +47,29 @@ def top_participants_for_test(test_id):
     )
 
     return test_attempt_sessions
+
+def get_participant_info(participant_id):
+
+    # get user from participant_id as uid
+    participant = User.objects.get(uid=participant_id)
+
+    participant_skill_rating_object = SkillsRating.objects.filter(
+        deleted=0,
+        participant_id=participant_id
+    ).values(
+        'skills_info',
+        'total_questions_attempted',
+        'total_tests_attempted'
+    )
+
+    participant_info = {
+        "name": participant.name,
+        "role": participant.role,
+        "skills_info": participant_skill_rating_object[0]['skills_info'],
+        "total_questions_attempted": participant_skill_rating_object[0]['total_questions_attempted'],
+        "total_tests_attempted": participant_skill_rating_object[0]['total_tests_attempted']
+    }
+
+
+    return participant_info
 
