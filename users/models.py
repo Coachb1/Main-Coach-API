@@ -16,3 +16,14 @@ class User(TenantAwareModel):
     @property
     def can_login(self):
         return self.password is not None
+
+
+class UserAttribute(TenantAwareModel):
+    user_id = models.CharField(max_length=255)
+    tag = models.CharField(max_length=255)
+    attributes = models.JSONField(null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "user_attribute"
+
+        unique_together = (("tenant_id", "user_id", "tag"),)

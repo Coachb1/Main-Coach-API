@@ -5,11 +5,12 @@ from rest_framework.response import Response
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
-from apis.accounts.serializers import AccountSerializer
+from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
 from apis.accounts.serializers import SetupAccountSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
+from users.helpers import upsert_user_attributes
 from users.models import User
 
 
@@ -18,6 +19,7 @@ class AccountsViewSet(ApiViewSet,
     queryset = User.objects.filter(deleted=0)
     serializer_class = AccountSerializer
     permission_classes = (IsAuthenticatedClient,)
+    lookup_field = "uid"
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
@@ -44,4 +46,20 @@ class AccountsViewSet(ApiViewSet,
             identity_type=identity_type,
             identity_value=identity_value
         )
+        return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
+
+    @action(methods=["POST"], detail=True, url_path="upsert-attributes")
+    def upsert_user_attributes_view(self, request, *args, **kwargs):
+        serializer = UserAttributesUserContextSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        tag = serializer.validated_data["tag"]
+        attributes = serializer.validated_data["attributes"]
+
+        user = self.get_object()
+
+        user_attribute = upsert_user_attributes(user=user,
+                                                tag=tag,
+                                                attributes=attributes)
+
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
