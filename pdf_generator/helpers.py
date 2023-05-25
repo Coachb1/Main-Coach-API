@@ -7,11 +7,12 @@ from django.template.loader import render_to_string
 
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url_from_doc_id, get_document_url
-from skills.helpers import get_participant_info
+from skills.helpers import get_participant_info, top_N_leadership_board
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.models import User
+
 
 options = {
     'page-size': 'Letter',
@@ -193,6 +194,34 @@ def get_participant_report(user) -> str:
             owner_id=user.uid,
             display_name=f"participant_report_{participant_name}.pdf",
             doc_type=DocTypeChoice.PARTICIPANT_REPORT,
+            file=pdf_file
+        )
+
+    return get_document_url(doc)
+
+def get_leaderboard_report(skills, tenant_id):
+
+    participants_skill_scores = top_N_leadership_board(skills, 10, tenant_id=tenant_id)
+
+    css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
+                       'reports', 'static', 'styles_report.css')
+
+    t = render_to_string(
+        f"pdf_generator/reports/leaderboard_report.html", {'participants_skill_scores': participants_skill_scores})
+
+    pdf = convert_html_to_pdf(t, css)
+
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
+
+        doc = create_document(
+            tenant=tenant_from_tenant_id(tenant_id),
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant_id,
+            display_name=f"leaderboard_report_{tenant_id}.pdf",
+            doc_type=DocTypeChoice.LEADERBOARD_REPORT,
             file=pdf_file
         )
 

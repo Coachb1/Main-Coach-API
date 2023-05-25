@@ -9,6 +9,7 @@ class DocTypeChoice(DjangoChoices):
     REPORT = ChoiceItem("REPORT")
     PARTICIPANT_REPORT = ChoiceItem("PARTICIPANT_REPORT")
     TEST_REPORT = ChoiceItem("TEST_REPORT")
+    LEADERBOARD_REPORT = ChoiceItem("LEADERBOARD_REPORT")
 
 
 class DocOwnerTypeChoice(DjangoChoices):

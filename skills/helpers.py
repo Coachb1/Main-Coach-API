@@ -20,20 +20,20 @@ def evaluate_response(question_text, response_text, skills):
     return json.loads(response)
 
 
-def top_N_leadership_board(skills, N):
+def top_N_leadership_board(skills, N, tenant_id):
 
     top_participants = SkillsRating.objects.filter(
         deleted=0,
-        skills_info__has_any_keys=skills
-    ).values(
-        'participant_id',
-        'tenant_id',
-        # average scores for each skill in skills list
-        *[f'skills_info__{skill}__average_score' for skill in skills]
-            ).order_by(
+        skills_info__has_any_keys=skills,
+        tenant_id=tenant_id
+    ).order_by(
         # sum of average scores for each skill in skills list
         *[f'-skills_info__{skill}__average_score' for skill in skills]
     )[:N]
+
+    # get participants name 
+    for participant in top_participants:
+        participant.name = User.objects.get(uid=participant.participant_id).name
     
     return top_participants
 
