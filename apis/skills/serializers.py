@@ -7,7 +7,7 @@ class SkillIndexSerializer(serializers.ModelSerializer):
     class Meta:
         model = SkillIndex
         fields = ["display",
-                  "slug",
+                  "name",
                   "description"]
 
 
