@@ -1,9 +1,11 @@
 from django.views.generic import View
 from django.views import View
 from django.http import HttpResponse
-from skills.helpers import top_N_leadership_board, top_participants_for_test
+from skills.helpers import top_N_leadership_board, top_participants_for_test, get_participant_info
 from users.models import User
 from apis.skills.serializers import SkillsDisplaySerializer
+
+from pdf_generator.helpers import get_participant_report
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
@@ -14,6 +16,15 @@ from skills.models import SkillsRating
 from clients.permissions import IsAuthenticatedClient
 
 from commons.viewset import ApiViewSet
+
+def participant_report(request):
+    participant_id = request.GET.get("participant_id")
+
+    participant_info = get_participant_info(participant_id)
+
+    report = get_participant_report(participant_info)
+
+    return HttpResponse(report)
 
 def get_top_10_participants(request):
 

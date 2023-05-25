@@ -359,9 +359,11 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     updated_fields = []
 
+    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+
     for skill, rating in skills_rating.items():
 
-        if skill in skills_rating_object.skills_info.keys():
+        if skill in skills_rating_object.skills_info:
             skills_rating_object.skills_info[skill]['score'] += rating
             skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
         else:

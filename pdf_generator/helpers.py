@@ -165,3 +165,37 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     )
 
     return get_document_url_from_doc_id(doc.uid)
+
+def get_participant_report(participant_info):
+    participant_name = participant_info['name']
+    participant_role = participant_info['role']
+
+    css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
+                          'reports', 'static', 'styles_report.css')
+
+    t = render_to_string(
+        f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
+         'participant_role': participant_role, 'participant_info': participant_info})
+
+    pdf = convert_html_to_pdf(t, css)
+
+    # with tempfile.NamedTemporaryFile() as pdf_file:
+    #     pdf_file.write(pdf)
+    #     pdf_file.content_type = "application/pdf"
+    #     pdf_file.size = len(pdf)
+
+    #     doc = create_document(
+    #         tenant=tenant,
+    #         owner_type=DocOwnerTypeChoice.system,
+    #         owner_id=tenant.uid,
+    #         display_name=f"participant_report_{participant_name}.pdf",
+    #         doc_type=DocTypeChoice.REPORT,
+    #         file=pdf_file
+    #     )
+
+    # save in local storage
+    with open(f"participant_report_{participant_name}.pdf", "wb") as f:
+        f.write(pdf)
+
+    # return get_document_url_from_doc_id(doc.uid)
+    return f"participant_report_{participant_name}.pdf"
