@@ -1,11 +1,13 @@
 import os
 import tempfile
+
 import pdfkit
 from django.conf import settings
 from django.template.loader import render_to_string
 
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
-from documents.helpers import create_document, get_document_url_from_doc_id
+from documents.helpers import create_document, get_document_url_from_doc_id, get_document_url
+from skills.helpers import get_participant_info
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
@@ -23,7 +25,6 @@ def convert_html_to_pdf(html_str, css_file):
 
 
 def get_flash_cards_from_test(test: Test):
-
     if test.flash_card_doc_id:
         return [get_document_url_from_doc_id(test.flash_card_doc_id)]
 
@@ -43,7 +44,6 @@ def get_flash_cards_from_test(test: Test):
     flash_cards = []
 
     for question in test_question_list:
-
         flash_card_html = render_to_string(
             "pdf_generator/flash_cards/flash_card_1.html", {"heading": test.title,
                                                             "text": question.key_learning_point}
@@ -92,7 +92,7 @@ def get_flash_cards_from_test(test: Test):
 
     #     saved_flash_cards.append((question_uid, doc.uid))
 
-    return [get_document_url_from_doc_id(doc.uid)]
+    return [get_document_url(doc)]
 
 
 def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
@@ -137,7 +137,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         })
 
     t = render_to_string(
-        f"pdf_generator/reports/report.html", {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
+        f"pdf_generator/reports/report.html",
+        {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
@@ -164,38 +165,35 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         report_doc_id=doc.uid
     )
 
-    return get_document_url_from_doc_id(doc.uid)
+    return get_document_url(doc)
 
-def get_participant_report(participant_info):
+
+def get_participant_report(user) -> str:
+    participant_info = get_participant_info(user)
+
     participant_name = participant_info['name']
-    participant_role = participant_info['role']
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
-                          'reports', 'static', 'styles_report.css')
+                       'reports', 'static', 'styles_report.css')
 
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
-         'participant_role': participant_role, 'participant_info': participant_info})
+                                                           'participant_info': participant_info})
 
     pdf = convert_html_to_pdf(t, css)
 
-    # with tempfile.NamedTemporaryFile() as pdf_file:
-    #     pdf_file.write(pdf)
-    #     pdf_file.content_type = "application/pdf"
-    #     pdf_file.size = len(pdf)
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
 
-    #     doc = create_document(
-    #         tenant=tenant,
-    #         owner_type=DocOwnerTypeChoice.system,
-    #         owner_id=tenant.uid,
-    #         display_name=f"participant_report_{participant_name}.pdf",
-    #         doc_type=DocTypeChoice.REPORT,
-    #         file=pdf_file
-    #     )
+        doc = create_document(
+            tenant=tenant_from_tenant_id(user.tenant_id),
+            owner_type=DocOwnerTypeChoice.user,
+            owner_id=user.uid,
+            display_name=f"participant_report_{participant_name}.pdf",
+            doc_type=DocTypeChoice.PARTICIPANT_REPORT,
+            file=pdf_file
+        )
 
-    # save in local storage
-    with open(f"participant_report_{participant_name}.pdf", "wb") as f:
-        f.write(pdf)
-
-    # return get_document_url_from_doc_id(doc.uid)
-    return f"participant_report_{participant_name}.pdf"
+    return get_document_url(doc)

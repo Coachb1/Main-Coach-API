@@ -3,10 +3,12 @@ from django.conf import settings
 
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
+
 def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(ANTHROPIC_KEY)
     response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}', model='claude-instant-v1', max_tokens_to_sample=max_tokens, stop_sequences=[anthropic.HUMAN_PROMPT])
     return response['completion']
+
 
 prompt1 = '''
 "Question:" In the recent pandemic conditions, work from home has become common. How well do you find yourself prepared to lead a remote team? "Answer:" I’ll try to lead by Conducting one-on-one and group meetings for ongoing projects more frequently while keeping them precise.

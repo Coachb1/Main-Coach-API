@@ -1,21 +1,19 @@
-from django.views.generic import View
-from django.views import View
 from django.http import HttpResponse
-from skills.helpers import top_N_leadership_board, top_participants_for_test, get_participant_info
-from users.models import User
-from apis.skills.serializers import SkillsDisplaySerializer
-
-from pdf_generator.helpers import get_participant_report
-
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import OrderingFilter
-from rest_framework import mixins, status
+from rest_framework import mixins
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
-from skills.models import SkillsRating
-from clients.permissions import IsAuthenticatedClient
 
+from apis.skills.serializers import SkillsDisplaySerializer
+from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
+from pdf_generator.helpers import get_participant_report
+from skills.helpers import top_N_leadership_board, top_participants_for_test, get_participant_info, \
+    get_top_participant_skills
+from skills.models import SkillsRating
+from users.models import User
+
 
 def participant_report(request):
     participant_id = request.GET.get("participant_id")
@@ -26,8 +24,8 @@ def participant_report(request):
 
     return HttpResponse(report)
 
-def get_top_10_participants(request):
 
+def get_top_10_participants(request):
     # get skills from request params
     skills = request.GET.get("skills")
     skills = skills.split(",")
@@ -38,7 +36,7 @@ def get_top_10_participants(request):
     # Get users from participant_ids as uid
     participants = []
     for skill_row in participants_skills_scores:
-        
+
         participant = User.objects.get(uid=skill_row['participant_id'], tenant_id=skill_row['tenant_id'])
 
         skill_scores = {}
@@ -54,8 +52,8 @@ def get_top_10_participants(request):
 
     return HttpResponse(participants)
 
-def get_top_participants_for_a_test(request):
 
+def get_top_participants_for_a_test(request):
     # get test_id from request params
     test_id = request.GET.get("test_id")
 
@@ -64,7 +62,6 @@ def get_top_participants_for_a_test(request):
     # Get users from participant_ids as uid
     participants = []
     for session in participants_sessions:
-        
         participant = User.objects.get(uid=session.participant_id, tenant_id=session.tenant_id)
 
         participants.append({
@@ -75,18 +72,24 @@ def get_top_participants_for_a_test(request):
 
     return HttpResponse(participants)
 
+
 class SkillsViewSet(ApiViewSet,
-                  mixins.ListModelMixin,
-                  mixins.RetrieveModelMixin):
+                    mixins.ListModelMixin,
+                    mixins.RetrieveModelMixin):
     queryset = SkillsRating.objects.filter(deleted=0)
     serializer_class = SkillsDisplaySerializer
     permission_classes = (IsAuthenticatedClient,)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
-    ordering_fields = ("id",)
+    filterset_fields = ("participant_id",)
+    ordering_fields = '__all__'
     lookup_field = "uid"
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
-    
-
+    @action(methods=["GET"], detail=False, url_path="top-participants")
+    def get_top_participants(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        skills = request.query_params.get("skills")
+        top_participant_skills = get_top_participant_skills(skills=skills, q_set=qs)
+        return Response(SkillsDisplaySerializer(top_participant_skills, many=True).data)

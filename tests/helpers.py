@@ -1,30 +1,37 @@
 import logging
+import os
 import string
+import tempfile
 from string import Template
 
 from django.db import transaction
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
+import settings
 from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
+from documents.choices import DocOwnerTypeChoice, DocTypeChoice
+from documents.helpers import create_document, get_document_url
 from external_apis.coach_whisper_api import coach_whisper_api
+from pdf_generator.helpers import convert_html_to_pdf
+from skills.helpers import evaluate_response, get_participant_info
+from skills.models import SkillsRating
+from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
-from tests.choices import InteractionModeChoices, TestQuestionResponseEvaluationStatusChoices, TestAttemptSessionStatusChoices
+from tests.choices import InteractionModeChoices, TestQuestionResponseEvaluationStatusChoices, \
+    TestAttemptSessionStatusChoices
 from tests.models import Test
 from tests.models import TestAttemptSession
 from tests.models import TestInvite
 from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
+from users.db import get_user_by_id
 from users.models import User
 
-from skills.models import SkillsRating
-from skills.constants import Skills
-from skills.helpers import evaluate_response
-
 # threading
-import threading
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +59,7 @@ def get_unique_test_code(tenant: Tenant) -> str:
         retries += 1
 
     return test_code
+
 
 @timeit
 def create_test(tenant: Tenant,
@@ -275,7 +283,7 @@ def process_test_response(test_question_response: TestQuestionResponse):
     required_skills = [skill.lower() for skill in required_skills]
 
     skills_rating = {}
-    
+
     skills_rating = evaluate_response(question.question, test_question_response.response_text, required_skills)
 
     for skill in required_skills:
@@ -301,7 +309,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
     # count number of questions in the test
     total_questions = TestQuestion.objects.filter(test_id=test_id, deleted=0).count()
     # count number of question response in the test attempt session
-    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).count()
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                          deleted=0).count()
 
     if total_questions == total_responses:
         # TODO: Email to the users
@@ -310,9 +319,11 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
     return test_question_response
 
+
 def calc_score(test_attempt_session: TestAttemptSession):
     with transaction.atomic():
         return _calc_score(test_attempt_session)
+
 
 def _calc_score(test_attempt_session: TestAttemptSession):
     """
@@ -339,7 +350,7 @@ def _calc_score(test_attempt_session: TestAttemptSession):
                 skills_rating[skill] = response_skills_rating[skill]
                 skills_count[skill] = 1
         attempted_count += 1
-        
+
     skills_rating_score = {}
     test_score = 0
     # calculate average skills rating
@@ -355,7 +366,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     test_attempt_session.save(update_fields=["skills_rating", "test_score", "status", "updated"])
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id, tenant_id=test_attempt_session.tenant_id)
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+                                                                          tenant_id=test_attempt_session.tenant_id)
 
     updated_fields = []
 
@@ -376,7 +388,7 @@ def _calc_score(test_attempt_session: TestAttemptSession):
             skills_rating_object.skills_info[skill]['average_score'] = 0
         else:
             skills_rating_object.skills_info[skill]['average_score'] = rating / skills_count[skill]
-    
+
     skills_rating_object.total_questions_attempted += attempted_count
     skills_rating_object.total_tests_attempted += 1
 
@@ -490,3 +502,50 @@ Output:
         raise ValueError("unable to get key_learning_skills")
 
     return gpt_feedback.text
+
+
+def get_test_report(test: Test) -> str:
+    test_attempt_sessions = TestAttemptSession.objects.filter(
+        tenant_id=test.tenant_id,
+        test_id=test.uid,
+        deleted=0
+    ).order_by(
+        "-test_score"
+    )
+
+    css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
+                       'reports', 'static', 'styles_report.css')
+
+    test_scores = [
+        {"score": test_attempt_session.test_score,
+         "participant": {**get_participant_info(get_user_by_id(test_attempt_session.participant_id))}}
+        for test_attempt_session in test_attempt_sessions
+    ]
+
+    t = render_to_string(
+        f"pdf_generator/reports/test_report.html", {
+            'test_name': test.title,
+            'total_tests_attempts': len(test_attempt_sessions),
+            'test_scores': test_scores,
+            'test_code': test.test_code
+        })
+
+    pdf = convert_html_to_pdf(t, css)
+
+    tenant = tenant_from_tenant_id(test.tenant_id)
+
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
+
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"test_report_{test.uid}.pdf",
+            doc_type=DocTypeChoice.TEST_REPORT,
+            file=pdf_file
+        )
+
+    return get_document_url(doc)

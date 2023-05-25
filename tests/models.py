@@ -80,6 +80,9 @@ class TestAttemptSession(TenantAwareModel):
     class Meta:
         db_table = "test_attempt_session"
         ordering = ("-id",)
+        indexes = [
+            models.Index(fields=["tenant_id", "test_id", "test_score"]),
+        ]
 
 
 class TestQuestionResponse(TenantAwareModel):

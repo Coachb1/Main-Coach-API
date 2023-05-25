@@ -2,6 +2,7 @@ from django.db import models
 
 from tenants.models import TenantAwareModel
 
+
 class SkillsRating(TenantAwareModel):
     # Default 0 value for all the skills
     participant_id = models.CharField(max_length=255, db_index=True)
@@ -17,6 +18,7 @@ class SkillsRating(TenantAwareModel):
         unique_together = (
             ('tenant_id', 'participant_id', 'deleted'),
         )
+
 
 # example: {'tenant-id': '123', 'label':'Super Manager', 'required_rating': 'leadership > 90, conflict_management > 80'}
 class CustomRatingForLabels(TenantAwareModel):

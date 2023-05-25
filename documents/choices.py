@@ -7,6 +7,8 @@ class DocTypeChoice(DjangoChoices):
     FLASH_CARD = ChoiceItem("FLASH_CARD")
     MIND_MAP = ChoiceItem("MIND_MAP")
     REPORT = ChoiceItem("REPORT")
+    PARTICIPANT_REPORT = ChoiceItem("PARTICIPANT_REPORT")
+    TEST_REPORT = ChoiceItem("TEST_REPORT")
 
 
 class DocOwnerTypeChoice(DjangoChoices):
