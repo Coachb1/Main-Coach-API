@@ -1,6 +1,9 @@
 from commons.anthropic import anthropic_completion
 import json
+from django.db.models import Sum
+
 from skills.models import SkillsRating
+
 from tests.models import TestAttemptSession
 from tests.choices import TestAttemptSessionStatusChoices
 
@@ -17,14 +20,18 @@ def evaluate_response(question_text, response_text, skills):
 def top_N_leadership_board(skills, N):
 
     top_participants = SkillsRating.objects.filter(
-        deleted=False,
-        **{f'{skill}_average_score__gt': 0 for skill in skills}
-    ).order_by(
-        *[
-            f'-{skill}_average_score' for skill in skills
-        ]
+        deleted=0,
+        skills_info__has_any_keys=skills
+    ).values(
+        'participant_id',
+        'tenant_id',
+        # average scores for each skill in skills list
+        *[f'skills_info__{skill}__average_score' for skill in skills]
+            ).order_by(
+        # sum of average scores for each skill in skills list
+        *[f'-skills_info__{skill}__average_score' for skill in skills]
     )[:N]
-
+    
     return top_participants
 
 def top_participants_for_test(test_id):
