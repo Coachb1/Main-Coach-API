@@ -28,12 +28,12 @@ def get_top_10_participants(request):
     participants = []
     for skill_row in participants_skills_scores:
         
-        participant = User.objects.get(uid=skill_row.participant_id, tenant_id=skill_row.tenant_id)
+        participant = User.objects.get(uid=skill_row['participant_id'], tenant_id=skill_row['tenant_id'])
 
         skill_scores = {}
 
         for skill in skills:
-            skill_scores[skill] = getattr(skill_row, f"{skill}_average_score")
+            skill_scores[skill] = skill_row[f'skills_info__{skill}__average_score']
 
         participants.append({
             "name": participant.name,

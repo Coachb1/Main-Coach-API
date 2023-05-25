@@ -360,26 +360,25 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     updated_fields = []
 
     for skill, rating in skills_rating.items():
-        
-        score_field = f"{skill}_score"
-        question_count_field = f"{skill}_question_count"
-        average_score_field = f"{skill}_average_score"
 
-        updated_fields.append(score_field)
-        updated_fields.append(question_count_field)
-        updated_fields.append(average_score_field)
-
-        setattr(skills_rating_object, score_field, rating)
-        setattr(skills_rating_object, question_count_field, skills_count[skill])
+        if skill in skills_rating_object.skills_info.keys():
+            skills_rating_object.skills_info[skill]['score'] += rating
+            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+        else:
+            skills_rating_object.skills_info[skill] = {
+                'score': rating,
+                'question_count': skills_count[skill]
+            }
 
         if skills_count[skill] == 0:
-            setattr(skills_rating_object, average_score_field, 0)
+            skills_rating_object.skills_info[skill]['average_score'] = 0
         else:
-            setattr(skills_rating_object, average_score_field, rating / skills_count[skill])
+            skills_rating_object.skills_info[skill]['average_score'] = rating / skills_count[skill]
     
     skills_rating_object.total_questions_attempted += attempted_count
     skills_rating_object.total_tests_attempted += 1
 
+    updated_fields.append("skills_info")
     updated_fields.append("total_questions_attempted")
     updated_fields.append("total_tests_attempted")
     updated_fields.append("updated")
