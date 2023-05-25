@@ -11,8 +11,7 @@ from skills.helpers import get_participant_info, top_N_leadership_board
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
-from users.models import User
-
+from users.db import get_user_display_name, get_user_by_id
 
 options = {
     'page-size': 'Letter',
@@ -104,7 +103,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     test_id = test_attempt_session.test_id
     # test = Test.objects.get(uid=test_id)
     participant_id = test_attempt_session.participant_id
-    participant_name = User.objects.get(uid=participant_id).name
+    participant_name = get_user_display_name(get_user_by_id(participant_id))
     test_started_at = test_attempt_session.started_at
 
     questions = TestQuestion.objects.filter(test_id=test_id)
@@ -199,8 +198,8 @@ def get_participant_report(user) -> str:
 
     return get_document_url(doc)
 
-def get_leaderboard_report(skills, tenant_id):
 
+def get_leaderboard_report(skills, tenant_id):
     participants_skill_scores = top_N_leadership_board(skills, 10, tenant_id=tenant_id)
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
