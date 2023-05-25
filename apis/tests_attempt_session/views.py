@@ -14,13 +14,13 @@ from tests.models import TestAttemptSession
 
 class TestAttemptSessionViewSet(ApiViewSet,
                                 mixins.ListModelMixin,
-                                mixins.RetrieveModelMixin,
-                                mixins.UpdateModelMixin):
+                                mixins.RetrieveModelMixin):
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient,)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
-    ordering_fields = ("id", )
+    filterset_fields = ("test_id", "test_score")
+    ordering_fields = ("id", "test_score")
     lookup_field = "uid"
 
     def get_queryset(self):

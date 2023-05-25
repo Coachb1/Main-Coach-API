@@ -10,6 +10,7 @@ from apis.accounts.serializers import SetupAccountSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
+from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
 from users.models import User
 
@@ -63,3 +64,11 @@ class AccountsViewSet(ApiViewSet,
                                                 attributes=attributes)
 
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="participant-report")
+    def get_participant_report_pdf_view(self, request, *args, **kwargs):
+        user = self.get_object()
+
+        report_url = get_participant_report(user)
+
+        return Response({"report_url": report_url})

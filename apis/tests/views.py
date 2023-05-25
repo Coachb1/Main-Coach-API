@@ -11,7 +11,7 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import create_test
+from tests.helpers import create_test, get_test_report
 from tests.models import Test
 
 
@@ -51,3 +51,11 @@ class TestViewSet(ApiViewSet,
         test = self.get_object()
         url = get_mindmap_url_from_test(test)
         return Response({"url": url}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="report")
+    def get_test_report_pdf_view(self, request, *args, **kwargs):
+        user = self.get_object()
+
+        report_url = get_test_report(user)
+
+        return Response({"report_url": report_url})

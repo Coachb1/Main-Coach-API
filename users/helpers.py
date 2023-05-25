@@ -78,3 +78,11 @@ def upsert_user_attributes(user: User, tag: str, attributes: dict) -> UserAttrib
     user_attribute.attributes = updated_attributes
     user_attribute.save()
     return user_attribute
+
+
+def get_user_skills_report_attribute(user: User) -> UserAttribute:
+    return UserAttribute.objects.filter(
+        tenant_id=user.tenant_id,
+        user_id=user.uid,
+        tag="skills_report"
+    ).last()

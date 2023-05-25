@@ -8,6 +8,7 @@ from users.models import User
 from tests.models import TestAttemptSession
 from tests.choices import TestAttemptSessionStatusChoices
 
+
 def evaluate_response(question_text, response_text, skills):
     prompt = f'''
     "Question:" {question_text}; "Answer:" {response_text};
@@ -17,6 +18,7 @@ def evaluate_response(question_text, response_text, skills):
     response = anthropic_completion(prompt, len(skills) * 20)
 
     return json.loads(response)
+
 
 def top_N_leadership_board(skills, N):
 
@@ -35,6 +37,7 @@ def top_N_leadership_board(skills, N):
     
     return top_participants
 
+
 def top_participants_for_test(test_id):
 
     # Get objects of TestAttemptSession for the test_id and status=completed and sorted by test_score
@@ -48,14 +51,11 @@ def top_participants_for_test(test_id):
 
     return test_attempt_sessions
 
-def get_participant_info(participant_id):
 
-    # get user from participant_id as uid
-    participant = User.objects.get(uid=participant_id)
-
+def get_participant_info(participant: User):
     participant_skill_rating_object = SkillsRating.objects.filter(
         deleted=0,
-        participant_id=participant_id
+        participant_id=participant.uid
     ).values(
         'skills_info',
         'total_questions_attempted',
@@ -70,6 +70,17 @@ def get_participant_info(participant_id):
         "total_tests_attempted": participant_skill_rating_object[0]['total_tests_attempted']
     }
 
-
     return participant_info
 
+
+def get_top_participant_skills(skills, q_set, top_n=10):
+    skills = skills.split(",") if isinstance(skills, str) else skills
+    top_participant_skills = q_set.filter(
+        deleted=0,
+        skills_info__has_any_keys=skills
+    ).order_by(
+        # sum of average scores for each skill in skills list
+        *[f'-skills_info__{skill}__average_score' for skill in skills]
+    )[:top_n]
+
+    return top_participant_skills
