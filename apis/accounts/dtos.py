@@ -6,6 +6,7 @@ class UserCreateContextDto:
     name: str
     role: str
     password: str
+    user_attributes: dict
 
 
 @dataclasses.dataclass
