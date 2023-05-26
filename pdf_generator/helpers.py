@@ -104,7 +104,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     # test = Test.objects.get(uid=test_id)
     participant_id = test_attempt_session.participant_id
     participant_name = get_user_display_name(get_user_by_id(participant_id))
-    test_started_at = test_attempt_session.started_at
+    test_started_at = test_attempt_session.started_at.strftime("%d %b %Y")
 
     questions = TestQuestion.objects.filter(test_id=test_id)
     participant_responses = TestQuestionResponse.objects.filter(
