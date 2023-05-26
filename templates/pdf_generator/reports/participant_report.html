@@ -25,11 +25,28 @@
 
     <h3>Total Questions Attempted</h3>
     <p>{{ participant_info.total_questions_attempted }}</p>
+    <hr />
 
-    {% for skill, value in participant_info.skills_info.items %}
-      <h3>{{ skill }}</h3>
-      <p>{{ value }}</p>
-      <hr />
-    {% endfor %}
+    <!-- Show the above skills section as table also -->
+    <h3>Skills</h3>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Skill</th>
+          <th>Score</th>
+          <th>Average Score</th>
+          <th>Question Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for skill, value in participant_info.skills_info.items %}
+        <tr>
+          <td>{{ skill }}</td>
+          <td class="td-center">{{ value.score }}</td>
+          <td class="td-center">{{ value.average_score }}</td>
+          <td class="td-center">{{ value.question_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
   </body>
 </html>
