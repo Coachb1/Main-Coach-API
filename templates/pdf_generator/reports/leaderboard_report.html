@@ -17,19 +17,50 @@
 
     <h3>Top 10 Participants</h3>
     <hr />
+    <!-- Draw a beautiful table which consists of Rank number, Participant Name and Respective scores for each skills -->
+    <!-- Datastructure is as follows: an element of participants_skill_scores has name, skills_info -->
+    <!-- Where skills_info is a dictionary of skill name as keys and a second dictionary as value. Second dictionary has 3 keys: score, average_score, question_count. Display them beautifully -->
+    <!-- I want it to look like a single row for single participant and then within that single row, it should have multiple row for each skill and their respective score -->
+    <!-- I want to display the rank of the participant as well -->
 
     <table>
-      <tr>
-        <th>Rank</th>
-        <th>Participant Name</th>
-        <th>Score</th>
-      </tr>
-      {% for participant in participants_skill_scores %}
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Participant Name</th>
+          <th>Skills</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for participant in participants_skill_scores %}
         <tr>
           <td>{{ forloop.counter }}</td>
           <td>{{ participant.name }}</td>
-          <td>{{ participant.skills_info }}</td>
+          <td>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Skill</th>
+                  <th>Score</th>
+                  <th>Average Score</th>
+                  <th>Question Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for skill, skill_info in participant.skills_info.items %}
+                <tr>
+                  <td>{{ skill }}</td>
+                  <td class="td-center">{{ skill_info.score }}</td>
+                  <td class="td-center">{{ skill_info.average_score }}</td>
+                  <td class="td-center">{{ skill_info.question_count }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </td>
         </tr>
-      {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
   </body>
 </html>
