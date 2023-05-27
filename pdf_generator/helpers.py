@@ -196,11 +196,33 @@ def get_participant_report(user) -> str:
             file=pdf_file
         )
 
+    # save in local
+    # with open(f"/tmp/participant_report_{participant_name}.pdf", "wb") as f:
+    #     f.write(pdf)
+
     return get_document_url(doc)
 
 
 def get_leaderboard_report(skills, tenant_id):
-    participants_skill_scores = top_N_leadership_board(skills, 10, tenant_id=tenant_id)
+    participants_skill_scores = top_N_leadership_board(skills, 20, tenant_id=tenant_id)
+
+    # TODO: Placeholder logic: To be removed soon
+    while len(participants_skill_scores) < 20:
+        participants_skill_scores.append({
+            "name": "PLACEHOLDER",
+            "skills_info": {
+                    "skill_1": {
+                        "score": 0,
+                        "average_score": 0,
+                        "question_count": 0,
+                },
+                "skill_2": {
+                    "score": 0,
+                    "average_score": 0,
+                    "question_count": 0,
+                },
+            }
+        })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
@@ -223,5 +245,9 @@ def get_leaderboard_report(skills, tenant_id):
             doc_type=DocTypeChoice.LEADERBOARD_REPORT,
             file=pdf_file
         )
+
+    # # save to local file
+    # with open(f"leaderboard_report_{tenant_id}.pdf", "wb") as f:
+    #     f.write(pdf)
 
     return get_document_url(doc)

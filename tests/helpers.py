@@ -287,7 +287,14 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
     skills_rating = {}
 
-    skills_rating = evaluate_response(question.question, test_question_response.response_text, required_skills)
+    skills_rating, is_evaluated = evaluate_response(question.question, test_question_response.response_text, required_skills)
+
+    if not is_evaluated:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
+        # delete this response
+        test_question_response.deleted = test_question_response.deleted + 1
+        test_question_response.save()
+        raise ValueError("unable to get feedback for %s", test_question_response.uid)
 
     for skill in required_skills:
 
