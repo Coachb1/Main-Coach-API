@@ -14,8 +14,13 @@ img {
   margin-top: 70px;
 }
 
-.table {
+/* Table related CSS */
+table {
   width: 100%;
+}
+
+.table {
+  width: 100vw;
   border-collapse: collapse;
   border-spacing: 0;
   margin-top: 20px;
@@ -34,4 +39,14 @@ th {
   padding: 5px;
   text-align: center;
   border: 1px solid #000;
+}
+
+.performer-heading {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 20px;
+  box-shadow: 0 5px 5px rgba(0, 0, 0, 0.2);
+  background-color: #f5a5a5;
+  padding: 5px;
 }

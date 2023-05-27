@@ -14,8 +14,6 @@
     <!-- Generate a good html to showcase such values -->
     <h1>Leaderboard Report (Top 10)</h1>
     <!-- <h2>Test: {{ test_name }}</h2> -->
-
-    <h3>Top 10 Participants</h3>
     <hr />
     <!-- Draw a beautiful table which consists of Rank number, Participant Name and Respective scores for each skills -->
     <!-- Datastructure is as follows: an element of participants_skill_scores has name, skills_info -->
@@ -33,7 +31,22 @@
       </thead>
       <tbody>
         {% for participant in participants_skill_scores %}
+
+        {% if forloop.counter == 1 %}
+        <tr><td colspan="3"><h3 class="performer-heading">Top 3 Grandmaster Performers</h3></tr></td>
+
+        {% elif forloop.counter == 4 %}
+        <tr><td colspan="3"><h3 class="performer-heading">Top 4-6 Master Performers</h3></tr></td>
+
+        {% elif forloop.counter == 7 %}
+        <tr><td colspan="3"><h3 class="performer-heading">Top 7-10 Expert Performers</h3></tr></td>
+
+        {% elif forloop.counter == 11 %}
+        <tr><td colspan="3"><h3 class="performer-heading">Top 11-20 Intermediate Performers</h3></tr></td>
+
+        {% endif %}
         <tr>
+
           <td>{{ forloop.counter }}</td>
           <td>{{ participant.name }}</td>
           <td>
