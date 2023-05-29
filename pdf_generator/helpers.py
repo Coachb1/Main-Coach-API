@@ -13,6 +13,13 @@ from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.db import get_user_display_name, get_user_by_id
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+import urllib, base64
+
 options = {
     'page-size': 'Letter',
     'encoding': "UTF-8",
@@ -136,36 +143,47 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             "feedback_text": feedback_text
         })
 
+    uri = get_test_attempt_session_skills_graph(test_attempt_session)
+
     t = render_to_string(
         f"pdf_generator/reports/report.html",
-        {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
+        {
+            'qa': qa, 
+            'participant_name': participant_name, 
+            'test_started_at': test_started_at,
+            'uri': uri
+        })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
     pdf = convert_html_to_pdf(t, css)
 
-    with tempfile.NamedTemporaryFile() as pdf_file:
-        pdf_file.write(pdf)
-        pdf_file.content_type = "application/pdf"
-        pdf_file.size = len(pdf)
+    # with tempfile.NamedTemporaryFile() as pdf_file:
+    #     pdf_file.write(pdf)
+    #     pdf_file.content_type = "application/pdf"
+    #     pdf_file.size = len(pdf)
 
-        doc = create_document(
-            tenant=tenant,
-            owner_type=DocOwnerTypeChoice.system,
-            owner_id=tenant.uid,
-            display_name=f"report_{test_attempt_session.uid}.pdf",
-            doc_type=DocTypeChoice.REPORT,
-            file=pdf_file
-        )
+    #     doc = create_document(
+    #         tenant=tenant,
+    #         owner_type=DocOwnerTypeChoice.system,
+    #         owner_id=tenant.uid,
+    #         display_name=f"report_{test_attempt_session.uid}.pdf",
+    #         doc_type=DocTypeChoice.REPORT,
+    #         file=pdf_file
+    #     )
 
-    TestAttemptSession.objects.filter(
-        uid=test_attempt_session.uid
-    ).update(
-        report_doc_id=doc.uid
-    )
+    # TestAttemptSession.objects.filter(
+    #     uid=test_attempt_session.uid
+    # ).update(
+    #     report_doc_id=doc.uid
+    # )
 
-    return get_document_url(doc)
+    # save to local file
+    with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
+        f.write(pdf)
+
+    return 'get_document_url(doc)'
 
 
 def get_participant_report(user) -> str:
@@ -251,3 +269,79 @@ def get_leaderboard_report(skills, tenant_id):
     #     f.write(pdf)
 
     return get_document_url(doc)
+
+# function to get a graph of skills for a test attempt session
+def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+    # get the skills_rating for the test_attempt_session
+    skills_rating = test_attempt_session.skills_rating
+
+    # skills_rating looks like: {'skill_name': skill_score}
+    # skill_score is a float value between 0 and 5
+
+    # get the skills from the skills_rating
+    skills = list(skills_rating.keys())
+
+    # get the skill_scores from the skills_rating
+    skill_scores = list(skills_rating.values())
+
+    # get the x axis values
+    x = np.arange(len(skills))
+
+    # bars should have space in between so that the skill names are visible so show skill names vertically
+    plt.xticks(rotation=90)
+
+    # get the y axis values
+    y = skill_scores
+
+    green_colors = ['mediumseagreen' for i in range(len(skills))]
+    yellow_colors = ['gold' for i in range(len(skills))]
+    red_colors = ['salmon' for i in range(len(skills))]
+
+    green_height = [5 for i in range(len(skills))]
+    yellow_height = [4 for i in range(len(skills))]
+    red_height = [2 for i in range(len(skills))]
+
+    # set color for all the bars as: sinlge bar should have 3 colors: red, yellow and green
+    # red from 0-2, yellow from 2-4 and green from 4-5
+    plt.bar(x, green_height, color=green_colors)
+    plt.bar(x, yellow_height, color=yellow_colors)
+    plt.bar(x, red_height, color=red_colors)
+
+    # plot the line graph
+    plt.plot(x, y, color='blue', marker='o')
+
+    # add the title as "Skill distribution Matrix" large font size and bold
+    plt.title('Skill distribution Matrix', fontsize=16, fontweight='bold')
+    # add the x axis label
+    plt.xlabel('Skills', fontweight='bold')
+    # add the y axis label
+    plt.ylabel('Skill Rating', fontweight='bold')
+
+    plt.xticks(x, skills)
+
+    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
+    plt.yticks([1, 2, 3, 4, 5], ['very bad', 'bad', 'average', 'good', 'very good'])
+
+    # tight layout
+    plt.tight_layout()
+
+    fig = plt.gcf()
+
+    # convert the graph to png
+    buf = io.BytesIO()
+
+    fig.savefig(buf, format='png')
+
+    buf.seek(0)
+
+    # encode the png file to base64
+    string = base64.b64encode(buf.read())
+
+    # decode the base64 encoded png file to utf-8
+    uri = urllib.parse.quote(string)
+
+    plt.close()
+
+    # return the decoded png file
+    return uri

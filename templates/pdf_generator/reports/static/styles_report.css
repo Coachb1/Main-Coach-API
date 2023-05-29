@@ -1,3 +1,20 @@
+
+/* Skills Graph */
+.skills-graph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
+  margin-top: 20px;
+}
+.skills-graph-img {
+  width: 750px;
+  height: 700px;
+}
+
+/* General Report */
+
 img {
   position: absolute;
   top: 5;
