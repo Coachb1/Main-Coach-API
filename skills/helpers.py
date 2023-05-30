@@ -24,6 +24,43 @@ def evaluate_response(question_text, response_text, skills):
 
     return response, is_evaluated
 
+def evaluate_conversation(conversation):
+
+    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback', 'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+
+    prompt = f'''
+    "Conversation:" {conversation};
+    "Required from anthropic:" Rate this conversation as "very good", "good", "average", "bad", "very bad" in terms for each behaviour trait in this cultural_list in JSON. 
+    cultural_list: "{cultural_skills}" Reply "very good", "good", "average", "bad", "very bad" for each skill from the list in a JSON format
+    Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
+    Example of JSON: {{"hierarchy": "very good", "consensual": "good", "indirect negative feedback": "average", "relationship based": "bad", "high context communication": "very bad", "Persuasion": "NA", "argumentative": "NA"}}
+    '''
+
+    is_evaluated = True
+
+    try:
+        response = anthropic_completion(prompt, len(cultural_skills) * 50)
+        response = json.loads(response)
+    except json.decoder.JSONDecodeError:
+        is_evaluated = False
+
+    # Convert "very good" to 5, "good" to 4, "average" to 3, "bad" to 2, "very bad" to 1, "NA" to 3
+    for skill in response:
+        if response[skill] == "very good":
+            response[skill] = 5
+        elif response[skill] == "good":
+            response[skill] = 4
+        elif response[skill] == "average":
+            response[skill] = 3
+        elif response[skill] == "bad":
+            response[skill] = 2
+        elif response[skill] == "very bad":
+            response[skill] = 1
+        elif response[skill] == "NA":
+            response[skill] = 3
+
+    return response, is_evaluated
+
 
 def top_N_leadership_board(skills, N, tenant_id):
     # Get all skills_rating objects of this tenant

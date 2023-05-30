@@ -17,7 +17,7 @@ from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from external_apis.coach_whisper_api import coach_whisper_api
 from pdf_generator.helpers import convert_html_to_pdf
-from skills.helpers import evaluate_response, get_participant_info, upsert_into_skill_index
+from skills.helpers import evaluate_response, get_participant_info, upsert_into_skill_index, evaluate_conversation
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -345,6 +345,7 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     # get all the responses for this participant
     responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0)
 
+    culture_skills_rating = {}
     skills_rating = {}
     skills_count = {}
     attempted_count = 0
@@ -368,13 +369,21 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+    culture_skills_rating = calc_culture_skills_rating(responses)
+
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
     test_attempt_session.finished_at = timezone.now()
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    test_attempt_session.save(update_fields=["skills_rating", "test_score", "status", "finished_at", "updated"])
+    updated_fields = ["skills_rating", "test_score", "status", "finished_at", "updated"]
+
+    if culture_skills_rating is not None:
+        test_attempt_session.culture_skills_rating = culture_skills_rating
+        updated_fields.append("culture_skills_rating")
+
+    test_attempt_session.save(update_fields=updated_fields)
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
     skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
@@ -410,6 +419,28 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     skills_rating_object.save(update_fields=updated_fields)
 
+def calc_culture_skills_rating(responses):
+    culture_skills_rating = {}
+
+    conversation = ""
+    count = 1
+    
+    for response in responses:
+        question_text = TestQuestion.objects.get(uid=response.question_id).question
+        response_text = response.response_text
+
+        conversation += f"{count}. [Question:] {question_text}\n"
+        conversation += f"[Answer:] {response_text}\n\n"
+
+        count += 1
+
+    # Evaluate conversation
+    culture_skills_rating, is_evaluated = evaluate_conversation(conversation)
+
+    if not is_evaluated:
+        return None
+
+    return culture_skills_rating
 
 def get_chat_conversation_prompt_v3(test_title: str,
                                     question: str,

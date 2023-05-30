@@ -144,6 +144,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         })
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
+    culture_uri = get_test_attempt_session_culture_skills_graph(test_attempt_session)
 
     t = render_to_string(
         f"pdf_generator/reports/report.html",
@@ -151,7 +152,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             'qa': qa, 
             'participant_name': participant_name, 
             'test_started_at': test_started_at,
-            'uri': uri
+            'uri': uri,
+            'culture_uri': culture_uri
         })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
@@ -332,6 +334,80 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     buf = io.BytesIO()
 
     fig.savefig(buf, format='png')
+
+    buf.seek(0)
+
+    # encode the png file to base64
+    string = base64.b64encode(buf.read())
+
+    # decode the base64 encoded png file to utf-8
+    uri = urllib.parse.quote(string)
+
+    plt.close()
+
+    # return the decoded png file
+    return uri
+
+def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+    culture_skills_rating = test_attempt_session.culture_skills_rating
+
+    # skills_rating looks like: {'skill_name': skill_score}
+    # skill_score is a float value between 0 and 5
+
+    # get the skills from the skills_rating
+    culture_skills = list(culture_skills_rating.keys())
+
+    culture_label_left = []
+    culture_label_right = []
+
+    convert_to_label = {'hierarchy': ('Egaliterian', 'Hierarchial'),
+    'consensual': ('Top Down', 'Consensual'), 
+    'indirect negative feedback': ('Direct Negative Feedback', 'Indirect Negative Feedback'),
+    'relationship based': ('Task-based', 'Relationship-based'), 
+    'high context communication': ('Low Context Communication', 'High Context Communication'),
+    'Persuasion': ('Avoids Confrontation', 'Confrontational'), 'argumentative': ('Compliant', 'Argumentative')}
+
+    for skill in culture_skills:
+        culture_label_left.append(convert_to_label[skill][0])
+        culture_label_right.append(f"- {convert_to_label[skill][1]}")
+
+    # get the skill_scores from the skills_rating
+    culture_skill_scores = list(culture_skills_rating.values())
+
+    y = [5 for a in culture_skill_scores]
+    widths = [0.5 for a in culture_skill_scores]
+
+    # Create the horizontal bars
+    plt.barh(culture_label_left, y, color='gainsboro', height=widths)
+
+    plt.title('Culture Map', fontsize=16, fontweight='bold')
+
+    # Add labels to the ends of the horizontal bars
+    for i in range(len(culture_label_left)):
+        # plt.text(-1.2, i, culture_label_left[i])
+        plt.text(5, i, culture_label_right[i], va='center')
+
+    plt.plot(culture_skill_scores, range(len(culture_label_left)), '-o', markersize=20, color='orange')
+    # plt.axis('off')
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['left'].set_visible(False)
+    plt.gca().spines['bottom'].set_visible(False)
+
+    # remove x axis labels
+    plt.xticks([])
+    
+    # tight layout
+    plt.tight_layout()
+
+    fig = plt.gcf()
+
+    # convert the graph to png
+    buf = io.BytesIO()
+    
+    fig.savefig(buf, format='png')
+    # fig.savefig('culture.png', format='png')
 
     buf.seek(0)
 
