@@ -185,7 +185,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     # with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
     #     f.write(pdf)
 
-    return 'get_document_url(doc)'
+    return get_document_url(doc)
 
 
 def get_participant_report(user) -> str:
