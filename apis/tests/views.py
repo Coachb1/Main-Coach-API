@@ -13,6 +13,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import create_test, get_test_report
 from tests.models import Test
+from users.permissions import IsAuthenticatedUser
 
 
 class TestViewSet(ApiViewSet,
@@ -20,7 +21,7 @@ class TestViewSet(ApiViewSet,
                   mixins.RetrieveModelMixin):
     queryset = Test.objects.filter(deleted=0)
     serializer_class = TestDisplaySerializer
-    permission_classes = (IsAuthenticatedClient,)
+    permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
     filterset_class = TestFilterSet
     ordering_fields = ("id",)
