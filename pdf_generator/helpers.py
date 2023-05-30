@@ -161,29 +161,29 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     pdf = convert_html_to_pdf(t, css)
 
-    # with tempfile.NamedTemporaryFile() as pdf_file:
-    #     pdf_file.write(pdf)
-    #     pdf_file.content_type = "application/pdf"
-    #     pdf_file.size = len(pdf)
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
 
-    #     doc = create_document(
-    #         tenant=tenant,
-    #         owner_type=DocOwnerTypeChoice.system,
-    #         owner_id=tenant.uid,
-    #         display_name=f"report_{test_attempt_session.uid}.pdf",
-    #         doc_type=DocTypeChoice.REPORT,
-    #         file=pdf_file
-    #     )
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"report_{test_attempt_session.uid}.pdf",
+            doc_type=DocTypeChoice.REPORT,
+            file=pdf_file
+        )
 
-    # TestAttemptSession.objects.filter(
-    #     uid=test_attempt_session.uid
-    # ).update(
-    #     report_doc_id=doc.uid
-    # )
+    TestAttemptSession.objects.filter(
+        uid=test_attempt_session.uid
+    ).update(
+        report_doc_id=doc.uid
+    )
 
-    # save to local file
-    with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
-        f.write(pdf)
+    # # save to local file
+    # with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
+    #     f.write(pdf)
 
     return 'get_document_url(doc)'
 
@@ -287,18 +287,21 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     # get the skill_scores from the skills_rating
     skill_scores = list(skills_rating.values())
 
+    # shorten the skill names
+    skills = [f"{skill[:6]}..." for skill in skills]
+
     # get the x axis values
     x = np.arange(len(skills))
 
     # bars should have space in between so that the skill names are visible so show skill names vertically
-    plt.xticks(rotation=90)
+    plt.xticks(rotation=45, ha='right')
 
     # get the y axis values
     y = skill_scores
 
-    green_colors = ['mediumseagreen' for i in range(len(skills))]
-    yellow_colors = ['gold' for i in range(len(skills))]
-    red_colors = ['salmon' for i in range(len(skills))]
+    green_colors = ['darkgrey' for i in range(len(skills))]
+    yellow_colors = ['grey' for i in range(len(skills))]
+    red_colors = ['black' for i in range(len(skills))]
 
     green_height = [5 for i in range(len(skills))]
     yellow_height = [4 for i in range(len(skills))]
@@ -315,6 +318,8 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # add the title as "Skill distribution Matrix" large font size and bold
     plt.title('Skill distribution Matrix', fontsize=16, fontweight='bold')
+    # Add space between title and graph
+    plt.subplots_adjust(top=2)
     # add the x axis label
     plt.xlabel('Skills', fontweight='bold')
     # add the y axis label
@@ -323,10 +328,14 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     plt.xticks(x, skills)
 
     # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
-    plt.yticks([1, 2, 3, 4, 5], ['very bad', 'bad', 'average', 'good', 'very good'])
+    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
+    plt.yticks([1, 2, 3, 4, 5], ['Non Manager', 'Beginning Manager', 'Average Manager', 'Good Manager', 'Super Manager'])
 
     # tight layout
     plt.tight_layout()
+
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
 
     fig = plt.gcf()
 
@@ -361,14 +370,21 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     culture_label_left = []
     culture_label_right = []
 
-    convert_to_label = {'hierarchy': ('Egaliterian', 'Hierarchial'),
-    'consensual': ('Top Down', 'Consensual'), 
-    'indirect negative feedback': ('Direct Negative Feedback', 'Indirect Negative Feedback'),
-    'relationship based': ('Task-based', 'Relationship-based'), 
-    'high context communication': ('Low Context Communication', 'High Context Communication'),
-    'Persuasion': ('Avoids Confrontation', 'Confrontational'), 'argumentative': ('Compliant', 'Argumentative')}
+    convert_to_label = {'hierarchy': ('Leading\n(egaliterian)', '(hierarchial)'),
+    'consensual': ('Deciding\n(consensual)', '(top down)'), 
+    'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
+    'relationship based': ('Trusting\n(task-based)', '(relationship-based)'), 
+    'high context communication': ('Communicating\n(low-context)', '(high-context)'),
+    'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'), 
+    'argumentative': ('Influence\n(compliant)', '(argumentative)')}
 
     for skill in culture_skills:
+        if skill == 'consensual':
+            culture_skills_rating[skill] = 5 - culture_skills_rating[skill] + 1
+
+        elif skill == 'Persuasion':
+            culture_skills_rating[skill] = 5 - culture_skills_rating[skill] + 1
+
         culture_label_left.append(convert_to_label[skill][0])
         culture_label_right.append(f"- {convert_to_label[skill][1]}")
 
@@ -381,7 +397,8 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     # Create the horizontal bars
     plt.barh(culture_label_left, y, color='gainsboro', height=widths)
 
-    plt.title('Culture Map', fontsize=16, fontweight='bold')
+    plt.suptitle('Culture Map', fontsize=16, fontweight='bold')
+    plt.title('7 Dimensions of behavioral attributes')
 
     # Add labels to the ends of the horizontal bars
     for i in range(len(culture_label_left)):
@@ -407,7 +424,7 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     buf = io.BytesIO()
     
     fig.savefig(buf, format='png')
-    # fig.savefig('culture.png', format='png')
+    fig.savefig('culture.png', format='png')
 
     buf.seek(0)
 
