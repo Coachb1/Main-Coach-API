@@ -294,6 +294,7 @@ def process_test_response(test_question_response: TestQuestionResponse):
         # delete this response
         test_question_response.deleted = test_question_response.deleted + 1
         test_question_response.save()
+        logger.error("failed to get skills_rating json, got %s", skills_rating)
         raise ValueError("unable to get feedback for %s", test_question_response.uid)
 
     for skill in required_skills:
