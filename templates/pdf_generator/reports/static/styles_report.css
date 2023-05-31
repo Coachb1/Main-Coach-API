@@ -1,3 +1,37 @@
+
+/* Skills Graph */
+.skills-graph {
+  position: relative;
+  display: -webkit-box;
+  align-items: center;
+  -webkit-box-pack: justify;
+  width: 100%;
+  height: 100%;
+  margin-bottom: 1rem;
+}
+.skills-graph-img {
+  width: 750px;
+  height: 700px;
+}
+
+.culture-graph {
+  position: relative;
+  page-break-before: always;
+  display: -webkit-box;
+  align-items: center;
+  -webkit-box-pack: justify;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+  height: 100%;
+}
+.culture-graph-img {
+  width: 100%;
+  height: 700px;
+}
+
+/* General Report */
+
 img {
   position: absolute;
   top: 5;

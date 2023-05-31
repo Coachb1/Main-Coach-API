@@ -13,6 +13,13 @@ from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.db import get_user_display_name, get_user_by_id
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+import urllib, base64
+
 options = {
     'page-size': 'Letter',
     'encoding': "UTF-8",
@@ -136,9 +143,18 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             "feedback_text": feedback_text
         })
 
+    uri = get_test_attempt_session_skills_graph(test_attempt_session)
+    culture_uri = get_test_attempt_session_culture_skills_graph(test_attempt_session)
+
     t = render_to_string(
         f"pdf_generator/reports/report.html",
-        {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at})
+        {
+            'qa': qa, 
+            'participant_name': participant_name, 
+            'test_started_at': test_started_at,
+            'uri': uri,
+            'culture_uri': culture_uri
+        })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
@@ -164,6 +180,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     ).update(
         report_doc_id=doc.uid
     )
+
+    # # save to local file
+    # with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
+    #     f.write(pdf)
 
     return get_document_url(doc)
 
@@ -251,3 +271,169 @@ def get_leaderboard_report(skills, tenant_id):
     #     f.write(pdf)
 
     return get_document_url(doc)
+
+# function to get a graph of skills for a test attempt session
+def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+    # get the skills_rating for the test_attempt_session
+    skills_rating = test_attempt_session.skills_rating
+
+    # skills_rating looks like: {'skill_name': skill_score}
+    # skill_score is a float value between 0 and 5
+
+    # get the skills from the skills_rating
+    skills = list(skills_rating.keys())
+
+    # get the skill_scores from the skills_rating
+    skill_scores = list(skills_rating.values())
+
+    # shorten the skill names
+    skills = [f"{skill[:6]}..." for skill in skills]
+
+    # get the x axis values
+    x = np.arange(len(skills))
+
+    # bars should have space in between so that the skill names are visible so show skill names vertically
+    plt.xticks(rotation=45, ha='right')
+
+    # get the y axis values
+    y = skill_scores
+
+    green_colors = ['darkgrey' for i in range(len(skills))]
+    yellow_colors = ['grey' for i in range(len(skills))]
+    red_colors = ['black' for i in range(len(skills))]
+
+    green_height = [5 for i in range(len(skills))]
+    yellow_height = [4 for i in range(len(skills))]
+    red_height = [2 for i in range(len(skills))]
+
+    # set color for all the bars as: sinlge bar should have 3 colors: red, yellow and green
+    # red from 0-2, yellow from 2-4 and green from 4-5
+    plt.bar(x, green_height, color=green_colors)
+    plt.bar(x, yellow_height, color=yellow_colors)
+    plt.bar(x, red_height, color=red_colors)
+
+    # plot the line graph
+    plt.plot(x, y, color='blue', marker='o')
+
+    # add the title as "Skill distribution Matrix" large font size and bold
+    plt.title('Skill distribution Matrix', fontsize=16, fontweight='bold')
+    # Add space between title and graph
+    plt.subplots_adjust(top=2)
+    # add the x axis label
+    plt.xlabel('Skills', fontweight='bold')
+    # add the y axis label
+    plt.ylabel('Skill Rating', fontweight='bold')
+
+    plt.xticks(x, skills)
+
+    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
+    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
+    plt.yticks([1, 2, 3, 4, 5], ['Non Manager', 'Beginning Manager', 'Average Manager', 'Good Manager', 'Super Manager'])
+
+    # tight layout
+    plt.tight_layout()
+
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+
+    fig = plt.gcf()
+
+    # convert the graph to png
+    buf = io.BytesIO()
+
+    fig.savefig(buf, format='png')
+
+    buf.seek(0)
+
+    # encode the png file to base64
+    string = base64.b64encode(buf.read())
+
+    # decode the base64 encoded png file to utf-8
+    uri = urllib.parse.quote(string)
+
+    plt.close()
+
+    # return the decoded png file
+    return uri
+
+def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+    culture_skills_rating = test_attempt_session.culture_skills_rating
+
+    # skills_rating looks like: {'skill_name': skill_score}
+    # skill_score is a float value between 0 and 5
+
+    # get the skills from the skills_rating
+    culture_skills = list(culture_skills_rating.keys())
+
+    culture_label_left = []
+    culture_label_right = []
+
+    convert_to_label = {'hierarchy': ('Leading\n(egaliterian)', '(hierarchial)'),
+    'consensual': ('Deciding\n(consensual)', '(top down)'), 
+    'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
+    'relationship based': ('Trusting\n(task-based)', '(relationship-based)'), 
+    'high context communication': ('Communicating\n(low-context)', '(high-context)'),
+    'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'), 
+    'argumentative': ('Influence\n(compliant)', '(argumentative)')}
+
+    for skill in culture_skills:
+        if skill == 'consensual':
+            culture_skills_rating[skill] = 5 - culture_skills_rating[skill] + 1
+
+        elif skill == 'Persuasion':
+            culture_skills_rating[skill] = 5 - culture_skills_rating[skill] + 1
+
+        culture_label_left.append(convert_to_label[skill][0])
+        culture_label_right.append(f"- {convert_to_label[skill][1]}")
+
+    # get the skill_scores from the skills_rating
+    culture_skill_scores = list(culture_skills_rating.values())
+
+    y = [5 for a in culture_skill_scores]
+    widths = [0.5 for a in culture_skill_scores]
+
+    # Create the horizontal bars
+    plt.barh(culture_label_left, y, color='gainsboro', height=widths)
+
+    plt.suptitle('Culture Map', fontsize=16, fontweight='bold')
+    plt.title('7 Dimensions of behavioral attributes')
+
+    # Add labels to the ends of the horizontal bars
+    for i in range(len(culture_label_left)):
+        # plt.text(-1.2, i, culture_label_left[i])
+        plt.text(5, i, culture_label_right[i], va='center')
+
+    plt.plot(culture_skill_scores, range(len(culture_label_left)), '-o', markersize=20, color='orange')
+    # plt.axis('off')
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['left'].set_visible(False)
+    plt.gca().spines['bottom'].set_visible(False)
+
+    # remove x axis labels
+    plt.xticks([])
+    
+    # tight layout
+    plt.tight_layout()
+
+    fig = plt.gcf()
+
+    # convert the graph to png
+    buf = io.BytesIO()
+    
+    fig.savefig(buf, format='png')
+
+    buf.seek(0)
+
+    # encode the png file to base64
+    string = base64.b64encode(buf.read())
+
+    # decode the base64 encoded png file to utf-8
+    uri = urllib.parse.quote(string)
+
+    plt.close()
+
+    # return the decoded png file
+    return uri
