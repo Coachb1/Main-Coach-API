@@ -424,7 +424,6 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     buf = io.BytesIO()
     
     fig.savefig(buf, format='png')
-    fig.savefig('culture.png', format='png')
 
     buf.seek(0)
 
