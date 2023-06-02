@@ -48,3 +48,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         report_url = get_report_from_test_attempt_session(test_attempt_session)
         return Response({"report_url": report_url}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=False, url_path="get-session-id")
+    def get_test_report(self, request, *args, **kwargs):
+        participant_id = request.query_params.get("participant_id")
+        test_id = request.query_params.get("test_id")
+
+        test_attempt_session = TestAttemptSession.objects.get(
+            tenant_id=request.tenant.uid,
+            participant_id=participant_id,
+            test_id=test_id
+        )
+
+        return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)
