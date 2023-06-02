@@ -57,7 +57,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = TestAttemptSession.objects.get(
             tenant_id=request.tenant.uid,
             participant_id=participant_id,
-            test_id=test_id
+            test_id=test_id,
+            deleted=0
         )
 
         return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)
