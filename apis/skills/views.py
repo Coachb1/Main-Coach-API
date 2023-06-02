@@ -5,13 +5,15 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.skills.serializers import SkillIndexSerializer
-from apis.skills.serializers import SkillsDisplaySerializer
+from apis.skills.serializers import SkillsDisplaySerializer, CustomRatingDisplaySerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from pdf_generator.helpers import get_leaderboard_report
 from skills.helpers import get_top_participant_skills
 from skills.models import SkillIndex
 from skills.models import SkillsRating
+from skills.models import CustomRating
+from skills.helpers import save_the_custom_rating
 
 
 class SkillsIndexViewSet(ApiViewSet,
@@ -61,3 +63,26 @@ class SkillsViewSet(ApiViewSet,
         report_url = get_leaderboard_report(skills, tenant_id=request.tenant.uid)
 
         return Response({"report_url": report_url})
+
+class CustomRatingViewSet(ApiViewSet,
+                    mixins.ListModelMixin,
+                    mixins.RetrieveModelMixin):
+    queryset = CustomRating.objects.filter(deleted=0)
+    serializer_class = CustomRatingDisplaySerializer
+    permission_classes = (IsAuthenticatedClient,)
+    filter_backends = (DjangoFilterBackend, OrderingFilter)
+    filterset_fields = ("tenant_id",)
+    ordering_fields = '__all__'
+    lookup_field = "uid"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
+
+    @action(methods=["GET"], detail=False, url_path="set-custom-rating")
+    def set_custom_rating(self, request, *args, **kwargs):
+        custom_rating_object = CustomRating.objects.get_or_create(tenant_id=request.tenant.uid)[0]
+        custom_rating = request.GET.get("custom_rating")
+
+        save_the_custom_rating(custom_rating, custom_rating_object)
+
+        return Response({"custom_rating_saved": custom_rating})

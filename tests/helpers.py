@@ -565,6 +565,14 @@ def get_test_report(test: Test) -> str:
         for test_attempt_session in test_attempt_sessions
     ]
 
+    # sort the test_scores by score
+    test_scores.sort(key=lambda x: x["score"], reverse=True)
+
+    # PLACEHOLDER LOGIC
+    # test_scores = []
+    # while len(test_scores) < 19:
+    #     test_scores.append({"score": 0, "participant": {"name": "PLACEHOLDER", "email": "NA"}})
+
     t = render_to_string(
         f"pdf_generator/reports/test_report.html", {
             'test_name': test.title,
@@ -590,5 +598,9 @@ def get_test_report(test: Test) -> str:
             doc_type=DocTypeChoice.TEST_REPORT,
             file=pdf_file
         )
+
+    # save to local storage
+    # with open(f"./test_report_{test.uid}.pdf", "wb") as f:
+    #     f.write(pdf)
 
     return get_document_url(doc)
