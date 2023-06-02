@@ -1,12 +1,19 @@
+import logging
+
 import anthropic
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 
 def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(ANTHROPIC_KEY)
-    response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}', model='claude-instant-v1', max_tokens_to_sample=max_tokens, stop_sequences=[anthropic.HUMAN_PROMPT])
+    response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
+                                 model='claude-instant-v1', max_tokens_to_sample=max_tokens,
+                                 stop_sequences=[anthropic.HUMAN_PROMPT])
+    logger.info("anthropic_completion response %s", response)
     return response['completion']
 
 
