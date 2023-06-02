@@ -1,5 +1,6 @@
 from clients.models import Client
 from tenants.models import Tenant
+from users.models import User
 
 
 def hostname_from_request(request) -> str:
@@ -15,6 +16,11 @@ def tenant_from_request(request):
 def tenant_from_client(client: Client) -> Tenant:
     if client:
         return Tenant.objects.get(uid=client.tenant_id, deleted=0)
+
+
+def tenant_from_user(user: User) -> Tenant:
+    if user:
+        return Tenant.objects.get(uid=user.tenant_id, deleted=0)
 
 
 def tenant_from_tenant_id(tenant_id) -> Tenant:

@@ -17,6 +17,10 @@ class User(TenantAwareModel):
     def can_login(self):
         return self.password is not None
 
+    @property
+    def is_active(self):
+        return self.can_login
+
 
 class UserAttribute(TenantAwareModel):
     user_id = models.CharField(max_length=255)
