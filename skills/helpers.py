@@ -131,6 +131,11 @@ def get_top_participant_skills(skills, q_set, top_n=10):
 
     return top_participant_skills
 
+def save_the_custom_rating(custom_rating, custom_rating_object):
+    json_obj = json.loads(custom_rating)
+    custom_rating_object.custom_rating = json_obj
+    custom_rating_object.save()
+
 
 def upsert_into_skill_index(tenant_id: str,
                             skills: list):

@@ -12,6 +12,7 @@ from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.db import get_user_display_name, get_user_by_id
+from skills.models import CustomRating
 
 import matplotlib
 matplotlib.use('Agg')
@@ -198,7 +199,8 @@ def get_participant_report(user) -> str:
 
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
-                                                           'participant_info': participant_info})
+                                                           'participant_info': participant_info,
+                                                           'custom_rating': CustomRating.objects.get(tenant_id=user.tenant_id).custom_rating})
 
     pdf = convert_html_to_pdf(t, css)
 
@@ -217,7 +219,7 @@ def get_participant_report(user) -> str:
         )
 
     # save in local
-    # with open(f"/tmp/participant_report_{participant_name}.pdf", "wb") as f:
+    # with open(f"./participant_report_{participant_name}.pdf", "wb") as f:
     #     f.write(pdf)
 
     return get_document_url(doc)
@@ -225,30 +227,42 @@ def get_participant_report(user) -> str:
 
 def get_leaderboard_report(skills, tenant_id):
     participants_skill_scores = top_N_leadership_board(skills, 20, tenant_id=tenant_id)
+    custom_rating_object = CustomRating.objects.get(tenant_id=tenant_id)
+    custom_rating = custom_rating_object.custom_rating
+
+    if custom_rating is None:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
 
     # TODO: Placeholder logic: To be removed soon
-    while len(participants_skill_scores) < 20:
-        participants_skill_scores.append({
-            "name": "PLACEHOLDER",
-            "skills_info": {
-                    "skill_1": {
-                        "score": 0,
-                        "average_score": 0,
-                        "question_count": 0,
-                },
-                "skill_2": {
-                    "score": 0,
-                    "average_score": 0,
-                    "question_count": 0,
-                },
-            }
-        })
+    # participants_skill_scores = []
+    # while len(participants_skill_scores) < 19:
+    #     participants_skill_scores.append({
+    #         "name": "PLACEHOLDER",
+    #         "skills_info": {
+    #                 "skill_1": {
+    #                     "score": 0,
+    #                     "average_score": 0,
+    #                     "question_count": 0,
+    #             },
+    #             "skill_2": {
+    #                 "score": 0,
+    #                 "average_score": 0,
+    #                 "question_count": 0,
+    #             },
+    #         }
+    #     })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
     t = render_to_string(
-        f"pdf_generator/reports/leaderboard_report.html", {'participants_skill_scores': participants_skill_scores})
+        f"pdf_generator/reports/leaderboard_report.html", {'participants_skill_scores': participants_skill_scores, 'custom_rating': custom_rating})
 
     pdf = convert_html_to_pdf(t, css)
 
@@ -299,9 +313,9 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     # get the y axis values
     y = skill_scores
 
-    green_colors = ['darkgrey' for i in range(len(skills))]
-    yellow_colors = ['grey' for i in range(len(skills))]
-    red_colors = ['black' for i in range(len(skills))]
+    green_colors = ['gainsboro' for i in range(len(skills))]
+    yellow_colors = ['gainsboro' for i in range(len(skills))]
+    red_colors = ['gainsboro' for i in range(len(skills))]
 
     green_height = [5 for i in range(len(skills))]
     yellow_height = [4 for i in range(len(skills))]
@@ -309,9 +323,9 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # set color for all the bars as: sinlge bar should have 3 colors: red, yellow and green
     # red from 0-2, yellow from 2-4 and green from 4-5
-    plt.bar(x, green_height, color=green_colors)
-    plt.bar(x, yellow_height, color=yellow_colors)
-    plt.bar(x, red_height, color=red_colors)
+    plt.bar(x, green_height, color=green_colors, width=0.5)
+    plt.bar(x, yellow_height, color=yellow_colors, width=0.5)
+    plt.bar(x, red_height, color=red_colors, width=0.5)
 
     # plot the line graph
     plt.plot(x, y, color='blue', marker='o')
@@ -329,7 +343,15 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
     # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
-    plt.yticks([1, 2, 3, 4, 5], ['Non Manager', 'Beginning Manager', 'Average Manager', 'Good Manager', 'Super Manager'])
+    custom_rating = CustomRating.objects.get(tenant_id=test_attempt_session.tenant_id).custom_rating
+
+    # get sorted values of custom_rating dictionary by key
+    custom_rating = {k: v for k, v in sorted(custom_rating.items(), key=lambda item: item[0])}
+
+    # get the y ticks
+    skills_y_ticks = list(custom_rating.values())
+
+    plt.yticks([1, 2, 3, 4, 5], skills_y_ticks)
 
     # tight layout
     plt.tight_layout()
