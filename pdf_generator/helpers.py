@@ -21,6 +21,13 @@ import numpy as np
 import io
 import urllib, base64
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+import urllib, base64
+
 options = {
     'page-size': 'Letter',
     'encoding': "UTF-8",
@@ -313,6 +320,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     # get the y axis values
     y = skill_scores
 
+
     green_colors = ['gainsboro' for i in range(len(skills))]
     yellow_colors = ['gainsboro' for i in range(len(skills))]
     red_colors = ['gainsboro' for i in range(len(skills))]
@@ -323,6 +331,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # set color for all the bars as: sinlge bar should have 3 colors: red, yellow and green
     # red from 0-2, yellow from 2-4 and green from 4-5
+
     plt.bar(x, green_height, color=green_colors, width=0.5)
     plt.bar(x, yellow_height, color=yellow_colors, width=0.5)
     plt.bar(x, red_height, color=red_colors, width=0.5)
