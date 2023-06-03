@@ -94,8 +94,10 @@ class CustomRatingViewSet(ApiViewSet,
             "5": serializer.validated_data["five"],
         }
 
-        custom_rating_object = custom_rating_object = CustomRating.objects.get_or_create(
-            tenant_id=request.tenant.uid)[0]
+        custom_rating_object = CustomRating.objects.get_or_create(
+            tenant_id=request.tenant.uid,
+            deleted=0,
+        )[0]
 
         save_the_custom_rating(custom_rating, custom_rating_object)
 
