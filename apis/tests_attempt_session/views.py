@@ -50,7 +50,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         return Response({"report_url": report_url}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")
-    def get_test_report(self, request, *args, **kwargs):
+    def get_session_uid(self, request, *args, **kwargs):
         participant_id = request.query_params.get("participant_id")
         test_id = request.query_params.get("test_id")
 
