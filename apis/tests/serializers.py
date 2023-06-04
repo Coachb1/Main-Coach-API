@@ -8,24 +8,30 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=QuestionTypeChoices)
     question = serializers.CharField()
     media_link = serializers.CharField(required=False)
-    gpt_prompt_override = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    subjective_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    gpt_prompt_override = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    subjective_answer = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
     objective_answer = serializers.CharField(required=False)
     mcq_options = serializers.JSONField(required=False)
     mcq_answer = serializers.CharField(required=False)
-    key_learning_point = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    key_learning_skills = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    key_learning_point = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    key_learning_skills = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
 
 
 class CreateTestSerializer(serializers.Serializer):
-    creator_id = serializers.CharField()
+    creator_id = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField()
     description = serializers.CharField()
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
     test_related_context = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
-    gpt_prompt_override = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    gpt_prompt_override = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -44,7 +50,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
-    questions = serializers.SerializerMethodField(method_name="get_questions", read_only=True)
+    questions = serializers.SerializerMethodField(
+        method_name="get_questions", read_only=True)
 
     class Meta:
         model = Test
