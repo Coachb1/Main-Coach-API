@@ -34,6 +34,9 @@ class TestViewSet(ApiViewSet,
         serializer = CreateTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        if serializer.validated_data["creator_id"] is None:
+            serializer.validated_data["creator_id"] = request.auth_user.uid
+
         test, test_questions = create_test(
             tenant=request.tenant,
             **serializer.validated_data
