@@ -207,7 +207,7 @@ def get_participant_report(user) -> str:
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
                                                            'participant_info': participant_info,
-                                                           'custom_rating': CustomRating.objects.get(tenant_id=user.tenant_id).custom_rating})
+                                                           'custom_rating': CustomRating.objects.get(tenant_id=user.tenant_id, deleted=0).custom_rating})
 
     pdf = convert_html_to_pdf(t, css)
 
