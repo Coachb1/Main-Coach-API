@@ -7,65 +7,68 @@
     <title>Document</title>
   </head>
   <body>
+    <div class="">
     <div class="image-container">
       <img src="https://i.ibb.co/FBMBsHz/icon.png" alt="keys" />
     </div>
     <!-- From Django, I'll be getting Test and Test Session ID, Participant ID, questions, responses and feedback to those responses-->
     <!-- Generate a good html to showcase such values -->
-    <h1>Leaderboard Report (Top 10)</h1>
+    <h1>Candidate Leaderboard Report</h1>
     <!-- <h2>Test: {{ test_name }}</h2> -->
-    <hr />
+    <!-- <hr /> -->
     <!-- Draw a beautiful table which consists of Rank number, Participant Name and Respective scores for each skills -->
     <!-- Datastructure is as follows: an element of participants_skill_scores has name, skills_info -->
     <!-- Where skills_info is a dictionary of skill name as keys and a second dictionary as value. Second dictionary has 3 keys: score, average_score, question_count. Display them beautifully -->
     <!-- I want it to look like a single row for single participant and then within that single row, it should have multiple row for each skill and their respective score -->
     <!-- I want to display the rank of the participant as well -->
-
-    <table>
+    <table class="main-table" rules="all">
       <thead>
         <tr>
-          <th>Rank</th>
-          <th>Participant Name</th>
-          <th>Skills</th>
+          <th class="th-main">Rank</th>
+          <th class="th-main">Participant Name</th>
+          <th class="th-main">Skill Scores</th>
         </tr>
       </thead>
       <tbody>
         {% for participant in participants_skill_scores %}
 
         {% if forloop.counter == 1 %}
-        <tr><td colspan="3"><h3 class="performer-heading">Top 3 Grandmaster Performers</h3></tr></td>
+        <tr><td colspan="3"><h3 class="performer-heading">{{ custom_rating.5 }}</h3></tr></td>
 
         {% elif forloop.counter == 4 %}
-        <tr><td colspan="3"><h3 class="performer-heading">Top 4-6 Master Performers</h3></tr></td>
+        <tr><td colspan="3"><h3 class="performer-heading">{{ custom_rating.4 }}</h3></tr></td>
 
         {% elif forloop.counter == 7 %}
-        <tr><td colspan="3"><h3 class="performer-heading">Top 7-10 Expert Performers</h3></tr></td>
+        <tr><td colspan="3"><h3 class="performer-heading">{{ custom_rating.3 }}</h3></tr></td>
 
-        {% elif forloop.counter == 11 %}
-        <tr><td colspan="3"><h3 class="performer-heading">Top 11-20 Intermediate Performers</h3></tr></td>
+        {% elif forloop.counter == 13 %}
+        <tr><td colspan="3"><h3 class="performer-heading">{{ custom_rating.2 }}</h3></tr></td>
+        
+        {% elif forloop.counter == 18 %}
+        <tr><td colspan="3"><h3 class="performer-heading">{{ custom_rating.1 }}</h3></tr></td>
 
         {% endif %}
-        <tr>
 
-          <td>{{ forloop.counter }}</td>
-          <td>{{ participant.name }}</td>
+        <tr>
+          <td class="td-center">{{ forloop.counter }}</td>
+          <td class="td-center">{{ participant.name }}</td>
           <td>
-            <table class="table table-bordered">
+            <table class="inner-table" rules="">
               <thead>
                 <tr>
                   <th>Skill</th>
-                  <th>Score</th>
-                  <th>Average Score</th>
-                  <th>Question Count</th>
+                  <th class="inner-th">Score</th>
+                  <th class="inner-th">Average Score</th>
+                  <th class="inner-th">Question Count</th>
                 </tr>
               </thead>
               <tbody>
                 {% for skill, skill_info in participant.skills_info.items %}
                 <tr>
-                  <td>{{ skill }}</td>
-                  <td class="td-center">{{ skill_info.score }}</td>
-                  <td class="td-center">{{ skill_info.average_score }}</td>
-                  <td class="td-center">{{ skill_info.question_count }}</td>
+                  <td class="td-center">{{ skill }}</td>
+                  <td class="td-center inner-td">{{ skill_info.score }}</td>
+                  <td class="td-center inner-td">{{ skill_info.average_score }}</td>
+                  <td class="td-center inner-td">{{ skill_info.question_count }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -75,5 +78,6 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
   </body>
 </html>

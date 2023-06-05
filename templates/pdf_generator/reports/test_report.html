@@ -23,11 +23,30 @@
 
     <h3> Test scores </h3>
 
-    {% for test_score in test_scores %}
+    <!-- {% for test_score in test_scores %}
       <h3>{{ test_score.participant.name }}</h3>
       <p>{{ test_score.score }}</p>
       <hr />
-    {% endfor %}
+    {% endfor %} -->
+
+    <table class="table table-bordered" rules="all">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Participant</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for test_score in test_scores %}
+          <tr>
+            <td class="td-center">{{ forloop.counter }}</td>
+            <td class="td-center">{{ test_score.participant.name }}</td>
+            <td class="td-center">{{ test_score.score }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
   </body>
 </html>

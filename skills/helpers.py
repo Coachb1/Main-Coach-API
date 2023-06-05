@@ -26,9 +26,11 @@ def evaluate_response(question_text, response_text, skills):
 
     return response, is_evaluated
 
+
 def evaluate_conversation(conversation):
 
-    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback', 'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
+                       'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
     prompt = f'''
     "Conversation:" {conversation};
@@ -74,7 +76,7 @@ def top_N_leadership_board(skills, N, tenant_id):
     participants = []
 
     for obj in skill_rating_objects:
-        
+
         skills_info = obj.skills_info
         average_score = 0
         skills_dict = {}
@@ -83,7 +85,6 @@ def top_N_leadership_board(skills, N, tenant_id):
             if skill in skills_info:
                 average_score += skills_info[skill]['average_score']
                 skills_dict[skill] = skills_info[skill]
-
 
         participants.append({
             "participant_id": obj.participant_id,
@@ -95,7 +96,8 @@ def top_N_leadership_board(skills, N, tenant_id):
         })
 
     # sort participants based on the sum of average_score of skills in skills list from the skills_info dictionary in skills_rating object
-    participants = sorted(participants, key=lambda x: x['average_score'], reverse=True)
+    participants = sorted(
+        participants, key=lambda x: x['average_score'], reverse=True)
 
     return participants[:N]
 
@@ -132,6 +134,11 @@ def get_top_participant_skills(skills, q_set, top_n=10):
     )[:top_n]
 
     return top_participant_skills
+
+
+def save_the_custom_rating(custom_rating, custom_rating_object):
+    custom_rating_object.custom_rating = custom_rating
+    custom_rating_object.save()
 
 
 def upsert_into_skill_index(tenant_id: str,
