@@ -29,21 +29,56 @@
 
     <!-- Show the above skills section as table also -->
     <h3>Skills</h3>
-    <table class="table table-bordered">
+
+    <div class="legend-box">
+      <!-- Table to show two columns that explains what a score value means: 1=Non Manager, 2=Beginner Manager and so on -->
+      <table class="table table-bordered" rules="all">
+        <thead>
+          <tr>
+            <th>Average Score</th>
+            <th>Indicator</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-center">{{ 1 }}</td>
+            <td class="td-center">{{ custom_rating.1 }}</td>
+          </tr>
+          <tr>
+            <td class="td-center">{{ 2 }}</td>
+            <td class="td-center">{{ custom_rating.2 }}</td>
+          </tr>
+          <tr>
+            <td class="td-center">{{ 3 }}</td>
+            <td class="td-center">{{ custom_rating.3 }}</td>
+          </tr>
+          <tr>
+            <td class="td-center">{{ 4 }}</td>
+            <td class="td-center">{{ custom_rating.4 }}</td>
+          </tr>
+          <tr>
+            <td class="td-center">{{ 5 }}</td>
+            <td class="td-center">{{ custom_rating.5 }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <table class="table table-bordered" rules="all">
       <thead>
         <tr>
           <th>Skill</th>
-          <th>Score</th>
+          <th>Aggregate Score</th>
           <th>Average Score</th>
-          <th>Question Count</th>
+          <th>Aggregate Questions</th>
         </tr>
       </thead>
       <tbody>
         {% for skill, value in participant_info.skills_info.items %}
         <tr>
-          <td>{{ skill }}</td>
+          <td class="td-center">{{ skill }}</td>
           <td class="td-center">{{ value.score }}</td>
-          <td class="td-center">{{ value.average_score }}</td>
+          <td class="td-center">{{ value.average_score|floatformat:-2 }}</td>
           <td class="td-center">{{ value.question_count }}</td>
         </tr>
         {% endfor %}

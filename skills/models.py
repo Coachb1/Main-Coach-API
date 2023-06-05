@@ -32,15 +32,12 @@ class SkillsRating(TenantAwareModel):
         )
 
 
-# example: {'tenant-id': '123', 'label':'Super Manager', 'required_rating': 'leadership > 90, conflict_management > 80'}
-class CustomRatingForLabels(TenantAwareModel):
+class CustomRating(TenantAwareModel):
     tenant_id = models.CharField(max_length=255, db_index=True)
-    label = models.CharField(max_length=255, db_index=True)
-    # List of string of required skills and raiting for a label
-    required_rating = models.TextField(null=True, blank=True)
+    custom_rating = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
-        db_table = 'custom_rating_for_labels'
+        db_table = 'custom_rating'
         unique_together = (
-            ('tenant_id', 'label', 'deleted'),
+            ('tenant_id', 'deleted'),
         )

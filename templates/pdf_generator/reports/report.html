@@ -5,42 +5,45 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+    <link rel="stylesheet" href="/Users/samarthpawar/Desktop/coach-api/templates/pdf_generator/reports/static/styles_report.css" />
   </head>
   <body>
-    <div class="image-container">
-      <img src="https://i.ibb.co/FBMBsHz/icon.png" alt="keys" />
-    </div>
-    <!-- From Django, I'll be getting Test and Test Session ID, Participant ID, questions, responses and feedback to those responses-->
-    <!-- Generate a good html to showcase such values -->
-    <h1>Interaction Session Transcript</h1>
-    <!-- <h2>Test: {{ test_name }}</h2> -->
-    <h2>Participant: {{ participant_name }}</h2>
-    <h2>Interaction Date: {{ test_started_at }}</h2>
+      <div class="image-container">
+        <img src="https://i.ibb.co/FBMBsHz/icon.png" alt="keys" />
+      </div>
+      <!-- From Django, I'll be getting Test and Test Session ID, Participant ID, questions, responses and feedback to those responses-->
+      <!-- Generate a good html to showcase such values -->
+      <h1>Interaction Session Report</h1>
+      <h2>Transcripts, Feedback, Skills Matrix, and Culture Map based on interaction.</h2>
+      <!-- <h2>Test: {{ test_name }}</h2> -->
+      <h2>Participant: {{ participant_name }}</h2>
+      <h2>Interaction Date: {{ test_started_at }}</h2>
 
-    <h2>Responses</h2>
-    <hr />
+      <h2>Transcripts</h2>
+      <hr />
 
-    {% for ele in qa %}
-    <h3>Question</h3>
-    <p>{{ ele.question_text }}</p>
-    <h3>Response</h3>
-    <p>{{ ele.response_text }}</p>
-    <h3>Feedback</h3>
-    <p>{{ ele.feedback_text }}</p>
-    <hr />
-    {% endfor %}
+      {% for ele in qa %}
+      <h3>Question</h3>
+      <p>{{ ele.question_text }}</p>
+      <h3>Response</h3>
+      <p>{{ ele.response_text }}</p>
+      <h3>Feedback</h3>
+      <p>{{ ele.feedback_text }}</p>
+      <hr />
+      {% endfor %}
 
-    <!-- Skills Graph PNG image at center -->
+      <!-- Skills Graph PNG image at center -->
 
-    <!-- <h2>Skills Distribution Matrix</h2> -->
-    
-    <div class="skills-graph">
-      <img class="skills-graph-img" src="data:image/png;base64,{{ uri }}" alt="skills-graph" height="500" width="500" />
-    </div>
+      <!-- <h2>Skills Distribution Matrix</h2> -->
+      
+      <div class="skills-graph">
+        <img class="skills-graph-img" src="data:image/png;base64,{{ uri }}" alt="skills-graph" height="500" width="500" />
+      </div>
 
-    <div class="culture-graph">
-      <img class="culture-graph-img" src="data:image/png;base64,{{ culture_uri }}" alt="culture-skills-graph" />
-    </div>
+      <hr style="border: 1px solid white;"/> 
+      <div class="culture-graph">
+        <img class="culture-graph-img" src="data:image/png;base64,{{ culture_uri }}" alt="culture-skills-graph" />
+      </div>
 
   </body>
 </html>
