@@ -16,6 +16,7 @@ from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from external_apis.coach_whisper_api import coach_whisper_api
+from external_apis.coach_metric_api import coach_metric_api
 from pdf_generator.helpers import convert_html_to_pdf
 from skills.helpers import evaluate_response, get_participant_info, upsert_into_skill_index, evaluate_conversation
 from skills.models import SkillsRating
@@ -45,7 +46,8 @@ TEST_CODE_GENERATION_MAX_RETRY = 4
 def get_unique_test_code(tenant: Tenant) -> str:
     global TEST_CODE_LENGTH
 
-    test_code = get_random_string(length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+    test_code = get_random_string(
+        length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
     retries = 0
     while Test.objects.filter(tenant_id=tenant.uid,
                               test_code=test_code,
@@ -53,9 +55,11 @@ def get_unique_test_code(tenant: Tenant) -> str:
         if retries >= TEST_CODE_GENERATION_MAX_RETRY:
             TEST_CODE_LENGTH += 1
             retries = 0
-            logger.info("[get_unique_test_code] increased length of test code to %s", TEST_CODE_LENGTH)
+            logger.info(
+                "[get_unique_test_code] increased length of test code to %s", TEST_CODE_LENGTH)
 
-        test_code = get_random_string(length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+        test_code = get_random_string(
+            length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
         retries += 1
 
     return test_code
@@ -72,9 +76,11 @@ def create_test(tenant: Tenant,
                 test_related_context: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
-        creator = User.objects.get(tenant_id=tenant.uid, uid=creator_id, deleted=0)
+        creator = User.objects.get(
+            tenant_id=tenant.uid, uid=creator_id, deleted=0)
     except User.DoesNotExist as e:
-        logger.exception("failed to create test, creator with id %s does not exist", creator_id)
+        logger.exception(
+            "failed to create test, creator with id %s does not exist", creator_id)
         raise serializers.ValidationError("invalid creator id")
 
     with transaction.atomic():
@@ -93,27 +99,27 @@ def create_test(tenant: Tenant,
         test_questions = []
         for question in questions:
             test_q = TestQuestion.objects.create(
-                    tenant_id=tenant.uid,
-                    test_id=test.uid,
-                    question_type=question.get("question_type"),
-                    media_link=question.get("media_link"),
-                    gpt_prompt_override=question.get("gpt_prompt_override"),
-                    question=question.get("question"),
-                    subjective_answer=question.get("subjective_answer"),
-                    objective_answer=question.get("objective_answer"),
-                    mcq_options=question.get("mcq_options"),
-                    mcq_answer=question.get("mcq_answer"),
-                    key_learning_point=(
-                            question.get("key_learning_point")
-                            or get_question_key_learning_point(test_title=title,
-                                                               test_question=question.get("question"))
-                    ),
-                    key_learning_skills=(
-                            question.get("key_learning_skills")
-                            or get_question_key_learning_skills(test_title=title,
-                                                                test_question=question.get("question"))
-                    ),
-                )
+                tenant_id=tenant.uid,
+                test_id=test.uid,
+                question_type=question.get("question_type"),
+                media_link=question.get("media_link"),
+                gpt_prompt_override=question.get("gpt_prompt_override"),
+                question=question.get("question"),
+                subjective_answer=question.get("subjective_answer"),
+                objective_answer=question.get("objective_answer"),
+                mcq_options=question.get("mcq_options"),
+                mcq_answer=question.get("mcq_answer"),
+                key_learning_point=(
+                    question.get("key_learning_point")
+                    or get_question_key_learning_point(test_title=title,
+                                                       test_question=question.get("question"))
+                ),
+                key_learning_skills=(
+                    question.get("key_learning_skills")
+                    or get_question_key_learning_skills(test_title=title,
+                                                        test_question=question.get("question"))
+                ),
+            )
 
             upsert_into_skill_index(tenant_id=tenant.uid,
                                     skills=test_q.key_learning_skills.split(","))
@@ -133,13 +139,16 @@ def create_test_invite(tenant: Tenant,
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
     except Test.DoesNotExist as e:
-        logger.exception("failed to create invite, test with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create invite, test with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid test id")
 
     try:
-        participant = User.objects.get(tenant_id=tenant.uid, uid=participant_id, deleted=0)
+        participant = User.objects.get(
+            tenant_id=tenant.uid, uid=participant_id, deleted=0)
     except User.DoesNotExist as e:
-        logger.exception("failed to create invite, participant with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create invite, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
     test_invite = TestInvite.objects.create(
@@ -162,20 +171,25 @@ def create_test_question_answer_session(tenant: Tenant,
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
     except Test.DoesNotExist as e:
-        logger.exception("failed to create session, test with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create session, test with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid test id")
 
     if test_invite_id:
         try:
-            test_invite = TestInvite.objects.get(tenant_id=tenant.uid, uid=test_invite_id, deleted=0)
+            test_invite = TestInvite.objects.get(
+                tenant_id=tenant.uid, uid=test_invite_id, deleted=0)
         except Test.DoesNotExist as e:
-            logger.exception("failed to create session, test_invite with id %s does not exist", test_invite_id)
+            logger.exception(
+                "failed to create session, test_invite with id %s does not exist", test_invite_id)
             raise serializers.ValidationError("invalid test_invite_id")
 
     try:
-        participant = User.objects.get(tenant_id=tenant.uid, uid=participant_id, deleted=0)
+        participant = User.objects.get(
+            tenant_id=tenant.uid, uid=participant_id, deleted=0)
     except User.DoesNotExist as e:
-        logger.exception("failed to create session, participant with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create session, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
     test_attempt_session = TestAttemptSession.objects.create(
@@ -198,19 +212,23 @@ def create_test_question_answer(tenant: Tenant,
                                 response_file: str = None,
                                 response_text: str = None) -> TestQuestionResponse:
     if not response_file and not response_text:
-        raise serializers.ValidationError("either response_file or response_text should be present")
+        raise serializers.ValidationError(
+            "either response_file or response_text should be present")
 
     try:
-        session = TestAttemptSession.objects.get(tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
+        session = TestAttemptSession.objects.get(
+            tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
     except TestAttemptSession.DoesNotExist as e:
         logger.exception("failed to get session, test attempt session with id %s does not exist",
                          test_attempt_session_id)
         raise serializers.ValidationError("invalid test_attempt_session_id")
 
     try:
-        question = TestQuestion.objects.get(tenant_id=tenant.uid, uid=question_id, deleted=0)
+        question = TestQuestion.objects.get(
+            tenant_id=tenant.uid, uid=question_id, deleted=0)
     except TestAttemptSession.DoesNotExist as e:
-        logger.exception("failed to get question, question with id %s does not exist", question_id)
+        logger.exception(
+            "failed to get question, question with id %s does not exist", question_id)
         raise serializers.ValidationError("invalid question_id")
 
     test_question_response = TestQuestionResponse.objects.create(
@@ -231,18 +249,25 @@ def create_test_question_answer(tenant: Tenant,
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
-    test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=test_question_response.test_attempt_session_id)
     test = Test.objects.get(uid=test_attempt_session.test_id)
     # participant = User.objects.get(uid=test_attempt_session.participant_id)
 
     if test.interaction_mode != InteractionModeChoices.text:
+        update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
             test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
                 test_question_response.response_file)
+            test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
+                test_question_response.response_file)
+            update_fields.append("speech_metrics")
+
         elif test.interaction_mode == InteractionModeChoices.video:
             test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
                 test_question_response.response_file)
-        test_question_response.save(update_fields=["response_text", "updated"])
+
+        test_question_response.save(update_fields=update_fields)
 
     if question.gpt_prompt_override or test.gpt_prompt_override:
         prompt = get_overridden_prompt(
@@ -264,7 +289,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
         # delete this response
         test_question_response.deleted = test_question_response.deleted + 1
         test_question_response.save()
-        raise ValueError("unable to get feedback for %s", test_question_response.uid)
+        raise ValueError("unable to get feedback for %s",
+                         test_question_response.uid)
 
     test_question_response.metadata = {
         "gpt": {
@@ -278,7 +304,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
     test_question_response.feedback_text = gpt_feedback.text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
-    test_question_response.save(update_fields=["feedback_text", "evaluation_status", "updated"])
+    test_question_response.save(
+        update_fields=["feedback_text", "evaluation_status", "updated"])
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     required_skills = question.key_learning_skills.split(",")
@@ -287,7 +314,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
     skills_rating = {}
 
-    skills_rating, is_evaluated = evaluate_response(question.question, test_question_response.response_text, required_skills)
+    skills_rating, is_evaluated = evaluate_response(
+        question.question, test_question_response.response_text, required_skills)
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -295,7 +323,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
         test_question_response.deleted = test_question_response.deleted + 1
         test_question_response.save()
         logger.error("failed to get skills_rating json, got %s", skills_rating)
-        raise ValueError("unable to get feedback for %s", test_question_response.uid)
+        raise ValueError("unable to get feedback for %s",
+                         test_question_response.uid)
 
     for skill in required_skills:
 
@@ -318,7 +347,8 @@ def process_test_response(test_question_response: TestQuestionResponse):
     # 2 Get the test id from this response
     test_id = test.uid
     # count number of questions in the test
-    total_questions = TestQuestion.objects.filter(test_id=test_id, deleted=0).count()
+    total_questions = TestQuestion.objects.filter(
+        test_id=test_id, deleted=0).count()
     # count number of question response in the test attempt session
     total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                           deleted=0).count()
@@ -344,7 +374,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     # get participant id from test_attempt_session
     participant_id = test_attempt_session.participant_id
     # get all the responses for this participant
-    responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0)
+    responses = TestQuestionResponse.objects.filter(
+        test_attempt_session_id=test_attempt_session.uid, deleted=0)
 
     culture_skills_rating = {}
     skills_rating = {}
@@ -378,7 +409,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     test_attempt_session.finished_at = timezone.now()
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    updated_fields = ["skills_rating", "test_score", "status", "finished_at", "updated"]
+    updated_fields = ["skills_rating", "test_score",
+                      "status", "finished_at", "updated"]
 
     if culture_skills_rating is not None:
         test_attempt_session.culture_skills_rating = culture_skills_rating
@@ -408,7 +440,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         if skills_count[skill] == 0:
             skills_rating_object.skills_info[skill]['average_score'] = 0
         else:
-            skills_rating_object.skills_info[skill]['average_score'] = rating / skills_count[skill]
+            skills_rating_object.skills_info[skill]['average_score'] = rating / \
+                skills_count[skill]
 
     skills_rating_object.total_questions_attempted += attempted_count
     skills_rating_object.total_tests_attempted += 1
@@ -420,14 +453,16 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     skills_rating_object.save(update_fields=updated_fields)
 
+
 def calc_culture_skills_rating(responses):
     culture_skills_rating = {}
 
     conversation = ""
     count = 1
-    
+
     for response in responses:
-        question_text = TestQuestion.objects.get(uid=response.question_id).question
+        question_text = TestQuestion.objects.get(
+            uid=response.question_id).question
         response_text = response.response_text
 
         conversation += f"{count}. [Question:] {question_text}\n"
@@ -442,6 +477,7 @@ def calc_culture_skills_rating(responses):
         return None
 
     return culture_skills_rating
+
 
 def get_chat_conversation_prompt_v3(test_title: str,
                                     question: str,

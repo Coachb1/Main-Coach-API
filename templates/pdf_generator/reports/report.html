@@ -29,8 +29,40 @@
       <p>{{ ele.response_text }}</p>
       <h3>Feedback</h3>
       <p>{{ ele.feedback_text }}</p>
+      <!-- If speech_metrics exist in ele then show the key value pairs as a table -->
+      {% if ele.speech_metrics %}
+      <h3>Speech Metrics</h3>
+      <table class="table table-bordered" rules="all">
+        <tr>
+          <th>Metric</th>
+          <th>Value</th>
+        </tr>
+        {% for key, value in ele.speech_metrics.items %}
+        <tr>
+          <td class="td-center">{{ key }}</td>
+          <td class="td-center">{{ value }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
       <hr />
       {% endfor %}
+
+      {% if speech_metrics_avg %}
+      <h2>Average Speech Metrics</h2>
+      <table class="table table-bordered" rules="all">
+        <tr>
+          <th>Metric (Average)</th>
+          <th>Value</th>
+        </tr>
+        {% for key, value in speech_metrics_avg.items %}
+        <tr>
+          <td class="td-center">{{ key }}</td>
+          <td class="td-center">{{ value }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
 
       <!-- Skills Graph PNG image at center -->
 
