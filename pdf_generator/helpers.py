@@ -1,3 +1,8 @@
+import base64
+import urllib
+import io
+import numpy as np
+import matplotlib.pyplot as plt
 import os
 import tempfile
 
@@ -16,17 +21,8 @@ from skills.models import CustomRating
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import io
-import urllib, base64
 
-import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import io
-import urllib, base64
 
 options = {
     'page-size': 'Letter',
@@ -152,13 +148,14 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         })
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
-    culture_uri = get_test_attempt_session_culture_skills_graph(test_attempt_session)
+    culture_uri = get_test_attempt_session_culture_skills_graph(
+        test_attempt_session)
 
     t = render_to_string(
         f"pdf_generator/reports/report.html",
         {
-            'qa': qa, 
-            'participant_name': participant_name, 
+            'qa': qa,
+            'participant_name': participant_name,
             'test_started_at': test_started_at,
             'uri': uri,
             'culture_uri': culture_uri
@@ -204,10 +201,22 @@ def get_participant_report(user) -> str:
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
+    if CustomRating.objects.filter(tenant_id=user.tenant_id, deleted=0).exists():
+        custom_rating = CustomRating.objects.get(
+            tenant_id=user.tenant_id, deleted=0).custom_rating
+    else:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
+
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
                                                            'participant_info': participant_info,
-                                                           'custom_rating': CustomRating.objects.get(tenant_id=user.tenant_id, deleted=0).custom_rating})
+                                                           'custom_rating': custom_rating})
 
     pdf = convert_html_to_pdf(t, css)
 
@@ -233,11 +242,15 @@ def get_participant_report(user) -> str:
 
 
 def get_leaderboard_report(skills, tenant_id):
-    participants_skill_scores = top_N_leadership_board(skills, 20, tenant_id=tenant_id)
-    custom_rating_object = CustomRating.objects.get(tenant_id=tenant_id)
-    custom_rating = custom_rating_object.custom_rating
+    participants_skill_scores = top_N_leadership_board(
+        skills, 20, tenant_id=tenant_id)
 
-    if custom_rating is None:
+    if CustomRating.objects.filter(tenant_id=tenant_id, deleted=0).exists():
+        custom_rating_object = CustomRating.objects.get(
+            tenant_id=tenant_id, deleted=0)
+        custom_rating = custom_rating_object.custom_rating
+
+    else:
         custom_rating = {
             "1": "Non Manager",
             "2": "Beginner Manager",
@@ -294,6 +307,8 @@ def get_leaderboard_report(skills, tenant_id):
     return get_document_url(doc)
 
 # function to get a graph of skills for a test attempt session
+
+
 def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession) -> str:
 
     # get the skills_rating for the test_attempt_session
@@ -319,7 +334,6 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # get the y axis values
     y = skill_scores
-
 
     green_colors = ['gainsboro' for i in range(len(skills))]
     yellow_colors = ['gainsboro' for i in range(len(skills))]
@@ -352,10 +366,21 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
     # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
-    custom_rating = CustomRating.objects.get(tenant_id=test_attempt_session.tenant_id).custom_rating
+    if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
+        custom_rating = CustomRating.objects.get(
+            tenant_id=test_attempt_session.tenant_id).custom_rating
+    else:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
 
     # get sorted values of custom_rating dictionary by key
-    custom_rating = {k: v for k, v in sorted(custom_rating.items(), key=lambda item: item[0])}
+    custom_rating = {k: v for k, v in sorted(
+        custom_rating.items(), key=lambda item: item[0])}
 
     # get the y ticks
     skills_y_ticks = list(custom_rating.values())
@@ -388,6 +413,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     # return the decoded png file
     return uri
 
+
 def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession) -> str:
 
     culture_skills_rating = test_attempt_session.culture_skills_rating
@@ -402,12 +428,12 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     culture_label_right = []
 
     convert_to_label = {'hierarchy': ('Leading\n(egaliterian)', '(hierarchial)'),
-    'consensual': ('Deciding\n(consensual)', '(top down)'), 
-    'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
-    'relationship based': ('Trusting\n(task-based)', '(relationship-based)'), 
-    'high context communication': ('Communicating\n(low-context)', '(high-context)'),
-    'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'), 
-    'argumentative': ('Influence\n(compliant)', '(argumentative)')}
+                        'consensual': ('Deciding\n(consensual)', '(top down)'),
+                        'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
+                        'relationship based': ('Trusting\n(task-based)', '(relationship-based)'),
+                        'high context communication': ('Communicating\n(low-context)', '(high-context)'),
+                        'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'),
+                        'argumentative': ('Influence\n(compliant)', '(argumentative)')}
 
     for skill in culture_skills:
         if skill == 'consensual':
@@ -436,7 +462,8 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
         # plt.text(-1.2, i, culture_label_left[i])
         plt.text(5, i, culture_label_right[i], va='center')
 
-    plt.plot(culture_skill_scores, range(len(culture_label_left)), '-o', markersize=20, color='orange')
+    plt.plot(culture_skill_scores, range(len(culture_label_left)),
+             '-o', markersize=20, color='orange')
     # plt.axis('off')
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
@@ -445,7 +472,7 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # remove x axis labels
     plt.xticks([])
-    
+
     # tight layout
     plt.tight_layout()
 
@@ -453,7 +480,7 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # convert the graph to png
     buf = io.BytesIO()
-    
+
     fig.savefig(buf, format='png')
 
     buf.seek(0)
