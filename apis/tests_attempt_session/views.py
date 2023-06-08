@@ -56,6 +56,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # Filter the test_attempt_session with the given test_id and participant_id and ordered by created
         test_attempt_session = TestAttemptSession.objects.filter(
-            test_id=test_id, participant_id=participant_id, deleted=0).order_by("-created").first()
+            test_id=test_id, participant_id=participant_id, deleted=0).order_by("-id").first()
 
         return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)
