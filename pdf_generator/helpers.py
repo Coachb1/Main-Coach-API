@@ -122,6 +122,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         test_attempt_session_id=test_attempt_session.uid)
 
     qa = []
+    all_speech_metrics = []
 
     for question in questions:
         question_id = question.uid
@@ -141,11 +142,47 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         response_text = participant_response.response_text
         feedback_text = participant_response.feedback_text
 
-        qa.append({
-            "question_text": question_text,
-            "response_text": response_text,
-            "feedback_text": feedback_text
-        })
+        # Check if participant response object has speech_metrics or not
+        if participant_response.speech_metrics:
+            speech_metrics = participant_response.speech_metrics
+
+            # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
+            speech_metrics = {k: v for k, v in speech_metrics.items(
+            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace']}
+
+            # Convert the Keys to human readable format
+            speech_metrics = {k.replace("_", " ").title(
+            ): v for k, v in speech_metrics.items()}
+
+            # Add the speech_metrics to the list of all_speech_metrics
+            all_speech_metrics.append(speech_metrics)
+
+            qa.append({
+                "question_text": question_text,
+                "response_text": response_text,
+                "feedback_text": feedback_text,
+                "speech_metrics": speech_metrics
+            })
+
+        else:
+            qa.append({
+                "question_text": question_text,
+                "response_text": response_text,
+                "feedback_text": feedback_text,
+            })
+
+    # Get the averaged speech metrics for the test attempt session
+    speech_metrics_avg = {}
+    for metric in all_speech_metrics:
+        for k, v in metric.items():
+            if k in speech_metrics_avg:
+                speech_metrics_avg[k] += v
+            else:
+                speech_metrics_avg[k] = v
+
+    if participant_responses[0].speech_metrics:
+        for k, v in speech_metrics_avg.items():
+            speech_metrics_avg[k] = v / len(participant_responses)
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
@@ -158,7 +195,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             'participant_name': participant_name,
             'test_started_at': test_started_at,
             'uri': uri,
-            'culture_uri': culture_uri
+            'culture_uri': culture_uri,
+            'speech_metrics_avg': speech_metrics_avg,
         })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
