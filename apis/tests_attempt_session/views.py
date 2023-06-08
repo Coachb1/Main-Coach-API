@@ -19,7 +19,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient,)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
-    filterset_fields = ("test_id", "test_score")
+    filterset_fields = ("test_id", "test_score", "participant_id")
     ordering_fields = ("id", "test_score")
     lookup_field = "uid"
 
@@ -54,11 +54,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = request.query_params.get("participant_id")
         test_id = request.query_params.get("test_id")
 
-        test_attempt_session = TestAttemptSession.objects.get(
-            tenant_id=request.tenant.uid,
-            participant_id=participant_id,
-            test_id=test_id,
-            deleted=0
-        )
+        # Filter the test_attempt_session with the given test_id and participant_id and ordered by created
+        test_attempt_session = TestAttemptSession.objects.filter(
+            test_id=test_id, participant_id=participant_id, deleted=0).order_by("-id").first()
 
         return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)

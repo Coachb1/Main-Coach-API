@@ -76,7 +76,8 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
     test_score = models.FloatField(null=True, blank=True, default=None)
-    culture_skills_rating = models.JSONField(null=True, blank=True, default=None)
+    culture_skills_rating = models.JSONField(
+        null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
@@ -97,6 +98,7 @@ class TestQuestionResponse(TenantAwareModel):
 
     feedback_text = models.TextField(null=True, blank=True)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
+    speech_metrics = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
