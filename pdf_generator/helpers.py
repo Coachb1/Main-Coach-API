@@ -204,31 +204,31 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     pdf = convert_html_to_pdf(t, css)
 
-    # with tempfile.NamedTemporaryFile() as pdf_file:
-    #     pdf_file.write(pdf)
-    #     pdf_file.content_type = "application/pdf"
-    #     pdf_file.size = len(pdf)
+    with tempfile.NamedTemporaryFile() as pdf_file:
+        pdf_file.write(pdf)
+        pdf_file.content_type = "application/pdf"
+        pdf_file.size = len(pdf)
 
-    #     doc = create_document(
-    #         tenant=tenant,
-    #         owner_type=DocOwnerTypeChoice.system,
-    #         owner_id=tenant.uid,
-    #         display_name=f"report_{test_attempt_session.uid}.pdf",
-    #         doc_type=DocTypeChoice.REPORT,
-    #         file=pdf_file
-    #     )
+        doc = create_document(
+            tenant=tenant,
+            owner_type=DocOwnerTypeChoice.system,
+            owner_id=tenant.uid,
+            display_name=f"report_{test_attempt_session.uid}.pdf",
+            doc_type=DocTypeChoice.REPORT,
+            file=pdf_file
+        )
 
-    # TestAttemptSession.objects.filter(
-    #     uid=test_attempt_session.uid
-    # ).update(
-    #     report_doc_id=doc.uid
-    # )
+    TestAttemptSession.objects.filter(
+        uid=test_attempt_session.uid
+    ).update(
+        report_doc_id=doc.uid
+    )
 
-    # save to local file
-    with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
-        f.write(pdf)
+    # # save to local file
+    # with open(f"report_{test_attempt_session.uid}.pdf", "wb") as f:
+    #     f.write(pdf)
 
-    return 'get_document_url(doc)'
+    return get_document_url(doc)
 
 
 def get_participant_report(user) -> str:

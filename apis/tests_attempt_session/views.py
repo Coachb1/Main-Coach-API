@@ -19,7 +19,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient,)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
-    filterset_fields = ("test_id", "test_score")
+    filterset_fields = ("test_id", "test_score", "participant_id")
     ordering_fields = ("id", "test_score")
     lookup_field = "uid"
 
