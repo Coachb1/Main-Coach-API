@@ -106,7 +106,7 @@ def get_flash_cards_from_test(test: Test):
     return [get_document_url(doc)]
 
 
-def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
+def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession, only_data=False):
     if test_attempt_session.report_doc_id:
         return get_document_url_from_doc_id(test_attempt_session.report_doc_id)
 
@@ -184,6 +184,13 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         for k, v in speech_metrics_avg.items():
             speech_metrics_avg[k] = v / len(participant_responses)
 
+    if only_data:
+        skills_graph_data = get_test_attempt_session_skills_graph(
+            test_attempt_session, only_data=True)
+        culture_graph_data = get_test_attempt_session_culture_skills_graph(
+            test_attempt_session, only_data=True)
+        return {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
+
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
         test_attempt_session)
@@ -231,7 +238,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     return get_document_url(doc)
 
 
-def get_participant_report(user) -> str:
+def get_participant_report(user, only_data=False):
     participant_info = get_participant_info(user)
 
     participant_name = participant_info['name']
@@ -250,6 +257,9 @@ def get_participant_report(user) -> str:
             "4": "Good Manager",
             "5": "Super Manager"
         }
+
+    if only_data:
+        return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
 
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
@@ -279,7 +289,7 @@ def get_participant_report(user) -> str:
     return get_document_url(doc)
 
 
-def get_leaderboard_report(skills, tenant_id):
+def get_leaderboard_report(skills, tenant_id, only_data=False):
     participants_skill_scores = top_N_leadership_board(
         skills, 20, tenant_id=tenant_id)
 
@@ -316,6 +326,9 @@ def get_leaderboard_report(skills, tenant_id):
     #         }
     #     })
 
+    if only_data:
+        return {'participants_skill_scores': participants_skill_scores, 'custom_rating': custom_rating}
+
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
@@ -347,10 +360,27 @@ def get_leaderboard_report(skills, tenant_id):
 # function to get a graph of skills for a test attempt session
 
 
-def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession, only_data=False) -> str:
 
     # get the skills_rating for the test_attempt_session
     skills_rating = test_attempt_session.skills_rating
+
+    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
+    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
+    if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
+        custom_rating = CustomRating.objects.get(
+            tenant_id=test_attempt_session.tenant_id).custom_rating
+    else:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
+
+    if only_data:
+        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5
@@ -402,20 +432,6 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     plt.xticks(x, skills)
 
-    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
-    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
-    if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
-        custom_rating = CustomRating.objects.get(
-            tenant_id=test_attempt_session.tenant_id).custom_rating
-    else:
-        custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
-        }
-
     # get sorted values of custom_rating dictionary by key
     custom_rating = {k: v for k, v in sorted(
         custom_rating.items(), key=lambda item: item[0])}
@@ -452,7 +468,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     return uri
 
 
-def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession, only_data=False):
 
     culture_skills_rating = test_attempt_session.culture_skills_rating
 
@@ -472,6 +488,9 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
                         'high context communication': ('Communicating\n(low-context)', '(high-context)'),
                         'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'),
                         'argumentative': ('Influence\n(compliant)', '(argumentative)')}
+
+    if only_data:
+        return {'culture_skills_rating': culture_skills_rating, 'convert_to_label': convert_to_label}
 
     for skill in culture_skills:
         if skill == 'consensual':
