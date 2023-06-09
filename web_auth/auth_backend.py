@@ -27,9 +27,10 @@ class JwtAuthBackend(BaseAuthentication):
         entity_identifier_key = decoded_token['entity_identifier_key']
         entity_identifier_value = decoded_token['entity_identifier_value']
 
-        if entity_type == "user":
+        if entity_type == "user" or entity_type == "user-report":
             try:
-                u = User.objects.get(**{entity_identifier_key: entity_identifier_value}, deleted=0)
+                u = User.objects.get(
+                    **{entity_identifier_key: entity_identifier_value}, deleted=0)
                 return u, None
             except:
                 raise PermissionDenied

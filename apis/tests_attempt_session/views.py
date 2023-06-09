@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
+from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.helpers import create_test_question_answer_session
@@ -17,7 +18,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                                 mixins.RetrieveModelMixin):
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
-    permission_classes = (IsAuthenticatedClient,)
+    permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
     filterset_fields = ("test_id", "test_score", "participant_id")
     ordering_fields = ("id", "test_score")
@@ -48,6 +49,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         report_url = get_report_from_test_attempt_session(test_attempt_session)
         return Response({"report_url": report_url}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="report-frontend")
+    def get_test_report_frontend(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        data = get_report_from_test_attempt_session(
+            test_attempt_session, only_data=True)
+        return Response({"data": data}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")
     def get_session_uid(self, request, *args, **kwargs):
