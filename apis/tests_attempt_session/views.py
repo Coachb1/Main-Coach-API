@@ -50,12 +50,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
         report_url = get_report_from_test_attempt_session(test_attempt_session)
         return Response({"report_url": report_url}, status=status.HTTP_200_OK)
 
-    @action(methods=["GET"], detail=True, url_path="report-frontend")
+    @action(methods=["GET"], detail=True, url_path="report-data")
     def get_test_report_frontend(self, request, *args, **kwargs):
         test_attempt_session = self.get_object()
         data = get_report_from_test_attempt_session(
             test_attempt_session, only_data=True)
-        return Response({"data": data}, status=status.HTTP_200_OK)
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")
     def get_session_uid(self, request, *args, **kwargs):

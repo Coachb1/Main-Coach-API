@@ -75,10 +75,10 @@ class AccountsViewSet(ApiViewSet,
 
         return Response({"report_url": report_url})
 
-    @action(methods=["GET"], detail=True, url_path="participant-report-frontend")
+    @action(methods=["GET"], detail=True, url_path="participant-report-data")
     def get_participant_report_frontend(self, request, *args, **kwargs):
         user = self.get_object()
 
         data = get_participant_report(user, only_data=True)
 
-        return Response({"data": data})
+        return Response({"data": data, "status": "completed"})

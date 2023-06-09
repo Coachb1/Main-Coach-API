@@ -31,15 +31,3 @@ class FrontendAuthViewSet(ApiViewSet):
         }
 
         return Response(data=data, status=status.HTTP_200_OK)
-
-    @action(methods=["GET"], detail=False, url_path="get-access-token-frontend")
-    def get_access_token_frontend(self, request, *args, **kwargs):
-        serializer = FrontendAccessTokenSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        refresh_token = serializer.validated_data['refresh_token']
-        access_token = get_new_access_token(refresh_token)
-
-        data = {'access_token': access_token}
-
-        return Response(data=data, status=status.HTTP_200_OK)

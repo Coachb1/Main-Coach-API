@@ -68,7 +68,7 @@ class SkillsViewSet(ApiViewSet,
 
         return Response({"report_url": report_url})
 
-    @action(methods=["GET"], detail=False, url_path="leaderboard-report-frontend")
+    @action(methods=["GET"], detail=False, url_path="leaderboard-report-data")
     def get_leadership_report_frontend(self, request, *args, **kwargs):
         skills = request.query_params.get("skills")
         skills = skills.split(",")
@@ -77,7 +77,7 @@ class SkillsViewSet(ApiViewSet,
         data = get_leaderboard_report(
             skills, tenant_id=request.tenant.uid, only_data=True)
 
-        return Response({"data": data})
+        return Response({"data": data, "status": "completed"})
 
 
 class CustomRatingViewSet(ApiViewSet,
