@@ -42,12 +42,18 @@ TEST_CODE_LENGTH = 6
 TEST_CODE_GENERATION_MAX_RETRY = 4
 
 
+def add_prefix(prefix, value):
+    return f"{prefix}{value}"
+
+
 @timeit
 def get_unique_test_code(tenant: Tenant) -> str:
     global TEST_CODE_LENGTH
 
     test_code = get_random_string(
         length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+
+    test_code = add_prefix('Q-', test_code)
     retries = 0
     while Test.objects.filter(tenant_id=tenant.uid,
                               test_code=test_code,
@@ -60,6 +66,7 @@ def get_unique_test_code(tenant: Tenant) -> str:
 
         test_code = get_random_string(
             length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+        test_code = add_prefix('Q-', test_code)
         retries += 1
 
     return test_code
@@ -583,7 +590,7 @@ Output:
     return gpt_feedback.text
 
 
-def get_test_report(test: Test) -> str:
+def get_test_report(test: Test, only_data=False):
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
         test_id=test.uid,
@@ -609,6 +616,14 @@ def get_test_report(test: Test) -> str:
     # test_scores = []
     # while len(test_scores) < 19:
     #     test_scores.append({"score": 0, "participant": {"name": "PLACEHOLDER", "email": "NA"}})
+
+    if only_data:
+        return {
+            'test_name': test.title,
+            'total_tests_attempts': len(test_attempt_sessions),
+            'test_scores': test_scores,
+            'test_code': test.test_code
+        }
 
     t = render_to_string(
         f"pdf_generator/reports/test_report.html", {
