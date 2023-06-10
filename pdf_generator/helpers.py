@@ -35,8 +35,8 @@ def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
 
 
-def get_flash_cards_from_test(test: Test):
-    if test.flash_card_doc_id:
+def get_flash_cards_from_test(test: Test, only_data=False):
+    if test.flash_card_doc_id and not only_data:
         return [get_document_url_from_doc_id(test.flash_card_doc_id)]
 
     tenant = tenant_from_tenant_id(test.tenant_id)
@@ -53,6 +53,15 @@ def get_flash_cards_from_test(test: Test):
 
     flash_card_html_strings = []
     flash_cards = []
+
+    data = []
+
+    if only_data:
+        for question in test_question_list:
+            data.append(
+                {"heading": test.title, "text": question.key_learning_point})
+
+        return data
 
     for question in test_question_list:
         flash_card_html = render_to_string(
