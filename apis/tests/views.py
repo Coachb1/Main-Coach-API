@@ -64,6 +64,18 @@ class TestViewSet(ApiViewSet,
 
         return Response({"report_url": report_url})
 
+    @action(methods=["GET"], detail=True, url_path="flash-cards-data")
+    def get_test_flash_cards_data(self, request, *args, **kwargs):
+        test = self.get_object()
+        data = get_flash_cards_from_test(test, only_data=True)
+        return Response({"data": data}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="mindmap-data")
+    def get_test_mindmap_data(self, request, *args, **kwargs):
+        test = self.get_object()
+        data = get_mindmap_url_from_test(test, only_data=True)
+        return Response({"data": data}, status=status.HTTP_200_OK)
+
     @action(methods=["GET"], detail=True, url_path="report-data")
     def get_test_report_frontend(self, request, *args, **kwargs):
         user = self.get_object()

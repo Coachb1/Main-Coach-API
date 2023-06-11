@@ -23,13 +23,16 @@ def create_test_coaching_conversation_session(tenant: Tenant,
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
     except Test.DoesNotExist as e:
-        logger.exception("failed to create session, test with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create session, test with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid test id")
 
     try:
-        participant = User.objects.get(tenant_id=tenant.uid, uid=participant_id, deleted=0)
+        participant = User.objects.get(
+            tenant_id=tenant.uid, uid=participant_id, deleted=0)
     except User.DoesNotExist as e:
-        logger.exception("failed to create session, participant with id %s does not exist", test_id)
+        logger.exception(
+            "failed to create session, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
     test_attempt_session = TestAttemptSession.objects.create(
@@ -40,7 +43,8 @@ def create_test_coaching_conversation_session(tenant: Tenant,
         started_at=timezone.now(),
     )
 
-    logger.info("created test_coaching_conversation_session for tenant %s", tenant.uid)
+    logger.info(
+        "created test_coaching_conversation_session for tenant %s", tenant.uid)
 
     return test_attempt_session
 
@@ -66,15 +70,19 @@ def initialize_coaching_conversation(tenant: Tenant,
     )
 
     try:
-        test = Test.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
+        test = Test.objects.get(tenant_id=tenant.uid,
+                                uid=test_attempt_session.test_id, deleted=0)
     except Test.DoesNotExist as e:
-        logger.exception("failed, id %s does not exist", test_attempt_session.test_id)
+        logger.exception("failed, id %s does not exist",
+                         test_attempt_session.test_id)
         raise serializers.ValidationError("invalid test id")
 
     if test.test_type != TestTypeChoices.coaching:
-        raise serializers.ValidationError(f"test type {test.test_type} is not supported")
+        raise serializers.ValidationError(
+            f"test type {test.test_type} is not supported")
 
-    question = TestQuestion.objects.get(tenant_id=tenant.uid, test_id=test.uid, deleted=0)
+    question = TestQuestion.objects.get(
+        tenant_id=tenant.uid, test_id=test.uid, deleted=0)
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
@@ -107,14 +115,17 @@ def continue_coaching_conversation(tenant: Tenant,
         raise serializers.ValidationError("invalid test_attempt_session_id")
 
     try:
-        test = Test.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
+        test = Test.objects.get(tenant_id=tenant.uid,
+                                uid=test_attempt_session.test_id, deleted=0)
     except Test.DoesNotExist as e:
-        logger.exception("failed, id %s does not exist", test_attempt_session.test_id)
+        logger.exception("failed, id %s does not exist",
+                         test_attempt_session.test_id)
         raise serializers.ValidationError("invalid test id")
 
     if test.interaction_mode != InteractionModeChoices.text:
         if not participant_message_url:
-            raise serializers.ValidationError("participant_message_url is absent")
+            raise serializers.ValidationError(
+                "participant_message_url is absent")
 
         if test.interaction_mode == InteractionModeChoices.audio:
             reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_audio(
@@ -125,7 +136,8 @@ def continue_coaching_conversation(tenant: Tenant,
                 participant_message_url
             )
 
-        reply_to_conversation.save(update_fields=["participant_message_text", "updated"])
+        reply_to_conversation.save(
+            update_fields=["participant_message_text", "updated"])
 
     #
     # test = Test.objects.get(
@@ -149,7 +161,8 @@ def continue_coaching_conversation(tenant: Tenant,
     gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
     if not gpt_feedback.text:
-        raise ValueError("unable to get feedback for %s", reply_to_conversation.uid)
+        raise ValueError("unable to get feedback for %s",
+                         reply_to_conversation.uid)
 
     coach_message_metadata = {
         "gpt": {

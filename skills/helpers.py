@@ -81,6 +81,9 @@ def top_N_leadership_board(skills, N, tenant_id):
         average_score = 0
         skills_dict = {}
 
+        if len(skills) == 1 and skills[0].lower() == 'all':
+            skills = skills_info.keys()
+
         for skill in skills:
             if skill in skills_info:
                 average_score += skills_info[skill]['average_score']
