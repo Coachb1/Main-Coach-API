@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "coaching_conversations.apps.CoachingConversationsConfig",
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -41,7 +42,10 @@ MIDDLEWARE = [
     "web_auth.middlewares.UserAuthenticationMiddleware",
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
+
+CORS_ORIGIN_ALLOW_ALL = True
 
 ROOT_URLCONF = 'urls'
 
