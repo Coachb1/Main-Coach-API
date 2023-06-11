@@ -39,7 +39,7 @@ class WebAuthViewSet(ApiViewSet):
         logout_user(user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(methods=["GET"], detail=False, url_path="refresh")
+    @action(methods=["POST"], detail=False, url_path="refresh")
     def get_access_token_frontend(self, request, *args, **kwargs):
         serializer = FrontendAccessTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
