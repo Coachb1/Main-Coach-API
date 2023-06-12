@@ -386,12 +386,26 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     culture_skills_rating = {}
     skills_rating = {}
+    speech_score = {}
     skills_count = {}
     attempted_count = 0
+    has_speech_metric = False
 
     for response in responses:
         # get skills rating from this response
         response_skills_rating = response.skills_rating
+
+        if response.speech_metrics:
+            has_speech_metric = True
+            # get speech metrics from this response
+            response_speech_metrics = response.speech_metrics
+
+            for skill in response_speech_metrics:
+                if skill in speech_score:
+                    speech_score[skill] += response_speech_metrics[skill]
+                else:
+                    speech_score[skill] = response_speech_metrics[skill]
+
         for skill in response_skills_rating:
             if skill in skills_rating:
                 skills_rating[skill] += response_skills_rating[skill]
@@ -414,10 +428,17 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
     test_attempt_session.finished_at = timezone.now()
+
+    if has_speech_metric:
+        test_attempt_session.speech_score = speech_score
+
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
     updated_fields = ["skills_rating", "test_score",
                       "status", "finished_at", "updated"]
+
+    if has_speech_metric:
+        updated_fields.append("speech_score")
 
     if culture_skills_rating is not None:
         test_attempt_session.culture_skills_rating = culture_skills_rating
@@ -605,12 +626,17 @@ def get_test_report(test: Test, only_data=False):
 
     test_scores = [
         {"score": test_attempt_session.test_score,
-         "participant": {**get_participant_info(get_user_by_id(test_attempt_session.participant_id))}}
+         "speech_score": test_attempt_session.speech_score,
+         "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
         for test_attempt_session in test_attempt_sessions
     ]
 
     # sort the test_scores by score
     test_scores.sort(key=lambda x: x["score"], reverse=True)
+
+    # Get total number of questions in the test
+    total_questions = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).count()
 
     # PLACEHOLDER LOGIC
     # test_scores = []
@@ -620,6 +646,7 @@ def get_test_report(test: Test, only_data=False):
     if only_data:
         return {
             'test_name': test.title,
+            'total_questions': total_questions,
             'total_tests_attempts': len(test_attempt_sessions),
             'test_scores': test_scores,
             'test_code': test.test_code
