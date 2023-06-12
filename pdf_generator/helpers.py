@@ -268,6 +268,17 @@ def get_participant_report(user, only_data=False):
         }
 
     if only_data:
+        skills_info = []
+        for skill in participant_info['skills_info']:
+            skills_info.append(
+                {"skill": skill,
+                 "score": participant_info['skills_info'][skill]['score'],
+                 "average_score": participant_info['skills_info'][skill]['average_score'],
+                 "question_count": participant_info['skills_info'][skill]['question_count']
+                 })
+
+        participant_info['skills_info'] = skills_info
+
         return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
 
     t = render_to_string(
@@ -336,6 +347,21 @@ def get_leaderboard_report(skills, tenant_id, only_data=False):
     #     })
 
     if only_data:
+
+        # for every participant in participants_skill_scores, get the skills_info and convert it into list of skills
+        for participant in participants_skill_scores:
+            skills_info = participant['skills_info']
+            skills_info_list = []
+            for skill in skills_info:
+                skills_info_list.append(
+                    {"skill": skill,
+                     "score": skills_info[skill]['score'],
+                     "average_score": skills_info[skill]['average_score'],
+                     "question_count": skills_info[skill]['question_count']
+                     })
+
+            participant['skills_info'] = skills_info_list
+
         return {'participants_skill_scores': participants_skill_scores, 'custom_rating': custom_rating}
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',

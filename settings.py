@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "coaching_conversations.apps.CoachingConversationsConfig",
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
+    "url_shortener.apps.UrlShortenerConfig",
     "corsheaders",
 ]
 
@@ -60,14 +61,6 @@ DATABASES = {
         "PORT": os.getenv("MYSQL_PORT"),
     }
 }
-
-if ENV == "local":
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
 
 TEMPLATES_DIR = BASE_DIR.joinpath("templates")
 
