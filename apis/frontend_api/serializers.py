@@ -4,6 +4,37 @@ from rest_framework import serializers
 class FrontendAuthSerializer(serializers.Serializer):
     user_id = serializers.CharField()
     report_type = serializers.CharField()
+    shortify_url = serializers.BooleanField(default=True)
+
+
+class FrontendLeaderboardReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
+    skills = serializers.ListField(child=serializers.CharField())
+
+
+class FrontendCandidateReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
+    candidate_id = serializers.CharField()
+
+
+class FrontendInteractionReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
+    interaction_id = serializers.CharField()
+
+
+class FrontendInteractionSessionReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
+    session_id = serializers.CharField()
+
+
+class FrontendCoachingSessionReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
+    session_id = serializers.CharField()
 
 
 class FrontendAccessTokenSerializer(serializers.Serializer):
