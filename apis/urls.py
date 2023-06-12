@@ -13,4 +13,5 @@ urlpatterns = [
     path("", include("apis.web_auth.urls")),
     path("", include("apis.skills.urls")),
     path("", include("apis.frontend_api.urls")),
+    path("", include("apis.url_shortener.urls")),
 ]
