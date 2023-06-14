@@ -337,19 +337,32 @@ def process_test_response(test_question_response: TestQuestionResponse):
 
         # Convert skills as very good -> 5, good -> 4, average -> 3, bad -> 2, very bad -> 1
         if skills_rating[skill] == "very good":
-            skills_rating[skill] = 5
+            skills_rating[skill] = 10
         elif skills_rating[skill] == "good":
-            skills_rating[skill] = 4
+            skills_rating[skill] = 8
         elif skills_rating[skill] == "average":
-            skills_rating[skill] = 3
+            skills_rating[skill] = 6
         elif skills_rating[skill] == "bad":
-            skills_rating[skill] = 2
+            skills_rating[skill] = 4
         elif skills_rating[skill] == "very bad":
-            skills_rating[skill] = 1
+            skills_rating[skill] = 2
 
-    # Save skills rating in TestQuestionResponse
+    # Calculating the average score of the response
+    response_avg_score = 0
+    skills_count = 0
+    for skill in skills_rating:
+        response_avg_score += skills_rating[skill]
+        skills_count += 1
+
+    if skills_count == 0:
+        response_avg_score = 0
+    else:
+        response_avg_score = response_avg_score / skills_count
+
+    # Save skills rating and average score in TestQuestionResponse
     test_question_response.skills_rating = skills_rating
-    test_question_response.save(update_fields=["skills_rating"])
+    test_question_response.avg_score = response_avg_score
+    test_question_response.save(update_fields=["skills_rating", "avg_score"])
 
     # 2 Get the test id from this response
     test_id = test.uid
@@ -391,9 +404,18 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     attempted_count = 0
     has_speech_metric = False
 
+    # For calculating average score of the test
+    avg_score = 0
+    response_count = 0
+
     for response in responses:
         # get skills rating from this response
         response_skills_rating = response.skills_rating
+        response_avg_score = response.avg_score
+
+        if response_avg_score is not None or response_avg_score != 0:
+            avg_score += response_avg_score
+            response_count += 1
 
         if response.speech_metrics:
             has_speech_metric = True
@@ -422,11 +444,17 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+    if response_count == 0:
+        avg_score = 0
+    else:
+        avg_score = avg_score / response_count
+
     culture_skills_rating = calc_culture_skills_rating(responses)
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
+    test_attempt_session.avg_score = avg_score
     test_attempt_session.finished_at = timezone.now()
 
     if has_speech_metric:
@@ -434,7 +462,7 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    updated_fields = ["skills_rating", "test_score",
+    updated_fields = ["skills_rating", "test_score", "avg_score",
                       "status", "finished_at", "updated"]
 
     if has_speech_metric:
@@ -618,7 +646,7 @@ def get_test_report(test: Test, only_data=False):
         status=TestAttemptSessionStatusChoices.completed,
         deleted=0
     ).order_by(
-        "-test_score"
+        "-avg_score"
     )
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
@@ -626,13 +654,14 @@ def get_test_report(test: Test, only_data=False):
 
     test_scores = [
         {"score": test_attempt_session.test_score,
+         "avg_score": test_attempt_session.avg_score,
          "speech_score": test_attempt_session.speech_score,
          "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
         for test_attempt_session in test_attempt_sessions
     ]
 
     # sort the test_scores by score
-    test_scores.sort(key=lambda x: x["score"], reverse=True)
+    test_scores.sort(key=lambda x: x["avg_score"], reverse=True)
 
     # Get total number of questions in the test
     total_questions = TestQuestion.objects.filter(

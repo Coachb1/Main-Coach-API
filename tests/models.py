@@ -9,7 +9,7 @@ from tests.choices import TestQuestionResponseEvaluationStatusChoices
 class Test(TenantAwareModel):
     creator_id = models.CharField(max_length=255, db_index=True)
     title = models.CharField(max_length=255, db_index=True)
-    description = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True, default=None)
     interaction_mode = models.CharField(
         max_length=255, choices=InteractionModeChoices)
     test_type = models.CharField(
@@ -76,6 +76,7 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
     test_score = models.FloatField(null=True, blank=True, default=None)
+    avg_score = models.FloatField(null=True, blank=True, default=None)
     speech_score = models.JSONField(null=True, blank=True, default=None)
     culture_skills_rating = models.JSONField(
         null=True, blank=True, default=None)
@@ -99,6 +100,7 @@ class TestQuestionResponse(TenantAwareModel):
 
     feedback_text = models.TextField(null=True, blank=True)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
+    avg_score = models.FloatField(null=True, blank=True, default=None)
     speech_metrics = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
 
