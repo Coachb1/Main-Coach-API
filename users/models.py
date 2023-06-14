@@ -8,6 +8,7 @@ class User(TenantAwareModel):
     name = models.TextField(blank=True, null=True, default="")
     role = models.CharField(max_length=255, choices=UserRoleChoice)
     password = models.TextField(null=True)
+    is_root = models.BooleanField(null=True, default=None)
 
     class Meta:
         db_table = "user"
