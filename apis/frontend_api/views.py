@@ -37,6 +37,8 @@ class FrontendAuthViewSet(ApiViewSet):
 
         url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/"
 
+        print(f"Initial url: {url}")
+
         if report_type == ReportType.LEADERBOARD_REPORT:
             leaderboard_serializer = FrontendLeaderboardReportSerializer(
                 data=request.data)
@@ -87,7 +89,8 @@ class FrontendAuthViewSet(ApiViewSet):
 
             url = f"{url}?session_id={session_id}"
 
-        if shortify_url:
+        # TODO: Logic to shortify the URL is temporarily disabled
+        if False:
             # compute the hash of the url
             long_url_hash = hashlib.sha256(url.encode()).hexdigest()
             # Check if exists in db
@@ -101,6 +104,11 @@ class FrontendAuthViewSet(ApiViewSet):
                 # Shortify the url
                 long_url = url
                 url = url_shortify(url)
+
+                print('--'*100)
+                print('New url shortified')
+                print(f'long_url: {long_url}')
+                print(f'short_url: {url}')
 
                 # save the short url in db
                 UrlShortenerMap.objects.create(
