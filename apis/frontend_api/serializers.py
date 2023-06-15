@@ -29,6 +29,7 @@ class FrontendInteractionSessionReportSerializer(serializers.Serializer):
     user_id = serializers.CharField()
     report_type = serializers.CharField()
     session_id = serializers.CharField()
+    interaction_id = serializers.CharField()
 
 
 class FrontendCoachingSessionReportSerializer(serializers.Serializer):

@@ -76,8 +76,9 @@ class FrontendAuthViewSet(ApiViewSet):
             session_serializer.is_valid(raise_exception=True)
 
             session_id = session_serializer.validated_data["session_id"]
+            interaction_id = session_serializer.validated_data["interaction_id"]
 
-            url = f"{url}?session_id={session_id}"
+            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}"
 
         elif report_type == ReportType.COACHING_SESSION_REPORT:
             session_serializer = FrontendCoachingSessionReportSerializer(
