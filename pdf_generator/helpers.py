@@ -116,8 +116,6 @@ def get_flash_cards_from_test(test: Test, only_data=False):
 
 
 def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession, only_data=False):
-    if test_attempt_session.report_doc_id:
-        return get_document_url_from_doc_id(test_attempt_session.report_doc_id)
 
     tenant = tenant_from_tenant_id(test_attempt_session.tenant_id)
     test_id = test_attempt_session.test_id
