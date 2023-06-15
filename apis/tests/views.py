@@ -78,8 +78,8 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=True, url_path="report-data")
     def get_test_report_frontend(self, request, *args, **kwargs):
-        user = self.get_object()
+        test = self.get_object()
 
-        data = get_test_report(user, only_data=True)
+        data = get_test_report(test, only_data=True)
 
         return Response({"data": data, "status": "completed"})
