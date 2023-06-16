@@ -11,6 +11,12 @@ from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 import settings
+from settings import FRONTEND_BASE_URL
+from apis.frontend_api.report_types import ReportType
+from web_auth.helpers import create_new_tokens
+from users.db import get_user_display_name
+from email_sender.helpers import send_email
+
 from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
@@ -77,6 +83,8 @@ def create_test(tenant: Tenant,
                 creator_id: str,
                 title: str,
                 description: str,
+                email_address: str,
+                send_only_to_email: bool,
                 interaction_mode: str,
                 test_type: str,
                 gpt_prompt_override: str,
@@ -95,6 +103,8 @@ def create_test(tenant: Tenant,
             tenant_id=tenant.uid,
             creator_id=creator.uid,
             title=title,
+            email_address=email_address,
+            send_only_to_email=send_only_to_email,
             gpt_prompt_override=gpt_prompt_override,
             description=description,
             interaction_mode=interaction_mode,
@@ -374,9 +384,13 @@ def process_test_response(test_question_response: TestQuestionResponse):
                                                           deleted=0).count()
 
     if total_questions == total_responses:
-        # TODO: Email to the users
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
+
+        if test.email_address:
+            report_link = generate_session_report_link(
+                test_attempt_session, test)
+            send_report_link_to_email(test, test_attempt_session, report_link)
 
     return test_question_response
 
@@ -508,6 +522,36 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     updated_fields.append("updated")
 
     skills_rating_object.save(update_fields=updated_fields)
+
+
+def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    test_id = test_attempt_session.test_id
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
+
+    return report_url
+
+
+def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_link: str):
+    test_name = test.title
+    test_description = test.description
+    participant_id = test_attempt_session.participant_id
+
+    to_email = test.email_address
+
+    participant_name = get_user_display_name(
+        User.objects.get(uid=participant_id))
+
+    email_subject = f"{test_name} Report - Candidate {participant_name}"
+
+    email_body = f"The Report for {test_name} is ready. Please click on the link below to view the report.\n\n{report_link}"
+
+    send_email(to_email, email_subject, email_body)
 
 
 def calc_culture_skills_rating(responses):
