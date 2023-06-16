@@ -26,7 +26,7 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField()
     description = serializers.CharField()
-    email_address = serializers.CharField(required=False, default=None)
+    email_address_list = serializers.CharField(required=False, default=None)
     send_only_to_email = serializers.BooleanField(
         required=False, default=False)
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
@@ -62,7 +62,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "test_code",
                   "title",
                   "description",
-                  "email_address",
+                  "email_address_list",
                   "send_only_to_email",
                   "gpt_prompt_override",
                   "test_related_context",
