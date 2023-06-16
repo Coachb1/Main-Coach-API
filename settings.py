@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
     "url_shortener.apps.UrlShortenerConfig",
+    "email_sender.apps.EmailSenderConfig",
     "corsheaders",
 ]
 
