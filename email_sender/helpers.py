@@ -3,7 +3,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 LOGIN_EMAIL = "deb@coachbots.com"
-FROM_EMAIL = "support@coachbots.com"
+FROM_EMAIL = "mail@coachbots.com"
 APP_PASSWORD = "daD4QnY3OJBGMVEj"
 
 
