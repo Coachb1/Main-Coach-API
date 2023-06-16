@@ -86,9 +86,9 @@ class FrontendAuthViewSet(ApiViewSet):
 
             session_serializer.is_valid(raise_exception=True)
 
-            session_id = session_serializer.validated_data["session_id"]
+            test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
 
-            url = f"{url}?session_id={session_id}"
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&ordering=id"
 
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:
