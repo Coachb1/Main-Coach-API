@@ -2,7 +2,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-FROM_EMAIL = "deb@coachbots.com"
+LOGIN_EMAIL = "deb@coachbots.com"
+FROM_EMAIL = "support@coachbots.com"
 APP_PASSWORD = "daD4QnY3OJBGMVEj"
 
 
@@ -21,6 +22,6 @@ def send_email(to_email, subject, message):
     # login to server
     server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
     server.starttls()
-    server.login(from_email, from_password)
+    server.login(LOGIN_EMAIL, from_password)
     server.sendmail(from_email, to_email, msg_str)
     server.quit()
