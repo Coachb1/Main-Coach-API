@@ -37,6 +37,7 @@ from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
 from users.models import User
+from users.models import UserAttribute
 
 # threading
 
@@ -541,6 +542,8 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     test_name = test.title
     test_description = test.description
     participant_id = test_attempt_session.participant_id
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
 
     email_address_list = test.email_address_list
     email_address_list = email_address_list.split(",")
@@ -553,6 +556,14 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_subject = f"{test_name} Report - Candidate {participant_name}"
 
     email_body = f"The Report for {test_name} is ready. Please click on the link below to view the report.\n\n{report_link}"
+
+    try:
+        participant_email = participant_attributes.get(
+            "profile", {}).get("email")
+        send_email(participant_email, email_subject, email_body)
+    except Exception as e:
+        logger.exception("failed to send email to participant %s with email %s",
+                         participant_id, participant_email)
 
     for to_email in email_address_list:
         send_email(to_email, email_subject, email_body)
