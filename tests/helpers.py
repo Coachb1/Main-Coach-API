@@ -83,7 +83,7 @@ def create_test(tenant: Tenant,
                 creator_id: str,
                 title: str,
                 description: str,
-                email_address: str,
+                email_address_list: str,
                 send_only_to_email: bool,
                 interaction_mode: str,
                 test_type: str,
@@ -103,7 +103,7 @@ def create_test(tenant: Tenant,
             tenant_id=tenant.uid,
             creator_id=creator.uid,
             title=title,
-            email_address=email_address,
+            email_address_list=email_address_list,
             send_only_to_email=send_only_to_email,
             gpt_prompt_override=gpt_prompt_override,
             description=description,
@@ -387,7 +387,7 @@ def process_test_response(test_question_response: TestQuestionResponse):
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
 
-        if test.email_address:
+        if test.email_address_list:
             report_link = generate_session_report_link(
                 test_attempt_session, test)
             send_report_link_to_email(test, test_attempt_session, report_link)
@@ -542,7 +542,10 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     test_description = test.description
     participant_id = test_attempt_session.participant_id
 
-    to_email = test.email_address
+    email_address_list = test.email_address_list
+    email_address_list = email_address_list.split(",")
+    email_address_list = [email_address.strip()
+                          for email_address in email_address_list]
 
     participant_name = get_user_display_name(
         User.objects.get(uid=participant_id))
@@ -551,7 +554,8 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     email_body = f"The Report for {test_name} is ready. Please click on the link below to view the report.\n\n{report_link}"
 
-    send_email(to_email, email_subject, email_body)
+    for to_email in email_address_list:
+        send_email(to_email, email_subject, email_body)
 
 
 def calc_culture_skills_rating(responses):
