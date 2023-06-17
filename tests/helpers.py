@@ -37,6 +37,7 @@ from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
 from users.models import User
+from users.models import UserAttribute
 
 # threading
 
@@ -388,9 +389,9 @@ def process_test_response(test_question_response: TestQuestionResponse):
         calc_score(test_attempt_session)
 
         if test.email_address_list:
-            report_link = generate_session_report_link(
+            report_url = generate_session_report_link(
                 test_attempt_session, test)
-            send_report_link_to_email(test, test_attempt_session, report_link)
+            send_report_link_to_email(test, test_attempt_session, report_url)
 
     return test_question_response
 
@@ -537,25 +538,39 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     return report_url
 
 
-def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_link: str):
+def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
     test_name = test.title
     test_description = test.description
     participant_id = test_attempt_session.participant_id
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
 
     email_address_list = test.email_address_list
     email_address_list = email_address_list.split(",")
     email_address_list = [email_address.strip()
                           for email_address in email_address_list]
 
-    participant_name = get_user_display_name(
-        User.objects.get(uid=participant_id))
+    participant_name = participant_attributes.get("name")
 
-    email_subject = f"{test_name} Report - Candidate {participant_name}"
+    email_subject = f"{test_name} completed by {participant_name} 🚀🚀"
 
-    email_body = f"The Report for {test_name} is ready. Please click on the link below to view the report.\n\n{report_link}"
+    data = {
+        "report_url": report_url,
+        "test_name": test_name,
+        "candidate_name": participant_name,
+    }
+
+    try:
+        participant_email = participant_attributes.get(
+            "profile", {}).get("email")
+
+        send_email(participant_email, email_subject, data=data)
+    except Exception as e:
+        logger.exception("failed to send email to participant %s with email %s",
+                         participant_id, participant_email)
 
     for to_email in email_address_list:
-        send_email(to_email, email_subject, email_body)
+        send_email(to_email, email_subject, data=data)
 
 
 def calc_culture_skills_rating(responses):
