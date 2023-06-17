@@ -35,6 +35,7 @@ class CreateTestSerializer(serializers.Serializer):
     questions = CreateTestQuestionSerializer(many=True)
     gpt_prompt_override = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+    email_candidate = serializers.BooleanField(default=True, required=False)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -64,6 +65,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "description",
                   "email_address_list",
                   "send_only_to_email",
+                  "email_candidate",
                   "gpt_prompt_override",
                   "test_related_context",
                   "interaction_mode",

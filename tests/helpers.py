@@ -89,6 +89,7 @@ def create_test(tenant: Tenant,
                 interaction_mode: str,
                 test_type: str,
                 gpt_prompt_override: str,
+                email_candidate: bool,
                 test_related_context: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
@@ -106,6 +107,7 @@ def create_test(tenant: Tenant,
             title=title,
             email_address_list=email_address_list,
             send_only_to_email=send_only_to_email,
+            email_candidate=email_candidate,
             gpt_prompt_override=gpt_prompt_override,
             description=description,
             interaction_mode=interaction_mode,
@@ -560,14 +562,15 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "candidate_name": participant_name,
     }
 
-    try:
-        participant_email = participant_attributes.get(
-            "profile", {}).get("email")
+    if test.email_candidate:
+        try:
+            participant_email = participant_attributes.get(
+                "profile", {}).get("email")
 
-        send_email(participant_email, email_subject, data=data)
-    except Exception as e:
-        logger.exception("failed to send email to participant %s with email %s",
-                         participant_id, participant_email)
+            send_email(participant_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception("failed to send email to participant %s with email %s",
+                             participant_id, participant_email)
 
     for to_email in email_address_list:
         send_email(to_email, email_subject, data=data)
