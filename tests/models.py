@@ -21,7 +21,9 @@ class Test(TenantAwareModel):
     mindmap_doc_id = models.TextField(null=True, blank=True, default=None)
     flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
     email_address_list = models.TextField(null=True, blank=True, default=None)
-    send_only_to_email = models.BooleanField(default=False)
+    send_only_to_email = models.BooleanField(
+        default=False, null=True, blank=True)
+    email_candidate = models.BooleanField(default=True, null=True, blank=True)
 
     class Meta:
         db_table = "test"
