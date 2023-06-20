@@ -36,6 +36,7 @@ class CreateTestSerializer(serializers.Serializer):
     gpt_prompt_override = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
     email_candidate = serializers.BooleanField(default=True, required=False)
+    candidate_type = serializers.CharField(default=None, required=False)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -66,6 +67,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "email_address_list",
                   "send_only_to_email",
                   "email_candidate",
+                  "candidate_type",
                   "gpt_prompt_override",
                   "test_related_context",
                   "interaction_mode",
@@ -76,3 +78,17 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
+
+
+class LearnerPathSerializer(serializers.ModelSerializer):
+    objective = serializers.CharField()
+    candidate_type = serializers.CharField(default=None, required=False)
+    candidate_id = serializers.CharField()
+
+    class Meta:
+        model = Test
+        fields = ["objective",
+                  "candidate_type",
+                  "candidate_id",
+                  "created",
+                  "updated"]

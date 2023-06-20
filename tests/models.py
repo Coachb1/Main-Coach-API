@@ -24,6 +24,8 @@ class Test(TenantAwareModel):
     send_only_to_email = models.BooleanField(
         default=False, null=True, blank=True)
     email_candidate = models.BooleanField(default=True, null=True, blank=True)
+    candidate_type = models.CharField(
+        null=True, blank=True, max_length=255, default=None)
 
     class Meta:
         db_table = "test"
