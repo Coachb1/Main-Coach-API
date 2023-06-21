@@ -22,6 +22,7 @@ from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from external_apis.coach_whisper_api import coach_whisper_api
+from external_apis.whatsapp_api import whatsapp_api
 from external_apis.coach_metric_api import coach_metric_api
 from pdf_generator.helpers import convert_html_to_pdf
 from skills.helpers import evaluate_response, get_participant_info, upsert_into_skill_index, evaluate_conversation
@@ -232,7 +233,9 @@ def create_test_question_answer(tenant: Tenant,
                                 test_attempt_session_id: str,
                                 question_id: str,
                                 response_file: str = None,
-                                response_text: str = None) -> TestQuestionResponse:
+                                response_text: str = None,
+                                is_whatsapp: bool = False) -> TestQuestionResponse:
+
     if not response_file and not response_text:
         raise serializers.ValidationError(
             "either response_file or response_text should be present")
@@ -263,13 +266,14 @@ def create_test_question_answer(tenant: Tenant,
 
     logger.info("created test_question_response for tenant %s", tenant.uid)
 
-    test_question_response = process_test_response(test_question_response)
+    test_question_response = process_test_response(
+        test_question_response, is_whatsapp)
 
     return test_question_response
 
 
 @timeit
-def process_test_response(test_question_response: TestQuestionResponse):
+def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id)
@@ -396,6 +400,10 @@ def process_test_response(test_question_response: TestQuestionResponse):
             report_url = generate_session_report_link(
                 test_attempt_session, test)
             send_report_link_to_email(test, test_attempt_session, report_url)
+
+        if is_whatsapp:
+            send_report_link_to_whatsapp(
+                test, test_attempt_session, report_url)
 
     return test_question_response
 
@@ -576,6 +584,30 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     for to_email in email_address_list:
         send_email(to_email, email_subject, data=data)
+
+
+def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    test_name = test.title
+    test_description = test.description
+    participant_id = test_attempt_session.participant_id
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
+
+    participant_name = participant_attributes.get("name")
+
+    # Get report url after removing it from the base url
+    report_url = report_url.replace(FRONTEND_BASE_URL, "")
+    # remove the first backslash
+    report_url = report_url[1:]
+
+    try:
+        participant_phone = participant_attributes.get(
+            "profile", {}).get("phone")
+
+        whatsapp_api.send_whatsapp_report(participant_phone, report_url)
+    except Exception as e:
+        logger.exception("failed to send whatsapp message to participant %s with phone %s",
+                         participant_id, participant_phone)
 
 
 def calc_culture_skills_rating(responses):
