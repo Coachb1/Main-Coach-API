@@ -31,6 +31,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
 class OrchestratedConversationDetails(serializers.Serializer):
     test_main_context = serializers.CharField()
     test_user_persona = serializers.CharField()
+    objective = serializers.CharField()
 
 
 class CreateTestSerializer(serializers.Serializer):

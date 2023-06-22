@@ -42,6 +42,7 @@ def evaluate_conversation(conversation):
 
     is_evaluated = True
 
+    response = {}
     try:
         response = anthropic_completion(prompt, len(cultural_skills) * 50)
         response = json.loads(response)
