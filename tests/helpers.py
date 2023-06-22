@@ -241,14 +241,9 @@ def create_test_question_answer_session(tenant: Tenant,
 def create_test_question_answer(tenant: Tenant,
                                 test_attempt_session_id: str,
                                 question_id: str,
-                                responder_type: str,
                                 response_file: str = None,
                                 response_text: str = None,
                                 is_whatsapp: bool = False) -> TestQuestionResponse:
-
-    if responder_type == QuestionForChoices.user and not response_file and not response_text:
-        raise serializers.ValidationError(
-            "either response_file or response_text should be present")
 
     try:
         test_attempt_session = TestAttemptSession.objects.get(
@@ -266,11 +261,15 @@ def create_test_question_answer(tenant: Tenant,
             "failed to get question, question with id %s does not exist", question_id)
         raise serializers.ValidationError("invalid question_id")
 
+    if question.question_for == QuestionForChoices.user and not response_file and not response_text:
+        raise serializers.ValidationError(
+            "either response_file or response_text should be present")
+
     test_question_response = TestQuestionResponse.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
         question_id=question_id,
-        responder_type=responder_type or QuestionForChoices.user,
+        responder_type=question.question_for,
         responder_display_name=question.question_for,
         response_text=response_text,
         response_file=response_file
