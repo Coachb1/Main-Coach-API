@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
     "url_shortener.apps.UrlShortenerConfig",
+    "email_sender.apps.EmailSenderConfig",
     "corsheaders",
 ]
 
@@ -155,3 +156,5 @@ ANTHROPIC_KEY = os.getenv('ANTHROPIC_KEY')
 COACH_METRIC_BASE_URL = os.getenv("COACH_METRIC_BASE_URL")
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
 URL_SHORTENING_API_KEY = os.getenv("URL_SHORTENING_API_KEY")
+WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
+WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")

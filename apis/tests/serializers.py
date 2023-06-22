@@ -39,12 +39,17 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField()
     description = serializers.CharField()
+    email_address_list = serializers.CharField(required=False, default=None)
+    send_only_to_email = serializers.BooleanField(
+        required=False, default=False)
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
     test_related_context = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
     gpt_prompt_override = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+    email_candidate = serializers.BooleanField(default=True, required=False)
+    candidate_type = serializers.CharField(default=None, required=False)
     orchestrated_conversation_details = OrchestratedConversationDetails(
         required=False, allow_null=True)
 
@@ -76,6 +81,10 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "test_code",
                   "title",
                   "description",
+                  "email_address_list",
+                  "send_only_to_email",
+                  "email_candidate",
+                  "candidate_type",
                   "gpt_prompt_override",
                   "test_related_context",
                   "interaction_mode",
@@ -87,3 +96,17 @@ class TestDisplaySerializer(serializers.ModelSerializer):
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
+
+
+class LearnerPathSerializer(serializers.ModelSerializer):
+    objective = serializers.CharField()
+    candidate_type = serializers.CharField(default=None, required=False)
+    candidate_id = serializers.CharField()
+
+    class Meta:
+        model = Test
+        fields = ["objective",
+                  "candidate_type",
+                  "candidate_id",
+                  "created",
+                  "updated"]

@@ -11,11 +11,19 @@ from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 import settings
+from settings import FRONTEND_BASE_URL
+from apis.frontend_api.report_types import ReportType
+from web_auth.helpers import create_new_tokens
+from users.db import get_user_display_name
+from email_sender.helpers import send_email
+
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
+from external_apis.coach_whisper_api import coach_whisper_api
+from external_apis.whatsapp_api import whatsapp_api
 from external_apis.coach_metric_api import coach_metric_api
 from external_apis.coach_whisper_api import coach_whisper_api
 from pdf_generator.helpers import convert_html_to_pdf
@@ -33,6 +41,7 @@ from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
 from users.models import User
+from users.models import UserAttribute
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +86,13 @@ def create_test(tenant: Tenant,
                 creator_id: str,
                 title: str,
                 description: str,
+                candidate_type: str,
+                email_address_list: str,
+                send_only_to_email: bool,
                 interaction_mode: str,
                 test_type: str,
                 gpt_prompt_override: str,
+                email_candidate: bool,
                 test_related_context: str,
                 orchestrated_conversation_details: dict,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
@@ -96,6 +109,10 @@ def create_test(tenant: Tenant,
             tenant_id=tenant.uid,
             creator_id=creator.uid,
             title=title,
+            candidate_type=candidate_type,
+            email_address_list=email_address_list,
+            send_only_to_email=send_only_to_email,
+            email_candidate=email_candidate,
             gpt_prompt_override=gpt_prompt_override,
             description=description,
             interaction_mode=interaction_mode,
@@ -226,7 +243,9 @@ def create_test_question_answer(tenant: Tenant,
                                 question_id: str,
                                 responder_type: str,
                                 response_file: str = None,
-                                response_text: str = None) -> TestQuestionResponse:
+                                response_text: str = None,
+                                is_whatsapp: bool = False) -> TestQuestionResponse:
+
     if responder_type == QuestionForChoices.user and not response_file and not response_text:
         raise serializers.ValidationError(
             "either response_file or response_text should be present")
@@ -268,11 +287,12 @@ def create_test_question_answer(tenant: Tenant,
         else:
             return process_orchestrated_test_response_by_bot_llm(test_question_response)
 
-    return process_test_response_by_user(test_question_response)
+    return process_test_response(
+        test_question_response, is_whatsapp)
 
 
 @timeit
-def process_test_response_by_user(test_question_response: TestQuestionResponse):
+def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id)
@@ -358,19 +378,32 @@ def process_test_response_by_user(test_question_response: TestQuestionResponse):
 
         # Convert skills as very good -> 5, good -> 4, average -> 3, bad -> 2, very bad -> 1
         if skills_rating[skill] == "very good":
-            skills_rating[skill] = 5
+            skills_rating[skill] = 10
         elif skills_rating[skill] == "good":
-            skills_rating[skill] = 4
+            skills_rating[skill] = 8
         elif skills_rating[skill] == "average":
-            skills_rating[skill] = 3
+            skills_rating[skill] = 6
         elif skills_rating[skill] == "bad":
-            skills_rating[skill] = 2
+            skills_rating[skill] = 4
         elif skills_rating[skill] == "very bad":
-            skills_rating[skill] = 1
+            skills_rating[skill] = 2
 
-    # Save skills rating in TestQuestionResponse
+    # Calculating the average score of the response
+    response_avg_score = 0
+    skills_count = 0
+    for skill in skills_rating:
+        response_avg_score += skills_rating[skill]
+        skills_count += 1
+
+    if skills_count == 0:
+        response_avg_score = 0
+    else:
+        response_avg_score = response_avg_score / skills_count
+
+    # Save skills rating and average score in TestQuestionResponse
     test_question_response.skills_rating = skills_rating
-    test_question_response.save(update_fields=["skills_rating"])
+    test_question_response.avg_score = response_avg_score
+    test_question_response.save(update_fields=["skills_rating", "avg_score"])
 
     # 2 Get the test id from this response
     test_id = test.uid
@@ -382,9 +415,17 @@ def process_test_response_by_user(test_question_response: TestQuestionResponse):
                                                           deleted=0).count()
 
     if total_questions == total_responses:
-        # TODO: Email to the users
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
+
+        if test.email_address_list:
+            report_url = generate_session_report_link(
+                test_attempt_session, test)
+            send_report_link_to_email(test, test_attempt_session, report_url)
+
+        if is_whatsapp:
+            send_report_link_to_whatsapp(
+                test, test_attempt_session, report_url)
 
     return test_question_response
 
@@ -487,9 +528,18 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     attempted_count = 0
     has_speech_metric = False
 
+    # For calculating average score of the test
+    avg_score = 0
+    response_count = 0
+
     for response in responses:
         # get skills rating from this response
         response_skills_rating = response.skills_rating
+        response_avg_score = response.avg_score
+
+        if response_avg_score is not None or response_avg_score != 0:
+            avg_score += response_avg_score
+            response_count += 1
 
         if response.speech_metrics:
             has_speech_metric = True
@@ -518,11 +568,17 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+    if response_count == 0:
+        avg_score = 0
+    else:
+        avg_score = avg_score / response_count
+
     culture_skills_rating = calc_culture_skills_rating(responses)
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
+    test_attempt_session.avg_score = avg_score
     test_attempt_session.finished_at = timezone.now()
 
     if has_speech_metric:
@@ -530,7 +586,7 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    updated_fields = ["skills_rating", "test_score",
+    updated_fields = ["skills_rating", "test_score", "avg_score",
                       "status", "finished_at", "updated"]
 
     if has_speech_metric:
@@ -576,6 +632,79 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     updated_fields.append("updated")
 
     skills_rating_object.save(update_fields=updated_fields)
+
+
+def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    test_id = test_attempt_session.test_id
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
+
+    return report_url
+
+
+def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    test_name = test.title
+    test_description = test.description
+    participant_id = test_attempt_session.participant_id
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
+
+    email_address_list = test.email_address_list
+    email_address_list = email_address_list.split(",")
+    email_address_list = [email_address.strip()
+                          for email_address in email_address_list]
+
+    participant_name = participant_attributes.get("name")
+
+    email_subject = f"{test_name} completed by {participant_name} 🚀🚀"
+
+    data = {
+        "report_url": report_url,
+        "test_name": test_name,
+        "candidate_name": participant_name,
+    }
+
+    if test.email_candidate:
+        try:
+            participant_email = participant_attributes.get(
+                "profile", {}).get("email")
+
+            send_email(participant_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception("failed to send email to participant %s with email %s",
+                             participant_id, participant_email)
+
+    for to_email in email_address_list:
+        send_email(to_email, email_subject, data=data)
+
+
+def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    test_name = test.title
+    test_description = test.description
+    participant_id = test_attempt_session.participant_id
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
+
+    participant_name = participant_attributes.get("name")
+
+    # Get report url after removing it from the base url
+    report_url = report_url.replace(FRONTEND_BASE_URL, "")
+    # remove the first backslash
+    report_url = report_url[1:]
+
+    try:
+        participant_phone = participant_attributes.get(
+            "profile", {}).get("phone")
+
+        whatsapp_api.send_whatsapp_report(participant_phone, report_url)
+    except Exception as e:
+        logger.exception("failed to send whatsapp message to participant %s with phone %s",
+                         participant_id, participant_phone)
 
 
 def calc_culture_skills_rating(responses):
@@ -747,7 +876,7 @@ def get_test_report(test: Test, only_data=False):
         status=TestAttemptSessionStatusChoices.completed,
         deleted=0
     ).order_by(
-        "-test_score"
+        "-avg_score"
     )
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
@@ -755,13 +884,14 @@ def get_test_report(test: Test, only_data=False):
 
     test_scores = [
         {"score": test_attempt_session.test_score,
+         "avg_score": test_attempt_session.avg_score,
          "speech_score": test_attempt_session.speech_score,
          "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
         for test_attempt_session in test_attempt_sessions
     ]
 
     # sort the test_scores by score
-    test_scores.sort(key=lambda x: x["score"], reverse=True)
+    test_scores.sort(key=lambda x: x["avg_score"], reverse=True)
 
     # Get total number of questions in the test
     total_questions = TestQuestion.objects.filter(

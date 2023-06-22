@@ -52,15 +52,15 @@ def evaluate_conversation(conversation):
     # Convert "very good" to 5, "good" to 4, "average" to 3, "bad" to 2, "very bad" to 1, "NA" to 3
     for skill in response:
         if response[skill] == "very good":
-            response[skill] = 5
+            response[skill] = 10
         elif response[skill] == "good":
-            response[skill] = 4
+            response[skill] = 8
         elif response[skill] == "average":
-            response[skill] = 3
+            response[skill] = 6
         elif response[skill] == "bad":
-            response[skill] = 2
+            response[skill] = 4
         elif response[skill] == "very bad":
-            response[skill] = 1
+            response[skill] = 2
         elif response[skill] == "NA":
             response[skill] = 3
 

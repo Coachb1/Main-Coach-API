@@ -30,6 +30,12 @@ class TestQuestionResponseViewSet(ApiViewSet,
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        is_whatsapp = False
+
+        # Check for "x-platform" header
+        if request.headers.get("x-platform") == "whatsapp":
+            is_whatsapp = True
+
         test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
         question_id = serializer.validated_data["question_id"]
         response_file = serializer.validated_data.get("response_file")
@@ -43,6 +49,7 @@ class TestQuestionResponseViewSet(ApiViewSet,
             responder_type=responder_type,
             response_file=response_file,
             response_text=response_text,
+            is_whatsapp=is_whatsapp
         )
 
         return Response(data=TestQuestionResponseSerializer(instance=test_question_answer).data,
