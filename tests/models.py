@@ -1,9 +1,12 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, TestAttemptSessionStatusChoices, TestTypeChoices
+from tests.choices import InteractionModeChoices
+from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
+from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
+from tests.choices import TestTypeChoices
 
 
 class Test(TenantAwareModel):
@@ -20,6 +23,8 @@ class Test(TenantAwareModel):
     test_code = models.CharField(max_length=64, null=True)
     mindmap_doc_id = models.TextField(null=True, blank=True, default=None)
     flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
+    orchestrated_conversation_details = models.JSONField(
+        null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
@@ -32,10 +37,15 @@ class Test(TenantAwareModel):
 
 class TestQuestion(TenantAwareModel):
     test_id = models.CharField(max_length=255, db_index=True)
+    question_number = models.PositiveSmallIntegerField(null=True, default=0)
     question_type = models.CharField(
         max_length=255, choices=QuestionTypeChoices)
+    question_for = models.CharField(
+        max_length=255, default=QuestionForChoices.user)
     media_link = models.TextField(null=True, blank=True)
     question = models.TextField(null=True, blank=True)
+    can_be_skipped = models.BooleanField(default=False)
+    is_view_only = models.BooleanField(default=False)
     subjective_answer = models.TextField(null=True, blank=True)
     objective_answer = models.TextField(null=True, blank=True)
     mcq_options = models.JSONField(null=True, blank=True)
@@ -44,6 +54,7 @@ class TestQuestion(TenantAwareModel):
     key_learning_point = models.TextField(null=True, blank=True, default=None)
     key_learning_skills = models.TextField(null=True, blank=True, default=None)
     flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
+    loader_wait_text = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_question"
@@ -91,6 +102,9 @@ class TestAttemptSession(TenantAwareModel):
 class TestQuestionResponse(TenantAwareModel):
     test_attempt_session_id = models.CharField(max_length=255, db_index=True)
     question_id = models.CharField(max_length=255, db_index=True)
+    responder_type = models.CharField(
+        max_length=255, default=QuestionForChoices.user)
+    responder_display_name = models.TextField(null=True, blank=True, default=None)
     response_file = models.TextField(null=True, blank=True)
     response_text = models.TextField(null=True, blank=True)
     evaluation_status = models.CharField(max_length=255,
