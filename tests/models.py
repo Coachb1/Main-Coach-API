@@ -98,6 +98,10 @@ class TestAttemptSession(TenantAwareModel):
     culture_skills_rating = models.JSONField(
         null=True, blank=True, default=None)
 
+    meeting_summary = models.TextField(null=True, blank=True, default=None)
+    areas_of_improvement = models.JSONField(
+        null=True, blank=True, default=None)
+
     class Meta:
         db_table = "test_attempt_session"
         ordering = ("-id",)
@@ -111,7 +115,8 @@ class TestQuestionResponse(TenantAwareModel):
     question_id = models.CharField(max_length=255, db_index=True)
     responder_type = models.CharField(
         max_length=255, default=QuestionForChoices.user)
-    responder_display_name = models.TextField(null=True, blank=True, default=None)
+    responder_display_name = models.TextField(
+        null=True, blank=True, default=None)
     response_file = models.TextField(null=True, blank=True)
     response_text = models.TextField(null=True, blank=True)
     evaluation_status = models.CharField(max_length=255,

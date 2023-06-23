@@ -1,4 +1,5 @@
 import logging
+import json
 import os
 import string
 import tempfile
@@ -27,7 +28,7 @@ from external_apis.whatsapp_api import whatsapp_api
 from external_apis.coach_metric_api import coach_metric_api
 from external_apis.coach_whisper_api import coach_whisper_api
 from pdf_generator.helpers import convert_html_to_pdf
-from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation
+from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, evaluate_group_discussion_conversation
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -141,14 +142,14 @@ def create_test(tenant: Tenant,
                 mcq_answer=question.get("mcq_answer"),
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=(
-                        question.get("key_learning_point")
-                        or get_question_key_learning_point(test_title=title,
-                                                           test_question=question.get("question"))
+                    question.get("key_learning_point")
+                    or get_question_key_learning_point(test_title=title,
+                                                       test_question=question.get("question"))
                 ),
                 key_learning_skills=(
-                        question.get("key_learning_skills")
-                        or get_question_key_learning_skills(test_title=title,
-                                                            test_question=question.get("question"))
+                    question.get("key_learning_skills")
+                    or get_question_key_learning_skills(test_title=title,
+                                                        test_question=question.get("question"))
                 ),
             )
 
@@ -459,6 +460,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     if total_questions == total_responses:
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
         test_attempt_session.save()
+        calc_group_discussion_report_metrics(test_attempt_session, test)
         # Evaluate skills rating for the test attempt session and update skills table in that.
 
     return test_question_response
@@ -502,6 +504,150 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         update_fields=["response_text", "evaluation_status", "updated"])
 
     return test_question_response
+
+
+def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
+
+    user_persona = test.orchestrated_conversation_details.get(
+        "test_user_persona")
+    objective = test.orchestrated_conversation_details.get("objective")
+
+    chat_conversation = get_group_discussion_chat_conversation(
+        test_attempt_session, user_persona)
+
+    test_attempt_session.culture_skills_rating = evaluate_group_discussion_conversation(
+        chat_conversation, user_persona, objective)
+
+    meeting_summary = get_group_discussion_summary(
+        objective, chat_conversation)
+    areas_of_improvement = get_areas_of_improvement(
+        objective, chat_conversation, user_persona)
+
+    test_attempt_session.meeting_summary = meeting_summary
+    test_attempt_session.areas_of_improvement = areas_of_improvement
+
+    test_attempt_session.save(update_fields=[
+                              "culture_skills_rating", "meeting_summary", "areas_of_improvement"])
+
+    return test_attempt_session
+
+
+def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
+    test_attempt_session_id = test_attempt_session.uid
+
+    test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
+
+    user_persona = test.orchestrated_conversation_details.get(
+        "test_user_persona")
+
+    chat_conversation = get_group_discussion_chat_conversation(
+        test_attempt_session, user_persona, is_report=True)
+
+    meeting_summary = test_attempt_session.meeting_summary
+    areas_of_improvement = test_attempt_session.areas_of_improvement
+    culture_skills = test_attempt_session.culture_skills_rating
+
+    return {
+        "chat_conversation": chat_conversation,
+        "meeting_summary": meeting_summary,
+        "areas_of_improvement": areas_of_improvement,
+        "culture_skills": culture_skills
+    }
+
+
+def get_group_discussion_summary(objective: str, chat_conversation: str):
+
+    prompt = f"""
+    [Objective of Discussion]: {objective};
+    [Conversation]: {chat_conversation};
+
+    Please write a summary of the meeting in 100 words. Please NOTE that you may only output the summary in the following JSON format and do not output anything else:
+    {"{"}
+        "summary": "This is a summary of the meeting"
+    {"}"}
+    """
+
+    cnt = 0
+    summary = ""
+
+    while cnt < 5:
+        try:
+            summary = anthropic_completion(prompt, 1000)
+            summary = json.loads(summary)
+            summary = summary.get("summary")
+            break
+        except Exception as e:
+            logger.exception(e)
+            cnt += 1
+
+    if cnt == 5:
+        summary = "Could not generate"
+
+    return summary
+
+
+def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
+
+    areas_of_improvement = ["Sticking to Agenda",
+                            "Driving to decision", "Sticking to Positive behavior"]
+
+    prompt = f"""
+    [Objective of Discussion]: {objective};
+    [Conversation]: {chat_conversation};
+
+    Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in JSON format where keys are {areas_of_improvement} and values are the paragraphs explaining each key. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
+    
+    PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only.
+    
+    Please NOTE that you may only output in the following JSON format and do not output anything else:
+    {"{"}
+        "{areas_of_improvement[0]}": "This is the paragraph for {areas_of_improvement[0]}",
+        "{areas_of_improvement[1]}": "This is the paragraph for {areas_of_improvement[1]}",
+        "{areas_of_improvement[2]}": "This is the paragraph for {areas_of_improvement[2]}"
+    {"}"}
+    """
+
+    cnt = 0
+    res = ""
+
+    while cnt < 5:
+        try:
+            res = anthropic_completion(prompt, 1000)
+            res = json.loads(res)
+            break
+        except Exception as e:
+            logger.exception(e)
+            cnt += 1
+
+    if cnt == 5:
+        res = {"Sticking to Agenda": "Could not generate",
+               "Driving to decision": "Could not generate",
+               "Sticking to Positive behavior": "Could not generate"}
+
+    return res
+
+
+def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str, is_report: bool = False):
+
+    current_conversation = ''
+    conversation_list = []
+    for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                             deleted=0).order_by('id'):
+
+        if test_response.responder_type == QuestionForChoices.user:
+            conv_text = f"{test_user_persona}: {test_response.response_text}"
+        else:
+            conv_text = f"{test_response.responder_display_name}: {test_response.response_text}"
+
+        current_conversation = current_conversation + "\n" + conv_text
+        conversation_list.append(conv_text)
+
+    if is_report:
+        return conversation_list
+
+    else:
+        return current_conversation
 
 
 def calc_score(test_attempt_session: TestAttemptSession):
@@ -776,8 +922,10 @@ def get_chat_conversation_prompt_v3(test_title: str,
 def get_orchestrated_test_conversation_prompt(test: Test,
                                               test_attempt_session: TestAttemptSession,
                                               question: TestQuestion):
-    test_main_context = test.orchestrated_conversation_details.get("test_main_context")
-    test_user_persona = test.orchestrated_conversation_details.get("test_user_persona")
+    test_main_context = test.orchestrated_conversation_details.get(
+        "test_main_context")
+    test_user_persona = test.orchestrated_conversation_details.get(
+        "test_user_persona")
 
     current_conversation = ''
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,

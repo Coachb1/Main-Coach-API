@@ -11,6 +11,7 @@ from .serializers import FrontendCandidateReportSerializer
 from .serializers import FrontendInteractionReportSerializer
 from .serializers import FrontendInteractionSessionReportSerializer
 from .serializers import FrontendCoachingSessionReportSerializer
+from .serializers import FrontendMeetingAnalysisReportSerializer
 from web_auth.helpers import create_new_tokens, get_new_access_token
 from settings import FRONTEND_BASE_URL
 from .report_types import ReportType
@@ -37,7 +38,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
         url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/"
 
-        print(f"Initial url: {url}")
+        # print(f"Initial url: {url}")
 
         if report_type == ReportType.LEADERBOARD_REPORT:
             leaderboard_serializer = FrontendLeaderboardReportSerializer(
@@ -90,6 +91,16 @@ class FrontendAuthViewSet(ApiViewSet):
 
             url = f"{url}?test_attempt_session_id={test_attempt_session_id}&ordering=id"
 
+        elif report_type == ReportType.MEETING_ANALYSIS_REPORT:
+            session_serializer = FrontendMeetingAnalysisReportSerializer(
+                data=request.data)
+
+            session_serializer.is_valid(raise_exception=True)
+
+            test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
+
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}"
+
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:
             # compute the hash of the url
@@ -99,17 +110,17 @@ class FrontendAuthViewSet(ApiViewSet):
 
             if short_url:
                 url = short_url
-                print('--'*100)
-                print('Already that url exists in db')
+                # print('--'*100)
+                # print('Already that url exists in db')
             else:
                 # Shortify the url
                 long_url = url
                 url = url_shortify(url)
 
-                print('--'*100)
-                print('New url shortified')
-                print(f'long_url: {long_url}')
-                print(f'short_url: {url}')
+                # print('--'*100)
+                # print('New url shortified')
+                # print(f'long_url: {long_url}')
+                # print(f'short_url: {url}')
 
                 # save the short url in db
                 UrlShortenerMap.objects.create(
