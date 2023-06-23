@@ -1,12 +1,19 @@
 from rest_framework import serializers
 
-from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices
+from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices
 from tests.models import Test, TestQuestion
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=QuestionTypeChoices)
+    question_for = serializers.CharField(default=QuestionForChoices.user)
     question = serializers.CharField()
+    question_number = serializers.IntegerField(default=0)
+    can_be_skipped = serializers.BooleanField(default=False)
+    is_view_only = serializers.BooleanField(default=False)
+    loader_wait_text = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=""
+    )
     media_link = serializers.CharField(required=False)
     gpt_prompt_override = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
@@ -19,6 +26,12 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     key_learning_skills = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+
+
+class OrchestratedConversationDetails(serializers.Serializer):
+    test_main_context = serializers.CharField()
+    test_user_persona = serializers.CharField()
+    objective = serializers.CharField()
 
 
 class CreateTestSerializer(serializers.Serializer):
@@ -37,6 +50,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     email_candidate = serializers.BooleanField(default=True, required=False)
     candidate_type = serializers.CharField(default=None, required=False)
+    orchestrated_conversation_details = OrchestratedConversationDetails(
+        required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -45,7 +60,9 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
         fields = ["uid",
                   "question_type",
                   "media_link",
+                  "question_for",
                   "question",
+                  "question_number",
                   "key_learning_point",
                   "key_learning_skills",
                   "gpt_prompt_override",
@@ -72,6 +89,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "test_related_context",
                   "interaction_mode",
                   "test_type",
+                  "orchestrated_conversation_details",
                   "questions",
                   "created",
                   "updated"]
