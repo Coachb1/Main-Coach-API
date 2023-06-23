@@ -8,7 +8,7 @@ from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
-from pdf_generator.helpers import get_report_from_test_attempt_session
+from tests.helpers import get_meeting_report_from_test_attempt_session
 from tests.helpers import create_test_question_answer_session
 from tests.models import TestAttemptSession
 
@@ -55,6 +55,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         data = get_report_from_test_attempt_session(
             test_attempt_session, only_data=True)
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="meeting-report-data")
+    def get_meeting_report_frontend(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        data = get_meeting_report_from_test_attempt_session(
+            test_attempt_session)
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")

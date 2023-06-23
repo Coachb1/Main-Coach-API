@@ -5,6 +5,7 @@ from apis.clients.serializers import ClientSerializer, SetupClientSerializer
 from clients.helpers import setup_client
 from clients.models import Client
 from commons.viewset import ApiViewSet
+from users.permissions import IsAuthenticatedRootUser
 
 
 class ClientViewSet(ApiViewSet,
@@ -12,6 +13,7 @@ class ClientViewSet(ApiViewSet,
     queryset = Client.objects.filter(deleted=0)
     serializer_class = ClientSerializer
     lookup_field = "uid"
+    permission_classes = (IsAuthenticatedRootUser,)
 
     def create(self, request, *args, **kwargs):
         serializer = SetupClientSerializer(data=request.data)

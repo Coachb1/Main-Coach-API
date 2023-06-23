@@ -17,9 +17,9 @@ def check_url_exists(long_url_hash, tenant_id):
 
 
 def url_shortify(long_url):
-    print('--'*100)
-    print('Inside url_shortify')
-    print(f'long_url: {long_url}')
+    # print('--'*100)
+    # print('Inside url_shortify')
+    # print(f'long_url: {long_url}')
     API_KEY = settings.URL_SHORTENING_API_KEY
 
     linkRequest = {
@@ -32,17 +32,17 @@ def url_shortify(long_url):
         "apikey": API_KEY,
     }
 
-    print('--'*100)
-    print('Before making request to rebrandly')
+    # print('--'*100)
+    # print('Before making request to rebrandly')
 
     r = requests.post("https://api.rebrandly.com/v1/links",
                       data=json.dumps(linkRequest),
                       headers=requestHeaders)
 
-    print('--'*100)
-    print('After making request to rebrandly')
-    print(f'r.status_code: {r.status_code}')
-    print(f'r.json(): {r.json()}')
+    # print('--'*100)
+    # print('After making request to rebrandly')
+    # print(f'r.status_code: {r.status_code}')
+    # print(f'r.json(): {r.json()}')
 
     if (r.status_code == requests.codes.ok):
         link = r.json()
