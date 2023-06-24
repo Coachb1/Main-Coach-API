@@ -54,7 +54,7 @@ class CreateTestSerializer(serializers.Serializer):
     email_candidate = serializers.BooleanField(default=True, required=False)
     candidate_type = serializers.CharField(default=None, required=False)
     orchestrated_conversation_details = OrchestratedConversationDetails(
-        required=False, allow_null=True)
+        required=False, allow_null=True, default=None)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
