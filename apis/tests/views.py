@@ -8,11 +8,12 @@ from apis.tests.filtersets import TestFilterSet
 from apis.tests.serializers import CreateTestSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
+from apis.tests.serializers import TestFromObjectiveSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import create_test, get_test_report
+from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic
 from tests.models import Test
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -106,3 +107,16 @@ class TestViewSet(ApiViewSet,
         send_learner_path_email(tests, user)
 
         return Response(self.serializer_class(instance=tests, many=True).data, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=False, url_path="test-from-objective")
+    def generate_test_from_objective(self, request, *args, **kwargs):
+        serializer_class = TestFromObjectiveSerializer(data=request.data)
+        serializer_class.is_valid(raise_exception=True)
+
+        tenant = request.tenant
+
+        objective = serializer_class.validated_data["objective"]
+
+        potential_test = generate_test_from_objective_anthropic(objective)
+
+        return Response(potential_test, status=status.HTTP_200_OK)
