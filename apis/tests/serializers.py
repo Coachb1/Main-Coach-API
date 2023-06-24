@@ -113,3 +113,11 @@ class LearnerPathSerializer(serializers.ModelSerializer):
                   "candidate_id",
                   "created",
                   "updated"]
+
+
+class TestFromObjectiveSerializer(serializers.ModelSerializer):
+    objective = serializers.CharField()
+
+    class Meta:
+        model = Test
+        fields = ["objective"]
