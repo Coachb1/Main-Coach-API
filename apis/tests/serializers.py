@@ -32,6 +32,9 @@ class OrchestratedConversationDetails(serializers.Serializer):
     test_main_context = serializers.CharField()
     test_user_persona = serializers.CharField()
     objective = serializers.CharField()
+    initial_messages = serializers.ListField(
+        child=serializers.CharField()
+    )
 
 
 class CreateTestSerializer(serializers.Serializer):

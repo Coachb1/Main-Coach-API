@@ -540,7 +540,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
 
-    chat_conversation = get_group_discussion_chat_conversation(
+    chat_conversation = test.orchestrated_conversation_details.get(
+        "initial_messages")
+
+    chat_conversation += get_group_discussion_chat_conversation(
         test_attempt_session, user_persona, is_report=True)
 
     meeting_summary = test_attempt_session.meeting_summary
