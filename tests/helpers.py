@@ -1092,3 +1092,83 @@ def get_test_report(test: Test, only_data=False):
     #     f.write(pdf)
 
     return get_document_url(doc)
+
+
+def generate_test_from_objective_anthropic(objective: str):
+    prompt = f"""
+    Develop a a set of six questions asked by a employee to his manager where the questions must be related to this objective: [{objective}]. Add a initial paragraph titled
+    "introduction" to explain the context of the questions in 100 to 200 words that includes any reference
+    to any Youtube video links or other article links. Add a title to the session of 5 to 10 words which tells us about the context. Do not add any conclusion. With each question, add a
+    prompt that would ask feedback from Anthropic about the response quality of the manager from HR best practices
+    and management frameworks point of view. With each question add a one or two line takeaway for a manager about
+    providing feedback. With each question, add the management skill(s) that are tested. 
+    
+    NOTE THAT: Output the generated data is JSON format only. Do not output anything else.
+    NOTE THAT: Don't output any other information other than the following JSON format:
+
+    {"{"}
+        "title": "Title of the session",
+        "introduction": "Introduction paragraph",
+        "questions": [
+            {"{"}
+                "question": "Question 1 text",
+                "prompt": "Prompt 1 text",
+                "takeaway": "Takeaway 1 text",
+                "skills": ["Skills 1 text"]
+            {"}"},
+            {"{"}
+                "question": "Question 2 text",
+                "prompt": "Prompt 2 text",
+                "takeaway": "Takeaway 2 text",
+                "skills": ["Skills 2 text"]
+            {"}"},
+            {"{"}
+                "question": "Question 3 text",
+                "prompt": "Prompt 3 text",
+                "takeaway": "Takeaway 3 text",
+                "skills": ["Skills 3 text"]
+            {"}"},
+            {"{"}
+                "question": "Question 4 text",
+                "prompt": "Prompt 4 text",
+                "takeaway": "Takeaway 4 text",
+                "skills": ["Skills 4 text"]
+            {"}"},
+            {"{"}
+                "question": "Question 5 text",
+                "prompt": "Prompt 5 text",
+                "takeaway": "Takeaway 5 text",
+                "skills": ["Skills 5 text"]
+            {"}"},
+            {"{"}
+                "question": "Question 6 text",
+                "prompt": "Prompt 6 text",
+                "takeaway": "Takeaway 6 text",
+                "skills": ["Skills 6 text"]
+            {"}"}
+        ]
+    {"}"}
+
+    Generate the data in the above format only. Do not output anything else.
+    """
+
+    cnt = 0
+    res = ""
+
+    while cnt < 10:
+        try:
+            res = anthropic_completion(prompt, 1500)
+            print('*'*100)
+            print(res)
+            res = json.loads(res)
+            break
+        except Exception as e:
+            logger.exception(e)
+            cnt += 1
+
+    if cnt == 10:
+        res = {"status": "failed"}
+    else:
+        res["status"] = "success"
+
+    return res
