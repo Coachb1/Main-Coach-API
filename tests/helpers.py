@@ -1158,8 +1158,6 @@ def generate_test_from_objective_anthropic(objective: str):
     while cnt < 10:
         try:
             res = anthropic_completion(prompt, 1500)
-            print('*'*100)
-            print(res)
             res = json.loads(res)
             break
         except Exception as e:
