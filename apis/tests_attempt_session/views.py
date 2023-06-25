@@ -10,6 +10,7 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from tests.helpers import get_meeting_report_from_test_attempt_session
 from tests.helpers import create_test_question_answer_session
+from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.models import TestAttemptSession
 
 
