@@ -8,7 +8,8 @@ class SkillIndexSerializer(serializers.ModelSerializer):
         model = SkillIndex
         fields = ["display",
                   "name",
-                  "description"]
+                  "description",
+                  "tenant_id"]
 
 
 class SkillsDisplaySerializer(serializers.ModelSerializer):
