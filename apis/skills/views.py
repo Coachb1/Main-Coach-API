@@ -18,7 +18,8 @@ from skills.helpers import save_the_custom_rating
 
 
 class SkillsIndexViewSet(ApiViewSet,
-                         mixins.ListModelMixin):
+                         mixins.ListModelMixin,
+                         mixins.CreateModelMixin):
     queryset = SkillIndex.objects.filter(deleted=0)
     serializer_class = SkillIndexSerializer
     permission_classes = (IsAuthenticatedClient,)
