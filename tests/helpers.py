@@ -5,6 +5,8 @@ import string
 import tempfile
 from string import Template
 
+from skills.constants import skills
+
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -996,19 +998,22 @@ Output:
 @timeit
 def get_question_key_learning_skills(test_title,
                                      test_question):
+
+    skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
 TestTitle: ${test_title}
 Question: ${question_text}
 
 For given "Question" for the "TestTitle" extract skills that can be learned from a key learning from an ideal answer to the "Question"  as "Output". The "Output" should have comma separated skills where all skills are in small case.
-Choose skills from this list only: ['teamwork', 'leadership', 'people_management', 'conflict_management', 'negotiation', 'strategic_thinking', 'project_management', 'time_management', 'adaptability', 'engagement', 'empathy', 'communication', 'confidence', 'clarity']
+Choose skills from this list only: ${skills_name_list}
 
 Output:
 """
     ).safe_substitute(
         test_title=test_title,
-        question_text=test_question
+        question_text=test_question,
+        skills_name_list=skills_name_list
     )
 
     gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
@@ -1095,13 +1100,18 @@ def get_test_report(test: Test, only_data=False):
 
 
 def generate_test_from_objective_anthropic(objective: str):
+
+    skills_name_list = [skill['name'] for skill in skills]
+
     prompt = f"""
     Develop a a set of six questions asked by a employee to his manager where the questions must be related to this objective: [{objective}]. Add a initial paragraph titled
     "introduction" to explain the context of the questions in 100 to 200 words that includes any reference
     to any Youtube video links or other article links. Add a title to the session of 5 to 10 words which tells us about the context. Do not add any conclusion. With each question, add a
     prompt that would ask feedback from Anthropic about the response quality of the manager from HR best practices
     and management frameworks point of view. With each question add a one or two line takeaway for a manager about
-    providing feedback. With each question, add the management skill(s) that are tested. 
+    providing feedback. With each question, add the management skill(s) that are tested by the question. 
+    
+    NOTE THAT: Choose skills from this list only: {skills_name_list}.
     
     NOTE THAT: Output the generated data is JSON format only. Do not output anything else.
     NOTE THAT: Don't output any other information other than the following JSON format:
