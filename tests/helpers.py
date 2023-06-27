@@ -1011,12 +1011,19 @@ Output:
         question_text=test_question
     )
 
-    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
-    if not gpt_feedback.text:
-        raise ValueError("unable to get key_learning_point")
+    # if not gpt_feedback.text:
+    #     raise ValueError("unable to get key_learning_point")
 
-    return gpt_feedback.text
+    # return gpt_feedback.text
+
+    anthropic_response = anthropic_completion(prompt, 1000)
+
+    if not anthropic_response:
+        anthropic_response = "Communication"
+
+    return anthropic_response
 
 
 @timeit
@@ -1040,12 +1047,19 @@ Output:
         skills_name_list=skills_name_list
     )
 
-    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    anthropic_response = anthropic_completion(prompt, 1000)
 
-    if not gpt_feedback.text:
-        raise ValueError("unable to get key_learning_skills")
+    if not anthropic_response:
+        anthropic_response = "Communication"
 
-    return gpt_feedback.text
+    return anthropic_response
+
+    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+
+    # if not gpt_feedback.text:
+    #     raise ValueError("unable to get key_learning_skills")
+
+    # return gpt_feedback.text
 
 
 def get_test_report(test: Test, only_data=False):
