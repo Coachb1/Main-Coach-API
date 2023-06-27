@@ -537,7 +537,15 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
     test_attempt_session_id = test_attempt_session.uid
 
+    participant_id = test_attempt_session.participant_id
+    participant_name = get_user_display_name(get_user_by_id(participant_id))
+
+    date = test_attempt_session.started_at.strftime("%d %B %Y")
+
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
+    title = test.title
+
+    objective = test.orchestrated_conversation_details.get("objective")
 
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
@@ -548,12 +556,28 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     chat_conversation += get_group_discussion_chat_conversation(
         test_attempt_session, user_persona, is_report=True)
 
+    chat_conversation_with_details = []
+
+    for message in chat_conversation:
+        user_name, message = message.split(":")
+        is_bot = False
+
+        if user_name.strip().lower() != user_persona.strip().lower():
+            is_bot = True
+
+        chat_conversation_with_details.append(
+            {"user_name": user_name, "message": message, "is_bot": is_bot})
+
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
 
     return {
-        "chat_conversation": chat_conversation,
+        "participant_name": participant_name,
+        "date": date,
+        "title": title,
+        "objective": objective,
+        "chat_conversation": chat_conversation_with_details,
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
         "culture_skills": culture_skills
