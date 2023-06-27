@@ -65,7 +65,7 @@ def get_unique_test_code(tenant: Tenant) -> str:
     test_code = get_random_string(
         length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
 
-    test_code = add_prefix('Q-', test_code)
+    test_code = add_prefix('Q', test_code)
     retries = 0
     while Test.objects.filter(tenant_id=tenant.uid,
                               test_code=test_code,
@@ -78,7 +78,7 @@ def get_unique_test_code(tenant: Tenant) -> str:
 
         test_code = get_random_string(
             length=TEST_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
-        test_code = add_prefix('Q-', test_code)
+        test_code = add_prefix('Q', test_code)
         retries += 1
 
     return test_code
