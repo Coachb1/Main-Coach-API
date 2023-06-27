@@ -10,6 +10,8 @@ class TestTypeChoices(DjangoChoices):
     view = ChoiceItem("view")
     interview = ChoiceItem("interview")
     single = ChoiceItem("single")
+    case = ChoiceItem("case")
+    group = ChoiceItem("group")
 
 
 class InteractionModeChoices(DjangoChoices):
