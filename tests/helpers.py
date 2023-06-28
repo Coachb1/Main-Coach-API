@@ -864,7 +864,7 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     participant_attributes = UserAttribute.objects.get(
         user_id=participant_id).attributes
 
-    participant_name = participant_attributes.get("name")
+    participant_name = participant_attributes.get("user_name")
 
     # Get report url after removing it from the base url
     report_url = report_url.replace(FRONTEND_BASE_URL, "")
@@ -873,7 +873,7 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
 
     try:
         participant_phone = participant_attributes.get(
-            "profile", {}).get("phone")
+            "mobile_number")
 
         whatsapp_api.send_whatsapp_report(participant_phone, report_url)
     except Exception as e:
