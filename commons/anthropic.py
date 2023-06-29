@@ -9,12 +9,12 @@ ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 
 def anthropic_completion(prompt, max_tokens):
-    client = anthropic.Client(ANTHROPIC_KEY)
-    response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
-                                 model='claude-instant-v1', max_tokens_to_sample=max_tokens,
-                                 stop_sequences=[anthropic.HUMAN_PROMPT])
+    client = anthropic.Client(api_key=ANTHROPIC_KEY)
+    response = client.completions.create(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
+                                         model='claude-instant-v1', max_tokens_to_sample=max_tokens,
+                                         stop_sequences=[anthropic.HUMAN_PROMPT])
     logger.info("anthropic_completion response %s", response)
-    return response['completion']
+    return response.completion
 
 
 prompt1 = '''
