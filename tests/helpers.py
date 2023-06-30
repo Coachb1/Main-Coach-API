@@ -295,6 +295,11 @@ def create_test_question_answer(tenant: Tenant,
         test_question_response, is_whatsapp)
 
 
+def delete_test_response(test_response):
+    test_response.deleted = test_response.deleted + 1
+    test_response.save()
+
+
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
@@ -306,10 +311,21 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
-                test_question_response.response_file)
-            test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
-                test_question_response.response_file)
+            try:
+                test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+                    test_question_response.response_file)
+            except Exception as e:
+                logger.exception(e)
+                delete_test_response(test_question_response)
+                raise ValueError("unable to get feedback for %s",
+                                 test_question_response.uid)
+            try:
+                test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
+                    test_question_response.response_file)
+            except Exception as e:
+                logger.exception(e)
+                test_question_response.speech_metrics = {}
+
             update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
@@ -339,8 +355,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
     gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
     if not gpt_feedback.text:
         # delete this response
-        test_question_response.deleted = test_question_response.deleted + 1
-        test_question_response.save()
+        delete_test_response(test_question_response)
         raise ValueError("unable to get feedback for %s",
                          test_question_response.uid)
 
