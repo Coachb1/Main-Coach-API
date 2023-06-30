@@ -55,6 +55,8 @@ class CreateTestSerializer(serializers.Serializer):
     candidate_type = serializers.CharField(default=None, required=False)
     orchestrated_conversation_details = OrchestratedConversationDetails(
         required=False, allow_null=True, default=None)
+    description_media = serializers.CharField(
+        default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -93,6 +95,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "interaction_mode",
                   "test_type",
                   "orchestrated_conversation_details",
+                  "description_media",
                   "questions",
                   "created",
                   "updated"]

@@ -31,6 +31,8 @@ class Test(TenantAwareModel):
         null=True, blank=True, max_length=255, default=None)
     orchestrated_conversation_details = models.JSONField(
         null=True, blank=True, default=None)
+    description_media = models.TextField(
+        null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
