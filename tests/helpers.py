@@ -98,6 +98,7 @@ def create_test(tenant: Tenant,
                 email_candidate: bool,
                 test_related_context: str,
                 orchestrated_conversation_details: dict,
+                description_media: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -122,7 +123,8 @@ def create_test(tenant: Tenant,
             test_type=test_type,
             test_related_context=test_related_context,
             orchestrated_conversation_details=orchestrated_conversation_details,
-            test_code=get_unique_test_code(tenant)
+            test_code=get_unique_test_code(tenant),
+            description_media=description_media,
         )
 
         test_questions = []
