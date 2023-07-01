@@ -414,8 +414,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             _to_be_deleted.append(key)
 
     for key in _to_be_deleted:
-        del skills_rating[key] 
-         
+        del skills_rating[key]
+
     # Calculating the average score of the response
     response_avg_score = 0
     skills_count = 0
@@ -424,7 +424,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             continue
         response_avg_score += skills_rating[skill]
         skills_count += 1
-    
+
     if skills_count == 0:
         response_avg_score = 0
     else:
@@ -863,7 +863,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     participant_name = participant_attributes.get("name")
 
-    email_subject = f"{test_name} completed by {participant_name} 🚀🚀"
+    email_subject = f"Coachbots Report: {test_name} completed by {participant_name} 🚀🚀"
 
     data = {
         "report_url": report_url,
