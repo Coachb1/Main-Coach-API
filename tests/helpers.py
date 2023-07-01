@@ -451,7 +451,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
         if test.email_address_list:
             report_url = generate_session_report_link(
                 test_attempt_session, test)
-            send_report_link_to_email(test, test_attempt_session, report_url)
+            send_report_link_to_email(
+                test, test_attempt_session, report_url, is_whatsapp)
 
         if is_whatsapp:
             send_report_link_to_whatsapp(
@@ -849,9 +850,11 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     return report_url
 
 
-def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str, is_whatsapp: bool = False):
     test_name = test.title
     test_description = test.description
+    test_completion_date = test_attempt_session.finished_at.strftime(
+        "%d %b %Y")
     participant_id = test_attempt_session.participant_id
     participant_attributes = UserAttribute.objects.get(
         user_id=participant_id).attributes
@@ -861,9 +864,14 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_address_list = [email_address.strip()
                           for email_address in email_address_list]
 
-    participant_name = participant_attributes.get("name")
+    if is_whatsapp:
+        participant_name = participant_attributes.get("user_name")
+        mobile_number = participant_attributes.get("mobile_number")
+        participant_name = f"{participant_name} ({mobile_number})"
+    else:
+        participant_name = participant_attributes.get("name")
 
-    email_subject = f"Coachbots Report: {test_name} completed by {participant_name} 🚀🚀"
+    email_subject = f"{test_name} completed by {participant_name} on {test_completion_date} 🚀🚀"
 
     data = {
         "report_url": report_url,
