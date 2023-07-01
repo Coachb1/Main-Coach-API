@@ -20,7 +20,7 @@ def evaluate_response(question_text, response_text, skills):
     try:
         response = anthropic_completion(prompt, len(skills) * 50)
         response = json.loads(response)
-        return response, is_evaluated
+        # return response, is_evaluated
     except json.decoder.JSONDecodeError:
         is_evaluated = False
 
