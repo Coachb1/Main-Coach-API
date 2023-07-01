@@ -394,7 +394,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
                          test_question_response.uid)
 
     for skill in required_skills:
-
+        if skill not in skills_rating:
+            continue
         # Convert skills as very good -> 5, good -> 4, average -> 3, bad -> 2, very bad -> 1
         if skills_rating[skill] == "very good":
             skills_rating[skill] = 10
@@ -407,13 +408,23 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
         elif skills_rating[skill] == "very bad":
             skills_rating[skill] = 2
 
+    _to_be_deleted = []
+    for key in skills_rating.keys():
+        if key not in required_skills:
+            _to_be_deleted.append(key)
+
+    for key in _to_be_deleted:
+        del skills_rating[key] 
+         
     # Calculating the average score of the response
     response_avg_score = 0
     skills_count = 0
     for skill in skills_rating:
+        if isinstance(skills_rating[skill], str):
+            continue
         response_avg_score += skills_rating[skill]
         skills_count += 1
-
+    
     if skills_count == 0:
         response_avg_score = 0
     else:
