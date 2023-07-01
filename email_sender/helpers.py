@@ -7,6 +7,7 @@ import logging
 
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
+FROM_EMAIL_DISPLAY = "Coachbots Report <mail@coachbots.com>"
 APP_PASSWORD = "daD4QnY3OJBGMVEj"
 
 
@@ -16,7 +17,7 @@ def send_email(to_email, subject, data):
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = from_email
+    msg['From'] = FROM_EMAIL_DISPLAY
     msg['To'] = to_email
 
     html_body = get_html_body(
@@ -50,7 +51,7 @@ def send_learner_path_email(tests, user):
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = f"Learner Path for {user_name}"
-    msg['From'] = from_email
+    msg['From'] = FROM_EMAIL_DISPLAY
     msg['To'] = to_email
 
     html_body = get_html_body_learner_path(test_list)
