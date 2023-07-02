@@ -744,6 +744,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
     response_count = 0
 
     for response in responses:
+        if response.skills_rating is None:
+            continue
         # get skills rating from this response
         response_skills_rating = response.skills_rating
         response_avg_score = response.avg_score
@@ -932,8 +934,14 @@ def calc_culture_skills_rating(responses):
     count = 1
 
     for response in responses:
-        question_text = TestQuestion.objects.get(
-            uid=response.question_id).question
+
+        question = TestQuestion.objects.get(
+            uid=response.question_id)
+
+        if question.is_view_only:
+            continue
+
+        question_text = question.question
         response_text = response.response_text
 
         conversation += f"{count}. [Question:] {question_text}\n"
