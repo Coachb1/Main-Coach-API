@@ -308,6 +308,12 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
     test = Test.objects.get(uid=test_attempt_session.test_id)
     # participant = User.objects.get(uid=test_attempt_session.participant_id)
 
+    if question.is_view_only:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        test_question_response.save(
+            update_fields=["evaluation_status", "updated"])
+        return test_question_response
+
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
@@ -407,6 +413,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             skills_rating[skill] = 4
         elif skills_rating[skill] == "very bad":
             skills_rating[skill] = 2
+        elif skills_rating[skill] == "NA":
+            skills_rating[skill] = 4
 
     _to_be_deleted = []
     for key in skills_rating.keys():
