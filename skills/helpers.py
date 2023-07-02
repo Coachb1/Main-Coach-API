@@ -11,7 +11,11 @@ from users.models import User
 def evaluate_response(question_text, response_text, skills):
     prompt = f'''
     "Question:" {question_text}; "Answer:" {response_text};
-    "Required from anthropic:" Rate this answer as "very good", "good", "average", "bad", "very bad" in terms for each skill in the list in JSON: "{skills}" Reply "very good", "good", "average", "bad", "very bad" for each skill from the list in a JSON format
+    "Required from anthropic:" Rate this answer as "very good", "good", "average", "bad", "very bad" in terms for each skill in the list in JSON: "{skills}" Reply "very good", "good", "average", "bad", "very bad" for each skill from the list in a JSON format only.
+    Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
+    Example of JSON: {{"hierarchy": "very good", "consensual": "good", "indirect negative feedback": "average", "relationship based": "bad", "high context communication": "very bad", "Persuasion": "NA", "argumentative": "NA"}}
+    NOTE: Please Reply in a JSON format only and no other format will be accepted.
+    NOTE: Don't put any other text in the reply other than the JSON.
     '''
 
     is_evaluated = True
