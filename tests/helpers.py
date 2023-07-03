@@ -462,7 +462,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             send_report_link_to_email(
                 test, test_attempt_session, report_url, is_whatsapp)
 
-        if is_whatsapp:
+        if is_whatsapp and test.test_type != TestTypeChoices.interview:
             send_report_link_to_whatsapp(
                 test, test_attempt_session, report_url)
 
