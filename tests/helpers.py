@@ -413,7 +413,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             skills_rating[skill] = 4
         elif skills_rating[skill] == "very bad":
             skills_rating[skill] = 2
-        elif skills_rating[skill] == "NA":
+        else:
             skills_rating[skill] = 4
 
     _to_be_deleted = []
