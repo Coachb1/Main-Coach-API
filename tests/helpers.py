@@ -938,14 +938,12 @@ def calc_culture_skills_rating(responses):
         question = TestQuestion.objects.get(
             uid=response.question_id)
 
-        if question.is_view_only:
-            continue
-
         question_text = question.question
         response_text = response.response_text
 
         conversation += f"{count}. [Question:] {question_text}\n"
-        conversation += f"[Answer:] {response_text}\n\n"
+        if not question.is_view_only:
+            conversation += f"[Answer:] {response_text}\n\n"
 
         count += 1
 
