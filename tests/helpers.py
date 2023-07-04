@@ -212,8 +212,10 @@ def create_test_question_answer_session(tenant: Tenant,
 
         if test.max_test_allowed is not None:
             if test.max_test_allowed == 0:
-                logger.exception(f"Failed to create session for test for id {test_id}")
-                raise serializers.ValidationError("maximum test allowed exceeded!")
+                logger.exception(
+                    f"Failed to create session for test for id {test_id}")
+                raise serializers.ValidationError(
+                    "maximum test allowed exceeded!")
             else:
                 if test.max_test_allowed > 0:
                     test.max_test_allowed -= 1
@@ -467,10 +469,10 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
     if total_questions == total_responses:
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
+        report_url = generate_session_report_link(test_attempt_session, test)
 
         if test.email_address_list:
-            report_url = generate_session_report_link(
-                test_attempt_session, test)
+
             send_report_link_to_email(
                 test, test_attempt_session, report_url, is_whatsapp)
 
@@ -860,6 +862,9 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
 
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    if test_attempt_session.report_url:
+        return test_attempt_session.report_url
+
     test_id = test_attempt_session.test_id
     test_attempt_session_id = test_attempt_session.uid
     participant_id = test_attempt_session.participant_id
@@ -869,10 +874,17 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
     report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
 
+    test_attempt_session.report_url = report_url
+    test_attempt_session.save(update_fields=["report_url"])
+
     return report_url
 
 
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str, is_whatsapp: bool = False):
+
+    if test_attempt_session.is_report_sent_to_email:
+        return
+
     test_name = test.title
     test_description = test.description
     test_completion_date = test_attempt_session.finished_at.strftime(
@@ -914,8 +926,14 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     for to_email in email_address_list:
         send_email(to_email, email_subject, data=data)
 
+    test_attempt_session.is_report_sent_to_email = True
+    test_attempt_session.save(update_fields=["is_report_sent_to_email"])
+
 
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    if test_attempt_session.is_report_sent_to_whatsapp:
+        return
+
     test_name = test.title
     test_description = test.description
     participant_id = test_attempt_session.participant_id
@@ -937,6 +955,9 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     except Exception as e:
         logger.exception("failed to send whatsapp message to participant %s with phone %s",
                          participant_id, participant_phone)
+
+    test_attempt_session.is_report_sent_to_whatsapp = True
+    test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
 def calc_culture_skills_rating(responses):
