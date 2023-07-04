@@ -105,6 +105,11 @@ class TestAttemptSession(TenantAwareModel):
     meeting_summary = models.TextField(null=True, blank=True, default=None)
     areas_of_improvement = models.JSONField(
         null=True, blank=True, default=None)
+    report_url = models.TextField(null=True, blank=True, default=None)
+    is_report_sent_to_whatsapp = models.BooleanField(
+        null=True, blank=True, default=None)
+    is_report_sent_to_email = models.BooleanField(
+        null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
