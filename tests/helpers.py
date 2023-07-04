@@ -316,12 +316,46 @@ def delete_test_response(test_response):
 
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id)
+
+    logger.info(
+        f"[process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
     test = Test.objects.get(uid=test_attempt_session.test_id)
     # participant = User.objects.get(uid=test_attempt_session.participant_id)
 
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(
+            f"Test Serssion is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    with transaction.atomic():
+        try:
+            _test_attempt_session = TestAttemptSession.objects.filter(
+                uid=test_attempt_session.uid, deleted=0).select_for_update(nowait=True).get()
+        except Exception as e:
+            logger.exception(e)
+            logger.info(
+                f"Test Session is failed for concurrent request: {test_attempt_session.uid}")
+
+            raise e
+
+        _test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        _test_attempt_session.save(update_fields=["status", "updated"])
+
+        transaction.on_commit(lambda: __process_test_response(
+            question=question, test=test, test_attempt_session=test_attempt_session, test_question_response=test_question_response, is_whatsapp=is_whatsapp))
+
+    test_question_response.refresh_from_db()
+    return test_question_response
+
+
+def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession, test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    logger.info(
+        f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
     if question.is_view_only:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
         test_question_response.save(
