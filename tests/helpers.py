@@ -933,7 +933,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
 
     logger.info("sending whatsapp message to participant %s with phone %s",
-                test_attempt_session.participant_id, participant_phone)
+                test_attempt_session.participant_id)
 
     logger.info(
         f"is Report Sent to Whatsapp Boolean: {test_attempt_session.is_report_sent_to_whatsapp}")
@@ -950,7 +950,7 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     participant_name = participant_attributes.get("user_name")
 
     logger.info(
-        f"[Whatsapp Send Message Data] Participant Name: {participant_name}, Participant ID: {participant_id},  Test Name: {test_name}, Test Attempt Session ID: {test_attempt_session.uid}")
+        f"[Whatsapp Send Message Data] Participant Name: {participant_name}, Participant ID: {participant_id},  Test Name: {test_name}, Test Attempt Session ID: {test_attempt_session.uid}, participant_attributes: {participant_attributes}")
 
     # Get report url after removing it from the base url
     report_url = report_url.replace(FRONTEND_BASE_URL, "")
