@@ -91,6 +91,7 @@ def create_test(tenant: Tenant,
                 description: str,
                 candidate_type: str,
                 email_address_list: str,
+                max_test_allowed: int,
                 send_only_to_email: bool,
                 interaction_mode: str,
                 test_type: str,
@@ -125,6 +126,7 @@ def create_test(tenant: Tenant,
             orchestrated_conversation_details=orchestrated_conversation_details,
             test_code=get_unique_test_code(tenant),
             description_media=description_media,
+            max_test_allowed=max_test_allowed
         )
 
         test_questions = []
@@ -207,6 +209,16 @@ def create_test_question_answer_session(tenant: Tenant,
                                         participant_id: str) -> TestAttemptSession:
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
+
+        if test.max_test_allowed is not None:
+            if test.max_test_allowed == 0:
+                logger.exception(f"Failed to create session for test for id {test_id}")
+                raise serializers.ValidationError("maximum test allowed exceeded!")
+            else:
+                if test.max_test_allowed > 0:
+                    test.max_test_allowed -= 1
+                    test.save()
+
     except Test.DoesNotExist as e:
         logger.exception(
             "failed to create session, test with id %s does not exist", test_id)
