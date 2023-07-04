@@ -389,6 +389,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession, test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
     if question.is_view_only:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
         test_question_response.save(
@@ -523,6 +524,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.skills_rating = skills_rating
     test_question_response.avg_score = response_avg_score
     test_question_response.save(update_fields=["skills_rating", "avg_score"])
+
+    test_attempt_session.refresh_from_db()
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
