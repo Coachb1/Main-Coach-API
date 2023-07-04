@@ -1,5 +1,6 @@
 import logging
 import json
+import time
 import os
 import string
 import tempfile
@@ -326,6 +327,29 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
     # participant = User.objects.get(uid=test_attempt_session.participant_id)
+
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        start_time = time.time()
+        while True:
+            end_time = time.time()
+            if end_time - start_time > 60:
+                logger.error(
+                    f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
+                raise ValueError("unable to evaluate response: %s",
+                                 test_question_response.uid)
+
+            time.sleep(5)
+
+            not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
+                test_attempt_session_id=test_attempt_session.uid,
+                deleted=0
+            ).exclude(uid=test_question_response.uid).exclude(evaluation_status=TestQuestionResponseEvaluationStatusChoices.success).count()
+
+            if not_evaluated_test_responses_count == 0:
+                break
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         logger.info(
