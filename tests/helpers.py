@@ -872,6 +872,9 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     tokens = create_new_tokens('user-report', 'uid', participant_id)
     refresh_token = tokens["refresh"]
 
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
     report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
 
     test_attempt_session.report_url = report_url
