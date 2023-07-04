@@ -332,19 +332,28 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             f"Test Serssion is already completed: {test_attempt_session.uid}")
         return test_question_response
 
+    # count number of questions in the test
+    total_questions = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).count()
+    # count number of question response in the test attempt session
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                          deleted=0).count()
+
     with transaction.atomic():
-        try:
-            _test_attempt_session = TestAttemptSession.objects.filter(
-                uid=test_attempt_session.uid, deleted=0).select_for_update(nowait=True).get()
-        except Exception as e:
-            logger.exception(e)
-            logger.info(
-                f"Test Session is failed for concurrent request: {test_attempt_session.uid}")
 
-            raise e
+        if total_questions == total_responses:
+            try:
+                _test_attempt_session = TestAttemptSession.objects.filter(
+                    uid=test_attempt_session.uid, deleted=0).select_for_update(nowait=True).get()
+            except Exception as e:
+                logger.exception(e)
+                logger.info(
+                    f"Test Session is failed for concurrent request: {test_attempt_session.uid}")
 
-        _test_attempt_session.status = TestAttemptSessionStatusChoices.completed
-        _test_attempt_session.save(update_fields=["status", "updated"])
+                raise e
+
+            _test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+            _test_attempt_session.save(update_fields=["status", "updated"])
 
         transaction.on_commit(lambda: __process_test_response(
             question=question, test=test, test_attempt_session=test_attempt_session, test_question_response=test_question_response, is_whatsapp=is_whatsapp))
@@ -491,16 +500,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.avg_score = response_avg_score
     test_question_response.save(update_fields=["skills_rating", "avg_score"])
 
-    # 2 Get the test id from this response
-    test_id = test.uid
-    # count number of questions in the test
-    total_questions = TestQuestion.objects.filter(
-        test_id=test_id, deleted=0).count()
-    # count number of question response in the test attempt session
-    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                          deleted=0).count()
-
-    if total_questions == total_responses:
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session)
         report_url = generate_session_report_link(test_attempt_session, test)
@@ -844,8 +844,6 @@ def _calc_score(test_attempt_session: TestAttemptSession):
 
     if has_speech_metric:
         test_attempt_session.speech_score = speech_score
-
-    test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
     updated_fields = ["skills_rating", "test_score", "avg_score",
                       "status", "finished_at", "updated"]
