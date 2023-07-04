@@ -13,6 +13,8 @@ class Test(TenantAwareModel):
     creator_id = models.CharField(max_length=255, db_index=True)
     title = models.CharField(max_length=255, db_index=True)
     description = models.TextField(null=True, blank=True, default=None)
+    max_test_allowed = models.IntegerField(
+        null=True, blank=True, default=None)
     interaction_mode = models.CharField(
         max_length=255, choices=InteractionModeChoices)
     test_type = models.CharField(
