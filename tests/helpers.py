@@ -360,12 +360,14 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
     anthropic_feedback = anthropic_completion(prompt, 1000)
     feedback_text = ''
+    raw_text = ''
     if not anthropic_feedback:
         gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
         if not gpt_feedback.text:
             feedback_text = "Feedback couldn't be generated"
         else:
             feedback_text = gpt_feedback.text
+            raw_text = gpt_feedback.raw
 
     else: 
         feedback_text = anthropic_feedback
@@ -374,7 +376,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
         "gpt": {
             "prompt": prompt,
             "response": {
-                "raw": feedback_text,
+                "raw": raw_text,
                 "text": feedback_text,
             }
         }
