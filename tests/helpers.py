@@ -440,24 +440,31 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-    if not gpt_feedback.text:
-        # delete this response
-        delete_test_response(test_question_response)
-        raise ValueError("unable to get feedback for %s",
-                         test_question_response.uid)
+    anthropic_feedback = anthropic_completion(prompt, 1000)
+    feedback_text = ''
+    raw_text = ''
+    if not anthropic_feedback:
+        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+        if not gpt_feedback.text:
+            feedback_text = "Feedback couldn't be generated"
+        else:
+            feedback_text = gpt_feedback.text
+            raw_text = gpt_feedback.raw
 
+    else: 
+        feedback_text = anthropic_feedback
+        
     test_question_response.metadata = {
         "gpt": {
             "prompt": prompt,
             "response": {
-                "raw": gpt_feedback.raw,
-                "text": gpt_feedback.text,
+                "raw": raw_text,
+                "text": feedback_text,
             }
         }
     }
 
-    test_question_response.feedback_text = gpt_feedback.text
+    test_question_response.feedback_text = feedback_text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=["feedback_text", "evaluation_status", "updated"])
