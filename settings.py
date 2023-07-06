@@ -25,6 +25,7 @@ ACCESS_TOKEN_EXPIRY_UNIT = "days"
 ACCESS_TOKEN_EXPIRY_VALUE = 1
 
 INSTALLED_APPS = [
+    "test_bulk_upload.apps.TestBulkUploadConfig",
     "tenants.apps.TenantsConfig",
     "clients.apps.ClientsConfig",
     "users.apps.UsersConfig",
