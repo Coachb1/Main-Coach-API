@@ -1,10 +1,14 @@
 import uuid
 
+from django.db import transaction
 from django.utils import timezone
 
 from commons.s3_get_url import get_url
 from commons.s3_upload import s3_upload
+from commons.timeit import timeit
+from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
+from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
 
 
@@ -13,7 +17,8 @@ def create_document(tenant: Tenant,
                     owner_id: str,
                     display_name: str,
                     doc_type: str,
-                    file) -> Document:
+                    file,
+                    actions_pipeline: list = None) -> Document:
     file.seek(0)
 
     file_extension = display_name.rsplit(".", 1)[-1]
@@ -29,19 +34,26 @@ def create_document(tenant: Tenant,
         region_name=region_name
     )
 
-    doc = Document.objects.create(
-        tenant_id=tenant.uid,
-        display_name=display_name,
-        object_id=object_id,
-        bucket_name=bucket_name,
-        region_name=region_name,
-        doc_type=doc_type,
-        content_type=file.content_type,
-        size=file.size,
-        owner_type=owner_type,
-        owner_id=owner_id,
-        doc_status="saved"
-    )
+    with transaction.atomic():
+        doc = Document.objects.create(
+            tenant_id=tenant.uid,
+            display_name=display_name,
+            object_id=object_id,
+            bucket_name=bucket_name,
+            region_name=region_name,
+            doc_type=doc_type,
+            content_type=file.content_type,
+            size=file.size,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            doc_status="saved",
+            actions_pipeline=actions_pipeline
+        )
+
+        if actions_pipeline:
+            transaction.on_commit(
+                lambda: execute_actions_pipline(doc)
+            )
 
     return doc
 
@@ -53,3 +65,46 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 def get_document_url(doc: Document) -> str:
     return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+
+
+@timeit
+def execute_actions_pipline(doc: Document):
+    if not doc.actions_pipeline:
+        return
+
+    executed_actions_pipeline = []
+    for item in doc.actions_pipeline:
+        action = item["action"]
+        context = item.get("context")
+        status = "init"
+
+        current_action = dict(
+            action=action,
+            context=context,
+            status=status
+        )
+
+        executed_actions_pipeline.append(current_action)
+
+        if action == DocActionTypeChoice.transcribe:
+            current_action["status"] = "init"
+
+            transcribed_text = ""
+            if doc.doc_type == DocTypeChoice.AUDIO_ANSWER:
+                transcribed_text = coach_whisper_api.get_transcribe_from_audio(
+                    get_document_url(doc))
+                current_action["status"] = "success"
+
+            elif doc.doc_type == DocTypeChoice.VIDEO_ANSWER:
+                transcribed_text = coach_whisper_api.get_transcribe_from_video(
+                    get_document_url(doc))
+                current_action["status"] = "success"
+
+            doc.transcript_details = {
+                "text": transcribed_text,
+                "source": "inhouse_whisper"
+            }
+
+        doc.actions_pipeline = executed_actions_pipeline
+
+        doc.save()
