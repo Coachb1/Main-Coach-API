@@ -15,7 +15,7 @@ def evaluate_response(question_text, response_text, skills):
     Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
     NOTE: Please Reply in a JSON format only and no other format will be accepted.
     NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be choosen from {skills} only.
-    NOTE: Output Format: {{"skill1": "very good", "skill2": "good", "skill3": "very bad"}}
+    NOTE: Output Format Example: {{"skill1": "very good", "skill2": "good", "skill3": "very bad"}}
     '''
 
     is_evaluated = True
