@@ -440,7 +440,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 1000)
+    anthropic_feedback = anthropic_completion(prompt, 500)
     feedback_text = ''
     raw_text = ''
     if not anthropic_feedback:
@@ -451,9 +451,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             feedback_text = gpt_feedback.text
             raw_text = gpt_feedback.raw
 
-    else: 
+    else:
         feedback_text = anthropic_feedback
-        
+
     test_question_response.metadata = {
         "gpt": {
             "prompt": prompt,
