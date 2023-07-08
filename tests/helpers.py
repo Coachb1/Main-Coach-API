@@ -1122,8 +1122,15 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         "test_main_context")
     test_user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
+    initial_messages = test.orchestrated_conversation_details.get(
+        "initial_messages")
 
     current_conversation = ''
+
+    for message in initial_messages:
+        conv_text = message
+        current_conversation = current_conversation + "\n" + conv_text
+
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                              evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
