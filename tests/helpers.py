@@ -593,6 +593,12 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
        bot_llm response is always a text;; ignore test mode or question response type
    """
 
+    # ignore processing if bot already has a response; useful in case of initial messages
+    if test_question_response.response_text:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        test_question_response.save()
+        return
+
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
 
     test_attempt_session = TestAttemptSession.objects.get(
