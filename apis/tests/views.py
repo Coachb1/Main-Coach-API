@@ -102,7 +102,10 @@ class TestViewSet(ApiViewSet,
 
         user = User.objects.get(uid=candidate_id, tenant_id=tenant.uid)
 
-        tests = get_learner_path(self.queryset, objective, candidate_type)
+        tenant_aware_query_set = self.queryset.filter(tenant_id=tenant.uid)
+
+        tests = get_learner_path(
+            tenant_aware_query_set, objective, candidate_type)
 
         send_learner_path_email(tests, user)
 
