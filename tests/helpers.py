@@ -684,7 +684,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     chat_conversation_with_details = []
 
     for message in chat_conversation:
-        user_name, message = message.split(":")
+        user_name, message = message.split(":", 1)
         is_bot = False
 
         if user_name.strip().lower() != user_persona.strip().lower():
