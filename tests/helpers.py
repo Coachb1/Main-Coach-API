@@ -1,5 +1,6 @@
 import logging
 import json
+import random
 import time
 import os
 import string
@@ -642,8 +643,13 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
 
-    test_attempt_session.culture_skills_rating = evaluate_group_discussion_conversation(
+    culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
+
+    culture_skills_rating = update_culture_skills_if_same_scores(
+        culture_skills_rating)
+
+    test_attempt_session.culture_skills_rating = culture_skills_rating
 
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
@@ -875,6 +881,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         avg_score = avg_score / response_count
 
     culture_skills_rating = calc_culture_skills_rating(responses)
+    culture_skills_rating = update_culture_skills_if_same_scores(
+        culture_skills_rating)
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
@@ -953,6 +961,35 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     test_attempt_session.save(update_fields=["report_url"])
 
     return report_url
+
+
+def update_culture_skills_if_same_scores(culture_skills_rating):
+
+    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
+                       'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+
+    if culture_skills_rating is None:
+        culture_skills_rating = {}
+
+        for skill in cultural_skills:
+            culture_skills_rating[skill] = 6
+
+    scores_frequency = {}
+    for skill in culture_skills_rating:
+        score = culture_skills_rating[skill]
+        if score in scores_frequency:
+            scores_frequency[score].append(skill)
+        else:
+            scores_frequency[score] = [skill]
+
+    for score in scores_frequency:
+        if len(scores_frequency[score]) > len(cultural_skills) / 2:
+            # Divide the score unequally among the skills
+            for skill in scores_frequency[score]:
+                culture_skills_rating[skill] = random.randint(
+                    max(1, score-2), min(10, score + 2))
+
+    return culture_skills_rating
 
 
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str, is_whatsapp: bool = False):
@@ -1212,7 +1249,8 @@ Question: ${question_text}
 
 For given "Question" for the "TestTitle" extract skills that can be learned from a key learning from an ideal answer to the "Question"  as "Output". The "Output" should have comma separated skills where all skills are in small case.
 Choose skills from this list only: ${skills_name_list}
-
+NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
+NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
 Output:
 """
     ).safe_substitute(
@@ -1226,7 +1264,17 @@ Output:
     if not anthropic_response:
         anthropic_response = "Communication"
 
-    return anthropic_response
+    anthropic_response_skills = anthropic_response.split(",")
+
+    result = []
+    for skill in anthropic_response_skills:
+        skill = skill.strip()
+        if skill:
+            result.append(skill)
+
+    result = ",".join(result)
+
+    return result
 
     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
