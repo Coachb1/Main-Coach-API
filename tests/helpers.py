@@ -23,7 +23,7 @@ from users.db import get_user_display_name
 from email_sender.helpers import send_email
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt3_completion
+from commons.openai_gpt import gpt3_completion, gpt_wishper_api
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
@@ -403,11 +403,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             try:
                 test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
                     test_question_response.response_file)
-            except Exception as e:
-                logger.exception(e)
-                delete_test_response(test_question_response)
-                raise ValueError("unable to get feedback for %s",
-                                 test_question_response.uid)
+            except:
+                try:
+                    test_question_response.response_text = gpt_wishper_api(test_question_response.response_file)
+                except:
+                    test_question_response.response_text = "Transcription couldn't be generated"
+
             try:
                 test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
                     test_question_response.response_file)
