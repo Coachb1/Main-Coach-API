@@ -18,22 +18,21 @@ def create_new_tokens(entity_type: str,
     now = timezone.now()
     random_token = str(uuid.uuid4())
 
-    token, created = RefreshToken.objects.get_or_create(
+    token, created = RefreshToken.objects.create(
         entity_type=entity_type,
         entity_identifier_key=entity_identifier_key,
         entity_identifier_value=entity_identifier_value,
-        defaults=dict(
-            token=random_token,
-            nbf=now,
-            iat=now,
-            exp=now + timezone.timedelta(days=30)
-        ))
+        token=random_token,
+        nbf=now,
+        iat=now,
+        exp=now + timezone.timedelta(days=30),
+    )
 
     if not created:
         token.token = random_token
         token.nbf = now
         token.iat = now
-        token.exp = now + timezone.timedelta(days=30)
+        token.exp = now + timezone.timedelta(days=365)
         token.save()
 
     return {"refresh": token.refresh_token, "access": token.access_token}
@@ -41,7 +40,8 @@ def create_new_tokens(entity_type: str,
 
 def verify_refresh_token(jwt_token) -> RefreshToken:
     try:
-        decoded = jwt.decode(jwt=jwt_token, key=settings.SECRET_KEY, algorithms=["HS256"], )
+        decoded = jwt.decode(
+            jwt=jwt_token, key=settings.SECRET_KEY, algorithms=["HS256"], )
     except:
         raise PermissionDenied
 
@@ -56,7 +56,8 @@ def verify_refresh_token(jwt_token) -> RefreshToken:
 
 def verify_access_token(jwt_token):
     try:
-        decoded = jwt.decode(jwt=jwt_token, key=settings.SECRET_KEY, algorithms=["HS256"])
+        decoded = jwt.decode(
+            jwt=jwt_token, key=settings.SECRET_KEY, algorithms=["HS256"])
     except:
         raise AuthenticationFailed
 
