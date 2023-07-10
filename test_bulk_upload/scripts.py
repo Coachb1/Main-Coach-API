@@ -273,8 +273,8 @@ def login_web(email, password):
 
 def login_slack(email, password, subdomain_prefix):
     try:
-        # url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
-        url = "http://localhost:8000/api/v1/webauth/login/"
+        url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
+        # url = "http://localhost:8000/api/v1/webauth/login/"
 
         payload = json.dumps({
             "subdomain_prefix": subdomain_prefix,
@@ -563,7 +563,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     logger.info("[Making Request]")
 
                     response = requests.post(
-                        LOCALHOST, data=json_data, headers=headers, verify=False)
+                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
 
                     logger.info("[Response Received]\n")
 
