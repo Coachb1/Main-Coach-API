@@ -9,6 +9,9 @@ from django.conf import settings
 
 from commons.timeit import timeit
 
+import requests
+import tempfile
+
 logger = logging.getLogger(__name__)
 
 openai.api_key = settings.OPENAI_API_KEY
@@ -74,3 +77,24 @@ def gpt3_completion(prompt,
                 raise e
 
             time.sleep(1)
+
+
+
+
+@timeit
+def gpt_wishper_api(url):
+    try:
+        response = requests.get(url)
+        audio_data = response.content
+        text = ''
+        with tempfile.NamedTemporaryFile(suffix=".mp3") as temp_file:
+            # Write the audio data to the temporary file
+            temp_file.write(audio_data)
+            temp_file.seek(0)
+            
+            transcription = openai.Audio.transcribe("whisper-1", temp_file)
+            text = transcription['text']
+        return text
+    
+    except Exception as e:
+        raise(e)
