@@ -213,6 +213,7 @@ input[type='file']{
         <p class="message-text">Upload a csv file to create tests.</p>
         <div class="button-div">
             <button id="slack-redirect" class="select-button">Create test for slack</button>
+            <button id="slack-orchestrated-test-redirect" class="select-button">Orchestrated test for slack </button>
             <button id="web-redirect" class="select-button">Create test for Web</button>
         </div>
         <br><br>
@@ -221,6 +222,7 @@ input[type='file']{
 
     <script>
         let slackRedirect = document.getElementById('slack-redirect');
+        let slackOrchestratedRedirect = document.getElementById('slack-orchestrated-test-redirect');
         let webRedirect = document.getElementById('web-redirect');
 
         slackRedirect.addEventListener('click', () => {
@@ -229,6 +231,9 @@ input[type='file']{
 
         webRedirect.addEventListener('click', () => {
             window.location.href = '/api/create-test-web/';
+        });
+        slackOrchestratedRedirect.addEventListener('click', () => {
+            window.location.href = '/api/test-create-orchestrated-conversation-slack/';
         });
 
     </script>
