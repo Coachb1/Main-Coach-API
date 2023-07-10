@@ -37,6 +37,80 @@ DESCRIPTION_MEDIA = "Description Media"
 MAX_TEST_ALLOWED = "Max Test Allowed"
 
 
+def format_test_orchestrated_conversation(raw_data):
+    try:
+        input_dict = json.loads(raw_data)
+
+        output_dict = {
+            "creator_id": None,
+            "title": input_dict['Title'],
+            "description": input_dict['Context'],
+            "interaction_mode": "text",
+            "email_candidate" : True,
+            "test_type": "orchestrated_conversation",
+            "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
+            "gpt_prompt_override": "",
+            "questions": []
+        }
+
+
+        if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+
+            email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
+            email_list = [email.strip() for email in email_list]
+            email_list = ','.join(email_list)
+
+            output_dict['email_address_list'] = email_list
+
+        initial_messages = []
+        test_main_context = input_dict['Context']
+        persons = []
+
+        for key in input_dict:
+            if key.startswith('Person'):
+                name = input_dict[key].split()[0][:-1]
+                persons.append(name)
+                initial_messages.append(input_dict[key])
+                test_main_context += input_dict[key]
+        
+
+        orchestrated_conversation_details ={
+            "test_main_context": test_main_context ,
+            "test_user_persona": "Manager",
+            "objective": input_dict['Context'],
+            "initial_messages": initial_messages 
+        }
+        output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
+
+        
+        for key in input_dict:
+            if key.isdigit():
+                question = {
+                    "question": input_dict[key],
+                    "question_type": "subjective",
+                    "gpt_prompt_override": "",
+                    "subjective_answer": ""        
+                 }
+                if "Respond as a manager" in input_dict[key]:
+                    question['question_for'] = "user"
+
+                else:
+                    for name in persons:
+                        print(name.lower())
+                        if name.lower() in input_dict[key].lower():
+                            question['question_for'] = name
+                            break
+
+                output_dict["questions"].append(question)
+
+        output_json = json.dumps(output_dict)
+
+        return output_json
+
+    except Exception as e:
+        logger.error(e)
+        return None
+    
 def format_test_data_web(raw_data):
 
     try:
@@ -199,8 +273,8 @@ def login_web(email, password):
 
 def login_slack(email, password, subdomain_prefix):
     try:
-        url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
-        # url = "http://localhost:8000/api/v1/webauth/login/"
+        # url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
+        url = "http://localhost:8000/api/v1/webauth/login/"
 
         payload = json.dumps({
             "subdomain_prefix": subdomain_prefix,
@@ -373,6 +447,123 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                     response = requests.post(
                         API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+
+                    logger.info("[Response Received]\n")
+
+                    row_data = json.loads(raw_data)
+                    test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = response.json().get('test_code')
+                    row_data = json.dumps(row_data)
+
+                    cnt += 1
+
+                except Exception as e:
+                    logger.error(e)
+                    return {
+                        "errors": [f"Error occurred; Could not create tests"],
+                        "exception": True,
+                        "response": response
+                    }
+
+                # Check for successful API call
+                if response.status_code != 201:
+                    raise Exception("API call failed")
+
+            logger.info(f"Total successful records created: {len(valid_rows)}")
+
+            # Create a csv file for test_name to test_code mapping
+            with open('test_name_test_code_map.csv', 'w') as f:
+                for key in test_name_test_code_map.keys():
+                    f.write("%s,%s\n" % (key, test_name_test_code_map[key]))
+            # Download the csv file
+            with open('test_name_test_code_map.csv', 'rb') as fh:
+                file_response = HttpResponse(
+                    fh.read(), content_type="text/csv", status=200)
+                file_response['Content-Disposition'] = 'inline; filename=' + \
+                    os.path.basename('test_name_test_code_map.csv')
+
+            # Delete the csv file
+            os.remove('test_name_test_code_map.csv')
+
+            return {
+                "success": True,
+                "message": "Test created successfully",
+                'errors': [],
+                'file_response': file_response,
+            }
+
+        except Exception as e:
+            logger.error(e)
+            return {
+                "errors": [f"Error occurred; Could not create tests"],
+                "exception": True,
+            }
+    else:
+        return {
+            "errors": ["Invalid credentials"],
+            "exception": True,
+        }
+    
+
+
+
+def create_test_orchestrated_conversation_slack(csv_file, email, password, subdomain_prefix):
+
+    logger.info(subdomain_prefix)
+    # List of column names to check for null or empty values
+    columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST]
+
+    access_token = login_slack(email, password, subdomain_prefix)
+
+    if access_token:
+        logger.info("Login successful")
+        valid_rows = []
+        response = None
+
+        try:
+            csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
+            csv_reader = csv.DictReader(csv_text)
+
+            all_rows = list(csv_reader)
+
+            # Check for null or empty data in specified columns for each row
+            for row_data in all_rows:
+
+                for col in columns_check:
+                    if col not in row_data:
+                        raise Exception(f"Column '{col}' not found in row")
+                    elif not row_data[col]:
+                        raise Exception(
+                            f"Column '{col}' has null or empty value in row")
+
+                # If row is valid, append it to list of valid rows to be sent to API
+                valid_rows.append(row_data)
+
+            logger.info(f"Total valid records: {len(valid_rows)}")
+
+            test_name_test_code_map = {}
+            cnt = 1
+            # Call the API for all valid rows
+            for row_data in valid_rows:
+                # logger.info(row_data)
+                raw_data = json.dumps(row_data)
+                # Format the data as per the API requirements
+                # Sending the creator_id as a parameter change it later
+                json_data = format_test_orchestrated_conversation(raw_data)
+                print(json_data)
+                # logger.info(json_data)
+                # Calling the Test creation API with JSON data
+                try:
+
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {access_token}'
+                    }
+
+                    logger.info("[Making Request]")
+
+                    response = requests.post(
+                        LOCALHOST, data=json_data, headers=headers, verify=False)
 
                     logger.info("[Response Received]\n")
 
