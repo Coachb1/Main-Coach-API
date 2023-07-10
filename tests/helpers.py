@@ -451,7 +451,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         while True:
             num_tokens = num_tokens_for_prompt(response_text)
             sentences = sent_tokenize(response_text)
-            if num_tokens < 100:
+            if num_tokens < 1500:
                 break
             else:
                 response_text = " ".join(sentences[:-1])
