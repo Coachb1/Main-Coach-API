@@ -23,7 +23,7 @@ from users.db import get_user_display_name
 from email_sender.helpers import send_email
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt3_completion, gpt_wishper_api
+from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
@@ -47,6 +47,7 @@ from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
 from users.models import User
 from users.models import UserAttribute
+from nltk.tokenize import sent_tokenize
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +446,33 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     anthropic_feedback = anthropic_completion(prompt, 500)
     feedback_text = ''
     raw_text = ''
+    response_text = test_question_response.response_text  
+          
     if not anthropic_feedback:
+
+        while True:
+            num_tokens = num_tokens_for_prompt(response_text)
+            sentences = sent_tokenize(response_text)
+            if num_tokens < 1500:
+                break
+            else:
+                response_text = " ".join(sentences[:-1])
+                if question.gpt_prompt_override or test.gpt_prompt_override:
+                    prompt = get_overridden_prompt(
+                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                        test_title=test.title,
+                        question=question.question,
+                        question_context=question.subjective_answer,
+                        candidate_reply=response_text
+                    )
+                else:
+                    prompt = get_chat_conversation_prompt_v3(
+                        test_title=test.title,
+                        question=question.question,
+                        question_context=question.subjective_answer,
+                        candidate_reply=response_text)
+                
+       
         gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
         if not gpt_feedback.text:
             feedback_text = "Feedback couldn't be generated"
