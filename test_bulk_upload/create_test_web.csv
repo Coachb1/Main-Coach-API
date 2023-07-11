@@ -1,0 +1,2 @@
+﻿skills,access_code,institute_name,is_creator_comapany,track,is_library,interaction_mode,generate_certificate,generate_certificate_name,job_title,job_description,expiry_date,mentor_name,answer_format,focus_group,timer,oneTime,emailOne,fileName,group_activity,trainer_mode,rating,question_1,media_link_1,question_context_1,ideal_answer_1,question_2,media_link_2,question_context_2,ideal_answer_2
+Interview,123456,XYZ,TRUE,,FALSE,Video,FALSE,,abc,Test,None,XYZ,Video,Student,15 Minutes,TRUE,0,None,FALSE,FALSE,easy,q1,ml1,qc1,ia1,q2,ml2,qc2,ia2
