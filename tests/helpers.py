@@ -1,5 +1,6 @@
 import logging
 import json
+import random
 import time
 import os
 import string
@@ -22,7 +23,7 @@ from users.db import get_user_display_name
 from email_sender.helpers import send_email
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt3_completion, num_tokens_for_prompt
+from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
@@ -403,11 +404,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             try:
                 test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
                     test_question_response.response_file)
-            except Exception as e:
-                logger.exception(e)
-                delete_test_response(test_question_response)
-                raise ValueError("unable to get feedback for %s",
-                                 test_question_response.uid)
+            except:
+                try:
+                    test_question_response.response_text = gpt_wishper_api(test_question_response.response_file)
+                except:
+                    test_question_response.response_text = "Transcription couldn't be generated"
+
             try:
                 test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
                     test_question_response.response_file)
@@ -441,7 +443,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 1000)
+    anthropic_feedback = anthropic_completion(prompt, 500)
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text  
@@ -478,9 +480,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             feedback_text = gpt_feedback.text
             raw_text = gpt_feedback.raw
 
-    else: 
+    else:
         feedback_text = anthropic_feedback
-        
+
     test_question_response.metadata = {
         "gpt": {
             "prompt": prompt,
@@ -620,6 +622,12 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
        bot_llm response is always a text;; ignore test mode or question response type
    """
 
+    # ignore processing if bot already has a response; useful in case of initial messages
+    if test_question_response.response_text:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        test_question_response.save()
+        return
+
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
 
     test_attempt_session = TestAttemptSession.objects.get(
@@ -663,8 +671,13 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
 
-    test_attempt_session.culture_skills_rating = evaluate_group_discussion_conversation(
+    culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
+
+    culture_skills_rating = update_culture_skills_if_same_scores(
+        culture_skills_rating)
+
+    test_attempt_session.culture_skills_rating = culture_skills_rating
 
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
@@ -705,7 +718,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     chat_conversation_with_details = []
 
     for message in chat_conversation:
-        user_name, message = message.split(":")
+        user_name, message = message.split(":", 1)
         is_bot = False
 
         if user_name.strip().lower() != user_persona.strip().lower():
@@ -896,6 +909,8 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         avg_score = avg_score / response_count
 
     culture_skills_rating = calc_culture_skills_rating(responses)
+    culture_skills_rating = update_culture_skills_if_same_scores(
+        culture_skills_rating)
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
@@ -974,6 +989,35 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     test_attempt_session.save(update_fields=["report_url"])
 
     return report_url
+
+
+def update_culture_skills_if_same_scores(culture_skills_rating):
+
+    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
+                       'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+
+    if culture_skills_rating is None:
+        culture_skills_rating = {}
+
+        for skill in cultural_skills:
+            culture_skills_rating[skill] = 6
+
+    scores_frequency = {}
+    for skill in culture_skills_rating:
+        score = culture_skills_rating[skill]
+        if score in scores_frequency:
+            scores_frequency[score].append(skill)
+        else:
+            scores_frequency[score] = [skill]
+
+    for score in scores_frequency:
+        if len(scores_frequency[score]) > len(cultural_skills) / 2:
+            # Divide the score unequally among the skills
+            for skill in scores_frequency[score]:
+                culture_skills_rating[skill] = random.randint(
+                    max(1, score-2), min(10, score + 2))
+
+    return culture_skills_rating
 
 
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str, is_whatsapp: bool = False):
@@ -1143,8 +1187,15 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         "test_main_context")
     test_user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
+    initial_messages = test.orchestrated_conversation_details.get(
+        "initial_messages")
 
     current_conversation = ''
+
+    for message in initial_messages:
+        conv_text = message
+        current_conversation = current_conversation + "\n" + conv_text
+
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                              evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
@@ -1226,7 +1277,8 @@ Question: ${question_text}
 
 For given "Question" for the "TestTitle" extract skills that can be learned from a key learning from an ideal answer to the "Question"  as "Output". The "Output" should have comma separated skills where all skills are in small case.
 Choose skills from this list only: ${skills_name_list}
-
+NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
+NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
 Output:
 """
     ).safe_substitute(
@@ -1240,7 +1292,17 @@ Output:
     if not anthropic_response:
         anthropic_response = "Communication"
 
-    return anthropic_response
+    anthropic_response_skills = anthropic_response.split(",")
+
+    result = []
+    for skill in anthropic_response_skills:
+        skill = skill.strip()
+        if skill:
+            result.append(skill)
+
+    result = ",".join(result)
+
+    return result
 
     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 

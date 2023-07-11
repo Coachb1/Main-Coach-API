@@ -42,8 +42,10 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField()
     description = serializers.CharField()
-    email_address_list = serializers.CharField(required=False, default=None)
-    max_test_allowed = serializers.IntegerField(required=False, allow_null=True, default=None)
+    email_address_list = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
+    max_test_allowed = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
     send_only_to_email = serializers.BooleanField(
         required=False, default=False)
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
