@@ -406,7 +406,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_file)
             except:
                 try:
-                    test_question_response.response_text = gpt_wishper_api(test_question_response.response_file)
+                    test_question_response.response_text = gpt_wishper_api(
+                        test_question_response.response_file)
                 except:
                     test_question_response.response_text = "Transcription couldn't be generated"
 
@@ -446,11 +447,13 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     anthropic_feedback = anthropic_completion(prompt, 500)
     feedback_text = ''
     raw_text = ''
-    response_text = test_question_response.response_text  
-          
+    response_text = test_question_response.response_text
+
     if not anthropic_feedback:
 
-        while True:
+        max_retry = 3
+
+        while max_retry > 0:
             num_tokens = num_tokens_for_prompt(response_text)
             sentences = sent_tokenize(response_text)
             if num_tokens < 1500:
@@ -471,8 +474,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         question=question.question,
                         question_context=question.subjective_answer,
                         candidate_reply=response_text)
-                
-       
+
+            max_retry -= 1
+
         gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
         if not gpt_feedback.text:
             feedback_text = "Feedback couldn't be generated"
