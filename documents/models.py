@@ -18,6 +18,8 @@ class Document(TenantAwareModel):
 
     transcript_details = models.JSONField(null=True, blank=True)
 
+    actions_pipeline = models.JSONField(null=True, blank=True)
+
     doc_status = models.CharField(max_length=255)
 
     class Meta:

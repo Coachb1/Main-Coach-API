@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class RefreshToken(TenantAwareModel):
     entity_type = models.CharField(max_length=255)
     entity_identifier_key = models.CharField(max_length=255)
-    entity_identifier_value = models.CharField(max_length=255)
+    entity_identifier_value = models.CharField(max_length=255, db_index=True)
 
     token = models.CharField(max_length=255, unique=True)
     nbf = models.DateTimeField()
@@ -25,9 +25,6 @@ class RefreshToken(TenantAwareModel):
 
     class Meta:
         db_table = "custom_auth_refresh_token"
-        unique_together = (("entity_identifier_value",
-                            "entity_identifier_key",
-                            "entity_type"))
 
     @property
     def refresh_token(self) -> str:

@@ -15,3 +15,7 @@ class DocTypeChoice(DjangoChoices):
 class DocOwnerTypeChoice(DjangoChoices):
     user = ChoiceItem("user")
     system = ChoiceItem("system")
+
+
+class DocActionTypeChoice(DjangoChoices):
+    transcribe = ChoiceItem("transcribe")
