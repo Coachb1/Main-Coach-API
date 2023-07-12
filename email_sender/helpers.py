@@ -50,7 +50,7 @@ def send_learner_path_email(tests, user):
     test_list = [(test.title, test.test_code) for test in tests]
 
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = f"Learner Path for {user_name}"
+    msg['Subject'] = f"Recommended Simulations for {user_name}"
     msg['From'] = FROM_EMAIL_DISPLAY
     msg['To'] = to_email
 
@@ -363,7 +363,7 @@ def get_html_body_learner_path(test_list):
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The learner path for you is ready!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The Recommended Simulations for you is ready!</p>
                             <ul>
                                 {test_list_str}
                             </ul>
