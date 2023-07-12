@@ -433,6 +433,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         prompt = get_overridden_prompt(
             prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
             test_title=test.title,
+            test_description=test.description,
             question=question.question,
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text
@@ -440,11 +441,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     else:
         prompt = get_chat_conversation_prompt_v3(
             test_title=test.title,
+            test_description=test.description,
             question=question.question,
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 500)
+    anthropic_feedback = anthropic_completion(prompt, 150)
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text
@@ -464,6 +466,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     prompt = get_overridden_prompt(
                         prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
                         test_title=test.title,
+                        test_description=test.description,
                         question=question.question,
                         question_context=question.subjective_answer,
                         candidate_reply=response_text
@@ -471,6 +474,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 else:
                     prompt = get_chat_conversation_prompt_v3(
                         test_title=test.title,
+                        test_description=test.description,
                         question=question.question,
                         question_context=question.subjective_answer,
                         candidate_reply=response_text)
@@ -1143,6 +1147,7 @@ def calc_culture_skills_rating(responses):
 
 
 def get_chat_conversation_prompt_v3(test_title: str,
+                                    test_description: str,
                                     question: str,
                                     question_context: str,
                                     candidate_reply: str):
@@ -1150,6 +1155,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
         template = Template(
             """
             Title: ${test_title}. 
+            Test Description: ${test_description}
             Customer question:  ${question} 
             Expert Suggestions:  ${question_context} 
             Candidate answer:  ${candidate_reply}
@@ -1162,6 +1168,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             """
         )
         return template.substitute(test_title=test_title,
+                                   test_description=test_description,
                                    question=question,
                                    question_context=question_context,
                                    candidate_reply=candidate_reply)
@@ -1169,6 +1176,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
         template = Template(
             """
             Title: ${test_title}. 
+            Test Description: ${test_description}
             Customer question:  ${question} 
             Candidate answer:  ${candidate_reply}
             
@@ -1180,6 +1188,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             """
         )
         return template.substitute(test_title=test_title,
+                                   test_description=test_description,
                                    question=question,
                                    candidate_reply=candidate_reply)
 
@@ -1228,13 +1237,55 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
 def get_overridden_prompt(prompt_template: str,
                           test_title: str,
+                          test_description: str,
                           question: str,
                           question_context: str,
                           candidate_reply: str):
-    return Template(prompt_template).safe_substitute(test_title=test_title,
-                                                     question=question,
-                                                     question_context=question_context,
-                                                     candidate_reply=candidate_reply)
+
+    if question_context:
+        template = Template(
+            """
+            Title: ${test_title}. 
+            Test Description: ${test_description}
+            Customer question:  ${question} 
+            Expert Suggestions:  ${question_context}
+            Evaluation Criteria: ${prompt_template} 
+            Candidate answer:  ${candidate_reply}
+    
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            1) What went well ? - 50 words minimum
+            2) What did not work ? - 50 words minimum 
+            3) Generate a sample candidate answer response.
+            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+            """
+        )
+        return template.substitute(test_title=test_title,
+                                   test_description=test_description,
+                                   question=question,
+                                   question_context=question_context,
+                                   candidate_reply=candidate_reply)
+
+    else:
+        template = Template(
+            """
+            Title: ${test_title}. 
+            Test Description: ${test_description}
+            Customer question:  ${question} 
+            Evaluation Criteria: ${prompt_template}
+            Candidate answer:  ${candidate_reply}
+    
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            1) What went well ? - 50 words minimum
+            2) What did not work ? - 50 words minimum 
+            3) Generate a sample candidate answer response.
+            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+            """
+        )
+        return template.substitute(test_title=test_title,
+                                   test_description=test_description,
+                                   question=question,
+                                   prompt_template=prompt_template,
+                                   candidate_reply=candidate_reply)
 
 
 @timeit
