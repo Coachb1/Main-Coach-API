@@ -68,7 +68,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         for key in input_dict:
             if key.startswith('Person'):
-                name = input_dict[key].split()[0][:-1]
+                name = input_dict[key].split(':')[0].strip()
                 persons.append(name)
                 initial_messages.append(input_dict[key])
                 test_main_context += input_dict[key]
@@ -96,8 +96,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 else:
                     for name in persons:
-                        print(name.lower())
-                        if name.lower() in input_dict[key].lower():
+                        if name.split()[0].lower() in input_dict[key].lower():
                             question['question_for'] = name
                             break
 
@@ -550,7 +549,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
                 json_data = format_test_orchestrated_conversation(raw_data)
-                print(json_data)
+                
                 # logger.info(json_data)
                 # Calling the Test creation API with JSON data
                 try:
