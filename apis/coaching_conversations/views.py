@@ -12,6 +12,9 @@ from coaching_conversations.helpers import initialize_coaching_conversation, con
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
+from tests.models import TestAttemptSession, Test
+from users.models import User
+from users.db import get_user_display_name, get_user_by_id
 
 
 class CoachingConversationViewSet(ApiViewSet,
@@ -68,3 +71,52 @@ class CoachingConversationViewSet(ApiViewSet,
                 instance=next_conversation).data,
             status=status.HTTP_201_CREATED
         )
+
+    @action(methods=["GET"], detail=False, url_path="report-data")
+    def get_coaching_conversation_report_data(self, request, *args, **kwargs):
+        test_attempt_session_id = request.query_params.get(
+            "test_attempt_session_id", None)
+
+        if test_attempt_session_id is None:
+            return Response(
+                data={"detail": "test_attempt_session_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        conversations = self.queryset.filter(
+            test_attempt_session_id=test_attempt_session_id, tenant_id=request.tenant.uid).order_by("-id")
+
+        results = []
+
+        for conversation in conversations:
+            results.append({
+                "uid": conversation.uid,
+                "coach_message_text": conversation.coach_message_text,
+                "participant_message_text": conversation.participant_message_text,
+                "status": conversation.status,
+                "created": conversation.created,
+                "updated": conversation.updated
+            })
+
+        test_attempt_session = TestAttemptSession.objects.get(
+            uid=test_attempt_session_id, tenant_id=request.tenant.uid)
+
+        test_id = test_attempt_session.test_id
+        participant_id = test_attempt_session.participant_id
+        date = test_attempt_session.created
+
+        test = Test.objects.get(uid=test_id, tenant_id=request.tenant.uid)
+
+        test_title = test.title
+
+        participant_name = get_user_display_name(
+            get_user_by_id(participant_id))
+
+        data = {
+            "results": results,
+            "test_title": test_title,
+            "participant_name": participant_name,
+            "date": date
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
