@@ -647,7 +647,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
 
-    bot_llm_response_text = anthropic_completion(prompt, 1000)
+    bot_llm_response_text = anthropic_completion(prompt, 100)
 
     if not bot_llm_response_text:
         # delete this response
