@@ -446,7 +446,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 150)
+    anthropic_feedback = anthropic_completion(prompt, 300)
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text
@@ -647,7 +647,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
 
-    bot_llm_response_text = anthropic_completion(prompt, 100)
+    bot_llm_response_text = anthropic_completion(prompt, 300)
 
     if not bot_llm_response_text:
         # delete this response
@@ -1163,8 +1163,10 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response.
+            3) Generate a sample candidate answer response. - 50 words minimum
             4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+
+            NOTE: The total number of words should not be more than 150 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1183,8 +1185,10 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response.
+            3) Generate a sample candidate answer response. - 50 words minimum
             4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+
+            NOTE: The total number of words should not be more than 150 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1230,6 +1234,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         ${question_text}
 
         NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
+        NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
         """
     )
     return template.substitute(test_main_context=test_main_context,
@@ -1258,8 +1263,10 @@ def get_overridden_prompt(prompt_template: str,
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response.
+            3) Generate a sample candidate answer response. - 50 words minimum
             4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+
+            NOTE: The total number of words should not be more than 150 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1280,8 +1287,10 @@ def get_overridden_prompt(prompt_template: str,
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response.
+            3) Generate a sample candidate answer response. - 50 words minimum
             4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
+
+            NOTE: The total number of words should not be more than 150 words.
             """
         )
         return template.substitute(test_title=test_title,
