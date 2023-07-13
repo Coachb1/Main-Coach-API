@@ -1228,11 +1228,14 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         ${current_conversation}
         
         ${question_text}
+
+        NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
         """
     )
     return template.substitute(test_main_context=test_main_context,
                                current_conversation=current_conversation,
-                               question_text=question_text)
+                               question_text=question_text,
+                               question_for=question.question_for)
 
 
 def get_overridden_prompt(prompt_template: str,
