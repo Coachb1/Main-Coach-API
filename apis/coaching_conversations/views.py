@@ -84,7 +84,7 @@ class CoachingConversationViewSet(ApiViewSet,
             )
 
         conversations = self.queryset.filter(
-            test_attempt_session_id=test_attempt_session_id, tenant_id=request.tenant.uid).order_by("-id")
+            test_attempt_session_id=test_attempt_session_id, tenant_id=request.tenant.uid).order_by("id")
 
         results = []
 
