@@ -514,7 +514,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     skills_rating = {}
 
     skills_rating, is_evaluated = evaluate_response(
-        question.question, test_question_response.response_text, required_skills)
+        question.question, test_question_response.response_text, required_skills, test.description, test.title)
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -525,23 +525,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         raise ValueError("unable to get feedback for %s",
                          test_question_response.uid)
 
-    for skill in required_skills:
-        if skill not in skills_rating:
-            continue
-        # Convert skills as very good -> 5, good -> 4, average -> 3, bad -> 2, very bad -> 1
-        if skills_rating[skill] == "very good":
-            skills_rating[skill] = 10
-        elif skills_rating[skill] == "good":
-            skills_rating[skill] = 8
-        elif skills_rating[skill] == "average":
-            skills_rating[skill] = 6
-        elif skills_rating[skill] == "bad":
-            skills_rating[skill] = 4
-        elif skills_rating[skill] == "very bad":
-            skills_rating[skill] = 2
-        else:
-            skills_rating[skill] = 4
-
+    # Removing the skills which are not required in the question
     _to_be_deleted = []
     for key in skills_rating.keys():
         if key not in required_skills:
@@ -549,6 +533,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     for key in _to_be_deleted:
         del skills_rating[key]
+
+    skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
     # Calculating the average score of the response
     response_avg_score = 0
@@ -573,7 +559,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        calc_score(test_attempt_session)
+        calc_score(test_attempt_session, test)
         report_url = generate_session_report_link(test_attempt_session, test)
 
         if test.email_address_list:
@@ -846,12 +832,12 @@ def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSess
         return current_conversation
 
 
-def calc_score(test_attempt_session: TestAttemptSession):
+def calc_score(test_attempt_session: TestAttemptSession, test: Test):
     with transaction.atomic():
-        return _calc_score(test_attempt_session)
+        return _calc_score(test_attempt_session, test)
 
 
-def _calc_score(test_attempt_session: TestAttemptSession):
+def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     """
     This function calculates the score for the test attempt session and update the skills_rating field in this object
     Also it uses these skills rating to update the skills table
@@ -911,12 +897,15 @@ def _calc_score(test_attempt_session: TestAttemptSession):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+    skills_rating_score = update_skills_rating_if_same_scores(
+        skills_rating_score)
+
     if response_count == 0:
         avg_score = 0
     else:
         avg_score = avg_score / response_count
 
-    culture_skills_rating = calc_culture_skills_rating(responses)
+    culture_skills_rating = calc_culture_skills_rating(responses, test)
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
@@ -999,6 +988,29 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     return report_url
 
 
+def update_skills_rating_if_same_scores(skills_rating):
+    total_skills = len(skills_rating)
+    scores_frequency = {}
+    for skill in skills_rating:
+        score = skills_rating[skill]
+        if score in scores_frequency:
+            scores_frequency[score].append(skill)
+        else:
+            scores_frequency[score] = [skill]
+
+    for score in scores_frequency:
+        if len(scores_frequency[score]) >= (total_skills / 2):
+            # Increment half the skills by 1 and other half decrement by 1
+            for i in range(0, len(scores_frequency[score])):
+                skill = scores_frequency[score][i]
+                if i < len(scores_frequency[score]) / 2:
+                    skills_rating[skill] = skills_rating[skill] + 1
+                else:
+                    skills_rating[skill] = skills_rating[skill] - 1
+
+    return skills_rating
+
+
 def update_culture_skills_if_same_scores(culture_skills_rating):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
@@ -1019,11 +1031,14 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) > len(cultural_skills) / 2:
-            # Divide the score unequally among the skills
-            for skill in scores_frequency[score]:
-                culture_skills_rating[skill] = random.randint(
-                    max(1, score-2), min(10, score + 2))
+        if len(scores_frequency[score]) >= len(cultural_skills) / 2:
+            # Increment half the skills by 1 and other half decrement by 1
+            for i in range(0, len(scores_frequency[score])):
+                skill = scores_frequency[score][i]
+                if i < len(scores_frequency[score]) / 2:
+                    culture_skills_rating[skill] = culture_skills_rating[skill] + 1
+                else:
+                    culture_skills_rating[skill] = culture_skills_rating[skill] - 1
 
     return culture_skills_rating
 
@@ -1117,7 +1132,7 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
-def calc_culture_skills_rating(responses):
+def calc_culture_skills_rating(responses, test):
     culture_skills_rating = {}
 
     conversation = ""
@@ -1138,7 +1153,8 @@ def calc_culture_skills_rating(responses):
         count += 1
 
     # Evaluate conversation
-    culture_skills_rating, is_evaluated = evaluate_conversation(conversation)
+    culture_skills_rating, is_evaluated = evaluate_conversation(
+        conversation, test.title, test.description)
 
     if not is_evaluated:
         return None
@@ -1164,7 +1180,6 @@ def get_chat_conversation_prompt_v3(test_title: str,
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
             3) Generate a sample candidate answer response. - 50 words minimum
-            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
 
             NOTE: The total number of words should not be more than 150 words.
             """
@@ -1186,7 +1201,6 @@ def get_chat_conversation_prompt_v3(test_title: str,
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
             3) Generate a sample candidate answer response. - 50 words minimum
-            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
 
             NOTE: The total number of words should not be more than 150 words.
             """
@@ -1264,7 +1278,6 @@ def get_overridden_prompt(prompt_template: str,
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
             3) Generate a sample candidate answer response. - 50 words minimum
-            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
 
             NOTE: The total number of words should not be more than 150 words.
             """
@@ -1288,7 +1301,6 @@ def get_overridden_prompt(prompt_template: str,
             1) What went well ? - 50 words minimum
             2) What did not work ? - 50 words minimum 
             3) Generate a sample candidate answer response. - 50 words minimum
-            4) Rating of the response on scale of 1 to 10 in less than 5 words. Always the format X/10.
 
             NOTE: The total number of words should not be more than 150 words.
             """
