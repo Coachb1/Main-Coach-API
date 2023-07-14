@@ -909,6 +909,9 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
+    skills_rating_score, avg_score = increment_avg_score_in_percentages(
+        skills_rating_score, avg_score, participant_id, test_attempt_session)
+
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
@@ -966,6 +969,52 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_rating_object.save(update_fields=updated_fields)
 
 
+def round_off_rating(number):
+    return round(number*2) / 2
+
+
+def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
+    # Get number of interactions for that candidate which are completed but are not the current one
+    total_successfull_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
+                                                                   status=TestAttemptSessionStatusChoices.completed,
+                                                                   deleted=0).exclude(uid=test_attempt_session.uid)
+
+    total_successfull_sessions_count = total_successfull_sessions.count() % 10
+
+    if total_successfull_sessions_count == 1:
+        return skills_rating, avg_score
+
+    # Calculate the average score of last 5 interactions
+    last_5_sessions = total_successfull_sessions.order_by(
+        "-finished_at")[:5]
+
+    last_5_sessions_avg_score = 0
+
+    for session in last_5_sessions:
+        last_5_sessions_avg_score += session.avg_score
+
+    last_5_sessions_avg_score = last_5_sessions_avg_score / 5
+
+    if last_5_sessions_avg_score < 5:
+        return skills_rating, avg_score
+
+    increase_by_percent = total_successfull_sessions_count * 4
+    # 1 -> 4%, 2 -> 8%, 3 -> 12%, 4 -> 16%, 5 -> 20%, 6 -> 24%, 7 -> 28%, 8 -> 32%, 9 -> 36%, 10 -> 40%
+
+    for skill in skills_rating:
+        skills_rating[skill] = skills_rating[skill] + \
+            (skills_rating[skill] * increase_by_percent/100)
+
+        skills_rating[skill] = min(10, skills_rating[skill])
+        skills_rating[skill] = round_off_rating(skills_rating[skill])
+
+    avg_score = avg_score + (avg_score * increase_by_percent/100)
+    avg_score = round_off_rating(avg_score)
+    avg_score = min(10, avg_score)
+
+    return skills_rating, avg_score
+
+
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -999,7 +1048,7 @@ def update_skills_rating_if_same_scores(skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) >= (total_skills / 2):
+        if len(scores_frequency[score]) > (total_skills / 2):
             # Increment half the skills by 1 and other half decrement by 1
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
@@ -1031,7 +1080,7 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) >= len(cultural_skills) / 2:
+        if len(scores_frequency[score]) > len(cultural_skills) / 2:
             # Increment half the skills by 1 and other half decrement by 1
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
