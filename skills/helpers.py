@@ -1,74 +1,183 @@
 import json
+import time
 
 from django.utils.text import slugify
 
 from commons.anthropic import anthropic_completion
+from commons.openai_gpt import gpt3_completion
 from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
 
 
-def evaluate_response(question_text, response_text, skills):
+def evaluate_response(question_text, response_text, skills, test_description, test_title):
     prompt = f'''
-    "Question:" {question_text}; "Answer:" {response_text};
-    "Required from anthropic:" Rate this answer as "very good", "good", "very bad" in terms for each skill in the list in JSON: "{skills}" Reply "very good", "good", "very bad" for each skill from the list in a JSON format only.
-    Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
+    "TITLE:" {test_title};
+
+    "DESCRIPTION:" {test_description};
+
+    "QUESTION:" {question_text}; 
+    
+    "ANSWER:" {response_text};
+
+    "Evaluation Criteria:"
+    - Relevance: Does the answer directly address the question?
+    - Accuracy: Is the information in the answer correct?
+    - Completeness: Does the answer provide a comprehensive response to the question?
+    - Clarity: Is the answer well-written and easy to understand?
+
+    "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
+    
+    NOTE: Please put properties of JSON enclosed in double quotes.
+
     NOTE: Please Reply in a JSON format only and no other format will be accepted.
+
     NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be choosen from {skills} only.
-    NOTE: Output Format Example: {{"skill1": "very good", "skill2": "good", "skill3": "very bad"}}
+
+    NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "10", "skill3": "2.5"}}
     '''
 
     is_evaluated = True
     response = None
 
-    try:
-        response = anthropic_completion(prompt, len(skills) * 50)
-        response = json.loads(response)
-        # return response, is_evaluated
-    except json.decoder.JSONDecodeError:
-        is_evaluated = False
+    max_tries = 3
 
-    return response, is_evaluated
+    while max_tries > 0:
+        try:
+            response = anthropic_completion(prompt, len(skills) * 50)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    response = None
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = response.split('"REPLY:"')[1].strip()
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    response = {}
+    for skill in skills:
+        response[skill] = 5
+
+    return response, True
 
 
-def evaluate_conversation(conversation):
+def evaluate_conversation(conversation, test_title, test_description):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
     prompt = f'''
-    "Conversation:" {conversation};
-    "Required from anthropic:" Rate this conversation as "very good", "good", "average", "bad", "very bad" in terms for each behaviour trait in this cultural_list in JSON. 
-    cultural_list: "{cultural_skills}" Reply "very good", "good", "average", "bad", "very bad" for each skill from the list in a JSON format
-    Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
-    Example of JSON: {{"hierarchy": "very good", "consensual": "good", "indirect negative feedback": "average", "relationship based": "bad", "high context communication": "very bad", "Persuasion": "NA", "argumentative": "NA"}}
+    "TITLE:" {test_title};
+
+    "DESCRIPTION:" {test_description};
+
+    "CONVERSATION:" {conversation};
+
+    "Evaluation Criteria:"
+    - Relevance: Does the answers directly address the questions in the conversation?
+    - Accuracy: Is the information in the answers correct?
+    - Completeness: Does the answers provide a comprehensive response to the questions?
+    - Clarity: Are the answers well-written and easy to understand?
+
+    "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+
+    "cultural_list:" "{cultural_skills}"
+
+    NOTE: Please put properties of JSON enclosed in double quotes.
+
+    Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     '''
 
     is_evaluated = True
 
     response = {}
-    try:
-        response = anthropic_completion(prompt, len(cultural_skills) * 50)
-        response = json.loads(response)
-    except json.decoder.JSONDecodeError:
-        is_evaluated = False
+    max_tries = 3
 
-    # Convert "very good" to 5, "good" to 4, "average" to 3, "bad" to 2, "very bad" to 1, "NA" to 3
-    for skill in response:
-        if response[skill] == "very good":
-            response[skill] = 10
-        elif response[skill] == "good":
-            response[skill] = 8
-        elif response[skill] == "average":
-            response[skill] = 6
-        elif response[skill] == "bad":
-            response[skill] = 4
-        elif response[skill] == "very bad":
-            response[skill] = 2
-        elif response[skill] == "NA":
-            response[skill] = 3
+    while max_tries > 0:
+        try:
+            response = anthropic_completion(prompt, len(cultural_skills) * 50)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
 
-    return response, is_evaluated
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    response = None
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = response.split('"REPLY:"')[1].strip()
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    response = {}
+    for skill in cultural_skills:
+        response[skill] = 5
+
+    return response, True
 
 
 def evaluate_group_discussion_conversation(conversation, user_persona, objective):
@@ -77,44 +186,71 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
     prompt = f'''
     "Objective:" {objective};
+
     "Conversation:" {conversation};
-    "Required from anthropic:" Rate the participant: "{user_persona}" and this "{user_persona}" only, in this conversation as "very good", "good", "average", "bad", "very bad" in terms for each behaviour trait in this cultural_list in JSON. 
-    cultural_list: "{cultural_skills}" Reply "very good", "good", "average", "bad", "very bad" for each skill from the list in a JSON format
-    Please put properties of JSON enclosed in double quotes. If you're not able to rate it then put "NA" as the rating for the respective skill.
-    Example of JSON: {{"hierarchy": "very good", "consensual": "good", "indirect negative feedback": "average", "relationship based": "bad", "high context communication": "very bad", "Persuasion": "NA", "argumentative": "NA"}}
+
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+
+    "cultural_list:" "{cultural_skills}"
+
+    Please put properties of JSON enclosed in double quotes.
+
+    Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     '''
 
-    response = {}
-    cnt = 0
-    while cnt < 5:
+    response = None
+    is_evaluated = True
+    max_tries = 3
+
+    while max_tries > 0:
         try:
             response = anthropic_completion(prompt, len(cultural_skills) * 50)
             response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
             break
-        except json.decoder.JSONDecodeError:
-            cnt += 1
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
             continue
 
-    if cnt == 5:
-        for skill in cultural_skills:
-            response[skill] = 5
-
+    if is_evaluated:
         return response
 
-    # Convert "very good" to 5, "good" to 4, "average" to 3, "bad" to 2, "very bad" to 1, "NA" to 3
-    for skill in response:
-        if response[skill] == "very good":
-            response[skill] = 10
-        elif response[skill] == "good":
-            response[skill] = 8
-        elif response[skill] == "average":
-            response[skill] = 6
-        elif response[skill] == "bad":
-            response[skill] = 4
-        elif response[skill] == "very bad":
-            response[skill] = 2
-        elif response[skill] == "NA":
-            response[skill] = 3
+    response = None
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = response.split('"REPLY:"')[1].strip()
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response
+
+    response = {}
+    for skill in cultural_skills:
+        response[skill] = 5
 
     return response
 
