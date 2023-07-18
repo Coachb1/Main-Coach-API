@@ -50,7 +50,8 @@ def format_test_orchestrated_conversation(raw_data):
             "test_type": "orchestrated_conversation",
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": []
+            "questions": [],
+            "is_single_bot": True,
         }
 
 
