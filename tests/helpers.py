@@ -382,15 +382,27 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             _test_attempt_session.save(update_fields=["status", "updated"])
 
         transaction.on_commit(lambda: __process_test_response(
-            question=question, test=test, test_attempt_session=test_attempt_session, test_question_response=test_question_response, is_whatsapp=is_whatsapp))
+            question=question, test=test, test_attempt_session=test_attempt_session, test_question_response=test_question_response, is_whatsapp=is_whatsapp, last_question_number=last_question_number))
 
     test_question_response.refresh_from_db()
     return test_question_response
 
 
-def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession, test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession, test_question_response: TestQuestionResponse, is_whatsapp: bool = False, last_question_number: int = 0):
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
+    test_attempt_session.refresh_from_db()
+
+    test_attempt_session.current_question_idx = question.question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
 
     if question.is_view_only:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -554,8 +566,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.skills_rating = skills_rating
     test_question_response.avg_score = response_avg_score
     test_question_response.save(update_fields=["skills_rating", "avg_score"])
-
-    test_attempt_session.refresh_from_db()
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
