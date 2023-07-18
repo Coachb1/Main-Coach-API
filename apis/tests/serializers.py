@@ -48,6 +48,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     send_only_to_email = serializers.BooleanField(
         required=False, default=False)
+    is_single_bot = serializers.BooleanField(
+        required=False, default=False)
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
     test_related_context = serializers.CharField(default=None)
