@@ -32,7 +32,7 @@ from external_apis.whatsapp_api import whatsapp_api
 from external_apis.coach_metric_api import coach_metric_api
 from external_apis.coach_whisper_api import coach_whisper_api
 from pdf_generator.helpers import convert_html_to_pdf
-from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, evaluate_group_discussion_conversation
+from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -667,11 +667,17 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
-
+    
+    skills_rating = evaluate_skills_group_discussion_conversation(chat_conversation, user_persona, objective)
+    
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
+    updated_fields = ["culture_skills_rating", "meeting_summary", "areas_of_improvement"]
+    if skills_rating:
+        test_attempt_session.skills_rating = skills_rating
+        updated_fields.append("skills_rating")
 
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
@@ -681,8 +687,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     test_attempt_session.meeting_summary = meeting_summary
     test_attempt_session.areas_of_improvement = areas_of_improvement
 
-    test_attempt_session.save(update_fields=[
-                              "culture_skills_rating", "meeting_summary", "areas_of_improvement"])
+    test_attempt_session.save(update_fields=updated_fields)
 
     return test_attempt_session
 
@@ -725,7 +730,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
 
-    return {
+    data = {
         "participant_name": participant_name,
         "date": date,
         "title": title,
@@ -735,6 +740,11 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "areas_of_improvement": areas_of_improvement,
         "culture_skills": culture_skills
     }
+
+    if test_attempt_session.skills_rating:
+        data["skills_rating"] = test_attempt_session.skills_rating
+
+    return data
 
 
 def get_group_discussion_summary(objective: str, chat_conversation: str):
