@@ -99,6 +99,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "test_related_context",
                   "interaction_mode",
                   "test_type",
+                  "is_single_bot",
                   "orchestrated_conversation_details",
                   "description_media",
                   "questions",
