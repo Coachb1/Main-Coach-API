@@ -28,7 +28,9 @@ class Test(TenantAwareModel):
     email_address_list = models.TextField(null=True, blank=True, default=None)
     send_only_to_email = models.BooleanField(
         default=False, null=True, blank=True)
+
     is_single_bot = models.BooleanField(default=False, null=True, blank=True)
+    
     email_candidate = models.BooleanField(default=True, null=True, blank=True)
     candidate_type = models.CharField(
         null=True, blank=True, max_length=255, default=None)
@@ -106,6 +108,11 @@ class TestAttemptSession(TenantAwareModel):
     meeting_summary = models.TextField(null=True, blank=True, default=None)
     areas_of_improvement = models.JSONField(
         null=True, blank=True, default=None)
+
+    current_question_idx = models.IntegerField(
+        null=True, blank=True, default=-1)
+    next_question_idx = models.IntegerField(null=True, blank=True, default=1)
+
     report_url = models.TextField(null=True, blank=True, default=None)
     is_report_sent_to_whatsapp = models.BooleanField(
         null=True, blank=True, default=None)
