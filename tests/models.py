@@ -28,8 +28,9 @@ class Test(TenantAwareModel):
     email_address_list = models.TextField(null=True, blank=True, default=None)
     send_only_to_email = models.BooleanField(
         default=False, null=True, blank=True)
-    is_single_bot = models.BooleanField(
-        default=False, null=True, blank=True)
+
+    is_single_bot = models.BooleanField(default=False, null=True, blank=True)
+    
     email_candidate = models.BooleanField(default=True, null=True, blank=True)
     candidate_type = models.CharField(
         null=True, blank=True, max_length=255, default=None)
