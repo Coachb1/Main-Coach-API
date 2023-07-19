@@ -68,7 +68,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -153,7 +153,7 @@ def evaluate_conversation(conversation, test_title, test_description):
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -256,7 +256,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
 
 def evaluate_skills_group_discussion_conversation(conversation, user_persona, objective):
-    normal_skills = ["good","very good",'bad']
+    normal_skills = ["good", "very good", 'bad']
 
     prompt = f'''
     "Objective:" {objective};
