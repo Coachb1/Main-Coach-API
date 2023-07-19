@@ -228,7 +228,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -250,6 +250,80 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
     response = {}
     for skill in cultural_skills:
+        response[skill] = 5
+
+    return response
+
+
+def evaluate_skills_group_discussion_conversation(conversation, user_persona, objective):
+    normal_skills = ["good","very good",'bad']
+
+    prompt = f'''
+    "Objective:" {objective};
+
+    "Conversation:" {conversation};
+
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+
+    "cultural_list:" "{normal_skills}"
+
+    Please put properties of JSON enclosed in double quotes.
+
+    Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    '''
+
+    response = None
+    is_evaluated = True
+    max_tries = 3
+
+    while max_tries > 0:
+        try:
+            response = anthropic_completion(prompt, len(normal_skills) * 50)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response
+
+    response = None
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            response = response.split('"REPLY:"')[1].strip()
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except json.decoder.JSONDecodeError or ValueError:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response
+
+    response = {}
+    for skill in normal_skills:
         response[skill] = 5
 
     return response

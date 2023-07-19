@@ -5,3 +5,4 @@ class ReportType:
     INTERACTION_SESSION_REPORT = "interactionSessionReport"
     COACHING_SESSION_REPORT = "coachingSessionReport"
     MEETING_ANALYSIS_REPORT = "meetingAnalysisReport"
+    ASKING_GREAT_QUESTIONS_REPORT = "askingGreatQuestionsReport"
