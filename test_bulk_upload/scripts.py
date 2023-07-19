@@ -50,10 +50,12 @@ def format_test_orchestrated_conversation(raw_data):
             "test_type": "orchestrated_conversation",
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": [],
-            "is_single_bot": True,
+            "questions": []
         }
 
+        bot_count = sum(1 for key in input_dict.keys() if key.startswith('Person'))
+        if bot_count == 1:
+            output_dict["is_single_bot"] = True
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
