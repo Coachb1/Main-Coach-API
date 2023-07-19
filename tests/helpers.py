@@ -103,6 +103,7 @@ def create_test(tenant: Tenant,
                 test_related_context: str,
                 orchestrated_conversation_details: dict,
                 description_media: str,
+                is_single_bot: bool,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -125,6 +126,7 @@ def create_test(tenant: Tenant,
             description=description,
             interaction_mode=interaction_mode,
             test_type=test_type,
+            is_single_bot=is_single_bot,
             test_related_context=test_related_context,
             orchestrated_conversation_details=orchestrated_conversation_details,
             test_code=get_unique_test_code(tenant),
