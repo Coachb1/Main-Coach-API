@@ -51,7 +51,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -76,7 +76,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -136,7 +136,7 @@ def evaluate_conversation(conversation, test_title, test_description):
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -161,7 +161,7 @@ def evaluate_conversation(conversation, test_title, test_description):
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -211,7 +211,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -236,7 +236,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -285,7 +285,7 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -310,7 +310,7 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
 
             break
 
-        except json.decoder.JSONDecodeError or ValueError:
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
