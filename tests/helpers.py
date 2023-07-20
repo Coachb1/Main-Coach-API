@@ -23,7 +23,7 @@ from users.db import get_user_display_name
 from email_sender.helpers import send_email
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_prompt
+from commons.openai_gpt import gpt4_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
@@ -495,7 +495,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
             max_retry -= 1
 
-        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+        gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
         if not gpt_feedback.text:
             feedback_text = "Feedback couldn't be generated"
         else:
@@ -1400,7 +1400,7 @@ Output:
         question_text=test_question
     )
 
-    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    # gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
 
     # if not gpt_feedback.text:
     #     raise ValueError("unable to get key_learning_point")
@@ -1454,7 +1454,7 @@ Output:
 
     return result
 
-    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    # gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
 
     # if not gpt_feedback.text:
     #     raise ValueError("unable to get key_learning_skills")
