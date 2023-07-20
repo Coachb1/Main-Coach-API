@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from io import TextIOWrapper
 import logging
 from django.http import HttpResponse
+from .constants import get_skills
+import ast
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ EMAIL_CANDIDATE = "Email Candidate"
 CANDIDATE_TYPE = "Candidate Type"
 DESCRIPTION_MEDIA = "Description Media"
 MAX_TEST_ALLOWED = "Max Test Allowed"
+IS_CHECKIN_TYPE = "is checkin type"
+SKILLS_TO_EVALUATE = "Skills_list"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -50,7 +54,9 @@ def format_test_orchestrated_conversation(raw_data):
             "test_type": "orchestrated_conversation",
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": []
+            "questions": [],
+            "is_checkin_type": input_dict[IS_CHECKIN_TYPE],
+            "skills_to_evaluate": input_dict[SKILLS_TO_EVALUATE]
         }
 
         bot_count = sum(1 for key in input_dict.keys() if key.startswith('Person'))
@@ -178,10 +184,18 @@ def format_test_data_slack(raw_data):
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": []
+            "questions": [],
+            "is_checkin_type": input_dict[IS_CHECKIN_TYPE]
         }
 
         test_type = input_dict[TEST_TYPE].strip().lower()
+        skills_list = set()
+        for key in input_dict:
+            if key.startswith(KLS):
+                temp_skills = input_dict[key].split(',')
+                for skill in temp_skills:
+                    skills_list.add(skill.strip().capitalize())
+        output_dict[SKILLS_TO_EVALUATE] = list(skills_list)
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -275,8 +289,8 @@ def login_web(email, password):
 
 def login_slack(email, password, subdomain_prefix):
     try:
-        url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
-        # url = "http://localhost:8000/api/v1/webauth/login/"
+        # url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
+        url = "http://localhost:8000/api/v1/webauth/login/"
 
         payload = json.dumps({
             "subdomain_prefix": subdomain_prefix,
@@ -429,49 +443,82 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
             test_name_test_code_map = {}
             cnt = 1
+            check_pass = False
+            record_created = 0
+
             # Call the API for all valid rows
             for row_data in valid_rows:
-                # logger.info(row_data)
-                raw_data = json.dumps(row_data)
-                # Format the data as per the API requirements
-                # Sending the creator_id as a parameter change it later
-                json_data = format_test_data_slack(raw_data)
-                # logger.info(json_data)
-                # Calling the Test creation API with JSON data
-                try:
 
-                    headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': f'Bearer {access_token}'
-                    }
+                skills_list = set()
+                for key in row_data:
+                    if key.startswith(KLS):
+                        temp_skills = row_data[key].split(',')
+                        for skill in temp_skills:
+                            skills_list.add(skill.strip().capitalize())
+                skills_list = list(skills_list)
 
-                    logger.info("[Making Request]")
+                if row_data[IS_CHECKIN_TYPE] == 'TRUE':
+                    candidate_type = row_data[CANDIDATE_TYPE]
+                    if not candidate_type:
+                        candidate_type = 'Manager'
+                    skills_list_candidate = set()
+                    for item in get_skills(candidate_type):
+                        skills_list_candidate.add(item.capitalize())
+                    skills_list_candidate = list(skills_list_candidate)
+                    if sorted(skills_list_candidate) == sorted(skills_list):
+                        check_pass = True
 
-                    response = requests.post(
-                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+                if check_pass:
+                    # logger.info(row_data)
+                    raw_data = json.dumps(row_data)
+                    # Format the data as per the API requirements
+                    # Sending the creator_id as a parameter change it later
+                    json_data = format_test_data_slack(raw_data)
+                    # logger.info(json_data)
+                    # Calling the Test creation API with JSON data
 
-                    logger.info("[Response Received]\n")
+                    
+                    try:
 
-                    row_data = json.loads(raw_data)
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'Authorization': f'Bearer {access_token}'
+                        }
+
+                        logger.info("[Making Request]")
+
+                        response = requests.post(
+                            API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+
+                        logger.info("[Response Received]\n")
+
+                        row_data = json.loads(raw_data)
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = response.json().get('test_code')
+                        row_data = json.dumps(row_data)
+
+                        cnt += 1
+                        record_created += 1
+
+
+                    except Exception as e:
+                        logger.error(e)
+                        return {
+                            "errors": [f"Error occurred; Could not create tests"],
+                            "exception": True,
+                            "response": response
+                        }
+
+                    # Check for successful API call
+                    if response.status_code != 201:
+                        raise Exception("API call failed")
+                    
+                else:
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = response.json().get('test_code')
-                    row_data = json.dumps(row_data)
+                                                    ] = "Not Created For This Title"
+                    cnt+=1
 
-                    cnt += 1
-
-                except Exception as e:
-                    logger.error(e)
-                    return {
-                        "errors": [f"Error occurred; Could not create tests"],
-                        "exception": True,
-                        "response": response
-                    }
-
-                # Check for successful API call
-                if response.status_code != 201:
-                    raise Exception("API call failed")
-
-            logger.info(f"Total successful records created: {len(valid_rows)}")
+            logger.info(f"Total successful records created: {record_created}")
 
             # Create a csv file for test_name to test_code mapping
             with open('test_name_test_code_map.csv', 'w') as f:
@@ -545,50 +592,75 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
             test_name_test_code_map = {}
             cnt = 1
+            record_created = 0
             # Call the API for all valid rows
             for row_data in valid_rows:
-                # logger.info(row_data)
-                raw_data = json.dumps(row_data)
-                # Format the data as per the API requirements
-                # Sending the creator_id as a parameter change it later
-                json_data = format_test_orchestrated_conversation(raw_data)
+                check_pass = False
+
                 
-                # logger.info(json_data)
-                # Calling the Test creation API with JSON data
-                try:
+                skills_list = ast.literal_eval(row_data[SKILLS_TO_EVALUATE])
 
-                    headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': f'Bearer {access_token}'
-                    }
+                if row_data[IS_CHECKIN_TYPE] == 'TRUE':
+                    candidate_type = row_data[CANDIDATE_TYPE]
+                    if not candidate_type:
+                        candidate_type = 'Manager'
+                    skills_list_candidate = set()
+                    for item in get_skills(candidate_type):
+                        skills_list_candidate.add(item.capitalize())
+                    skills_list_candidate = list(skills_list_candidate)
+        
+                    if sorted(skills_list_candidate) == sorted(skills_list):
+                        check_pass = True
+                
+                if check_pass:
+                    # logger.info(row_data)
+                    raw_data = json.dumps(row_data)
+                    # Format the data as per the API requirements
+                    # Sending the creator_id as a parameter change it later
+                    json_data = format_test_orchestrated_conversation(raw_data)
+                    
+                    # logger.info(json_data)
+                    # Calling the Test creation API with JSON data
+                    try:
 
-                    logger.info("[Making Request]")
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'Authorization': f'Bearer {access_token}'
+                        }
 
-                    response = requests.post(
-                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+                        logger.info("[Making Request]")
 
-                    logger.info("[Response Received]\n")
+                        response = requests.post(
+                            LOCALHOST, data=json_data, headers=headers, verify=False)
 
-                    row_data = json.loads(raw_data)
+                        logger.info("[Response Received]\n")
+
+                        row_data = json.loads(raw_data)
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = response.json().get('test_code')
+                        row_data = json.dumps(row_data)
+
+                        cnt += 1
+                        record_created += 1
+
+                    except Exception as e:
+                        logger.error(e)
+                        return {
+                            "errors": [f"Error occurred; Could not create tests"],
+                            "exception": True,
+                            "response": response
+                        }
+
+                    # Check for successful API call
+                    if response.status_code != 201:
+                        raise Exception("API call failed")
+                else:
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = response.json().get('test_code')
-                    row_data = json.dumps(row_data)
+                                                    ] = "Not Created For This Title"
+                    cnt+=1
+                    
 
-                    cnt += 1
-
-                except Exception as e:
-                    logger.error(e)
-                    return {
-                        "errors": [f"Error occurred; Could not create tests"],
-                        "exception": True,
-                        "response": response
-                    }
-
-                # Check for successful API call
-                if response.status_code != 201:
-                    raise Exception("API call failed")
-
-            logger.info(f"Total successful records created: {len(valid_rows)}")
+            logger.info(f"Total successful records created: {record_created}")
 
             # Create a csv file for test_name to test_code mapping
             with open('test_name_test_code_map.csv', 'w') as f:

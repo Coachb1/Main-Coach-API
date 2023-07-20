@@ -51,7 +51,7 @@ def get_learner_path(queryset, objective, candidate_type):
         test_to_intersection.items(), key=lambda x: x[1], reverse=True)
 
     sorted_test_to_intersection = sorted_test_to_intersection[:min(
-        5, len(sorted_test_to_intersection))]
+        2, len(sorted_test_to_intersection))]
 
     test_uids = [x[0] for x in sorted_test_to_intersection]
 
