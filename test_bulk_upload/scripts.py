@@ -56,7 +56,6 @@ def format_test_orchestrated_conversation(raw_data):
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
             "questions": [],
-            "is_checkin_type": input_dict[IS_CHECKIN_TYPE],
             "skills_to_evaluate": input_dict[SKILLS_TO_EVALUATE]
         }
 
@@ -78,6 +77,16 @@ def format_test_orchestrated_conversation(raw_data):
 
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
+
+        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+
+            if is_checkin_type == "true":
+                output_dict['is_checkin_type'] = True
+            elif is_checkin_type == "false":
+                output_dict['is_checkin_type'] = False
+            else:
+                output_dict['is_checkin_type'] = False
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -200,9 +209,7 @@ def format_test_data_slack(raw_data):
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": [],
-            "is_checkin_type": input_dict[IS_CHECKIN_TYPE],
-            "is_learner_path": input_dict[IS_LEARNER_PATH]
+            "questions": []
         }
 
         test_type = input_dict[TEST_TYPE].strip().lower()
@@ -246,6 +253,26 @@ def format_test_data_slack(raw_data):
                 output_dict['send_only_to_email'] = False
             else:
                 output_dict['send_only_to_email'] = False
+
+        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+
+            if is_checkin_type == "true":
+                output_dict['is_checkin_type'] = True
+            elif is_checkin_type == "false":
+                output_dict['is_checkin_type'] = False
+            else:
+                output_dict['is_checkin_type'] = False
+
+        if input_dict[IS_LEARNER_PATH] and len(input_dict[IS_LEARNER_PATH].strip()) > 0:
+            is_learner_path = input_dict[IS_LEARNER_PATH].strip().lower()
+
+            if is_learner_path == "true":
+                output_dict['is_learner_path'] = True
+            elif is_learner_path == "false":
+                output_dict['is_learner_path'] = False
+            else:
+                output_dict['is_learner_path'] = False
 
         if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
             email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
