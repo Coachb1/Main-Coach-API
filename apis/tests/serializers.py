@@ -50,6 +50,12 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_single_bot = serializers.BooleanField(
         required=False, default=False)
+    is_checkin_type = serializers.BooleanField(
+        required=False, default=False)
+    is_learner_path = serializers.BooleanField(
+        required=False, default=False)
+    skills_to_evaluate = serializers.CharField(required=False,default=None)
+
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
     test_related_context = serializers.CharField(default=None)
@@ -104,7 +110,11 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "description_media",
                   "questions",
                   "created",
-                  "updated"]
+                  "updated",
+                  "is_checkin_type",
+                  "is_learner_path",
+                  "skills_to_evaluate"
+                  ]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
