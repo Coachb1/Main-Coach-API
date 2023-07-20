@@ -64,3 +64,5 @@ def get_skills(candidate_type):
         return SALES_MANAGER
     elif candidate_type == 'Customer Service':
         return CUSTOMER_SERVICES
+    else:
+        return []

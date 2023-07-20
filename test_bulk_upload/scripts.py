@@ -39,6 +39,7 @@ DESCRIPTION_MEDIA = "Description Media"
 MAX_TEST_ALLOWED = "Max Test Allowed"
 IS_CHECKIN_TYPE = "is checkin type"
 SKILLS_TO_EVALUATE = "Skills_list"
+IS_LEARNER_PATH = "is learner path"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -62,6 +63,21 @@ def format_test_orchestrated_conversation(raw_data):
         bot_count = sum(1 for key in input_dict.keys() if key.startswith('Person'))
         if bot_count == 1:
             output_dict["is_single_bot"] = True
+
+        check_pass = False
+        skills_list = ast.literal_eval(input_dict[SKILLS_TO_EVALUATE])
+
+        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+            candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+            if not candidate_type:
+                candidate_type = 'Manager'
+            skills_list_candidate = set()
+            for item in get_skills(candidate_type):
+                skills_list_candidate.add(item.capitalize())
+            skills_list_candidate = list(skills_list_candidate)
+
+            if sorted(skills_list_candidate) == sorted(skills_list):
+                check_pass = True
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -113,7 +129,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         output_json = json.dumps(output_dict)
 
-        return output_json
+        return output_json,check_pass
 
     except Exception as e:
         logger.error(e)
@@ -185,17 +201,33 @@ def format_test_data_slack(raw_data):
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
             "questions": [],
-            "is_checkin_type": input_dict[IS_CHECKIN_TYPE]
+            "is_checkin_type": input_dict[IS_CHECKIN_TYPE],
+            "is_learner_path": input_dict[IS_LEARNER_PATH]
         }
 
         test_type = input_dict[TEST_TYPE].strip().lower()
+
         skills_list = set()
         for key in input_dict:
             if key.startswith(KLS):
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
                     skills_list.add(skill.strip().capitalize())
-        output_dict[SKILLS_TO_EVALUATE] = list(skills_list)
+        skills_list = list(skills_list)
+
+        check_pass = False
+        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+            candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+            if not candidate_type:
+                candidate_type = 'Manager'
+            skills_list_candidate = set()
+            for item in get_skills(candidate_type):
+                skills_list_candidate.add(item.capitalize())
+            skills_list_candidate = list(skills_list_candidate)
+            if sorted(skills_list_candidate) == sorted(skills_list):
+                check_pass = True
+        
+        output_dict[SKILLS_TO_EVALUATE] = skills_list
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -256,7 +288,7 @@ def format_test_data_slack(raw_data):
 
         output_json = json.dumps(output_dict)
 
-        return output_json
+        return output_json,check_pass
 
     except Exception as e:
         logger.error(e)
@@ -443,40 +475,19 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
             test_name_test_code_map = {}
             cnt = 1
-            check_pass = False
             record_created = 0
 
             # Call the API for all valid rows
             for row_data in valid_rows:
-
-                skills_list = set()
-                for key in row_data:
-                    if key.startswith(KLS):
-                        temp_skills = row_data[key].split(',')
-                        for skill in temp_skills:
-                            skills_list.add(skill.strip().capitalize())
-                skills_list = list(skills_list)
-
-                if row_data[IS_CHECKIN_TYPE] == 'TRUE':
-                    candidate_type = row_data[CANDIDATE_TYPE]
-                    if not candidate_type:
-                        candidate_type = 'Manager'
-                    skills_list_candidate = set()
-                    for item in get_skills(candidate_type):
-                        skills_list_candidate.add(item.capitalize())
-                    skills_list_candidate = list(skills_list_candidate)
-                    if sorted(skills_list_candidate) == sorted(skills_list):
-                        check_pass = True
+                # logger.info(row_data)
+                raw_data = json.dumps(row_data)
+                # Format the data as per the API requirements
+                # Sending the creator_id as a parameter change it later
+                json_data,check_pass = format_test_data_slack(raw_data)
+                # logger.info(json_data)
+                # Calling the Test creation API with JSON data
 
                 if check_pass:
-                    # logger.info(row_data)
-                    raw_data = json.dumps(row_data)
-                    # Format the data as per the API requirements
-                    # Sending the creator_id as a parameter change it later
-                    json_data = format_test_data_slack(raw_data)
-                    # logger.info(json_data)
-                    # Calling the Test creation API with JSON data
-
                     
                     try:
 
@@ -595,32 +606,16 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             record_created = 0
             # Call the API for all valid rows
             for row_data in valid_rows:
-                check_pass = False
-
                 
-                skills_list = ast.literal_eval(row_data[SKILLS_TO_EVALUATE])
+                # logger.info(row_data)
+                raw_data = json.dumps(row_data)
+                # Format the data as per the API requirements
+                # Sending the creator_id as a parameter change it later
+                json_data,check_pass = format_test_orchestrated_conversation(raw_data)
+                # logger.info(json_data)
+                # Calling the Test creation API with JSON data
 
-                if row_data[IS_CHECKIN_TYPE] == 'TRUE':
-                    candidate_type = row_data[CANDIDATE_TYPE]
-                    if not candidate_type:
-                        candidate_type = 'Manager'
-                    skills_list_candidate = set()
-                    for item in get_skills(candidate_type):
-                        skills_list_candidate.add(item.capitalize())
-                    skills_list_candidate = list(skills_list_candidate)
-        
-                    if sorted(skills_list_candidate) == sorted(skills_list):
-                        check_pass = True
-                
                 if check_pass:
-                    # logger.info(row_data)
-                    raw_data = json.dumps(row_data)
-                    # Format the data as per the API requirements
-                    # Sending the creator_id as a parameter change it later
-                    json_data = format_test_orchestrated_conversation(raw_data)
-                    
-                    # logger.info(json_data)
-                    # Calling the Test creation API with JSON data
                     try:
 
                         headers = {

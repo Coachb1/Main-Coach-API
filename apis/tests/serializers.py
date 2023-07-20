@@ -54,7 +54,7 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_learner_path = serializers.BooleanField(
         required=False, default=False)
-    skills_to_evaluate = serializers.CharField(default=None)
+    skills_to_evaluate = serializers.CharField(required=False,default=None)
 
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
