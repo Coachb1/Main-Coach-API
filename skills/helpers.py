@@ -4,7 +4,7 @@ import time
 from django.utils.text import slugify
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt3_completion
+from commons.openai_gpt import gpt4_completion
 from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
@@ -64,12 +64,13 @@ def evaluate_response(question_text, response_text, skills, test_description, te
         return response, is_evaluated
 
     response = None
-    max_tries = 1  # because gpt3_completion function itself retries 3 times
+    max_tries = 1  # because gpt4_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            response = response.split('"REPLY:"')[1].strip()
+            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response:
+                response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -149,12 +150,13 @@ def evaluate_conversation(conversation, test_title, test_description):
         return response, is_evaluated
 
     response = None
-    max_tries = 1  # because gpt3_completion function itself retries 3 times
+    max_tries = 1  # because gpt4_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            response = response.split('"REPLY:"')[1].strip()
+            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response:
+                response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -224,12 +226,13 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
         return response
 
     response = None
-    max_tries = 1  # because gpt3_completion function itself retries 3 times
+    max_tries = 1  # because gpt4_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            response = response.split('"REPLY:"')[1].strip()
+            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response:
+                response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -298,12 +301,13 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
         return response
 
     response = None
-    max_tries = 1  # because gpt3_completion function itself retries 3 times
+    max_tries = 1  # because gpt4_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            response = response.split('"REPLY:"')[1].strip()
+            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response:
+                response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])

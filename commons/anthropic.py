@@ -16,7 +16,7 @@ def anthropic_completion(prompt, max_tokens):
     while True:
         try:
             response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
-                                        model='claude-instant-v1', max_tokens_to_sample=max_tokens,
+                                        model='claude-2', max_tokens_to_sample=max_tokens,
                                         stop_sequences=[anthropic.HUMAN_PROMPT])
             logger.info("anthropic_completion response %s", response)
             return response['completion']
