@@ -40,6 +40,7 @@ MAX_TEST_ALLOWED = "Max Test Allowed"
 IS_CHECKIN_TYPE = "is checkin type"
 SKILLS_TO_EVALUATE = "Skills_list"
 IS_LEARNER_PATH = "is learner path"
+IS_EMAIL_TYPE = "is_email_type"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -273,6 +274,16 @@ def format_test_data_slack(raw_data):
                 output_dict['is_learner_path'] = False
             else:
                 output_dict['is_learner_path'] = False
+
+        if input_dict[IS_EMAIL_TYPE] and len(input_dict[IS_EMAIL_TYPE].strip()) > 0:
+            is_email_type = input_dict[IS_EMAIL_TYPE].strip().lower()
+
+            if is_email_type == "true":
+                output_dict['is_email_type'] = True
+            elif is_email_type == "false":
+                output_dict['is_email_type'] = False
+            else:
+                output_dict['is_email_type'] = False
 
         if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
             email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()

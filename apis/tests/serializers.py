@@ -54,6 +54,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_learner_path = serializers.BooleanField(
         required=False, default=False)
+    is_email_type = serializers.BooleanField(
+        required=False, default=False)
     skills_to_evaluate = serializers.CharField(required=False,default=None)
 
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
@@ -113,7 +115,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "updated",
                   "is_checkin_type",
                   "is_learner_path",
-                  "skills_to_evaluate"
+                  "skills_to_evaluate",
+                  "is_email_type"
                   ]
 
     def get_questions(self, instance):
