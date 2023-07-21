@@ -51,7 +51,7 @@ def format_test_orchestrated_conversation(raw_data):
             "title": input_dict['Title'],
             "description": input_dict['Context'],
             "interaction_mode": "text",
-            "email_candidate" : True,
+            "email_candidate": True,
             "test_type": "orchestrated_conversation",
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
@@ -59,11 +59,16 @@ def format_test_orchestrated_conversation(raw_data):
             "skills_to_evaluate": input_dict[SKILLS_TO_EVALUATE]
         }
 
-        bot_count = sum(1 for key in input_dict.keys() if key.startswith('Person'))
+        bot_count = sum(1 for key in input_dict.keys()
+                        if key.startswith('Person'))
         if bot_count == 1:
             output_dict["is_single_bot"] = True
 
-        check_pass = False
+        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+            check_pass = False
+        else:
+            check_pass = True
+
         skills_list = ast.literal_eval(input_dict[SKILLS_TO_EVALUATE])
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
@@ -106,25 +111,23 @@ def format_test_orchestrated_conversation(raw_data):
                 persons.append(name)
                 initial_messages.append(input_dict[key])
                 test_main_context += input_dict[key]
-        
 
-        orchestrated_conversation_details ={
-            "test_main_context": test_main_context ,
+        orchestrated_conversation_details = {
+            "test_main_context": test_main_context,
             "test_user_persona": "Manager",
             "objective": input_dict['Context'],
-            "initial_messages": initial_messages 
+            "initial_messages": initial_messages
         }
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
 
-        
         for key in input_dict:
             if key.isdigit():
                 question = {
                     "question": input_dict[key],
                     "question_type": "subjective",
                     "gpt_prompt_override": "",
-                    "subjective_answer": ""        
-                 }
+                    "subjective_answer": ""
+                }
                 if "Respond as a manager" in input_dict[key]:
                     question['question_for'] = "user"
 
@@ -138,12 +141,13 @@ def format_test_orchestrated_conversation(raw_data):
 
         output_json = json.dumps(output_dict)
 
-        return output_json,check_pass
+        return output_json, check_pass
 
     except Exception as e:
         logger.error(e)
         return None
-    
+
+
 def format_test_data_web(raw_data):
 
     try:
@@ -222,7 +226,11 @@ def format_test_data_slack(raw_data):
                     skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
 
-        check_pass = False
+        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+            check_pass = False
+        else:
+            check_pass = True
+
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
             if not candidate_type:
@@ -233,7 +241,7 @@ def format_test_data_slack(raw_data):
             skills_list_candidate = list(skills_list_candidate)
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
-        
+
         output_dict[SKILLS_TO_EVALUATE] = skills_list
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
@@ -286,8 +294,8 @@ def format_test_data_slack(raw_data):
 
         if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
             output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
-   
-        if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0 :
+
+        if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0:
             output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
         else:
             output_dict['max_test_allowed'] = None
@@ -315,7 +323,7 @@ def format_test_data_slack(raw_data):
 
         output_json = json.dumps(output_dict)
 
-        return output_json,check_pass
+        return output_json, check_pass
 
     except Exception as e:
         logger.error(e)
@@ -364,7 +372,6 @@ def login_slack(email, password, subdomain_prefix):
         }
 
         response = requests.request("POST", url, headers=headers, data=payload)
-        
 
         if (response.status_code == 200):
             access_token = response.json()['access']
@@ -510,12 +517,12 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
-                json_data,check_pass = format_test_data_slack(raw_data)
+                json_data, check_pass = format_test_data_slack(raw_data)
                 # logger.info(json_data)
                 # Calling the Test creation API with JSON data
 
                 if check_pass:
-                    
+
                     try:
 
                         headers = {
@@ -538,7 +545,6 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         cnt += 1
                         record_created += 1
 
-
                     except Exception as e:
                         logger.error(e)
                         return {
@@ -550,11 +556,11 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     # Check for successful API call
                     if response.status_code != 201:
                         raise Exception("API call failed")
-                    
+
                 else:
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                                    ] = "Not Created For This Title"
-                    cnt+=1
+                                            ] = "Not Created For This Title"
+                    cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
 
@@ -590,8 +596,6 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             "errors": ["Invalid credentials"],
             "exception": True,
         }
-    
-
 
 
 def create_test_orchestrated_conversation_slack(csv_file, email, password, subdomain_prefix):
@@ -633,12 +637,13 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             record_created = 0
             # Call the API for all valid rows
             for row_data in valid_rows:
-                
+
                 # logger.info(row_data)
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
-                json_data,check_pass = format_test_orchestrated_conversation(raw_data)
+                json_data, check_pass = format_test_orchestrated_conversation(
+                    raw_data)
                 # logger.info(json_data)
                 # Calling the Test creation API with JSON data
 
@@ -678,9 +683,8 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         raise Exception("API call failed")
                 else:
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                                    ] = "Not Created For This Title"
-                    cnt+=1
-                    
+                                            ] = "Not Created For This Title"
+                    cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
 
