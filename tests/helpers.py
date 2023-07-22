@@ -597,6 +597,20 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+
+    # Updating test attempt session current/next question status
+    test_attempt_session.current_question_idx = question.question_number
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
 
     update_fields = []
     if test.interaction_mode != InteractionModeChoices.text:
@@ -647,6 +661,19 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
+    # Updating test attempt session current/next question status
+    test_attempt_session.current_question_idx = question.question_number
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
+
     prompt = get_orchestrated_test_conversation_prompt(test=test,
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
@@ -685,14 +712,16 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
-    
-    skills_rating = evaluate_skills_group_discussion_conversation(chat_conversation, user_persona, objective)
-    
+
+    skills_rating = evaluate_skills_group_discussion_conversation(
+        chat_conversation, user_persona, objective)
+
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
-    updated_fields = ["culture_skills_rating", "meeting_summary", "areas_of_improvement"]
+    updated_fields = ["culture_skills_rating",
+                      "meeting_summary", "areas_of_improvement"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
