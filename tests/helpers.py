@@ -260,6 +260,7 @@ def create_test_question_answer_session(tenant: Tenant,
         participant_id=participant_id,
         test_invite_id=test_invite_id,
         started_at=timezone.now(),
+        is_checkin_type=test.is_checkin_type
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
