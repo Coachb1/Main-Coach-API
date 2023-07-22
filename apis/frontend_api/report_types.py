@@ -6,3 +6,4 @@ class ReportType:
     COACHING_SESSION_REPORT = "coachingSessionReport"
     MEETING_ANALYSIS_REPORT = "meetingAnalysisReport"
     ASKING_GREAT_QUESTIONS_REPORT = "askingGreatQuestionsReport"
+    SKILLS_TRACKER_REPORT = 'skillsTrackerReport'
