@@ -40,7 +40,7 @@ def create_test_coaching_conversation_session(tenant: Tenant,
         test_id=test_id,
         participant_id=participant_id,
         test_invite_id=None,
-        started_at=timezone.now(),
+        started_at=timezone.now()
     )
 
     logger.info(
