@@ -37,6 +37,9 @@ class FrontendAskingGreatQuestionsReportSerializer(serializers.Serializer):
     test_attempt_session_id = serializers.CharField()
     interaction_id = serializers.CharField()
 
+class FrontendSkillsTrackerReportSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    report_type = serializers.CharField()
 
 class FrontendCoachingSessionReportSerializer(serializers.Serializer):
     user_id = serializers.CharField()

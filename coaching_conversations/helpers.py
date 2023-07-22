@@ -41,6 +41,7 @@ def create_test_coaching_conversation_session(tenant: Tenant,
         participant_id=participant_id,
         test_invite_id=None,
         started_at=timezone.now(),
+        is_checkin_type= test.is_checkin_type
     )
 
     logger.info(

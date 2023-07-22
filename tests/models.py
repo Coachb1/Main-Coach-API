@@ -122,6 +122,8 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
     is_report_sent_to_email = models.BooleanField(
         null=True, blank=True, default=None)
+    
+    is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
 
     class Meta:
         db_table = "test_attempt_session"
