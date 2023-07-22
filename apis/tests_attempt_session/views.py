@@ -86,7 +86,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             is_checkin_type=1,participant_id=participant_id, deleted=0).order_by("-id")
 
         if test_attempt_sessions.count() > 15:   # limiting test_attempt_sessions if more than 15
-            test_attempt_sessions[:15]
+            test_attempt_sessions = test_attempt_sessions[:15]
         
         data = {}
         candidate_type = ''
