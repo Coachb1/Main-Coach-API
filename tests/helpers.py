@@ -1037,7 +1037,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
                                                                    status=TestAttemptSessionStatusChoices.completed,
                                                                    deleted=0).exclude(uid=test_attempt_session.uid)
 
-    total_successfull_sessions_count = total_successfull_sessions.count() % 10
+    total_successfull_sessions_count = total_successfull_sessions.count()
 
     if total_successfull_sessions_count == 1:
         return skills_rating, avg_score
@@ -1056,8 +1056,8 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = total_successfull_sessions_count * 4
-    # 1 -> 4%, 2 -> 8%, 3 -> 12%, 4 -> 16%, 5 -> 20%, 6 -> 24%, 7 -> 28%, 8 -> 32%, 9 -> 36%, 10 -> 40%
+    increase_by_percent = min(total_successfull_sessions_count * 2, 40)
+    # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
 
     for skill in skills_rating:
         skills_rating[skill] = skills_rating[skill] + \
@@ -1114,6 +1114,12 @@ def update_skills_rating_if_same_scores(skills_rating):
                     skills_rating[skill] = skills_rating[skill] + 1
                 else:
                     skills_rating[skill] = skills_rating[skill] - 1
+
+                if skill_rating[skill] < 0:
+                    skills_rating[skill] = 0
+
+                if skill_rating[skill] > 10:
+                    skills_rating[skill] = 10
 
     return skills_rating
 
