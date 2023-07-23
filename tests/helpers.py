@@ -577,7 +577,21 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.avg_score = response_avg_score
     test_question_response.save(update_fields=["skills_rating", "avg_score"])
 
-    def __calc_score_in_different_thread():
+    # def __calc_score_in_different_thread():
+    #     # Evaluate skills rating for the test attempt session and update skills table in that.
+    #     calc_score(test_attempt_session, test)
+    #     report_url = generate_session_report_link(test_attempt_session, test)
+
+    #     if test.email_address_list:
+
+    #         send_report_link_to_email(
+    #             test, test_attempt_session, report_url, is_whatsapp)
+
+    #     if is_whatsapp and test.test_type != TestTypeChoices.interview:
+    #         send_report_link_to_whatsapp(
+    #             test, test_attempt_session, report_url)
+
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session, test)
         report_url = generate_session_report_link(test_attempt_session, test)
@@ -590,12 +604,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         if is_whatsapp and test.test_type != TestTypeChoices.interview:
             send_report_link_to_whatsapp(
                 test, test_attempt_session, report_url)
-
-    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
-        # Evaluate skills rating for the test attempt session and update skills table in that.
-        # thread
-        t = threading.Thread(target=__calc_score_in_different_thread)
-        t.start()
 
     return test_question_response
 
