@@ -1130,10 +1130,10 @@ def update_skills_rating_if_same_scores(skills_rating):
                 else:
                     skills_rating[skill] = skills_rating[skill] - 1
 
-                if skill_rating[skill] < 0:
+                if skills_rating[skill] < 0:
                     skills_rating[skill] = 0
 
-                if skill_rating[skill] > 10:
+                if skills_rating[skill] > 10:
                     skills_rating[skill] = 10
 
     return skills_rating
