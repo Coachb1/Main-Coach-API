@@ -13,6 +13,7 @@ from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.models import TestAttemptSession
 from tests.models import Test
+from users.db import get_user_display_name, get_user_by_id
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -95,6 +96,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         for test_attempt_session in test_attempt_sessions:
             test = Test.objects.filter(uid=test_attempt_session.test_id,deleted=0).first()
             candidate_type = test.candidate_type
+            participant_id = test_attempt_session.participant_id
+            participant_name = get_user_display_name(get_user_by_id(participant_id))
             skills_rating = test_attempt_session.skills_rating
             skills.append(skills_rating)
             
@@ -109,7 +112,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         data['data']={
                 "candidate_type": candidate_type,
-                "trends": trends
+                "trends": trends,
+                "participant_name": participant_name
             }
         
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
