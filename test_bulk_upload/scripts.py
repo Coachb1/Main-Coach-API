@@ -44,7 +44,6 @@ TED_TALK_AND_HBR_CASE = "Ted talks and HBR Case"
 IS_EMAIL_TYPE = "is_email_type"
 
 
-
 def format_test_orchestrated_conversation(raw_data):
     try:
         input_dict = json.loads(raw_data)
