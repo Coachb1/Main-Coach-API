@@ -109,6 +109,7 @@ def create_test(tenant: Tenant,
                 skills_to_evaluate: str,
                 tedtalk_and_hbr_case: str,
                 is_learner_path: bool,
+                is_email_type: bool,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -134,6 +135,7 @@ def create_test(tenant: Tenant,
             is_single_bot=is_single_bot,
             is_learner_path=is_learner_path,
             is_checkin_type=is_checkin_type,
+            is_email_type=is_email_type,
             skills_to_evaluate=skills_to_evaluate,
             tedtalk_and_hbr_case=tedtalk_and_hbr_case,
             test_related_context=test_related_context,
