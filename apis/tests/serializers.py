@@ -57,6 +57,7 @@ class CreateTestSerializer(serializers.Serializer):
     is_email_type = serializers.BooleanField(
         required=False, default=False)
     skills_to_evaluate = serializers.CharField(required=False,default=None)
+    tedtalk_and_hbr_case = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
 
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
@@ -116,6 +117,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_checkin_type",
                   "is_learner_path",
                   "skills_to_evaluate",
+                  "tedtalk_and_hbr_case",
                   "is_email_type"
                   ]
 

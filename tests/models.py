@@ -34,7 +34,7 @@ class Test(TenantAwareModel):
     is_learner_path = models.BooleanField(default=False, null=True, blank=True)
     is_email_type = models.BooleanField(default=False, null=True, blank=True)
     skills_to_evaluate = models.TextField(null=True, blank=True, default=None)
-
+    tedtalk_and_hbr_case = models.TextField(null=True,blank=True,default=None)
     
     email_candidate = models.BooleanField(default=True, null=True, blank=True)
     candidate_type = models.CharField(
