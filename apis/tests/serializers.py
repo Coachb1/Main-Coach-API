@@ -54,6 +54,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_learner_path = serializers.BooleanField(
         required=False, default=False)
+    is_email_type = serializers.BooleanField(
+        required=False, default=False)
     skills_to_evaluate = serializers.CharField(required=False,default=None)
     tedtalk_and_hbr_case = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
 
@@ -115,7 +117,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_checkin_type",
                   "is_learner_path",
                   "skills_to_evaluate",
-                  "tedtalk_and_hbr_case"
+                  "tedtalk_and_hbr_case",
+                  "is_email_type"
                   ]
 
     def get_questions(self, instance):
