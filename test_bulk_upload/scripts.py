@@ -40,6 +40,7 @@ MAX_TEST_ALLOWED = "Max Test Allowed"
 IS_CHECKIN_TYPE = "is checkin type"
 SKILLS_TO_EVALUATE = "Skills_list"
 IS_LEARNER_PATH = "is learner path"
+TED_TALK_AND_HBR_CASE = "Ted talks and HBR Case"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -217,6 +218,9 @@ def format_test_data_slack(raw_data):
         }
 
         test_type = input_dict[TEST_TYPE].strip().lower()
+
+        if TED_TALK_AND_HBR_CASE in input_dict.keys():
+            output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
         skills_list = set()
         for key in input_dict:
