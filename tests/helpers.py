@@ -6,6 +6,7 @@ import os
 import string
 import tempfile
 from datetime import date
+import threading
 from string import Template
 
 from skills.constants import skills
@@ -109,7 +110,9 @@ def create_test(tenant: Tenant,
                 is_single_bot: bool,
                 is_checkin_type: bool,
                 skills_to_evaluate: str,
+                tedtalk_and_hbr_case: str,
                 is_learner_path: bool,
+                is_email_type: bool,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -135,7 +138,9 @@ def create_test(tenant: Tenant,
             is_single_bot=is_single_bot,
             is_learner_path=is_learner_path,
             is_checkin_type=is_checkin_type,
+            is_email_type=is_email_type,
             skills_to_evaluate=skills_to_evaluate,
+            tedtalk_and_hbr_case=tedtalk_and_hbr_case,
             test_related_context=test_related_context,
             orchestrated_conversation_details=orchestrated_conversation_details,
             test_code=get_unique_test_code(tenant),
@@ -579,6 +584,20 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.avg_score = response_avg_score
     test_question_response.save(update_fields=["skills_rating", "avg_score"])
 
+    # def __calc_score_in_different_thread():
+    #     # Evaluate skills rating for the test attempt session and update skills table in that.
+    #     calc_score(test_attempt_session, test)
+    #     report_url = generate_session_report_link(test_attempt_session, test)
+
+    #     if test.email_address_list:
+
+    #         send_report_link_to_email(
+    #             test, test_attempt_session, report_url, is_whatsapp)
+
+    #     if is_whatsapp and test.test_type != TestTypeChoices.interview:
+    #         send_report_link_to_whatsapp(
+    #             test, test_attempt_session, report_url)
+
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session, test)
@@ -601,6 +620,20 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+
+    # Updating test attempt session current/next question status
+    test_attempt_session.current_question_idx = question.question_number
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
 
     update_fields = []
     if test.interaction_mode != InteractionModeChoices.text:
@@ -651,6 +684,19 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
+    # Updating test attempt session current/next question status
+    test_attempt_session.current_question_idx = question.question_number
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
+
     prompt = get_orchestrated_test_conversation_prompt(test=test,
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
@@ -689,14 +735,16 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
-    
-    skills_rating = evaluate_skills_group_discussion_conversation(chat_conversation, user_persona, objective)
-    
+
+    skills_rating = evaluate_skills_group_discussion_conversation(
+        chat_conversation, user_persona, objective)
+
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
-    updated_fields = ["culture_skills_rating", "meeting_summary", "areas_of_improvement"]
+    updated_fields = ["culture_skills_rating",
+                      "meeting_summary", "areas_of_improvement"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -1011,7 +1059,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
                                                                    status=TestAttemptSessionStatusChoices.completed,
                                                                    deleted=0).exclude(uid=test_attempt_session.uid)
 
-    total_successfull_sessions_count = total_successfull_sessions.count() % 10
+    total_successfull_sessions_count = total_successfull_sessions.count()
 
     if total_successfull_sessions_count == 1:
         return skills_rating, avg_score
@@ -1030,8 +1078,8 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = total_successfull_sessions_count * 4
-    # 1 -> 4%, 2 -> 8%, 3 -> 12%, 4 -> 16%, 5 -> 20%, 6 -> 24%, 7 -> 28%, 8 -> 32%, 9 -> 36%, 10 -> 40%
+    increase_by_percent = min(total_successfull_sessions_count * 2, 40)
+    # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
 
     for skill in skills_rating:
         skills_rating[skill] = skills_rating[skill] + \
@@ -1088,6 +1136,12 @@ def update_skills_rating_if_same_scores(skills_rating):
                     skills_rating[skill] = skills_rating[skill] + 1
                 else:
                     skills_rating[skill] = skills_rating[skill] - 1
+
+                if skills_rating[skill] < 0:
+                    skills_rating[skill] = 0
+
+                if skills_rating[skill] > 10:
+                    skills_rating[skill] = 10
 
     return skills_rating
 
