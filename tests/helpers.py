@@ -5,6 +5,7 @@ import time
 import os
 import string
 import tempfile
+from datetime import date
 import threading
 from string import Template
 
@@ -49,6 +50,8 @@ from users.db import get_user_by_id
 from users.models import User
 from users.models import UserAttribute
 from nltk.tokenize import sent_tokenize
+from test_bulk_upload.constants import get_skills_by_candidate_type
+
 
 logger = logging.getLogger(__name__)
 
@@ -1679,3 +1682,92 @@ def generate_test_from_objective_anthropic(objective: str):
         res["status"] = "success"
 
     return res
+
+
+# Skills Tracker REport:
+
+def categorize_skills(skill_dict, skills_object):
+        
+        categorized_skills = []
+        skill_list = [skill.capitalize() for skill in skills_object.keys()]
+
+        for skill, score in skill_dict.items():
+            if skill.capitalize() in skill_list:
+                categorized_skills.append({
+                    "skill": skill.capitalize(),
+                    "score": score,
+                    "description": skills_object[skill.capitalize()], 
+                })
+        
+        return categorized_skills
+
+def get_skills_tracker_data(participant_id):
+    # Filter the test_attempt_session with the given participant_id and ordered by created
+    test_attempt_sessions = TestAttemptSession.objects.filter(
+        is_checkin_type=1,participant_id=participant_id, deleted=0).order_by("-id")
+
+    if test_attempt_sessions.count() > 15:   # limiting test_attempt_sessions if more than 15
+        test_attempt_sessions = test_attempt_sessions[:15]
+    
+    data = {}
+    candidate_type = ''
+    skills = []
+    
+    for test_attempt_session in test_attempt_sessions:
+        test = Test.objects.filter(uid=test_attempt_session.test_id,deleted=0).first()
+        candidate_type = test.candidate_type
+        participant_id = test_attempt_session.participant_id
+        participant_name = get_user_display_name(get_user_by_id(participant_id))
+        skills_rating = test_attempt_session.skills_rating
+        skills.append(skills_rating)
+
+    
+    
+    scores = {}
+    for skills_dict in skills[::-1]:
+        if skills_dict:
+            for skill_name, score in skills_dict.items():
+                if skill_name in scores:
+                    scores[skill_name].append(score)
+                else:
+                    scores[skill_name] = [score]
+
+    
+    skills_obj =get_skills_by_candidate_type(candidate_type.capitalize())
+    # skills_obj =get_skills_by_candidate_type('Manager')
+    people = skills_obj.PEOPLE
+    process = skills_obj.PROCESS
+    partnership = skills_obj.PARTNERSHIP
+    personality = skills_obj.PERSONALITY
+        
+
+    mylist = [
+        {
+            "chart_name": "People",
+            "trends": categorize_skills(scores,people) ,
+        },
+        {
+            "chart_name": "Partnership",
+            "trends": categorize_skills(scores,partnership),
+        },
+        {
+            "chart_name": "Process",
+            "trends": categorize_skills(scores,process),
+        },
+        {
+            "chart_name": "Personality",
+            "trends": categorize_skills(scores,personality),
+        },
+    ]
+
+    
+    data['data']={
+            "participant_name": participant_name,
+            "interaction_date": date.today().strftime("%d %b %Y"),
+            "mylist": mylist
+        }  
+    
+    return data
+
+
+    

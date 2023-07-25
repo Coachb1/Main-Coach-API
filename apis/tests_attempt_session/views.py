@@ -9,10 +9,12 @@ from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from tests.helpers import get_meeting_report_from_test_attempt_session
+from tests.helpers import get_skills_tracker_data
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.models import TestAttemptSession
 from tests.models import Test
+from users.db import get_user_display_name, get_user_by_id
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -80,37 +82,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="get-skills-tracker-report-data")
     def get_session_uid(self, request, *args, **kwargs):
         participant_id = request.query_params.get("participant_id")
-
-        # Filter the test_attempt_session with the given participant_id and ordered by created
-        test_attempt_sessions = TestAttemptSession.objects.filter(
-            is_checkin_type=1,participant_id=participant_id, deleted=0).order_by("-id")
-
-        if test_attempt_sessions.count() > 15:   # limiting test_attempt_sessions if more than 15
-            test_attempt_sessions = test_attempt_sessions[:15]
-        
-        data = {}
-        candidate_type = ''
-        skills = []
-       
-        for test_attempt_session in test_attempt_sessions:
-            test = Test.objects.filter(uid=test_attempt_session.test_id,deleted=0).first()
-            candidate_type = test.candidate_type
-            skills_rating = test_attempt_session.skills_rating
-            skills.append(skills_rating)
-            
-        trends = {}
-        for skills_dict in skills[::-1]:
-            if skills_dict:
-                for skill_name, score in skills_dict.items():
-                    if skill_name in trends:
-                        trends[skill_name].append(score)
-                    else:
-                        trends[skill_name] = [score]
-
-        data['data']={
-                "candidate_type": candidate_type,
-                "trends": trends
-            }
+        data = get_skills_tracker_data(participant_id)
         
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
