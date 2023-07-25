@@ -1687,42 +1687,48 @@ def generate_test_from_objective_anthropic(objective: str):
 # Skills Tracker REport:
 
 def categorize_skills(skill_dict, skills_object):
-        
-        categorized_skills = []
-        skill_list = [skill.capitalize() for skill in skills_object.keys()]
 
-        for skill, score in skill_dict.items():
-            if skill.capitalize() in skill_list:
-                categorized_skills.append({
-                    "skill": skill.capitalize(),
-                    "score": score,
-                    "description": skills_object[skill.capitalize()], 
-                })
-        
-        return categorized_skills
+    categorized_skills = []
+    skill_list = [skill.capitalize() for skill in skills_object.keys()]
+
+    for skill, score in skill_dict.items():
+        if skill.capitalize() in skill_list:
+            categorized_skills.append({
+                "skill": skill.capitalize(),
+                "score": score,
+                "description": skills_object[skill.capitalize()],
+            })
+
+    return categorized_skills
+
 
 def get_skills_tracker_data(participant_id):
     # Filter the test_attempt_session with the given participant_id and ordered by created
     test_attempt_sessions = TestAttemptSession.objects.filter(
-        is_checkin_type=1,participant_id=participant_id, deleted=0).order_by("-id")
+        is_checkin_type=1, participant_id=participant_id, deleted=0).order_by("-id")
 
     if test_attempt_sessions.count() > 15:   # limiting test_attempt_sessions if more than 15
         test_attempt_sessions = test_attempt_sessions[:15]
-    
+
+    if test_attempt_sessions.count() == 0:
+        return None
+
     data = {}
-    candidate_type = ''
+    candidate_type = 'Manager'
     skills = []
-    
+
     for test_attempt_session in test_attempt_sessions:
-        test = Test.objects.filter(uid=test_attempt_session.test_id,deleted=0).first()
+        test = Test.objects.filter(
+            uid=test_attempt_session.test_id, deleted=0).first()
         candidate_type = test.candidate_type
+        if candidate_type is None:
+            candidate_type = 'Manager'
         participant_id = test_attempt_session.participant_id
-        participant_name = get_user_display_name(get_user_by_id(participant_id))
+        participant_name = get_user_display_name(
+            get_user_by_id(participant_id))
         skills_rating = test_attempt_session.skills_rating
         skills.append(skills_rating)
 
-    
-    
     scores = {}
     for skills_dict in skills[::-1]:
         if skills_dict:
@@ -1732,42 +1738,36 @@ def get_skills_tracker_data(participant_id):
                 else:
                     scores[skill_name] = [score]
 
-    
-    skills_obj =get_skills_by_candidate_type(candidate_type.capitalize())
+    skills_obj = get_skills_by_candidate_type(candidate_type.capitalize())
     # skills_obj =get_skills_by_candidate_type('Manager')
     people = skills_obj.PEOPLE
     process = skills_obj.PROCESS
     partnership = skills_obj.PARTNERSHIP
     personality = skills_obj.PERSONALITY
-        
 
     mylist = [
         {
             "chart_name": "People",
-            "trends": categorize_skills(scores,people) ,
+            "trends": categorize_skills(scores, people),
         },
         {
             "chart_name": "Partnership",
-            "trends": categorize_skills(scores,partnership),
+            "trends": categorize_skills(scores, partnership),
         },
         {
             "chart_name": "Process",
-            "trends": categorize_skills(scores,process),
+            "trends": categorize_skills(scores, process),
         },
         {
             "chart_name": "Personality",
-            "trends": categorize_skills(scores,personality),
+            "trends": categorize_skills(scores, personality),
         },
     ]
 
-    
-    data['data']={
-            "participant_name": participant_name,
-            "interaction_date": date.today().strftime("%d %b %Y"),
-            "mylist": mylist
-        }  
-    
+    data['data'] = {
+        "participant_name": participant_name,
+        "interaction_date": date.today().strftime("%d %b %Y"),
+        "mylist": mylist
+    }
+
     return data
-
-
-    
