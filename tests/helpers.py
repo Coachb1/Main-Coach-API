@@ -458,24 +458,33 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         test_question_response.save(update_fields=update_fields)
 
-    if question.gpt_prompt_override or test.gpt_prompt_override:
-        prompt = get_overridden_prompt(
-            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+    if test.is_email_type:
+        prompt = get_email_type_prompt(
             test_title=test.title,
             test_description=test.description,
             question=question.question,
-            question_context=question.subjective_answer,
-            candidate_reply=test_question_response.response_text
-        )
-    else:
-        prompt = get_chat_conversation_prompt_v3(
-            test_title=test.title,
-            test_description=test.description,
-            question=question.question,
-            question_context=question.subjective_answer,
             candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 300)
+    else:
+
+        if question.gpt_prompt_override or test.gpt_prompt_override:
+            prompt = get_overridden_prompt(
+                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text
+            )
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text)
+
+    anthropic_feedback = anthropic_completion(prompt, 350)
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text
@@ -491,22 +500,30 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 break
             else:
                 response_text = " ".join(sentences[:-1])
-                if question.gpt_prompt_override or test.gpt_prompt_override:
-                    prompt = get_overridden_prompt(
-                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                if test.is_email_type:
+                    prompt = get_email_type_prompt(
                         test_title=test.title,
                         test_description=test.description,
                         question=question.question,
-                        question_context=question.subjective_answer,
-                        candidate_reply=response_text
-                    )
+                        candidate_reply=test_question_response.response_text)
+
                 else:
-                    prompt = get_chat_conversation_prompt_v3(
-                        test_title=test.title,
-                        test_description=test.description,
-                        question=question.question,
-                        question_context=question.subjective_answer,
-                        candidate_reply=response_text)
+                    if question.gpt_prompt_override or test.gpt_prompt_override:
+                        prompt = get_overridden_prompt(
+                            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                            test_title=test.title,
+                            test_description=test.description,
+                            question=question.question,
+                            question_context=question.subjective_answer,
+                            candidate_reply=response_text
+                        )
+                    else:
+                        prompt = get_chat_conversation_prompt_v3(
+                            test_title=test.title,
+                            test_description=test.description,
+                            question=question.question,
+                            question_context=question.subjective_answer,
+                            candidate_reply=response_text)
 
             max_retry -= 1
 
@@ -1312,11 +1329,12 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-            1) What went well ? - 50 words minimum
-            2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response. - 50 words minimum
+            1) Key insights to improve the response - 50 words.                                    
+            2) What went well ? - 50 words minimum
+            3) What did not work ? - 50 words minimum 
+            4) Generate a sample candidate answer response. - 50 words minimum
 
-            NOTE: The total number of words should not be more than 150 words.
+            NOTE: The total number of words should not be more than 200 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1333,11 +1351,12 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Candidate answer:  ${candidate_reply}
             
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-            1) What went well ? - 50 words minimum
-            2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response. - 50 words minimum
+            1) Key insights to improve the response - 50 words.                                    
+            2) What went well ? - 50 words minimum
+            3) What did not work ? - 50 words minimum 
+            4) Generate a sample candidate answer response. - 50 words minimum
 
-            NOTE: The total number of words should not be more than 150 words.
+            NOTE: The total number of words should not be more than 200 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1392,6 +1411,35 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                                question_for=question.question_for)
 
 
+def get_email_type_prompt(test_title,
+                          test_description,
+                          question,
+                          candidate_reply):
+    template = Template(
+        """
+        Title: ${test_title}. 
+        Test Description: ${test_description}
+        Customer question:  ${question} 
+        Candidate answer:  ${candidate_reply}
+
+        Please provide feedback on this email. Please do not add any introductory sentence and come to the point directly. Do not include any response to the email. The feedback should be directed to the writer of the email. Please add a sample re-written email.
+
+        Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+        1) What went well ? - 50 words minimum
+        2) What could be improved ? - 50 words minimum 
+        3) Some new ideas to reframe the context - 50 words minimum
+        3) Generate a sample re-written email. - 80 words minimum
+
+        NOTE: The total number of words should not be more than 200 words.
+        """
+    )
+
+    return template.substitute(test_title=test_title,
+                               test_description=test_description,
+                               question=question,
+                               candidate_reply=candidate_reply)
+
+
 def get_overridden_prompt(prompt_template: str,
                           test_title: str,
                           test_description: str,
@@ -1410,11 +1458,12 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-            1) What went well ? - 50 words minimum
-            2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response. - 50 words minimum
+            1) Key insights to improve the response - 50 words.                                    
+            2) What went well ? - 50 words minimum
+            3) What did not work ? - 50 words minimum 
+            4) Generate a sample candidate answer response. - 50 words minimum
 
-            NOTE: The total number of words should not be more than 150 words.
+            NOTE: The total number of words should not be more than 200 words.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1433,9 +1482,10 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
-            1) What went well ? - 50 words minimum
-            2) What did not work ? - 50 words minimum 
-            3) Generate a sample candidate answer response. - 50 words minimum
+            1) Key insights to improve the response - 50 words.                                    
+            2) What went well ? - 50 words minimum
+            3) What did not work ? - 50 words minimum 
+            4) Generate a sample candidate answer response. - 50 words minimum
 
             NOTE: The total number of words should not be more than 150 words.
             """
