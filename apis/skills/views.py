@@ -3,6 +3,7 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+from django.http import HttpResponse
 
 from apis.skills.serializers import SkillIndexSerializer, CreateCustomSkillSerializer
 from apis.skills.serializers import SkillsDisplaySerializer, CustomRatingDisplaySerializer
@@ -15,6 +16,7 @@ from skills.models import SkillIndex
 from skills.models import SkillsRating
 from skills.models import CustomRating
 from skills.helpers import save_the_custom_rating
+from skills.constants import skills
 
 
 class SkillsIndexViewSet(ApiViewSet,
@@ -27,6 +29,16 @@ class SkillsIndexViewSet(ApiViewSet,
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
+class GetSkillsName(ApiViewSet):
+    def list(self, request):
+        data = []
+        for skill in skills:
+            data.append({
+                "display": skill['display'],
+                "name": skill['name']
+            })
+        return Response({"data": data})
+    
 
 class SkillsViewSet(ApiViewSet,
                     mixins.ListModelMixin,
