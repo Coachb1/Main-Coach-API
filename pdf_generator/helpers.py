@@ -208,19 +208,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
             test_attempt_session, only_data=True)
         
-        
-        skills_rating = skills_graph_data.skills_rating
-        lowest_skill = min(skills_rating, key=skills_rating.get)
-        lowest_score = skills_rating[lowest_skill]
-        test_codes = []
-        if lowest_score < 5 :
-            test_query = Test.objects.filter(tenent_id=test_attempt_session.tenant_id,skills_to_be_evaluated__contains=[lowest_skill], learner_flag=1, checkin_flag=0)
-            if test_query.count() >0:
-                for test_ in test_query:
-                    test_codes.append(test_.test_code)
-
-            if len(test_codes) > 2:
-                test_codes = test_codes[:2]
+        test_codes = get_test_code_lowest_skill(skills_graph_data.skills_rating,test_attempt_session)
 
         return {'candidate_type': candidate_type,'is_email_type':is_email_type,'tedtalk_and_hbr': ted_talk_and_hbr,'test_code':test_codes,'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
 
@@ -611,3 +599,23 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # return the decoded png file
     return uri
+
+
+
+def get_test_code_lowest_skill(skills_rating,test_attempt_session):
+
+    
+    lowest_skill = min(skills_rating, key=skills_rating.get)
+    lowest_score = skills_rating[lowest_skill]
+    test_codes = []
+    if lowest_score < 5 :
+        test_query = Test.objects.filter(tenent_id=test_attempt_session.tenant_id,skills_to_evaluate__contains=lowest_skill, is_learner_path=1, is_checkin_type=0)
+        if test_query.count() >0:
+            for test_ in test_query:
+                test_codes.append(test_.test_code)
+
+        if len(test_codes) > 2:
+            test_codes = test_codes[:2]
+
+
+    return test_codes
