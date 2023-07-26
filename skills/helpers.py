@@ -342,16 +342,19 @@ def top_N_leadership_board(skills, N, tenant_id):
 
     participants = []
 
+    original_skills_required = skills
+
     for obj in skill_rating_objects:
 
         skills_info = obj.skills_info
         average_score = 0
         skills_dict = {}
+        skills_to_search = original_skills_required
 
-        if len(skills) == 1 and skills[0].lower() == 'all':
-            skills = skills_info.keys()
+        if len(skills_to_search) == 1 and skills_to_search[0].lower() == 'all':
+            skills_to_search = skills_info.keys()
 
-        for skill in skills:
+        for skill in skills_to_search:
             if skill in skills_info:
                 average_score += skills_info[skill]['average_score']
                 skills_dict[skill] = skills_info[skill]
