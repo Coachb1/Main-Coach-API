@@ -245,8 +245,8 @@ skills = [
         "description": " Risk management for a new manager refers to the ability to identify potential risks related to the team or projects, analyze their likelihood and impact, and take appropriate actions to mitigate them. This skill helps managers maximize productivity while minimizing disruptions and financial losses. For example, a new manager should be able to identify potential risks like key employees leaving, technical issues causing project delays, and budget overruns. The manager then needs to analyze the probability and cost impact of these risks. Finally, the manager must decide on appropriate strategies to handle the risks like increasing employee benefits, adding buffer time to schedules, and setting up milestones to track budgets. Having a framework to systematically identify, analyze, and take actions on potential risks is critical for a new manager to lead the team effectively towards goals while navigating challenges that inevitably arise."
     },
     {
-        "name": "Self-assurance",
-        "display": "Self-assurance",
+        "name": "Self assurance",
+        "display": "Self assurance",
         "description": " Self-assurance as a skill is vital for a new manager to develop. Self-assured managers trust in their own capabilities and expertise, allowing them to navigate difficult situations and motivate their team with confidence. An otherwise talented manager who lacks self-assurance may be reluctant to make decisions, delegate work, or address performance issues for fear of being wrong or disliked. However, a self-assured new manager who believes in their own leadership abilities will confidently identify priorities, assign responsibilities, resolve conflicts, and provide guidance that breeds productivity and trust within their team. They own their mistakes and shortcomings without doubt, taking responsibility to correct course and learn from failures. Examples of self-assured behaviors include speaking firmly without hesitation, actively listening to opinions without defensiveness, giving clear directives decisively, and providing consistent positive reinforcement to build team morale."
     },
     {
@@ -300,8 +300,8 @@ skills = [
         "description": " As a new manager, the ability to confront others in a constructive manner is a crucial skill to develop. This involves bringing up difficult issues or performance problems with employees in a direct but sensitive way. Starting the conversation by making it clear you want to have an open discussion to resolve any obstacles can help set the right tone. Be specific about the concerns while focusing on behaviors that can be improved. Offer recommendations and solutions to address the issues. Request the employee's input and ideas to engage them in finding effective solutions together. Following up with clarity around expectations and next steps helps solidify the discussion and make sure everyone is on the same page moving forward. This kind of confrontation, when done respectfully and transparently, can improve communication and ultimately strengthen employee relationships and performance."
     },
     {
-        "name": "Negotiation skills",
-        "display": "Negotiation skills",
+        "name": "Negotiation",
+        "display": "Negotiation",
         "description": " Negotiation skills for a new manager refer to the ability to communicate effectively and assertively with employees to achieve mutually beneficial agreements or outcomes. This involves listening to understand employees' needs and priorities while clearly articulating the goals and constraints of one's own role. For instance, a new manager negotiating performance goals with direct reports needs to set ambitious yet attainable targets based on thorough analysis of responsibilities and prior performance. However, the manager must also genuinely consider employee concerns around workload balance and development opportunities to gain their support and commitment. Through open and constructive discussion, highlighting possible trade-offs and common goals, the manager can often find win-win resolutions that leave both parties satisfied. Developing such facilitative negotiation tactics will enable a new manager to resolve issues, make decisions and motivate teams more efficiently from the outset."
     },
     {
@@ -370,8 +370,8 @@ skills = [
         "description": " Evaluative skills refer to a manager's ability to judge, appraise or assess the value, performance or worth of their employees, roles and tasks. As a new manager, developing strong evaluative skills is crucial for providing effective oversight, feedback and guidance to direct reports. Evaluative skills involve objectively gathering relevant data through tasks like reviewing work product and measured outcomes, reviewing performance metrics, observing employees' work processes and listening to coworker and customer feedback. This data gathering forms the basis for being able to provide accurate, specific and constructive performance assessments, raise issues when goals or standards are not being met, determine areas for employee development and recognize aspects of work that demonstrate strengths or excellence. With practice, a new manager can hone their evaluative skills to improve at giving impactful and motivating performance reviews,making hiring and promotion decisions, assigning appropriate responsibilities and restructuring roles to best match employees' abilities."
     },
     {
-        "name": "Coaching ",
-        "display": "Coaching ",
+        "name": "Coaching",
+        "display": "Coaching",
         "description": " Coaching is the critical skill for a new manager to master in order to effectively develop and motivate their team members. Coaching involves holding regular one-on-one check-in meetings with direct reports, clearly communicating expectations and goals, giving constructive feedback  on performance and growth opportunities, working together with team members to come up with action plans for improving their work methods and skills, and following up regularly to assess progress and provide further guidance and encouragement. Through coaching, a new manager can help team members strengthen areas of weakness, optimize their strengths, and find more meaning and satisfaction in their roles. By investing regularly in the growth and development of their people through focused coaching conversations, a new manager can help foster a motivated, high-performing team culture that drives results for the organization."
     },
     {
@@ -575,8 +575,8 @@ skills = [
         "description": " High-energy managers have a passion and enthusiasm that motivates their team members. They leverage their positive attitude and vibrant spirits to encourage employees, improve morale and generate productivity. High-energy managers display liveliness and vigor in everything they do, from greeting employees in the morning to leading meetings and discussing goals for the quarter. Their passion is contagious, seeping into projects, deadlines and office culture. Spurts of high energy at the right times, whether celebrating wins as a group or rallying the team during challenges, can rejuvenate employees and spark new ideas. High-energy managers keep interactions interesting, nimble and lively. They celebrate small victories, recognize individuals and foster a workplace environment filled with zeal and zest. These managers role model the type of lively and engaged disposition they hope to inspire within their teams."
     },
     {
-        "name": "Problem solving skills",
-        "display": "Problem solving skills",
+        "name": "Problem solving",
+        "display": "Problem solving",
         "description": " Problem-solving skills allow a new manager to think logically, analyze issues based on facts, identify the root cause of problems, and resolve issues efficiently. They require the ability to identify operational gaps, recognize areas needing improvement, and propose solutions properly. A new manager needs to understand different problem-solving strategies like cause-and-effect analysis, brainstorming, comparing alternatives, and decision trees. They must be able to analyze complex scenarios by breaking them down into simpler parts and identify relevant details. For new challenges and situations that arise, a manager with well-developed problem-solving skills can approach them systematically to determine what actions need to be taken, what resources are required, and which individuals require involvement for optimal results. This ability to resolve issues and find solutions helps maximize productivity, minimize waste and errors, boost employee morale, and contribute positively to the organization's overall goals."
     },
     {
@@ -605,13 +605,13 @@ skills = [
         "description": " Creativity and resourcefulness for a new manager refers to the ability to tackle new challenges in unique ways using the resources at hand. It involves thinking outside the box to find novel solutions instead of relying on old habits. A creative manager will look for innovative approaches to motivate and manage employees, streamline workflows, and resolve conflicts. They will also be adept at maximizing the available resources whether it is personnel, equipment, knowledge, or funding. For instance, a creative manager facing budget cuts might reassign personnel to higher priority tasks instead of laying people off. They might encourage employees to share underutilized equipment or knowledge across departments. These types of 'workarounds' rely on the manager's ability to think creatively and make the best use of the resources already available. Creativity and resourcefulness will be important skills for a new manager to develop in order to problem solve effectively, motivate teams, and improve processes within the company."
     },
     {
-        "name": "Persuasion skills",
-        "display": "Persuasion skills",
+        "name": "Persuasion",
+        "display": "Persuasion",
         "description": " Persuasion skills for a new manager involve the ability to effectively communicate and influence subordinates, peers, and superiors to accomplish goals and adopt initiatives. The manager must be able to convince team members of the merit and value of projects or changes by tailoring the message to each person using both logical arguments supported by data as well as emotional appeals highlighting impacts and benefits. For complex projects, the manager will need to persuade skeptics and opponents over time by listening to their concerns, responding factually and empathetically, and revising aspects of the plan as necessary to gain momentum and support. With practice, a manager develops the confidence and communication techniques to motivate people through explanations of how new directions align with team values and contribute to a positive company culture and work environment. Persuasive managers transform naysayers into collaborators and inspire team members to embrace rather than resist change."
     },
     {
-        "name": "Time management skills",
-        "display": "Time management skills",
+        "name": "Time management",
+        "display": "Time management",
         "description": " As a new manager, time management skills will be crucial for your success. You will need to juggle many demands on your schedule from projects, deadlines, tasks, trainings, and people, all vying for your attention. Prioritizing what needs your immediate focus and what can wait will help you maximize your productivity and effectiveness. Tools like to-do lists, calendars, and reminders can help ensure nothing falls through the cracks. Saying no to non-essential tasks and learning to delegate appropriately to your team can free up your time for more important responsibilities. Focusing on the highest value activities and automating or eliminating low-value tasks allows you to manage your most precious resource, your time, wisely so you can achieve the goals you have set for your team and department. Developing good time management habits will instill confidence in your leadership and readiness to take on the challenges of your new management role."
-    },
+    }
 ]
