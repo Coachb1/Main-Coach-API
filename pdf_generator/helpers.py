@@ -119,7 +119,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     tenant = tenant_from_tenant_id(test_attempt_session.tenant_id)
     test_id = test_attempt_session.test_id
-    # test = Test.objects.get(uid=test_id)
+    test = Test.objects.get(uid=test_id)
     participant_id = test_attempt_session.participant_id
     participant_name = get_user_display_name(get_user_by_id(participant_id))
     test_started_at = test_attempt_session.started_at.strftime("%d %b %Y")
@@ -192,11 +192,37 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             speech_metrics_avg[k] = v / len(participant_responses)
 
     if only_data:
+
+        candidate_type = test.candidate_type
+        if not candidate_type:
+            candidate_type = 'Manager'
+        
+        is_email_type = test.is_email_type
+        ted_talk_and_hbr = ''
+        if test.is_checkin_type:
+            ted_talk_and_hbr = test.tedtalk_and_hbr_case
+
+
         skills_graph_data = get_test_attempt_session_skills_graph(
             test_attempt_session, only_data=True)
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
             test_attempt_session, only_data=True)
-        return {'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
+        
+        
+        skills_rating = skills_graph_data.skills_rating
+        lowest_skill = min(skills_rating, key=skills_rating.get)
+        lowest_score = skills_rating[lowest_skill]
+        test_codes = []
+        if lowest_score < 5 :
+            test_query = Test.objects.filter(tenent_id=test_attempt_session.tenant_id,skills_to_be_evaluated__contains=[lowest_skill], learner_flag=1, checkin_flag=0)
+            if test_query.count() >0:
+                for test_ in test_query:
+                    test_codes.append(test_.test_code)
+
+            if len(test_codes) > 2:
+                test_codes = test_codes[:2]
+
+        return {'candidate_type': candidate_type,'is_email_type':is_email_type,'tedtalk_and_hbr': ted_talk_and_hbr,'test_code':test_codes,'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
