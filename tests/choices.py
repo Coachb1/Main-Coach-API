@@ -13,6 +13,15 @@ class TestTypeChoices(DjangoChoices):
     case = ChoiceItem("case")
     group = ChoiceItem("group")
 
+class ScenarioCaseChoices(DjangoChoices):
+    simulation = ChoiceItem("simulation")
+    role_play = ChoiceItem("role_play")
+    interview = ChoiceItem("interview")
+    group_meeting = ChoiceItem("group_meeting")
+    email = ChoiceItem("email")
+    one_on_one_meeting = ChoiceItem("1:1 meeting")
+
+
 
 class InteractionModeChoices(DjangoChoices):
     text = ChoiceItem("text")
