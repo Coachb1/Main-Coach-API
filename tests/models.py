@@ -7,6 +7,7 @@ from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
+from tests.choices import ScenarioCaseChoices
 
 
 class Test(TenantAwareModel):
@@ -19,6 +20,8 @@ class Test(TenantAwareModel):
         max_length=255, choices=InteractionModeChoices)
     test_type = models.CharField(
         max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
+    scenario_case = models.CharField(
+        max_length=255, choices=ScenarioCaseChoices, default=ScenarioCaseChoices.simulation)
     test_related_context = models.TextField(
         null=True, blank=True, default=None)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
