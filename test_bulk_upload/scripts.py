@@ -42,6 +42,7 @@ SKILLS_TO_EVALUATE = "Skills_list"
 IS_LEARNER_PATH = "is learner path"
 TED_TALK_AND_HBR_CASE = "Ted talks and HBR Case"
 IS_EMAIL_TYPE = "is_email_type"
+SCENARIO_CASE = "Scenario Case"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -55,6 +56,7 @@ def format_test_orchestrated_conversation(raw_data):
             "interaction_mode": "text",
             "email_candidate": True,
             "test_type": "orchestrated_conversation",
+            "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
             "questions": [],
@@ -213,6 +215,7 @@ def format_test_data_slack(raw_data):
             "max_test_allowed": input_dict[MAX_TEST_ALLOWED],
             "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
             "test_type": input_dict[TEST_TYPE].strip().lower(),
+            "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
             "questions": []
@@ -480,7 +483,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE , SCENARIO_CASE]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -617,7 +620,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
-    columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST]
+    columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST, SCENARIO_CASE]
 
     access_token = login_slack(email, password, subdomain_prefix)
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices
+from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
 from tests.models import Test, TestQuestion
 
 
@@ -61,6 +61,7 @@ class CreateTestSerializer(serializers.Serializer):
 
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
+    scenario_case = serializers.ChoiceField(choices=ScenarioCaseChoices)
     test_related_context = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
     gpt_prompt_override = serializers.CharField(
@@ -118,7 +119,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_learner_path",
                   "skills_to_evaluate",
                   "tedtalk_and_hbr_case",
-                  "is_email_type"
+                  "is_email_type",
+                  "scenario_case"
                   ]
 
     def get_questions(self, instance):
