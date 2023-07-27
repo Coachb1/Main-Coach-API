@@ -257,7 +257,7 @@ def format_test_data_slack(raw_data):
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
 
-        output_dict[SKILLS_TO_EVALUATE] = skills_list
+        output_dict['skills_to_evaluate'] = skills_list
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
