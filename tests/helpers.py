@@ -113,6 +113,7 @@ def create_test(tenant: Tenant,
                 tedtalk_and_hbr_case: str,
                 is_learner_path: bool,
                 is_email_type: bool,
+                scenario_case: str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -145,7 +146,8 @@ def create_test(tenant: Tenant,
             orchestrated_conversation_details=orchestrated_conversation_details,
             test_code=get_unique_test_code(tenant),
             description_media=description_media,
-            max_test_allowed=max_test_allowed
+            max_test_allowed=max_test_allowed,
+            scenario_case=scenario_case,
         )
 
         test_questions = []
