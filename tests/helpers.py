@@ -152,19 +152,20 @@ def create_test(tenant: Tenant,
 
         test_questions = []
         for inx, question in enumerate(questions, start=1):
-            klp = (
-                question.get("key_learning_point")
-                or get_question_key_learning_point(test_title=title,
-                                                   test_question=question.get("question"))
-            )
-            kls = (
-                question.get("key_learning_skills")
-                or get_question_key_learning_skills(test_title=title,
-                                                    test_question=question.get("question"))
-            )
             if test.test_type == TestTypeChoices.orchestrated_conversation:
                 klp = ''
                 kls = ''
+            else:
+                klp = (
+                    question.get("key_learning_point")
+                    or get_question_key_learning_point(test_title=title,
+                                                       test_question=question.get("question"))
+                )
+                kls = (
+                    question.get("key_learning_skills")
+                    or get_question_key_learning_skills(test_title=title,
+                                                        test_question=question.get("question"))
+                )
 
             test_q = TestQuestion.objects.create(
                 tenant_id=tenant.uid,
