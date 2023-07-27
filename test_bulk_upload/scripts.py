@@ -8,7 +8,6 @@ from io import TextIOWrapper
 import logging
 from django.http import HttpResponse
 from .constants import get_skills
-import ast
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -60,7 +59,6 @@ def format_test_orchestrated_conversation(raw_data):
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
             "questions": [],
-            "skills_to_evaluate": input_dict[SKILLS_TO_EVALUATE]
         }
 
         bot_count = sum(1 for key in input_dict.keys()
@@ -73,7 +71,9 @@ def format_test_orchestrated_conversation(raw_data):
         else:
             check_pass = True
 
-        skills_list = ast.literal_eval(input_dict[SKILLS_TO_EVALUATE])
+        skills_list = input_dict[SKILLS_TO_EVALUATE]
+        skills_list = skills_list.split(',')
+        
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
@@ -104,6 +104,13 @@ def format_test_orchestrated_conversation(raw_data):
             email_list = ','.join(email_list)
 
             output_dict['email_address_list'] = email_list
+
+        if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
+
+            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+            skill_list = [skill.strip() for skill in skill_list]
+            skill_list = ','.join(skill_list)
+            output_dict["skills_to_evaluate"] = skill_list
 
         initial_messages = []
         test_main_context = input_dict['Context']
@@ -250,7 +257,7 @@ def format_test_data_slack(raw_data):
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
 
-        output_dict[SKILLS_TO_EVALUATE] = skills_list
+        output_dict['skills_to_evaluate'] = skills_list
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
