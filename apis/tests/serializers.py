@@ -56,12 +56,14 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_email_type = serializers.BooleanField(
         required=False, default=False)
-    skills_to_evaluate = serializers.CharField(required=False,default=None)
-    tedtalk_and_hbr_case = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
+    skills_to_evaluate = serializers.CharField(required=False, default=None)
+    tedtalk_and_hbr_case = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
 
     interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices)
     test_type = serializers.ChoiceField(choices=TestTypeChoices)
-    scenario_case = serializers.ChoiceField(choices=ScenarioCaseChoices)
+    scenario_case = serializers.ChoiceField(
+        choices=ScenarioCaseChoices, required=False, default=None, allow_null=True, allow_blank=True)
     test_related_context = serializers.CharField(default=None)
     questions = CreateTestQuestionSerializer(many=True)
     gpt_prompt_override = serializers.CharField(
