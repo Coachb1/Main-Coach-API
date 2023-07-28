@@ -1337,7 +1337,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Expert Suggestions:  ${question_context} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
@@ -1359,7 +1359,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Customer question:  ${question} 
             Candidate answer:  ${candidate_reply}
             
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
@@ -1433,7 +1433,7 @@ def get_email_type_prompt(test_title,
 
         Please provide feedback on this email. Please do not add any introductory sentence and come to the point directly. Do not include any response to the email. The feedback should be directed to the writer of the email. Please add a sample re-written email.
 
-        Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+        Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
         1) What went well ? - 50 words minimum
         2) What could be improved ? - 50 words minimum 
         3) Some new ideas to reframe the context - 50 words minimum
@@ -1466,7 +1466,7 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
@@ -1490,7 +1490,7 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template}
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 

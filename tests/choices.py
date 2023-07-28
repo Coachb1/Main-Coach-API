@@ -20,7 +20,8 @@ class ScenarioCaseChoices(DjangoChoices):
     group_meeting = ChoiceItem("group_meeting")
     email = ChoiceItem("email")
     one_on_one_meeting = ChoiceItem("1:1 meeting")
-
+    case_study = ChoiceItem("case_study")
+    counseling = ChoiceItem("counseling")
 
 
 class InteractionModeChoices(DjangoChoices):
