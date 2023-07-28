@@ -30,13 +30,13 @@ skills = [
         "description": "Empathy, the ability to understand and share the feelings of another, is an essential skill for new managers. Empathic managers can motivate and engage their team members more effectively. When a team member is upset or frustrated about an issue, an empathic manager will try to understand the emotions behind their words by asking open-ended questions, restating what they heard to confirm understanding, and expressing care and concern. An empathic response, even a small gesture like saying 'that must be really difficult,'  can go a long way in helping team members feel heard, supported and willing to work productively. With practice, new managers can improve their empathic skills  through active listening, self-reflection on their own emotional responses, and building trust by expressing vulnerability appropriately with their team."
     },
     {
-        "name": "Methodical approach",
-        "display": "Methodical approach",
+        "name": "Methodical Approach",
+        "display": "Methodical Approach",
         "description": " A methodical approach refers to bringing organization, structure, and discipline to work. A new manager requires a methodical approach to prioritize tasks, develop routines, and implement systems. An example would be creating a structured weekly schedule that includes time for administrative duties, employee meetings, and strategic planning. The manager develops routines such as having one-on-ones with team members at the same time each week. Systems are implemented to track projects, assignments, and key metrics. Checklists are created for recurring tasks like onboarding new hires or conducting performance evaluations. Having a methodical approach helps reduce stress and promote efficiency by establishing good habits and organized processes from the start of supervision. It gives clarity and transparency to employees so they understand expectations and what is required to accomplish goals."
     },
     {
-        "name": "Willingness to learn",
-        "display": "Willingness to learn",
+        "name": "Willingness to Learn",
+        "display": "Willingness to Learn",
         "description": " Willingness to learn relates to the openness and enthusiasm that a new manager brings to the task of developing new insights, skills, and perspectives needed to succeed in their managerial role. They understand that there will be many areas where they need to grow and improve, as management presents new challenges different from individual contributor roles. A willingess to learn means humbly seeking feedback from team members, bosses, mentors, and peers in order  identify areas for improvement. It requires maintaining a growth mindset that skills can be developed through effort and practice. An eager attitude toward training programs, reading relevant books, and exposure to new ideas signals to the team that the manager values stepping outside of their comfort zone to become the leader the team needs. A new manager's willingness to learn and adapt quickly becomes an inspiration for their team members to do the likewise."
     },
     {
@@ -70,8 +70,8 @@ skills = [
         "description": " Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management. As a new manager, you will likely face skepticism or pushback from team members over your requests, instructions, and decisions. Objection handling skills will help you deflect objections in a calm and logical manner, providing further context, rationale, and reassurance when needed to convince employees to come on board. For example, if an employee objects to a new work-from-home policy due to distraction concerns, you may explain how facilitating more autonomy and flexibility can boost productivity when the proper boundaries are set, and you will work together to set those boundaries for the individual. With strong objection handling skills, you can address concerns head-on to move initiatives and ideas forward without creating prolonged conflict or resistance within your team."
     },
     {
-        "name": "Presentation Skills",
-        "display": "Presentation Skills",
+        "name": "Presentation skills",
+        "display": "Presentation skills",
         "description": " Presentation skills for a new manager refer to the ability to effectively communicate and deliver information or training to one's team members verbally and visually. This involves preparing clear goals for the presentation, structuring the content in a logical order, utilizing methods like stories, visual aids and pointers to help the audience follow along and understand key points, speaking at an appropriate pace and volume, maintaining good posture and eye contact, and summarizing the main topics covered at the end to reinforce the takeaways. Examples of presentations a new manager may have to deliver include onboarding a new hire, reporting quarterly results, introducing changes to policies and procedures, sharing goals for the upcoming period, facilitating team meetings and training staff on required job skills. Developing strong presentation skills will help a new manager foster transparency, motivate and clarify expectations for the team in an engaging manner."
     },
     {
@@ -245,8 +245,8 @@ skills = [
         "description": " Risk management for a new manager refers to the ability to identify potential risks related to the team or projects, analyze their likelihood and impact, and take appropriate actions to mitigate them. This skill helps managers maximize productivity while minimizing disruptions and financial losses. For example, a new manager should be able to identify potential risks like key employees leaving, technical issues causing project delays, and budget overruns. The manager then needs to analyze the probability and cost impact of these risks. Finally, the manager must decide on appropriate strategies to handle the risks like increasing employee benefits, adding buffer time to schedules, and setting up milestones to track budgets. Having a framework to systematically identify, analyze, and take actions on potential risks is critical for a new manager to lead the team effectively towards goals while navigating challenges that inevitably arise."
     },
     {
-        "name": "Self assurance",
-        "display": "Self assurance",
+        "name": "Self Assurance",
+        "display": "Self Assurance",
         "description": " Self-assurance as a skill is vital for a new manager to develop. Self-assured managers trust in their own capabilities and expertise, allowing them to navigate difficult situations and motivate their team with confidence. An otherwise talented manager who lacks self-assurance may be reluctant to make decisions, delegate work, or address performance issues for fear of being wrong or disliked. However, a self-assured new manager who believes in their own leadership abilities will confidently identify priorities, assign responsibilities, resolve conflicts, and provide guidance that breeds productivity and trust within their team. They own their mistakes and shortcomings without doubt, taking responsibility to correct course and learn from failures. Examples of self-assured behaviors include speaking firmly without hesitation, actively listening to opinions without defensiveness, giving clear directives decisively, and providing consistent positive reinforcement to build team morale."
     },
     {
@@ -295,8 +295,8 @@ skills = [
         "description": " Authenticity for a new manager refers to their ability to build trust and form genuine connections with their team members through being transparent, vulnerable, and honest. An authentic manager shows their true self and admits when they do not know the answers. They share the challenges they face and weaknesses they possess while projecting confidence and optimism. When a team member has an issue or suggestion, an authentic manager listens openly without defensiveness. The manager may acknowledge they have not considered a certain perspective before but express a desire to understand, grow, and improve. The manager discusses failures and mistakes openly as learning opportunities. By bringing their full self to the role and projecting an aura of truthfulness and sincerity, an authentic new manager is better able to form true bonds and channels of communication with their team, enhancing team motivation, productivity, and morale."
     },
     {
-        "name": "Ability to confront others",
-        "display": "Ability to confront others",
+        "name": "Ability to Confront others",
+        "display": "Ability to Confront others",
         "description": " As a new manager, the ability to confront others in a constructive manner is a crucial skill to develop. This involves bringing up difficult issues or performance problems with employees in a direct but sensitive way. Starting the conversation by making it clear you want to have an open discussion to resolve any obstacles can help set the right tone. Be specific about the concerns while focusing on behaviors that can be improved. Offer recommendations and solutions to address the issues. Request the employee's input and ideas to engage them in finding effective solutions together. Following up with clarity around expectations and next steps helps solidify the discussion and make sure everyone is on the same page moving forward. This kind of confrontation, when done respectfully and transparently, can improve communication and ultimately strengthen employee relationships and performance."
     },
     {
@@ -450,8 +450,8 @@ skills = [
         "description": " Making good decisions is one of the most fundamental and important skills for a new manager to develop. A manager's decisions impact their team members, projects, initiatives, and the broader organization, so learning to make wise choices is key to being an effective leader. Some ways this skill manifests include thoroughly processing available information to determine relevant facts, identifying multiple options to choose from, considering consequences and pros and cons of different alternatives, actively seeking input and wisdom from others to gain different perspectives, owning and learning from past decisions in order to improve future judgments, and developing a sense of confidence and trust in oneself and one's decision-making instincts over time through experience and practice. Developing this decision-making acumen will allow new managers to navigate challenges, allocate limited resources, launch new endeavors, and confidently guide their teams in the right strategic direction for the company."
     },
     {
-        "name": "Strategic thinking",
-        "display": "Strategic thinking",
+        "name": "Strategic Thinking",
+        "display": "Strategic Thinking",
         "description": " Strategic thinking for a new manager refers to the ability to anticipate future consequences and trends, envision a positive outcome, and develop appropriate strategies to achieve that outcome. It involves analyzing all relevant information, threats, and opportunities within and outside the organization in order to determine the most effective means of reaching long-term company goals. New managers must learn how to create goals aligned with the organization's objectives, determine the best ways to leverage resources to achieve those goals, assess performance metrics and make timely adjustments if outcomes do not match expectations. For example, strategic thinking helps managers decide whether to expand operations into a new geographic market, adopt new technology to increase efficiency, or allocate funding for research and development of innovative products."
     },
     {
