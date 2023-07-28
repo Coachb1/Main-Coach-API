@@ -156,8 +156,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
             speech_metrics = {k: v for k, v in speech_metrics.items(
             ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
-                        'filler_words_score', 'volume','silence_number']}
-            speech_metrics = {k: f"{((v/10)*100)}%" if k in ['power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+                       'filler_words_score', 'volume', 'silence_number']}
+            speech_metrics = {k: f"{((v/10)*100)}%" if k in [
+                'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
 
             # Convert the Keys to human readable format
             speech_metrics = {k.replace("_", " ").title(
@@ -185,7 +186,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     for metric in all_speech_metrics:
         for k, v in metric.items():
             if isinstance(v, str) and "%" in v:
-                v = float(v.replace("%",""))
+                v = float(v.replace("%", ""))
 
             if k in speech_metrics_avg:
                 speech_metrics_avg[k] += v
@@ -201,7 +202,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         candidate_type = test.candidate_type
         if not candidate_type:
             candidate_type = 'Manager'
-        
+
         is_email_type = test.is_email_type
         test_description = test.description
 
@@ -209,15 +210,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         if test.is_checkin_type:
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
 
-
         skills_graph_data = get_test_attempt_session_skills_graph(
             test_attempt_session, only_data=True)
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
             test_attempt_session, only_data=True)
-        
-        test_codes = get_test_code_lowest_skill(skills_graph_data.skills_rating,test_attempt_session)
 
-        return {'candidate_type': candidate_type,'test_description': test_description,'is_email_type':is_email_type,'tedtalk_and_hbr': ted_talk_and_hbr,'test_code':test_codes,'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
+        test_codes = get_test_code_lowest_skill(
+            skills_graph_data["skills_rating"], test_attempt_session)
+
+        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
@@ -608,21 +609,22 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     return uri
 
 
+def get_test_code_lowest_skill(skills_rating, test_attempt_session):
 
-def get_test_code_lowest_skill(skills_rating,test_attempt_session):
-
-    
     lowest_skill = min(skills_rating, key=skills_rating.get)
     lowest_score = skills_rating[lowest_skill]
     test_codes = []
-    if lowest_score < 5 :
-        test_query = Test.objects.filter(tenent_id=test_attempt_session.tenant_id,skills_to_evaluate__contains=lowest_skill, is_learner_path=1, is_checkin_type=0)
-        if test_query.count() >0:
+    if lowest_score < 5:
+        test_query = Test.objects.filter(tenant_id=test_attempt_session.tenant_id,
+                                         skills_to_evaluate__icontains=lowest_skill, is_learner_path=1, is_checkin_type=0)
+
+        test_query = test_query.exclude(uid=test_attempt_session.test_id)
+
+        if test_query.count() > 0:
             for test_ in test_query:
                 test_codes.append(test_.test_code)
 
         if len(test_codes) > 2:
             test_codes = test_codes[:2]
-
 
     return test_codes
