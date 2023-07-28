@@ -21,7 +21,7 @@ class Test(TenantAwareModel):
     test_type = models.CharField(
         max_length=255, choices=TestTypeChoices, default=TestTypeChoices.trainer)
     scenario_case = models.CharField(
-        max_length=255, choices=ScenarioCaseChoices, default=ScenarioCaseChoices.simulation)
+        max_length=255, null=True, blank=True, choices=ScenarioCaseChoices, default=ScenarioCaseChoices.simulation)
     test_related_context = models.TextField(
         null=True, blank=True, default=None)
     gpt_prompt_override = models.TextField(null=True, blank=True, default=None)
@@ -37,8 +37,9 @@ class Test(TenantAwareModel):
     is_learner_path = models.BooleanField(default=False, null=True, blank=True)
     is_email_type = models.BooleanField(default=False, null=True, blank=True)
     skills_to_evaluate = models.TextField(null=True, blank=True, default=None)
-    tedtalk_and_hbr_case = models.TextField(null=True,blank=True,default=None)
-    
+    tedtalk_and_hbr_case = models.TextField(
+        null=True, blank=True, default=None)
+
     email_candidate = models.BooleanField(default=True, null=True, blank=True)
     candidate_type = models.CharField(
         null=True, blank=True, max_length=255, default=None)
@@ -126,7 +127,7 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
     is_report_sent_to_email = models.BooleanField(
         null=True, blank=True, default=None)
-    
+
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
 
     class Meta:
