@@ -207,16 +207,16 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         test_description = test.description
 
         ted_talk_and_hbr = ''
+        test_codes = []
         if test.is_checkin_type:
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
+            test_codes = get_test_code_lowest_skill(
+                skills_graph_data["skills_rating"], test_attempt_session)
 
         skills_graph_data = get_test_attempt_session_skills_graph(
             test_attempt_session, only_data=True)
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
             test_attempt_session, only_data=True)
-
-        test_codes = get_test_code_lowest_skill(
-            skills_graph_data["skills_rating"], test_attempt_session)
 
         return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
 
