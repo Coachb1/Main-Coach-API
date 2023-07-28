@@ -73,7 +73,6 @@ def format_test_orchestrated_conversation(raw_data):
 
         skills_list = input_dict[SKILLS_TO_EVALUATE]
         skills_list = skills_list.split(',')
-        
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
@@ -257,6 +256,7 @@ def format_test_data_slack(raw_data):
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
 
+        skills_list = ','.join(skills_list)
         output_dict['skills_to_evaluate'] = skills_list
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
