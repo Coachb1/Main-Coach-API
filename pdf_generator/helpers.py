@@ -155,7 +155,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
             # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
             speech_metrics = {k: v for k, v in speech_metrics.items(
-            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace']}
+            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
+                        'filler_words_score', 'volume']}
+            speech_metrics = {k: f"{((v/10)*100)}%" if k in ['power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
 
             # Convert the Keys to human readable format
             speech_metrics = {k.replace("_", " ").title(
@@ -182,6 +184,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     speech_metrics_avg = {}
     for metric in all_speech_metrics:
         for k, v in metric.items():
+            if isinstance(v, str) and "%" in v:
+                v = float(v.replace("%",""))
+
             if k in speech_metrics_avg:
                 speech_metrics_avg[k] += v
             else:
