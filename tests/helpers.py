@@ -890,8 +890,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 
     while cnt < 5:
         try:
-            res = anthropic_completion(prompt, 1000)
-            res = json.loads(res)
+            res = anthropic_completion(prompt, 300)
             break
         except Exception as e:
             logger.exception(e)
