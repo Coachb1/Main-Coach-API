@@ -589,6 +589,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for key in _to_be_deleted:
         del skills_rating[key]
 
+    # If skill rating score is greater than 8.5 then we are setting it to 8.5
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
     # Calculating the average score of the response
@@ -762,8 +767,20 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     culture_skills_rating = evaluate_group_discussion_conversation(
         chat_conversation, user_persona, objective)
 
+    # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
+    for skill in culture_skills_rating:
+        if culture_skills_rating[skill] > 8.5:
+            culture_skills_rating[skill] = 8.5
+
     skills_rating = evaluate_skills_group_discussion_conversation(
         chat_conversation, user_persona, objective, test.skills_to_evaluate)
+
+    # If skills_rating score is greater than 8.5 then trim the score to 8.5
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+
+    skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
@@ -1168,6 +1185,11 @@ def update_skills_rating_if_same_scores(skills_rating):
                 if skills_rating[skill] > 10:
                     skills_rating[skill] = 10
 
+    # If the score is greater than 9 then trim it to 9
+    for skill in skills_rating:
+        if skills_rating[skill] > 9:
+            skills_rating[skill] = 9
+
     return skills_rating
 
 
@@ -1199,6 +1221,17 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
                     culture_skills_rating[skill] = culture_skills_rating[skill] + 1
                 else:
                     culture_skills_rating[skill] = culture_skills_rating[skill] - 1
+
+                if culture_skills_rating[skill] < 0:
+                    culture_skills_rating[skill] = 0
+
+                if culture_skills_rating[skill] > 10:
+                    culture_skills_rating[skill] = 10
+
+    # if the score is greater than 9 then trim it to 9
+    for skill in culture_skills_rating:
+        if culture_skills_rating[skill] > 9:
+            culture_skills_rating[skill] = 9
 
     return culture_skills_rating
 
@@ -1318,6 +1351,11 @@ def calc_culture_skills_rating(responses, test):
 
     if not is_evaluated:
         return None
+
+    # if score is greater than 8.5 then trim it to 8.5
+    for skill in culture_skills_rating:
+        if culture_skills_rating[skill] > 8.5:
+            culture_skills_rating[skill] = 8.5
 
     return culture_skills_rating
 
