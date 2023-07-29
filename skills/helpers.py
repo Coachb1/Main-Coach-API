@@ -40,7 +40,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
     is_evaluated = True
     response = None
 
-    max_tries = 3
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -63,6 +63,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
     if is_evaluated:
         return response, is_evaluated
 
+    is_evaluated = True
     response = None
     max_tries = 1  # because gpt4_completion function itself retries 3 times
 
@@ -151,6 +152,7 @@ def evaluate_conversation(conversation, test_title, test_description):
 
     response = None
     max_tries = 1  # because gpt4_completion function itself retries 3 times
+    is_evaluated = True
 
     while max_tries > 0:
         try:
@@ -202,7 +204,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
 
     response = None
     is_evaluated = True
-    max_tries = 3
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -225,6 +227,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
     if is_evaluated:
         return response
 
+    is_evaluated = True
     response = None
     max_tries = 1  # because gpt4_completion function itself retries 3 times
 
@@ -280,7 +283,7 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
 
     response = None
     is_evaluated = True
-    max_tries = 3
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -306,6 +309,7 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
 
     response = None
     max_tries = 1  # because gpt4_completion function itself retries 3 times
+    is_evaluated = True
 
     while max_tries > 0:
         try:
