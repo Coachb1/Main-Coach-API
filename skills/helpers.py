@@ -126,7 +126,7 @@ def evaluate_conversation(conversation, test_title, test_description):
     is_evaluated = True
 
     response = {}
-    max_tries = 3
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -143,7 +143,7 @@ def evaluate_conversation(conversation, test_title, test_description):
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
@@ -169,7 +169,7 @@ def evaluate_conversation(conversation, test_title, test_description):
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
