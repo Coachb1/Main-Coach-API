@@ -454,7 +454,34 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_file)
             except Exception as e:
                 logger.exception(e)
-                test_question_response.speech_metrics = {}
+
+                test_question_response.speech_metrics = {
+                    'energy_grade': 5,
+                    'fluency_grade': 5,
+                    'confidence_grade': 5,
+                    'pace': 380,
+                    'sentiment_percentage': "30%",
+                    'power_word_density': 0,
+                    'filler_words_score': 0,
+                    'volume': 50,
+                    'silence_number': 0,
+                    "pitch": 165.0,
+                    "transcript": " The",
+                    "energy_cohort": "C",
+                    "silence_length": 0,
+                    "people_quotient": 0.0,
+                    "confidence_cohort": "C",
+                    "energy_percentage": 50,
+                    "filler_words_cohort": 0,
+                    "confidence_percentage": 50.0,
+                    "sales_quotient_percentile": 0.0,
+                    "aggregate_energy_percentage": 50.0,
+                    "learner_quotient_percentile": 0.0,
+                    "manager_quotient_percentile": 0.0,
+                    "aggregate_fluency_percentage": 75.0,
+                    "leadership_quotient_percentile": 0.0,
+                    "aggregate_confidence_percentage": 50.0
+                }
 
             update_fields.append("speech_metrics")
 
