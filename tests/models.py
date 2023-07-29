@@ -115,7 +115,7 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
 
     meeting_summary = models.TextField(null=True, blank=True, default=None)
-    areas_of_improvement = models.JSONField(
+    areas_of_improvement = models.TextField(
         null=True, blank=True, default=None)
 
     current_question_idx = models.IntegerField(
