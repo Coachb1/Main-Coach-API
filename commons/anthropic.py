@@ -16,19 +16,20 @@ def anthropic_completion(prompt, max_tokens):
     while True:
         try:
             response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
-                                        model='claude-2', max_tokens_to_sample=max_tokens,
-                                        stop_sequences=[anthropic.HUMAN_PROMPT])
+                                         model='claude-2', max_tokens_to_sample=max_tokens,
+                                         stop_sequences=[anthropic.HUMAN_PROMPT])
             logger.info("anthropic_completion response %s", response)
             return response['completion']
-        
+
         except Exception as e:
 
             if max_retries <= 0:
+                logger.error("anthropic_completion error %s", e)
+                raise e
                 break
             else:
                 max_retries -= 1
-                
-            raise e
+
 
 prompt1 = '''
 "Question:" In the recent pandemic conditions, work from home has become common. How well do you find yourself prepared to lead a remote team? "Answer:" I’ll try to lead by Conducting one-on-one and group meetings for ongoing projects more frequently while keeping them precise.

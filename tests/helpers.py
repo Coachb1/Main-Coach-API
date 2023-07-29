@@ -883,12 +883,22 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in seperate paragraphs where the paragraph headings are {areas_of_improvement} and values are the paragraphs explaining each heading respectively. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
     
     PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only.
+
+    OUTPUT FORMAT:
+    Sticking to Agenda
+    <paragraph>
+
+    Driving to decision
+    <paragraph>
+
+    Sticking to Positive behavior
+    <paragraph>
     """
 
     cnt = 0
     res = ""
 
-    while cnt < 5:
+    while cnt < 1:  # Because anthropic_completion already has a retry mechanism
         try:
             res = anthropic_completion(prompt, 300)
             break
@@ -896,7 +906,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
             logger.exception(e)
             cnt += 1
 
-    if cnt == 5:
+    if cnt == 1:
         res = {"Sticking to Agenda": "Could not generate",
                "Driving to decision": "Could not generate",
                "Sticking to Positive behavior": "Could not generate"}
