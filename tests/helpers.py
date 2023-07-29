@@ -763,7 +763,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         chat_conversation, user_persona, objective)
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        chat_conversation, user_persona, objective)
+        chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
@@ -849,26 +849,23 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
-    Please write a summary of the meeting in 100 words. Please NOTE that you may only output the summary in the following JSON format and do not output anything else:
-    {"{"}
-        "summary": "This is a summary of the meeting"
-    {"}"}
+    Please provide a summary of the meeting in 100 words.
+    NOTE: Please do NOT provide any introductions, conclusion or text like "Here is your summary". 
+    NOTE: Please only provide the summary of the meeting.
     """
 
     cnt = 0
     summary = ""
 
-    while cnt < 5:
+    while cnt < 1:
         try:
-            summary = anthropic_completion(prompt, 1000)
-            summary = json.loads(summary)
-            summary = summary.get("summary")
+            summary = anthropic_completion(prompt, 200)
             break
         except Exception as e:
             logger.exception(e)
             cnt += 1
 
-    if cnt == 5:
+    if cnt == 1:
         summary = "Could not generate"
 
     return summary
@@ -883,16 +880,9 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
-    Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in JSON format where keys are {areas_of_improvement} and values are the paragraphs explaining each key. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
+    Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in seperate paragraphs where the paragraph headings are {areas_of_improvement} and values are the paragraphs explaining each heading respectively. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
     
     PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only.
-    
-    Please NOTE that you may only output in the following JSON format and do not output anything else:
-    {"{"}
-        "{areas_of_improvement[0]}": "This is the paragraph for {areas_of_improvement[0]}",
-        "{areas_of_improvement[1]}": "This is the paragraph for {areas_of_improvement[1]}",
-        "{areas_of_improvement[2]}": "This is the paragraph for {areas_of_improvement[2]}"
-    {"}"}
     """
 
     cnt = 0

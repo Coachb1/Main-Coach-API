@@ -219,7 +219,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
@@ -245,7 +245,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
@@ -258,21 +258,24 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
     return response
 
 
-def evaluate_skills_group_discussion_conversation(conversation, user_persona, objective):
-    normal_skills = ["good", "very good", 'bad']
+def evaluate_skills_group_discussion_conversation(conversation, user_persona, objective, skills_to_evaluate):
+    skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
+        skills_to_evaluate, str) else skills_to_evaluate
 
     prompt = f'''
     "Objective:" {objective};
 
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
 
-    "cultural_list:" "{normal_skills}"
+    "skills_list:" "{skills_to_evaluate}"
 
     Please put properties of JSON enclosed in double quotes.
 
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+    NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
     '''
 
     response = None
@@ -281,7 +284,8 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
 
     while max_tries > 0:
         try:
-            response = anthropic_completion(prompt, len(normal_skills) * 50)
+            response = anthropic_completion(
+                prompt, len(skills_to_evaluate) * 50)
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -294,7 +298,7 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
@@ -320,14 +324,14 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
                 is_evaluated = False
                 break
 
-            time.sleep(1)
+            # time.sleep(1)
             continue
 
     if is_evaluated:
         return response
 
     response = {}
-    for skill in normal_skills:
+    for skill in skills_to_evaluate:
         response[skill] = 5
 
     return response
