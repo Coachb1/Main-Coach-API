@@ -83,6 +83,10 @@ def format_test_orchestrated_conversation(raw_data):
                 skills_list_candidate.add(item.capitalize())
             skills_list_candidate = list(skills_list_candidate)
 
+            # print('*'*100)
+            # print(sorted(skills_list_candidate))
+            # print(sorted(skills_list))
+            # print()
             if sorted(skills_list_candidate) == sorted(skills_list):
                 check_pass = True
 
