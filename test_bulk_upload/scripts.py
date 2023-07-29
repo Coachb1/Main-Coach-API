@@ -631,7 +631,8 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
-    columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST, SCENARIO_CASE]
+    columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
+                     SCENARIO_CASE, SKILLS_TO_EVALUATE]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
