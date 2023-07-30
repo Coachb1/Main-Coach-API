@@ -25,6 +25,7 @@ ACCESS_TOKEN_EXPIRY_UNIT = "days"
 ACCESS_TOKEN_EXPIRY_VALUE = 1
 
 INSTALLED_APPS = [
+    "test_bulk_upload.apps.TestBulkUploadConfig",
     "tenants.apps.TenantsConfig",
     "clients.apps.ClientsConfig",
     "users.apps.UsersConfig",
@@ -34,6 +35,9 @@ INSTALLED_APPS = [
     "coaching_conversations.apps.CoachingConversationsConfig",
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
+    "url_shortener.apps.UrlShortenerConfig",
+    "email_sender.apps.EmailSenderConfig",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -41,7 +45,10 @@ MIDDLEWARE = [
     "web_auth.middlewares.UserAuthenticationMiddleware",
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
+
+CORS_ORIGIN_ALLOW_ALL = True
 
 ROOT_URLCONF = 'urls'
 
@@ -51,18 +58,11 @@ DATABASES = {
         "NAME": os.getenv("MYSQL_DBNAME"),
         "USER": os.getenv("MYSQL_USER"),
         "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-        "HOST": os.getenv("MYSQL_HOST"),  # Or an IP Address that your DB is hosted on
+        # Or an IP Address that your DB is hosted on
+        "HOST": os.getenv("MYSQL_HOST"),
         "PORT": os.getenv("MYSQL_PORT"),
     }
 }
-
-if ENV == "local":
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
 
 TEMPLATES_DIR = BASE_DIR.joinpath("templates")
 
@@ -154,3 +154,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 COACH_WHISPER_BASE_URL = os.getenv("COACH_WHISPER_BASE_URL")
 SLACK_MESSAGE_WEBHOOK_URL = os.getenv('SLACK_MESSAGE_WEBHOOK_URL')
 ANTHROPIC_KEY = os.getenv('ANTHROPIC_KEY')
+COACH_METRIC_BASE_URL = os.getenv("COACH_METRIC_BASE_URL")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
+URL_SHORTENING_API_KEY = os.getenv("URL_SHORTENING_API_KEY")
+WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
+WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")

@@ -10,11 +10,25 @@ ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(ANTHROPIC_KEY)
-    response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
-                                 model='claude-instant-v1', max_tokens_to_sample=max_tokens,
-                                 stop_sequences=[anthropic.HUMAN_PROMPT])
-    logger.info("anthropic_completion response %s", response)
-    return response['completion']
+
+    max_retries = 3
+
+    while True:
+        try:
+            response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
+                                         model='claude-2', max_tokens_to_sample=max_tokens,
+                                         stop_sequences=[anthropic.HUMAN_PROMPT])
+            logger.info("anthropic_completion response %s", response)
+            return response['completion']
+
+        except Exception as e:
+
+            if max_retries <= 0:
+                logger.error("anthropic_completion error %s", e)
+                raise e
+                break
+            else:
+                max_retries -= 1
 
 
 prompt1 = '''

@@ -3,10 +3,12 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+from django.http import HttpResponse
 
 from apis.skills.serializers import SkillIndexSerializer, CreateCustomSkillSerializer
 from apis.skills.serializers import SkillsDisplaySerializer, CustomRatingDisplaySerializer
 from clients.permissions import IsAuthenticatedClient
+from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from pdf_generator.helpers import get_leaderboard_report
 from skills.helpers import get_top_participant_skills
@@ -14,10 +16,12 @@ from skills.models import SkillIndex
 from skills.models import SkillsRating
 from skills.models import CustomRating
 from skills.helpers import save_the_custom_rating
+from skills.constants import skills
 
 
 class SkillsIndexViewSet(ApiViewSet,
-                         mixins.ListModelMixin):
+                         mixins.ListModelMixin,
+                         mixins.CreateModelMixin):
     queryset = SkillIndex.objects.filter(deleted=0)
     serializer_class = SkillIndexSerializer
     permission_classes = (IsAuthenticatedClient,)
@@ -25,13 +29,23 @@ class SkillsIndexViewSet(ApiViewSet,
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
+class GetSkillsName(ApiViewSet):
+    def list(self, request):
+        data = []
+        for skill in skills:
+            data.append({
+                "display": skill['display'],
+                "name": skill['name']
+            })
+        return Response({"data": data})
+    
 
 class SkillsViewSet(ApiViewSet,
                     mixins.ListModelMixin,
                     mixins.RetrieveModelMixin):
     queryset = SkillsRating.objects.filter(deleted=0)
     serializer_class = SkillsDisplaySerializer
-    permission_classes = (IsAuthenticatedClient,)
+    permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
     filterset_fields = ("participant_id",)
     ordering_fields = '__all__'
@@ -66,6 +80,17 @@ class SkillsViewSet(ApiViewSet,
             skills, tenant_id=request.tenant.uid)
 
         return Response({"report_url": report_url})
+
+    @action(methods=["GET"], detail=False, url_path="leaderboard-report-data")
+    def get_leadership_report_frontend(self, request, *args, **kwargs):
+        skills = request.query_params.get("skills")
+        skills = skills.split(",")
+        skills = [skill.strip() for skill in skills]
+
+        data = get_leaderboard_report(
+            skills, tenant_id=request.tenant.uid, only_data=True)
+
+        return Response({"data": data, "status": "completed"})
 
 
 class CustomRatingViewSet(ApiViewSet,

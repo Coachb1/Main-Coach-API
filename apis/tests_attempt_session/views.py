@@ -6,10 +6,15 @@ from rest_framework.response import Response
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
+from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
-from pdf_generator.helpers import get_report_from_test_attempt_session
+from tests.helpers import get_meeting_report_from_test_attempt_session
+from tests.helpers import get_skills_tracker_data
 from tests.helpers import create_test_question_answer_session
+from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.models import TestAttemptSession
+from tests.models import Test
+from users.db import get_user_display_name, get_user_by_id
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -17,9 +22,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
                                 mixins.RetrieveModelMixin):
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
-    permission_classes = (IsAuthenticatedClient,)
+    permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     filter_backends = (DjangoFilterBackend, OrderingFilter)
-    filterset_fields = ("test_id", "test_score")
+    filterset_fields = ("test_id", "test_score", "participant_id")
     ordering_fields = ("id", "test_score")
     lookup_field = "uid"
 
@@ -49,16 +54,35 @@ class TestAttemptSessionViewSet(ApiViewSet,
         report_url = get_report_from_test_attempt_session(test_attempt_session)
         return Response({"report_url": report_url}, status=status.HTTP_200_OK)
 
+    @action(methods=["GET"], detail=True, url_path="report-data")
+    def get_test_report_frontend(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        data = get_report_from_test_attempt_session(
+            test_attempt_session, only_data=True)
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=True, url_path="meeting-report-data")
+    def get_meeting_report_frontend(self, request, *args, **kwargs):
+        test_attempt_session = self.get_object()
+        data = get_meeting_report_from_test_attempt_session(
+            test_attempt_session)
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+
     @action(methods=["GET"], detail=False, url_path="get-session-id")
     def get_session_uid(self, request, *args, **kwargs):
         participant_id = request.query_params.get("participant_id")
         test_id = request.query_params.get("test_id")
 
-        test_attempt_session = TestAttemptSession.objects.get(
-            tenant_id=request.tenant.uid,
-            participant_id=participant_id,
-            test_id=test_id,
-            deleted=0
-        )
+        # Filter the test_attempt_session with the given test_id and participant_id and ordered by created
+        test_attempt_session = TestAttemptSession.objects.filter(
+            test_id=test_id, participant_id=participant_id, deleted=0).order_by("-id").first()
 
         return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)
+    
+    @action(methods=["GET"], detail=False, url_path="get-skills-tracker-report-data")
+    def get_session_uid(self, request, *args, **kwargs):
+        participant_id = request.query_params.get("participant_id")
+        data = get_skills_tracker_data(participant_id)
+        
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+

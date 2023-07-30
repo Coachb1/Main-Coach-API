@@ -6,6 +6,8 @@ from apis.web_auth.serializers import LoginSerializer
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
 from users.helpers import login_user, logout_user
+from apis.frontend_api.serializers import FrontendAccessTokenSerializer
+from web_auth.helpers import get_new_access_token
 
 
 class WebAuthViewSet(ApiViewSet):
@@ -36,3 +38,15 @@ class WebAuthViewSet(ApiViewSet):
         user = request.user
         logout_user(user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=["POST"], detail=False, url_path="refresh")
+    def get_access_token_frontend(self, request, *args, **kwargs):
+        serializer = FrontendAccessTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        refresh_token = serializer.validated_data['refresh_token']
+        access_token = get_new_access_token(refresh_token)
+
+        data = {'access_token': access_token}
+
+        return Response(data=data, status=status.HTTP_200_OK)

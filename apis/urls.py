@@ -12,4 +12,6 @@ urlpatterns = [
     path("", include("apis.coaching_conversations.urls")),
     path("", include("apis.web_auth.urls")),
     path("", include("apis.skills.urls")),
+    path("", include("apis.frontend_api.urls")),
+    path("", include("apis.test_bulk_upload.urls")),
 ]

@@ -1,3 +1,8 @@
+import base64
+import urllib
+import io
+import numpy as np
+import matplotlib.pyplot as plt
 import os
 import tempfile
 
@@ -16,17 +21,8 @@ from skills.models import CustomRating
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import io
-import urllib, base64
 
-import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import io
-import urllib, base64
 
 options = {
     'page-size': 'Letter',
@@ -39,8 +35,8 @@ def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
 
 
-def get_flash_cards_from_test(test: Test):
-    if test.flash_card_doc_id:
+def get_flash_cards_from_test(test: Test, only_data=False):
+    if test.flash_card_doc_id and not only_data:
         return [get_document_url_from_doc_id(test.flash_card_doc_id)]
 
     tenant = tenant_from_tenant_id(test.tenant_id)
@@ -57,6 +53,15 @@ def get_flash_cards_from_test(test: Test):
 
     flash_card_html_strings = []
     flash_cards = []
+
+    data = []
+
+    if only_data:
+        for question in test_question_list:
+            data.append(
+                {"heading": test.title, "text": question.key_learning_point})
+
+        return data
 
     for question in test_question_list:
         flash_card_html = render_to_string(
@@ -110,13 +115,11 @@ def get_flash_cards_from_test(test: Test):
     return [get_document_url(doc)]
 
 
-def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
-    if test_attempt_session.report_doc_id:
-        return get_document_url_from_doc_id(test_attempt_session.report_doc_id)
+def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession, only_data=False):
 
     tenant = tenant_from_tenant_id(test_attempt_session.tenant_id)
     test_id = test_attempt_session.test_id
-    # test = Test.objects.get(uid=test_id)
+    test = Test.objects.get(uid=test_id)
     participant_id = test_attempt_session.participant_id
     participant_name = get_user_display_name(get_user_by_id(participant_id))
     test_started_at = test_attempt_session.started_at.strftime("%d %b %Y")
@@ -126,6 +129,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         test_attempt_session_id=test_attempt_session.uid)
 
     qa = []
+    all_speech_metrics = []
 
     for question in questions:
         question_id = question.uid
@@ -145,23 +149,90 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         response_text = participant_response.response_text
         feedback_text = participant_response.feedback_text
 
-        qa.append({
-            "question_text": question_text,
-            "response_text": response_text,
-            "feedback_text": feedback_text
-        })
+        # Check if participant response object has speech_metrics or not
+        if participant_response.speech_metrics:
+            speech_metrics = participant_response.speech_metrics
+
+            # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
+            speech_metrics = {k: v for k, v in speech_metrics.items(
+            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
+                       'filler_words_score', 'volume', 'silence_number']}
+            speech_metrics = {k: f"{((v/10)*100)}%" if k in [
+                'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+
+            # Convert the Keys to human readable format
+            speech_metrics = {k.replace("_", " ").title(
+            ): v for k, v in speech_metrics.items()}
+
+            # Add the speech_metrics to the list of all_speech_metrics
+            all_speech_metrics.append(speech_metrics)
+
+            qa.append({
+                "question_text": question_text,
+                "response_text": response_text,
+                "feedback_text": feedback_text,
+                "speech_metrics": speech_metrics
+            })
+
+        else:
+            qa.append({
+                "question_text": question_text,
+                "response_text": response_text,
+                "feedback_text": feedback_text,
+            })
+
+    # Get the averaged speech metrics for the test attempt session
+    speech_metrics_avg = {}
+    for metric in all_speech_metrics:
+        for k, v in metric.items():
+            if isinstance(v, str) and "%" in v:
+                v = float(v.replace("%", ""))
+
+            if k in speech_metrics_avg:
+                speech_metrics_avg[k] += v
+            else:
+                speech_metrics_avg[k] = v
+
+    if participant_responses[0].speech_metrics:
+        for k, v in speech_metrics_avg.items():
+            speech_metrics_avg[k] = v / len(participant_responses)
+
+    if only_data:
+
+        candidate_type = test.candidate_type
+        if not candidate_type:
+            candidate_type = 'Manager'
+
+        is_email_type = test.is_email_type
+        test_description = test.description
+
+        ted_talk_and_hbr = ''
+        test_codes = []
+        if test.is_checkin_type:
+            ted_talk_and_hbr = test.tedtalk_and_hbr_case
+            test_codes = get_test_code_lowest_skill(
+                skills_graph_data["skills_rating"], test_attempt_session)
+
+        skills_graph_data = get_test_attempt_session_skills_graph(
+            test_attempt_session, only_data=True)
+        culture_graph_data = get_test_attempt_session_culture_skills_graph(
+            test_attempt_session, only_data=True)
+
+        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
-    culture_uri = get_test_attempt_session_culture_skills_graph(test_attempt_session)
+    culture_uri = get_test_attempt_session_culture_skills_graph(
+        test_attempt_session)
 
     t = render_to_string(
         f"pdf_generator/reports/report.html",
         {
-            'qa': qa, 
-            'participant_name': participant_name, 
+            'qa': qa,
+            'participant_name': participant_name,
             'test_started_at': test_started_at,
             'uri': uri,
-            'culture_uri': culture_uri
+            'culture_uri': culture_uri,
+            'speech_metrics_avg': speech_metrics_avg,
         })
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
@@ -196,7 +267,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     return get_document_url(doc)
 
 
-def get_participant_report(user) -> str:
+def get_participant_report(user, only_data=False):
     participant_info = get_participant_info(user)
 
     participant_name = participant_info['name']
@@ -204,10 +275,36 @@ def get_participant_report(user) -> str:
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
+    if CustomRating.objects.filter(tenant_id=user.tenant_id, deleted=0).exists():
+        custom_rating = CustomRating.objects.get(
+            tenant_id=user.tenant_id, deleted=0).custom_rating
+    else:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
+
+    if only_data:
+        skills_info = []
+        for skill in participant_info['skills_info']:
+            skills_info.append(
+                {"skill": skill,
+                 "score": participant_info['skills_info'][skill]['score'],
+                 "average_score": participant_info['skills_info'][skill]['average_score'],
+                 "question_count": participant_info['skills_info'][skill]['question_count']
+                 })
+
+        participant_info['skills_info'] = skills_info
+
+        return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
+
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
                                                            'participant_info': participant_info,
-                                                           'custom_rating': CustomRating.objects.get(tenant_id=user.tenant_id, deleted=0).custom_rating})
+                                                           'custom_rating': custom_rating})
 
     pdf = convert_html_to_pdf(t, css)
 
@@ -232,12 +329,16 @@ def get_participant_report(user) -> str:
     return get_document_url(doc)
 
 
-def get_leaderboard_report(skills, tenant_id):
-    participants_skill_scores = top_N_leadership_board(skills, 20, tenant_id=tenant_id)
-    custom_rating_object = CustomRating.objects.get(tenant_id=tenant_id)
-    custom_rating = custom_rating_object.custom_rating
+def get_leaderboard_report(skills, tenant_id, only_data=False):
+    participants_skill_scores = top_N_leadership_board(
+        skills, 20, tenant_id=tenant_id)
 
-    if custom_rating is None:
+    if CustomRating.objects.filter(tenant_id=tenant_id, deleted=0).exists():
+        custom_rating_object = CustomRating.objects.get(
+            tenant_id=tenant_id, deleted=0)
+        custom_rating = custom_rating_object.custom_rating
+
+    else:
         custom_rating = {
             "1": "Non Manager",
             "2": "Beginner Manager",
@@ -264,6 +365,24 @@ def get_leaderboard_report(skills, tenant_id):
     #             },
     #         }
     #     })
+
+    if only_data:
+
+        # for every participant in participants_skill_scores, get the skills_info and convert it into list of skills
+        for participant in participants_skill_scores:
+            skills_info = participant['skills_info']
+            skills_info_list = []
+            for skill in skills_info:
+                skills_info_list.append(
+                    {"skill": skill,
+                     "score": skills_info[skill]['score'],
+                     "average_score": skills_info[skill]['average_score'],
+                     "question_count": skills_info[skill]['question_count']
+                     })
+
+            participant['skills_info'] = skills_info_list
+
+        return {'participants_skill_scores': participants_skill_scores, 'custom_rating': custom_rating}
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
@@ -294,10 +413,29 @@ def get_leaderboard_report(skills, tenant_id):
     return get_document_url(doc)
 
 # function to get a graph of skills for a test attempt session
-def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+
+def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSession, only_data=False) -> str:
 
     # get the skills_rating for the test_attempt_session
     skills_rating = test_attempt_session.skills_rating
+
+    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
+    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
+    if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
+        custom_rating = CustomRating.objects.get(
+            tenant_id=test_attempt_session.tenant_id).custom_rating
+    else:
+        custom_rating = {
+            "1": "Non Manager",
+            "2": "Beginner Manager",
+            "3": "Average Manager",
+            "4": "Good Manager",
+            "5": "Super Manager"
+        }
+
+    if only_data:
+        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5
@@ -319,7 +457,6 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # get the y axis values
     y = skill_scores
-
 
     green_colors = ['gainsboro' for i in range(len(skills))]
     yellow_colors = ['gainsboro' for i in range(len(skills))]
@@ -350,12 +487,9 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     plt.xticks(x, skills)
 
-    # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
-    # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
-    custom_rating = CustomRating.objects.get(tenant_id=test_attempt_session.tenant_id).custom_rating
-
     # get sorted values of custom_rating dictionary by key
-    custom_rating = {k: v for k, v in sorted(custom_rating.items(), key=lambda item: item[0])}
+    custom_rating = {k: v for k, v in sorted(
+        custom_rating.items(), key=lambda item: item[0])}
 
     # get the y ticks
     skills_y_ticks = list(custom_rating.values())
@@ -388,7 +522,8 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
     # return the decoded png file
     return uri
 
-def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession) -> str:
+
+def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAttemptSession, only_data=False):
 
     culture_skills_rating = test_attempt_session.culture_skills_rating
 
@@ -402,12 +537,15 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
     culture_label_right = []
 
     convert_to_label = {'hierarchy': ('Leading\n(egaliterian)', '(hierarchial)'),
-    'consensual': ('Deciding\n(consensual)', '(top down)'), 
-    'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
-    'relationship based': ('Trusting\n(task-based)', '(relationship-based)'), 
-    'high context communication': ('Communicating\n(low-context)', '(high-context)'),
-    'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'), 
-    'argumentative': ('Influence\n(compliant)', '(argumentative)')}
+                        'consensual': ('Deciding\n(consensual)', '(top down)'),
+                        'indirect negative feedback': ('Evaluating\n(direct \nnegative feedback)', '(indirect \nnegative feedback)'),
+                        'relationship based': ('Trusting\n(task-based)', '(relationship-based)'),
+                        'high context communication': ('Communicating\n(low-context)', '(high-context)'),
+                        'Persuasion': ('Disagreeing\n(confrontational)', '(avoids\nconfrontation)'),
+                        'argumentative': ('Influence\n(compliant)', '(argumentative)')}
+
+    if only_data:
+        return {'culture_skills_rating': culture_skills_rating, 'convert_to_label': convert_to_label}
 
     for skill in culture_skills:
         if skill == 'consensual':
@@ -436,7 +574,8 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
         # plt.text(-1.2, i, culture_label_left[i])
         plt.text(5, i, culture_label_right[i], va='center')
 
-    plt.plot(culture_skill_scores, range(len(culture_label_left)), '-o', markersize=20, color='orange')
+    plt.plot(culture_skill_scores, range(len(culture_label_left)),
+             '-o', markersize=20, color='orange')
     # plt.axis('off')
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
@@ -445,7 +584,7 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # remove x axis labels
     plt.xticks([])
-    
+
     # tight layout
     plt.tight_layout()
 
@@ -453,7 +592,7 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # convert the graph to png
     buf = io.BytesIO()
-    
+
     fig.savefig(buf, format='png')
 
     buf.seek(0)
@@ -468,3 +607,24 @@ def get_test_attempt_session_culture_skills_graph(test_attempt_session: TestAtte
 
     # return the decoded png file
     return uri
+
+
+def get_test_code_lowest_skill(skills_rating, test_attempt_session):
+
+    lowest_skill = min(skills_rating, key=skills_rating.get)
+    lowest_score = skills_rating[lowest_skill]
+    test_codes = []
+    if lowest_score < 5:
+        test_query = Test.objects.filter(tenant_id=test_attempt_session.tenant_id,
+                                         skills_to_evaluate__icontains=lowest_skill, is_learner_path=1, is_checkin_type=0)
+
+        test_query = test_query.exclude(uid=test_attempt_session.test_id)
+
+        if test_query.count() > 0:
+            for test_ in test_query:
+                test_codes.append(test_.test_code)
+
+        if len(test_codes) > 2:
+            test_codes = test_codes[:2]
+
+    return test_codes
