@@ -1,2 +1,1 @@
 # coach-api
-.
