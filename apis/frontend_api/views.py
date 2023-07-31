@@ -17,6 +17,7 @@ from .serializers import FrontendSkillsTrackerReportSerializer
 from .serializers import FrontendSkillsDiscoveryReportSerializer
 from web_auth.helpers import create_new_tokens, get_new_access_token
 from settings import FRONTEND_BASE_URL
+from settings import BACKEND
 from .report_types import ReportType
 from url_shortener.helpers import check_url_exists, url_shortify
 from url_shortener.models import UrlShortenerMap
@@ -51,7 +52,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             skills = leaderboard_serializer.validated_data["skills"]
 
-            url = f"{url}?skills={','.join(skills)}"
+            url = f"{url}?skills={','.join(skills)}&backend={BACKEND}"
 
         elif report_type == ReportType.CANDIDATE_REPORT:
             candidate_serializer = FrontendCandidateReportSerializer(
@@ -61,7 +62,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             candidate_id = candidate_serializer.validated_data["candidate_id"]
 
-            url = f"{url}?candidate_id={candidate_id}"
+            url = f"{url}?candidate_id={candidate_id}&backend={BACKEND}"
 
         elif report_type == ReportType.INTERACTION_REPORT:
             interaction_serializer = FrontendInteractionReportSerializer(
@@ -71,7 +72,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             interaction_id = interaction_serializer.validated_data["interaction_id"]
 
-            url = f"{url}?interaction_id={interaction_id}"
+            url = f"{url}?interaction_id={interaction_id}&backend={BACKEND}"
 
         elif report_type == ReportType.INTERACTION_SESSION_REPORT:
             session_serializer = FrontendInteractionSessionReportSerializer(
@@ -82,7 +83,7 @@ class FrontendAuthViewSet(ApiViewSet):
             session_id = session_serializer.validated_data["session_id"]
             interaction_id = session_serializer.validated_data["interaction_id"]
 
-            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}"
+            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
 
         elif report_type == ReportType.COACHING_SESSION_REPORT:
             session_serializer = FrontendCoachingSessionReportSerializer(
@@ -92,7 +93,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
 
-            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&ordering=id"
+            url = f"{url}?backend={BACKEND}&test_attempt_session_id={test_attempt_session_id}&ordering=id"
 
         elif report_type == ReportType.MEETING_ANALYSIS_REPORT:
             session_serializer = FrontendMeetingAnalysisReportSerializer(
@@ -102,7 +103,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
 
-            url = f"{url}?test_attempt_session_id={test_attempt_session_id}"
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&backend={BACKEND}"
 
         elif report_type == ReportType.ASKING_GREAT_QUESTIONS_REPORT:
             session_serializer = FrontendAskingGreatQuestionsReportSerializer(
@@ -113,7 +114,7 @@ class FrontendAuthViewSet(ApiViewSet):
             test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
             interaction_id = session_serializer.validated_data['interaction_id']
 
-            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&interaction_id={interaction_id}"
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&interaction_id={interaction_id}&backend={BACKEND}"
         
         elif report_type == ReportType.SKILLS_TRACKER_REPORT:
             session_serializer = FrontendSkillsTrackerReportSerializer(
@@ -123,7 +124,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             participant_id = session_serializer.validated_data["user_id"]
 
-            url = f"{url}?participant_id={participant_id}"
+            url = f"{url}?participant_id={participant_id}&backend={BACKEND}"
 
         elif report_type == ReportType.SKILLS_DISCOVERY_REPORT:
             session_serializer = FrontendSkillsDiscoveryReportSerializer(
@@ -134,7 +135,7 @@ class FrontendAuthViewSet(ApiViewSet):
             session_id = session_serializer.validated_data["session_id"]
             interaction_id = session_serializer.validated_data["interaction_id"]
 
-            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}"
+            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
 
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:
