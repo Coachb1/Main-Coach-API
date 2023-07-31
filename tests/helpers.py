@@ -11,6 +11,8 @@ from string import Template
 
 from skills.constants import skills
 
+from settings import BACKEND
+
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -1046,20 +1048,20 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
-    skills_rating_score = update_skills_rating_if_same_scores(
-        skills_rating_score)
-
     if response_count == 0:
         avg_score = 0
     else:
         avg_score = avg_score / response_count
 
+    skills_rating_score, avg_score = increment_avg_score_in_percentages(
+        skills_rating_score, avg_score, participant_id, test_attempt_session)
+
+    skills_rating_score = update_skills_rating_if_same_scores(
+        skills_rating_score)
+
     culture_skills_rating = calc_culture_skills_rating(responses, test)
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
-
-    skills_rating_score, avg_score = increment_avg_score_in_percentages(
-        skills_rating_score, avg_score, participant_id, test_attempt_session)
 
     # update skills_rating field in test_attempt_session
     test_attempt_session.skills_rating = skills_rating_score
@@ -1147,7 +1149,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = min(total_successfull_sessions_count * 2, 40)
+    increase_by_percent = min(total_successfull_sessions_count * 2, 20)
     # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
 
     for skill in skills_rating:
@@ -1178,7 +1180,7 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
                 refresh_token[:6], participant_id)
 
-    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
     test_attempt_session.report_url = report_url
     test_attempt_session.save(update_fields=["report_url"])
