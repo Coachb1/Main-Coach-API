@@ -124,7 +124,7 @@ class FrontendAuthViewSet(ApiViewSet):
 
             participant_id = session_serializer.validated_data["user_id"]
 
-            url = f"{url}?participant_id={participant_id}"
+            url = f"{url}?participant_id={participant_id}&backend={BACKEND}"
 
         elif report_type == ReportType.SKILLS_DISCOVERY_REPORT:
             session_serializer = FrontendSkillsDiscoveryReportSerializer(
