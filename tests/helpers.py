@@ -11,6 +11,8 @@ from string import Template
 
 from skills.constants import skills
 
+from settings import BACKEND
+
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -1178,7 +1180,7 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
                 refresh_token[:6], participant_id)
 
-    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}"
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
     test_attempt_session.report_url = report_url
     test_attempt_session.save(update_fields=["report_url"])
