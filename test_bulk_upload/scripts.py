@@ -8,6 +8,7 @@ from io import TextIOWrapper
 import logging
 from django.http import HttpResponse
 from .constants import get_skills
+from settings import BACKEND
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 # API endpoint URL move to env
 API_ENDPOINT_LOGIN_WEB = os.getenv("API_ENDPOINT_LOGIN_WEB")
 API_ENDPOINT_WEB = os.getenv("API_ENDPOINT_WEB")
-API_ENDPOINT_SLACK = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/tests/"
+API_ENDPOINT_SLACK = f"{BACKEND}/api/v1/tests/"
 API_ENDPOINT_LOGIN_SLACK = os.getenv("API_ENDPOINT_LOGIN_SLACK")
 LOCALHOST = "http://localhost:8000/api/v1/tests/"
 
@@ -385,7 +386,7 @@ def login_web(email, password):
 
 def login_slack(email, password, subdomain_prefix):
     try:
-        url = "http://coachbots-api-lb-1912727967.ap-south-1.elb.amazonaws.com/api/v1/webauth/login/"
+        url = f"{BACKEND}/api/v1/webauth/login/"
         # url = "http://localhost:8000/api/v1/webauth/login/"
 
         payload = json.dumps({
