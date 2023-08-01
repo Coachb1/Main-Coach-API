@@ -3,7 +3,7 @@
 def get_skills(candidate_type):
     MANAGER = [
         "Communication",
-        "Unflappability",
+        "Objection handling",
         "Problem solving",
         "Social skills",
         "Collaboration",
@@ -71,7 +71,7 @@ def get_skills(candidate_type):
 class ManagerSkills:
     PEOPLE = {
         "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
-        "Unflappability": "Maintain composure and steadiness under pressure or when things go wrong; stay calm, focused, and solution-oriented.",
+        "Objection handling": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management.",
         "Problem solving": "Problem solving is the ability to identify and solve problems. It is the aptitude to analyze challenges, devise innovative solutions, and make sound decisions to achieve desired outcomes.",
         "Social skills": "Build rapport and relate well to people from diverse backgrounds; emotionally intelligent.",
     }
