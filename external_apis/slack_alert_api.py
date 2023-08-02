@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def send_slack_message(data):
     url = settings.SLACK_MESSAGE_WEBHOOK_URL
 
-    data.update({"trace_id":  get_trace_id() or "na"})
+    data.update({"trace_id":  get_trace_id() or "na", "env": settings.ENV})
 
     payload = json.dumps({
         "text": json.dumps(data, default=str)
