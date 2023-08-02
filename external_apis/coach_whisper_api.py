@@ -15,7 +15,7 @@ class CoachWhisperApi(object):
             if not response:
                 raise ValueError("empty transcript received")
         except Exception as e:
-            send_slack_message({"file_url": file_url, "error": str(e)})
+            send_slack_message({"process": "get_transcribe_from_audio", "file_url": file_url, "error": str(e)})
             raise e
 
         return response
@@ -39,7 +39,7 @@ class CoachWhisperApi(object):
             if not response:
                 raise ValueError("empty transcript received")
         except Exception as e:
-            send_slack_message({"file_url": file_url, "error": str(e)})
+            send_slack_message({"process": "get_transcribe_from_video", "file_url": file_url, "error": str(e)})
             raise e
 
         return response
