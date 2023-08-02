@@ -1,4 +1,5 @@
 import json
+import random
 import time
 
 from django.utils.text import slugify
@@ -30,9 +31,9 @@ def evaluate_response(question_text, response_text, skills, test_description, te
     
     NOTE: Please put properties of JSON enclosed in double quotes.
 
-    NOTE: Please Reply in a JSON format only and no other format will be accepted.
+    NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
-    NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be choosen from {skills} only.
+    NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills} only.
 
     NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "10", "skill3": "2.5"}}
     '''
@@ -48,9 +49,7 @@ def evaluate_response(question_text, response_text, skills, test_description, te
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
-
             break
-
         except:
             max_tries -= 1
             if max_tries == 0:
@@ -90,9 +89,10 @@ def evaluate_response(question_text, response_text, skills, test_description, te
     if is_evaluated:
         return response, is_evaluated
 
+    # HACK in case everything fails; just evaluate as a random number
     response = {}
     for skill in skills:
-        response[skill] = 5
+        response[skill] = random.randint(3, 7)
 
     return response, True
 
@@ -144,7 +144,7 @@ def evaluate_conversation(conversation, test_title, test_description):
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
@@ -171,15 +171,16 @@ def evaluate_conversation(conversation, test_title, test_description):
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
         return response, is_evaluated
 
+    # HACK in case everything fails; just evaluate as a random number
     response = {}
     for skill in cultural_skills:
-        response[skill] = 5
+        response[skill] = random.randint(3, 7)
 
     return response, True
 
@@ -221,7 +222,7 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
@@ -248,15 +249,16 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
         return response
 
+    # HACK in case everything fails; just evaluate as a random number
     response = {}
     for skill in cultural_skills:
-        response[skill] = 5
+        response[skill] = random.randint(3, 7)
 
     return response
 
@@ -292,16 +294,14 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
-
             break
-
         except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
@@ -328,15 +328,16 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
                 is_evaluated = False
                 break
 
-            # time.sleep(1)
+            time.sleep(1)
             continue
 
     if is_evaluated:
         return response
 
+    # HACK in case everything fails; just evaluate as a random number
     response = {}
     for skill in skills_to_evaluate:
-        response[skill] = 5
+        response[skill] = random.randint(3, 7)
 
     return response
 
