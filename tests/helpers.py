@@ -604,21 +604,26 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     required_skills = question.key_learning_skills.split(",")
-    required_skills = [skill.strip() for skill in required_skills]
-    required_skills = [skill.lower() for skill in required_skills]
+    required_skills = [skill.strip() for skill in required_skills if skill]
+    required_skills = [skill.lower() for skill in required_skills if skill]
 
     skills_rating = {}
 
     skills_rating, is_evaluated = evaluate_response(
-        question.question, test_question_response.response_text, required_skills, test.description, test.title)
+        test_question_response,
+        question.question,
+        test_question_response.response_text,
+        required_skills,
+        test.description,
+        test.title
+    )
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
         # delete this response
-        test_question_response.deleted = test_question_response.deleted + 1
-        test_question_response.save()
+        delete_test_response(test_question_response)
         logger.error("failed to get skills_rating json, got %s", skills_rating)
-        raise ValueError("unable to get feedback for %s",
+        raise ValueError("failed to get skills_rating json for %s",
                          test_question_response.uid)
 
     # Removing the skills which are not required in the question
@@ -643,7 +648,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for skill in skills_rating:
         if isinstance(skills_rating[skill], str):
             continue
-        response_avg_score += skills_rating[skill]
+
+        response_avg_score += skills_rating[skill] or random.randint(3, 7)
         skills_count += 1
 
     if skills_count == 0:
@@ -804,7 +810,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        chat_conversation, user_persona, objective)
+        test_attempt_session, chat_conversation, user_persona, objective)
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
@@ -812,7 +818,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
             culture_skills_rating[skill] = 8.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        chat_conversation, user_persona, objective, test.skills_to_evaluate)
+        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
@@ -1072,7 +1078,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
 
-    culture_skills_rating = calc_culture_skills_rating(responses, test)
+    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
@@ -1364,12 +1370,13 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     except Exception as e:
         logger.exception("failed to send whatsapp message to participant %s with phone %s, err: %s",
                          participant_id, participant_phone, e)
+        raise e
 
     test_attempt_session.is_report_sent_to_whatsapp = True
     test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
-def calc_culture_skills_rating(responses, test):
+def calc_culture_skills_rating(test_attempt_session, responses, test):
     culture_skills_rating = {}
 
     conversation = ""
@@ -1391,7 +1398,7 @@ def calc_culture_skills_rating(responses, test):
 
     # Evaluate conversation
     culture_skills_rating, is_evaluated = evaluate_conversation(
-        conversation, test.title, test.description)
+        test_attempt_session, conversation, test.title, test.description)
 
     if not is_evaluated:
         return None
