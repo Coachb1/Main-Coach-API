@@ -1,45 +1,41 @@
-import logging
 import json
-import random
-import time
+import logging
 import os
+import random
 import string
 import tempfile
+import time
 from datetime import date
-import threading
 from string import Template
-
-from skills.constants import skills
-
-from settings import BACKEND
 
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from nltk.tokenize import sent_tokenize
 from rest_framework import serializers
 
 import settings
-from settings import FRONTEND_BASE_URL
 from apis.frontend_api.report_types import ReportType
-from web_auth.helpers import create_new_tokens
-from users.db import get_user_display_name
-from email_sender.helpers import send_email
-
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt4_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
-from external_apis.coach_whisper_api import coach_whisper_api
-from external_apis.whatsapp_api import whatsapp_api
+from email_sender.helpers import send_email
 from external_apis.coach_metric_api import coach_metric_api
 from external_apis.coach_whisper_api import coach_whisper_api
+from external_apis.whatsapp_api import whatsapp_api
 from pdf_generator.helpers import convert_html_to_pdf
-from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation
+from settings import BACKEND
+from settings import FRONTEND_BASE_URL
+from skills.constants import skills
+from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
+from test_bulk_upload.constants import get_skills_by_candidate_type
 from tests.choices import InteractionModeChoices, QuestionForChoices, TestTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
@@ -49,11 +45,10 @@ from tests.models import TestInvite
 from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
+from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
-from nltk.tokenize import sent_tokenize
-from test_bulk_upload.constants import get_skills_by_candidate_type
-
+from web_auth.helpers import create_new_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -159,14 +154,14 @@ def create_test(tenant: Tenant,
                 kls = ''
             else:
                 klp = (
-                    question.get("key_learning_point")
-                    or get_question_key_learning_point(test_title=title,
-                                                       test_question=question.get("question"))
+                        question.get("key_learning_point")
+                        or get_question_key_learning_point(test_title=title,
+                                                           test_question=question.get("question"))
                 )
                 kls = (
-                    question.get("key_learning_skills")
-                    or get_question_key_learning_skills(test_title=title,
-                                                        test_question=question.get("question"))
+                        question.get("key_learning_skills")
+                        or get_question_key_learning_skills(test_title=title,
+                                                            test_question=question.get("question"))
                 )
 
             test_q = TestQuestion.objects.create(
@@ -294,7 +289,6 @@ def create_test_question_answer(tenant: Tenant,
                                 response_file: str = None,
                                 response_text: str = None,
                                 is_whatsapp: bool = False) -> TestQuestionResponse:
-
     try:
         test_attempt_session = TestAttemptSession.objects.get(
             tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
@@ -337,7 +331,8 @@ def create_test_question_answer(tenant: Tenant,
             return process_orchestrated_test_response_by_bot_llm(test_question_response)
 
     return process_test_response(
-        test_question_response, is_whatsapp)
+        test_question_response, is_whatsapp
+    )
 
 
 def delete_test_response(test_response):
@@ -347,76 +342,93 @@ def delete_test_response(test_response):
 
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
-
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
-        uid=test_question_response.test_attempt_session_id)
+        uid=test_question_response.test_attempt_session_id
+    )
 
     logger.info(
         f"[process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(
+            f"Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
     # participant = User.objects.get(uid=test_attempt_session.participant_id)
 
     last_question_number = TestQuestion.objects.filter(
-        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+        test_id=test.uid,
+        deleted=0
+    ).order_by(
+        "-question_number"
+    ).first().question_number
 
-    if question.question_number == last_question_number:
+    is_last_question = question.question_number == last_question_number
+
+    # sometimes questions are being processed in background;
+    #  this is a hack to ensure before processing last question, all the previous ones are processed
+    if is_last_question:
         start_time = time.time()
         while True:
             end_time = time.time()
-            if end_time - start_time > 60:
+            if end_time - start_time > 92:
                 logger.error(
                     f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
                 raise ValueError("unable to evaluate response: %s",
                                  test_question_response.uid)
 
-            time.sleep(5)
+            time.sleep(4)
 
             not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
                 test_attempt_session_id=test_attempt_session.uid,
                 deleted=0
-            ).exclude(uid=test_question_response.uid).exclude(evaluation_status=TestQuestionResponseEvaluationStatusChoices.success).count()
+            ).exclude(
+                uid=test_question_response.uid
+            ).exclude(
+                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
+            ).count()
 
             if not_evaluated_test_responses_count == 0:
                 break
 
-    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
-        logger.info(
-            f"Test Serssion is already completed: {test_attempt_session.uid}")
-        return test_question_response
-
-    # count number of questions in the test
-    total_questions = TestQuestion.objects.filter(
-        test_id=test.uid, deleted=0).count()
-    # count number of question response in the test attempt session
-    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                          deleted=0).count()
-
+    # if this was the last question; mark the session as completed
     with transaction.atomic():
-
-        if total_questions == total_responses:
+        if is_last_question:
             try:
                 _test_attempt_session = TestAttemptSession.objects.filter(
-                    uid=test_attempt_session.uid, deleted=0).select_for_update(nowait=True).get()
+                    uid=test_attempt_session.uid, deleted=0
+                ).select_for_update(nowait=True).get()
             except Exception as e:
                 logger.exception(e)
                 logger.info(
                     f"Test Session is failed for concurrent request: {test_attempt_session.uid}")
-
                 raise e
 
             _test_attempt_session.status = TestAttemptSessionStatusChoices.completed
             _test_attempt_session.save(update_fields=["status", "updated"])
 
-        transaction.on_commit(lambda: __process_test_response(
-            question=question, test=test, test_attempt_session=test_attempt_session, test_question_response=test_question_response, is_whatsapp=is_whatsapp, last_question_number=last_question_number))
+        transaction.on_commit(
+            lambda: __process_test_response(
+                question=question,
+                test=test,
+                test_attempt_session=test_attempt_session,
+                test_question_response=test_question_response,
+                is_whatsapp=is_whatsapp,
+                last_question_number=last_question_number
+            )
+        )
 
+    # refreshed from db to reflect any changes due to above logics
     test_question_response.refresh_from_db()
+
     return test_question_response
 
 
-def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession, test_question_response: TestQuestionResponse, is_whatsapp: bool = False, last_question_number: int = 0):
+def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession,
+                            test_question_response: TestQuestionResponse, is_whatsapp: bool = False,
+                            last_question_number: int = 0):
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
 
@@ -457,10 +469,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             except Exception as e:
                 logger.exception(e)
 
+                # HACK sane default values
                 test_question_response.speech_metrics = {
-                    'energy_grade': 5,
+                    'energy_grade': 4,
                     'fluency_grade': 5,
-                    'confidence_grade': 5,
+                    'confidence_grade': 3,
                     'pace': 380,
                     'sentiment_percentage': "30%",
                     'power_word_density': 0,
@@ -475,14 +488,14 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "confidence_cohort": "C",
                     "energy_percentage": 50,
                     "filler_words_cohort": 0,
-                    "confidence_percentage": 50.0,
+                    "confidence_percentage": 55.0,
                     "sales_quotient_percentile": 0.0,
-                    "aggregate_energy_percentage": 50.0,
+                    "aggregate_energy_percentage": 45.0,
                     "learner_quotient_percentile": 0.0,
                     "manager_quotient_percentile": 0.0,
                     "aggregate_fluency_percentage": 75.0,
                     "leadership_quotient_percentile": 0.0,
-                    "aggregate_confidence_percentage": 50.0
+                    "aggregate_confidence_percentage": 55.0
                 }
 
             update_fields.append("speech_metrics")
@@ -504,7 +517,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             candidate_reply=test_question_response.response_text)
 
     else:
-
         if question.gpt_prompt_override or test.gpt_prompt_override:
             prompt = get_overridden_prompt(
                 prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
@@ -588,25 +600,30 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.feedback_text = feedback_text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
-        update_fields=["feedback_text", "evaluation_status", "updated"])
+        update_fields=["metadata", "feedback_text", "evaluation_status", "updated"])
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     required_skills = question.key_learning_skills.split(",")
-    required_skills = [skill.strip() for skill in required_skills]
-    required_skills = [skill.lower() for skill in required_skills]
+    required_skills = [skill.strip() for skill in required_skills if skill]
+    required_skills = [skill.lower() for skill in required_skills if skill]
 
     skills_rating = {}
 
     skills_rating, is_evaluated = evaluate_response(
-        question.question, test_question_response.response_text, required_skills, test.description, test.title)
+        test_question_response,
+        question.question,
+        test_question_response.response_text,
+        required_skills,
+        test.description,
+        test.title
+    )
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
         # delete this response
-        test_question_response.deleted = test_question_response.deleted + 1
-        test_question_response.save()
+        delete_test_response(test_question_response)
         logger.error("failed to get skills_rating json, got %s", skills_rating)
-        raise ValueError("unable to get feedback for %s",
+        raise ValueError("failed to get skills_rating json for %s",
                          test_question_response.uid)
 
     # Removing the skills which are not required in the question
@@ -631,7 +648,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for skill in skills_rating:
         if isinstance(skills_rating[skill], str):
             continue
-        response_avg_score += skills_rating[skill]
+
+        response_avg_score += skills_rating[skill] or random.randint(3, 7)
         skills_count += 1
 
     if skills_count == 0:
@@ -664,7 +682,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         report_url = generate_session_report_link(test_attempt_session, test)
 
         if test.email_address_list:
-
             send_report_link_to_email(
                 test, test_attempt_session, report_url, is_whatsapp)
 
@@ -779,13 +796,12 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     test_question_response.response_text = bot_llm_response_text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
-        update_fields=["response_text", "evaluation_status", "updated"])
+        update_fields=["metadata", "response_text", "evaluation_status", "updated"])
 
     return test_question_response
 
 
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
-
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
     objective = test.orchestrated_conversation_details.get("objective")
@@ -794,7 +810,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        chat_conversation, user_persona, objective)
+        test_attempt_session, chat_conversation, user_persona, objective)
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
@@ -802,7 +818,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
             culture_skills_rating[skill] = 8.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        chat_conversation, user_persona, objective, test.skills_to_evaluate)
+        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
@@ -890,7 +906,6 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
 
 def get_group_discussion_summary(objective: str, chat_conversation: str):
-
     prompt = f"""
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
@@ -918,7 +933,6 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
 
 
 def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
-
     areas_of_improvement = ["Sticking to Agenda",
                             "Driving to decision", "Sticking to Positive behavior"]
 
@@ -960,8 +974,8 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     return res
 
 
-def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str, is_report: bool = False):
-
+def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str,
+                                           is_report: bool = False):
     current_conversation = ''
     conversation_list = []
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
@@ -995,9 +1009,12 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     """
     # get participant id from test_attempt_session
     participant_id = test_attempt_session.participant_id
+
     # get all the responses for this participant
     responses = TestQuestionResponse.objects.filter(
-        test_attempt_session_id=test_attempt_session.uid, deleted=0)
+        test_attempt_session_id=test_attempt_session.uid,
+        deleted=0
+    )
 
     culture_skills_rating = {}
     skills_rating = {}
@@ -1013,11 +1030,12 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     for response in responses:
         if response.skills_rating is None:
             continue
+
         # get skills rating from this response
         response_skills_rating = response.skills_rating
         response_avg_score = response.avg_score
 
-        if response_avg_score is not None or response_avg_score != 0:
+        if response_avg_score:
             avg_score += response_avg_score
             response_count += 1
 
@@ -1028,17 +1046,18 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
             for skill in response_speech_metrics:
                 if skill in speech_score:
-                    speech_score[skill] += response_speech_metrics[skill]
+                    speech_score[skill] += response_speech_metrics[skill] or random.randint(3, 7)
                 else:
-                    speech_score[skill] = response_speech_metrics[skill]
+                    speech_score[skill] = response_speech_metrics[skill] or random.randint(3, 7)
 
         for skill in response_skills_rating:
             if skill in skills_rating:
-                skills_rating[skill] += response_skills_rating[skill]
+                skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
                 skills_count[skill] += 1
             else:
-                skills_rating[skill] = response_skills_rating[skill]
+                skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
                 skills_count[skill] = 1
+
         attempted_count += 1
 
     skills_rating_score = {}
@@ -1059,7 +1078,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
 
-    culture_skills_rating = calc_culture_skills_rating(responses, test)
+    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
@@ -1121,22 +1140,22 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
 
 def round_off_rating(number):
-    return round(number*2) / 2
+    return round(number * 2) / 2
 
 
 def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
     # Get number of interactions for that candidate which are completed but are not the current one
-    total_successfull_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
-                                                                   status=TestAttemptSessionStatusChoices.completed,
-                                                                   deleted=0).exclude(uid=test_attempt_session.uid)
+    total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
+                                                                  status=TestAttemptSessionStatusChoices.completed,
+                                                                  deleted=0).exclude(uid=test_attempt_session.uid)
 
-    total_successfull_sessions_count = total_successfull_sessions.count()
+    total_successful_sessions_count = total_successful_sessions.count()
 
-    if total_successfull_sessions_count == 1:
+    if total_successful_sessions_count == 1:
         return skills_rating, avg_score
 
     # Calculate the average score of last 5 interactions
-    last_5_sessions = total_successfull_sessions.order_by(
+    last_5_sessions = total_successful_sessions.order_by(
         "-finished_at")[:5]
 
     last_5_sessions_avg_score = 0
@@ -1149,19 +1168,19 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = min(total_successfull_sessions_count * 2, 20)
+    increase_by_percent = min(total_successful_sessions_count * 2, 20)
     # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
 
     for skill in skills_rating:
         skills_rating[skill] = skills_rating[skill] + \
-            (skills_rating[skill] * increase_by_percent/100)
+                               (skills_rating[skill] * increase_by_percent / 100)
 
         skills_rating[skill] = min(10, skills_rating[skill])
         skills_rating[skill] = round_off_rating(skills_rating[skill])
 
-    avg_score = avg_score + (avg_score * increase_by_percent/100)
+    avg_score = avg_score + (avg_score * increase_by_percent / 100)
     avg_score = round_off_rating(avg_score)
-    avg_score = min(10, avg_score)
+    avg_score = min(10.0, avg_score)
 
     return skills_rating, avg_score
 
@@ -1223,7 +1242,6 @@ def update_skills_rating_if_same_scores(skills_rating):
 
 
 def update_culture_skills_if_same_scores(culture_skills_rating):
-
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
@@ -1265,8 +1283,8 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
     return culture_skills_rating
 
 
-def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str, is_whatsapp: bool = False):
-
+def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
+                              is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
         return
 
@@ -1275,6 +1293,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     test_completion_date = test_attempt_session.finished_at.strftime(
         "%d %b %Y")
     participant_id = test_attempt_session.participant_id
+
     participant_attributes = UserAttribute.objects.get(
         user_id=participant_id).attributes
 
@@ -1298,18 +1317,21 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "candidate_name": participant_name,
     }
 
+    participant_email = participant_attributes.get(
+        "profile", {}).get("email")
+
     if test.email_candidate:
         try:
-            participant_email = participant_attributes.get(
-                "profile", {}).get("email")
-
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
-            logger.exception("failed to send email to participant %s with email %s",
-                             participant_id, participant_email)
+            logger.exception("failed to send email to participant %s email %s, err: %s",
+                             participant_id, participant_email, e)
+            raise e
 
     for to_email in email_address_list:
         send_email(to_email, email_subject, data=data)
+
+    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     test_attempt_session.is_report_sent_to_email = True
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
@@ -1341,20 +1363,20 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     # remove the first backslash
     report_url = report_url[1:]
 
-    try:
-        participant_phone = participant_attributes.get(
-            "mobile_number")
+    participant_phone = participant_attributes.get("mobile_number")
 
+    try:
         whatsapp_api.send_whatsapp_report(participant_phone, report_url)
     except Exception as e:
-        logger.exception("failed to send whatsapp message to participant %s with phone %s",
-                         participant_id, participant_phone)
+        logger.exception("failed to send whatsapp message to participant %s with phone %s, err: %s",
+                         participant_id, participant_phone, e)
+        raise e
 
     test_attempt_session.is_report_sent_to_whatsapp = True
     test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
-def calc_culture_skills_rating(responses, test):
+def calc_culture_skills_rating(test_attempt_session, responses, test):
     culture_skills_rating = {}
 
     conversation = ""
@@ -1376,7 +1398,7 @@ def calc_culture_skills_rating(responses, test):
 
     # Evaluate conversation
     culture_skills_rating, is_evaluated = evaluate_conversation(
-        conversation, test.title, test.description)
+        test_attempt_session, conversation, test.title, test.description)
 
     if not is_evaluated:
         return None
@@ -1521,7 +1543,6 @@ def get_overridden_prompt(prompt_template: str,
                           question: str,
                           question_context: str,
                           candidate_reply: str):
-
     if question_context:
         template = Template(
             """
@@ -1607,7 +1628,6 @@ Output:
 @timeit
 def get_question_key_learning_skills(test_title,
                                      test_question):
-
     skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
@@ -1727,7 +1747,6 @@ def get_test_report(test: Test, only_data=False):
 
 
 def generate_test_from_objective_anthropic(objective: str):
-
     skills_name_list = [skill['name'] for skill in skills]
 
     prompt = f"""
@@ -1812,7 +1831,6 @@ def generate_test_from_objective_anthropic(objective: str):
 # Skills Tracker REport:
 
 def categorize_skills(skill_dict, skills_object):
-
     categorized_skills = []
     skill_list = [skill.capitalize() for skill in skills_object.keys()]
 
@@ -1832,7 +1850,7 @@ def get_skills_tracker_data(participant_id):
     test_attempt_sessions = TestAttemptSession.objects.filter(
         is_checkin_type=1, participant_id=participant_id, deleted=0).order_by("-id")
 
-    if test_attempt_sessions.count() > 15:   # limiting test_attempt_sessions if more than 15
+    if test_attempt_sessions.count() > 15:  # limiting test_attempt_sessions if more than 15
         test_attempt_sessions = test_attempt_sessions[:15]
 
     if test_attempt_sessions.count() == 0:
