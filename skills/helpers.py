@@ -6,12 +6,13 @@ from django.utils.text import slugify
 
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt4_completion
+from external_apis.slack_alert_api import send_slack_message
 from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
 
 
-def evaluate_response(question_text, response_text, skills, test_description, test_title):
+def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title):
     prompt = f'''
     "TITLE:" {test_title};
 
@@ -94,10 +95,15 @@ def evaluate_response(question_text, response_text, skills, test_description, te
     for skill in skills:
         response[skill] = random.randint(3, 7)
 
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_response",
+                        "test_question_response": test_question_response.uid,
+                        "error": "failed to evaluate; putting random value"})
+
     return response, True
 
 
-def evaluate_conversation(conversation, test_title, test_description):
+def evaluate_conversation(test_attempt_session, conversation, test_title, test_description):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -182,10 +188,15 @@ def evaluate_conversation(conversation, test_title, test_description):
     for skill in cultural_skills:
         response[skill] = random.randint(3, 7)
 
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_conversation",
+                        "test_attempt_session": test_attempt_session.uid,
+                        "error": "failed to evaluate; putting random value"})
+
     return response, True
 
 
-def evaluate_group_discussion_conversation(conversation, user_persona, objective):
+def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective):
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
@@ -260,10 +271,15 @@ def evaluate_group_discussion_conversation(conversation, user_persona, objective
     for skill in cultural_skills:
         response[skill] = random.randint(3, 7)
 
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_group_discussion_conversation",
+                        "test_attempt_session": test_attempt_session.uid,
+                        "error": "failed to evaluate; putting random value"})
+
     return response
 
 
-def evaluate_skills_group_discussion_conversation(conversation, user_persona, objective, skills_to_evaluate):
+def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate):
     skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
         skills_to_evaluate, str) else skills_to_evaluate
 
@@ -338,6 +354,11 @@ def evaluate_skills_group_discussion_conversation(conversation, user_persona, ob
     response = {}
     for skill in skills_to_evaluate:
         response[skill] = random.randint(3, 7)
+
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_skills_group_discussion_conversation",
+                        "test_attempt_session": test_attempt_session.uid,
+                        "error": "failed to evaluate; putting random value"})
 
     return response
 
