@@ -5,9 +5,9 @@ skills = [
         "description": " Teamwork for a new manager refers to the ability to effectively collaborate with and motivate a group of people to achieve common goals. It requires developing interpersonal relationships and trust among team members, setting clear expectations, balancing individual and team responsibilities, facilitating open communication, and creating a supportive work environment where people respect each other and willingly help each other succeed. When team members feel their contributions are valued, synergy occurs and the whole team accomplishes more than the sum of individual efforts. A manager proficient in teamwork skills will be able to coordinate and assign roles in a way that optimizes team efficiency, delegation and handle conflicts constructively as they arise so team morale and cohesion is maintained."
     },
     {
-        "name": "Unflappability",
-        "display": "Unflappability",
-        "description": " Unflappability is the ability to remain calm, collected and decisive in stressful or difficult situations. A new manager especially needs to cultivate unflappability to effectively lead their team through challenges. When faced with an angry customer, unflappable managers listen carefully without becoming defensive and take logical next steps to resolve the issue. In meetings with upper management to discuss problems cropping up in the team or missing deadlines, unflappable managers clearly and concisely lay out the circumstances while offering potential solutions instead of making excuses. Unflappable managers inspire confidence in their team members during chaotic times. They provide reassurance and direction while modeling a problem-solving mindset that helps the team remain productive under pressure. By practicing presence of mind and emotional control in even minor management situations, new leaders can strengthen their ability to remain focused and effective when challenges inevitably arise."
+        "name": "Objection Handling",
+        "display": "Objection Handling",
+        "description": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management."
     },
     {
         "name": "Goal-oriented focus",
