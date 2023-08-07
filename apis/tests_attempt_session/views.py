@@ -80,7 +80,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         return Response({"uid": test_attempt_session.uid}, status=status.HTTP_200_OK)
     
     @action(methods=["GET"], detail=False, url_path="get-skills-tracker-report-data")
-    def get_session_uid(self, request, *args, **kwargs):
+    def get_skills_tracker_report_data(self, request, *args, **kwargs):
         participant_id = request.query_params.get("participant_id")
         data = get_skills_tracker_data(participant_id)
         
