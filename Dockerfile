@@ -28,6 +28,8 @@ ADD requirements.txt /code/requirements.txt
 
 RUN pip install -r requirements.txt
 
+RUN pip3 install newrelic
+
 ADD . /code/
 
 EXPOSE 8000
