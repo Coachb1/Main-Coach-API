@@ -13,6 +13,32 @@ from users.models import User
 
 
 def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title):
+    # prompt = f'''
+    # "TITLE:" {test_title};
+
+    # "DESCRIPTION:" {test_description};
+
+    # "QUESTION:" {question_text}; 
+    
+    # "ANSWER:" {response_text};
+
+    # "Evaluation Criteria:"
+    # - Relevance: Does the answer directly address the question?
+    # - Accuracy: Is the information in the answer correct?
+    # - Completeness: Does the answer provide a comprehensive response to the question?
+    # - Clarity: Is the answer well-written and easy to understand?
+
+    # "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
+    
+    # NOTE: Please put properties of JSON enclosed in double quotes.
+
+    # NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
+
+    # NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills} only.
+
+    # NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "10", "skill3": "2.5"}}
+    # '''
+
     prompt = f'''
     "TITLE:" {test_title};
 
@@ -28,16 +54,22 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     - Completeness: Does the answer provide a comprehensive response to the question?
     - Clarity: Is the answer well-written and easy to understand?
 
-    "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
-    
+    "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score. 
+
     NOTE: Please put properties of JSON enclosed in double quotes.
 
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
     NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills} only.
 
-    NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "10", "skill3": "2.5"}}
-    '''
+    NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "9", "skill3": "2.5"}}
+
+    NOTE:  For the entire question and answer conversation no two skills from {skills} can have exact same scores.
+
+    NOTE: Do not add any English language sentence in the output.
+
+
+'''
 
     is_evaluated = True
     response = None
@@ -108,26 +140,54 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
+    # prompt = f'''
+    # "TITLE:" {test_title};
+
+    # "DESCRIPTION:" {test_description};
+
+    # "CONVERSATION:" {conversation};
+
+    # "Evaluation Criteria:"
+    # - Relevance: Does the answers directly address the questions in the conversation?
+    # - Accuracy: Is the information in the answers correct?
+    # - Completeness: Does the answers provide a comprehensive response to the questions?
+    # - Clarity: Are the answers well-written and easy to understand?
+
+    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+
+    # "cultural_list:" "{cultural_skills}"
+
+    # NOTE: Please put properties of JSON enclosed in double quotes.
+
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    # '''
+
     prompt = f'''
-    "TITLE:" {test_title};
+        "TITLE:" {test_title};
 
-    "DESCRIPTION:" {test_description};
+        "DESCRIPTION:" {test_description};
 
-    "CONVERSATION:" {conversation};
+        "CONVERSATION:" {conversation};
 
-    "Evaluation Criteria:"
-    - Relevance: Does the answers directly address the questions in the conversation?
-    - Accuracy: Is the information in the answers correct?
-    - Completeness: Does the answers provide a comprehensive response to the questions?
-    - Clarity: Are the answers well-written and easy to understand?
+        "Evaluation Criteria:"
+        - Hierarchy:  Does the conversation look like the participants have strict hierarchical relationship (highest score of 10) or casual professional relationship ( scores 0)?
+        - Consensual: Does the conversation looks like the respondents have respect for boundary and empathy? ( High yes score 10 and the low is 0) 
+        - Indirect negative feedback: Do the participants provide a subtle feedback or a blunt feedback? (Subtle feedback is 10 and blunt feedback is 0)
+        - Relationship-based: Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (scores 0)?    
+        - High context communication:  Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (scores 10)? 
+        - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?  
+        - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)? 
 
-    "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+        "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
 
-    "cultural_list:" "{cultural_skills}"
+        "cultural_list:" "{cultural_skills}"
 
-    NOTE: Please put properties of JSON enclosed in double quotes.
+        NOTE: Please put properties of JSON enclosed in double quotes.
 
-    Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+        Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship-based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+        NOTE: Do not add any English language sentence in the output.
+
     '''
 
     is_evaluated = True

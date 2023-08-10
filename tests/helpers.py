@@ -639,6 +639,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
@@ -816,6 +818,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
@@ -824,6 +828,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
@@ -1219,13 +1225,13 @@ def update_skills_rating_if_same_scores(skills_rating):
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > (total_skills / 2):
-            # Increment half the skills by 1 and other half decrement by 1
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    skills_rating[skill] = skills_rating[skill] + 1
+                    skills_rating[skill] = skills_rating[skill] + 0.5   # changed 1 to 0.5 aug
                 else:
-                    skills_rating[skill] = skills_rating[skill] - 1
+                    skills_rating[skill] = skills_rating[skill] - 0.5
 
                 if skills_rating[skill] < 0:
                     skills_rating[skill] = 0
@@ -1261,13 +1267,13 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > len(cultural_skills) / 2:
-            # Increment half the skills by 1 and other half decrement by 1
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] + 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
                 else:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] - 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
 
                 if culture_skills_rating[skill] < 0:
                     culture_skills_rating[skill] = 0
@@ -1407,6 +1413,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     return culture_skills_rating
 
