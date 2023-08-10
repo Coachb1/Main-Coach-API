@@ -1161,7 +1161,10 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        last_5_sessions_avg_score += session.avg_score
+        try:
+            last_5_sessions_avg_score += session.avg_score
+        except:
+            pass
 
     last_5_sessions_avg_score = last_5_sessions_avg_score / 5
 
