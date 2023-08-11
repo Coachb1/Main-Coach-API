@@ -260,18 +260,34 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
+    # prompt = f'''
+    # "Objective:" {objective};
+
+    # "Conversation:" {conversation};
+
+    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+
+    # "cultural_list:" "{cultural_skills}"
+
+    # Please put properties of JSON enclosed in double quotes.
+
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    # '''
+
     prompt = f'''
     "Objective:" {objective};
 
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
 
     "cultural_list:" "{cultural_skills}"
 
     Please put properties of JSON enclosed in double quotes.
 
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+    NOTE: Do not add any English language sentence in the output.
     '''
 
     response = None
@@ -343,12 +359,28 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
         skills_to_evaluate, str) else skills_to_evaluate
 
+    # prompt = f'''
+    # "Objective:" {objective};
+
+    # "Conversation:" {conversation};
+
+    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+
+    # "skills_list:" "{skills_to_evaluate}"
+
+    # Please put properties of JSON enclosed in double quotes.
+
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+    # NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
+    # '''
+
     prompt = f'''
     "Objective:" {objective};
 
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
 
     "skills_list:" "{skills_to_evaluate}"
 
@@ -357,7 +389,10 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
 
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
-    '''
+
+    NOTE: For the entire conversation no two skills from can have exact same scores.
+
+    NOTE: Do not add any English language sentence in the output.'''
 
     response = None
     is_evaluated = True
