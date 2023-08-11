@@ -57,6 +57,7 @@ who has just asked some question to which the candidate responds with the above
 and also ask a question to further explore their skills and knowledge in this domain. 
 Please make sure to provide elaborate feedback and it should be intertwined 
 with the question in a way that creates a cohesive conversation.
+NOTE: Do not show word count.(Eg: 50 words)
 """
 
 
