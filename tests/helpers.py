@@ -50,7 +50,8 @@ from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
 from nltk.tokenize import word_tokenize
-
+import nltk
+nltk.download('punkt')
 
 logger = logging.getLogger(__name__)
 
