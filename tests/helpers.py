@@ -12,7 +12,7 @@ from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import sent_tokenize
 from rest_framework import serializers
 
 import settings
@@ -49,6 +49,8 @@ from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
+from nltk.tokenize import word_tokenize
+
 import nltk
 
 nltk.download('punkt')
@@ -498,7 +500,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "manager_quotient_percentile": 0.0,
                     "aggregate_fluency_percentage": 75.0,
                     "leadership_quotient_percentile": 0.0,
-                    "aggregate_confidence_percentage": 55.0
+                    "aggregate_confidence_percentage": 55.0,
+                    "power_word_percentage": '70%',
+                    "filler_word_percentage": "50%",
+                    "fluency_percentage": "50%"
                 }
 
             update_fields.append("speech_metrics")
@@ -537,58 +542,69 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 350)
+
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text
+    go_for_feedback = True
 
-    if not anthropic_feedback:
+    words = word_tokenize(test_question_response.response_text)
 
-        max_retry = 3
+    if len(words) <= 5 :
+        feedback_text = "No feedback can be generated because of too low response length"
+        go_for_feedback = False
+        updated_response_text = test_question_response.response_text + "\n" + "System message :The response length is too low for processing"
+    
+    if go_for_feedback:
+        anthropic_feedback = anthropic_completion(prompt, 350)
 
-        while max_retry > 0:
-            num_tokens = num_tokens_for_prompt(response_text)
-            sentences = sent_tokenize(response_text)
-            if num_tokens < 1500:
-                break
-            else:
-                response_text = " ".join(sentences[:-1])
-                if test.is_email_type:
-                    prompt = get_email_type_prompt(
-                        test_title=test.title,
-                        test_description=test.description,
-                        question=question.question,
-                        candidate_reply=test_question_response.response_text)
+        if not anthropic_feedback:
 
+            max_retry = 3
+
+            while max_retry > 0:
+                num_tokens = num_tokens_for_prompt(response_text)
+                sentences = sent_tokenize(response_text)
+                if num_tokens < 1500:
+                    break
                 else:
-                    if question.gpt_prompt_override or test.gpt_prompt_override:
-                        prompt = get_overridden_prompt(
-                            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    response_text = " ".join(sentences[:-1])
+                    if test.is_email_type:
+                        prompt = get_email_type_prompt(
                             test_title=test.title,
                             test_description=test.description,
                             question=question.question,
-                            question_context=question.subjective_answer,
-                            candidate_reply=response_text
-                        )
+                            candidate_reply=test_question_response.response_text)
+
                     else:
-                        prompt = get_chat_conversation_prompt_v3(
-                            test_title=test.title,
-                            test_description=test.description,
-                            question=question.question,
-                            question_context=question.subjective_answer,
-                            candidate_reply=response_text)
+                        if question.gpt_prompt_override or test.gpt_prompt_override:
+                            prompt = get_overridden_prompt(
+                                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                question_context=question.subjective_answer,
+                                candidate_reply=response_text
+                            )
+                        else:
+                            prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                question_context=question.subjective_answer,
+                                candidate_reply=response_text)
 
-            max_retry -= 1
+                max_retry -= 1
 
-        gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
-        if not gpt_feedback.text:
-            feedback_text = "Feedback couldn't be generated"
+            gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
+            if not gpt_feedback.text:
+                feedback_text = "Feedback couldn't be generated"
+            else:
+                feedback_text = gpt_feedback.text
+                raw_text = gpt_feedback.raw
+
         else:
-            feedback_text = gpt_feedback.text
-            raw_text = gpt_feedback.raw
-
-    else:
-        feedback_text = anthropic_feedback
+            feedback_text = anthropic_feedback
 
     test_question_response.metadata = {
         "gpt": {
@@ -620,6 +636,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test.description,
         test.title
     )
+    
+    if len(words) <=5:
+        test_question_response.response_text = updated_response_text
+        test_question_response.save(
+        update_fields=["response_text"])
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -642,6 +663,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
@@ -819,6 +842,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
@@ -827,6 +852,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
@@ -1164,7 +1191,10 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        last_5_sessions_avg_score += session.avg_score
+        try:
+            last_5_sessions_avg_score += session.avg_score
+        except:
+            pass
 
     last_5_sessions_avg_score = last_5_sessions_avg_score / 5
 
@@ -1221,14 +1251,15 @@ def update_skills_rating_if_same_scores(skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) > (total_skills / 2):
-            # Increment half the skills by 1 and other half decrement by 1
+        if len(scores_frequency[score]) > 1:
+            random.shuffle(scores_frequency[score])  # Randomly shuffle skills with same score
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    skills_rating[skill] = skills_rating[skill] + 1
-                else:
-                    skills_rating[skill] = skills_rating[skill] - 1
+                    skills_rating[skill] = skills_rating[skill] + 0.5   # changed 1 to 0.5 aug
+                elif i > len(scores_frequency[score]) / 2:
+                    skills_rating[skill] = skills_rating[skill] - 0.5
 
                 if skills_rating[skill] < 0:
                     skills_rating[skill] = 0
@@ -1264,13 +1295,13 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > len(cultural_skills) / 2:
-            # Increment half the skills by 1 and other half decrement by 1
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] + 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
                 else:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] - 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
 
                 if culture_skills_rating[skill] < 0:
                     culture_skills_rating[skill] = 0
@@ -1410,6 +1441,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     return culture_skills_rating
 
@@ -1435,6 +1468,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
             4) Generate a sample candidate answer response. - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
+            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
             """
         )
         return template.substitute(test_title=test_title,
@@ -1457,6 +1492,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
             4) Generate a sample candidate answer response. - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
+            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
             """
         )
         return template.substitute(test_title=test_title,
@@ -1531,6 +1568,8 @@ def get_email_type_prompt(test_title,
         3) Generate a sample re-written email. - 80 words minimum
 
         NOTE: The total number of words should not be more than 200 words.
+        NOTE: Do not show word count.(Eg: 50 words)
+        NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
         """
     )
 
@@ -1563,6 +1602,8 @@ def get_overridden_prompt(prompt_template: str,
             4) Generate a sample candidate answer response. - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
+            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
             """
         )
         return template.substitute(test_title=test_title,
@@ -1587,6 +1628,8 @@ def get_overridden_prompt(prompt_template: str,
             4) Generate a sample candidate answer response. - 50 words minimum
 
             NOTE: The total number of words should not be more than 150 words.
+            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
             """
         )
         return template.substitute(test_title=test_title,
