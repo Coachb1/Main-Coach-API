@@ -12,7 +12,7 @@ from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-from nltk.tokenize import sent_tokenize
+from nltk.tokenize import sent_tokenize, word_tokenize
 from rest_framework import serializers
 
 import settings
@@ -49,6 +49,9 @@ from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
+import nltk
+
+nltk.download('punkt')
 
 logger = logging.getLogger(__name__)
 
