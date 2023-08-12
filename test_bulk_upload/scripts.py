@@ -73,7 +73,10 @@ def format_test_orchestrated_conversation(raw_data):
             check_pass = True
 
         skills_list = input_dict[SKILLS_TO_EVALUATE]
-        skills_list = skills_list.split(',')
+        skills_list_temp = []
+        for s in skills_list.split(','):
+            skills_list_temp.append(s.strip().capitalize())
+        skills_list = skills_list_temp
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
