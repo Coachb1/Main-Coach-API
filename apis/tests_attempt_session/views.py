@@ -15,6 +15,7 @@ from pdf_generator.helpers import get_report_from_test_attempt_session
 from tests.models import TestAttemptSession
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
+from tests.choices import TestAttemptSessionStatusChoices
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -85,4 +86,22 @@ class TestAttemptSessionViewSet(ApiViewSet,
         data = get_skills_tracker_data(participant_id)
         
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+    
+    @action(methods=["GET","POST"], detail=False, url_path="cancel-test-sessions")
+    def cancel_prev_sessions(self, request, *args, **kwargs):
+        participant_id = request.data.get("user_id")
+
+        # Filter the test_attempt_session with the given participant_id 
+        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.in_progress)
+
+        cancel_count = 0
+        try:
+            for test_attempt_session in test_attempt_sessions:
+                test_attempt_session.status = TestAttemptSessionStatusChoices.cancelled
+                test_attempt_session.save(update_fields=['status'])
+                cancel_count += 1
+        except:
+            pass
+
+        return Response({"status": "cancelled","message":f"{cancel_count} sessions cancelled.","cancelled_session": cancel_count}, status=status.HTTP_200_OK)
 
