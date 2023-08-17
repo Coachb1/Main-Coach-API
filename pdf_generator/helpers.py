@@ -427,11 +427,11 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
             tenant_id=test_attempt_session.tenant_id).custom_rating
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     if only_data:

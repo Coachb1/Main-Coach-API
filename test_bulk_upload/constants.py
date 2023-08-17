@@ -78,7 +78,7 @@ class ManagerSkills:
 
     PARTNERSHIP = {
         "Collaboration": "Collaboration is the ability to work together with others to achieve a common goal. It includes working harmoniously with others, leveraging diverse perspectives, and combining efforts effectively.",
-        "Accountable": "Being accountable as a new manager means taking responsibility for your actions and those of your team. You must create an environment where your direct reports understand that taking ownership of tasks and follow through is expected and rewarded. When problems or errors do arise within the team, demonstrate accountability by owning the issue, communicating it with transparency to stakeholders, and working to resolve it in a timely manner. An accountable manager inspires responsibility in others through both words and actions. Make it normal practice to never assign blame but rather view challenges as opportunities for the whole team to improve their systems and processes going forward. Accountability will build trust with your team and those you report to, showing that as a new manager you can be relied upon to achieve goals and deliver results.",
+        "Accountable": "Being accountable involves taking ownership, responsibly addressing challenges, and transparently delivering on commitments, fostering trust and results.",
         "Improve lives around you": "Proactively seek out opportunities to have a positive impact on others through acts of service, mentorship, or community leadership.",
         "Negotiation": "Negotiation skills are the ability to reach an agreement that is mutually beneficial.",
     }
@@ -94,7 +94,7 @@ class ManagerSkills:
         "Empathy": "Empathy is the ability to understand and share the feelings of others. It is the capacity to understand perspectives of others, promoting compassion and strong interpersonal connections.",
         "Decisiveness": "Decisiveness is the ability to make decisions quickly and effectively. It is the skill of making well-considered and timely choices, crucial for effective leadership and problem-solving.",
         "Self Assurance": "Project confidence in your abilities and decisions; willing to take calculated risks and responsibility for outcomes.",
-        "Clarity and Concision": "As a new manager, clarity and conciseness in your communication will be essential skills to develop. Your team will look to you for guidance and direction on priorities, responsibilities, and expectations. You must be able to clearly articulate goals, assign tasks, and provide feedback in a straightforward yet succinct manner. Avoid wordiness, vagueness, and ambiguous language. Edit your communications to be as brief as possible while still getting your entire intended message across. Identify the most important points and structure your discussions around those. Practice distilling complex ideas into their essential elements. Ask others to provide feedback on whether your instructions and explanations are easy to comprehend and follow. With clarity and conciseness in your role as a new manager, you will communicate most efficiently and effectively with your team, ensuring common understanding and proper execution of your directives.",
+        "Clarity and Concision": "Clarity and concision is the ability to communicate information clearly and precisely, focusing on essential points while avoiding unnecessary complexity or ambiguity.",
     }
 
 
