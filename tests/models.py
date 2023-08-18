@@ -156,7 +156,7 @@ class TestQuestionResponse(TenantAwareModel):
     avg_score = models.FloatField(null=True, blank=True, default=None)
     speech_metrics = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
-
+    relevance = models.BooleanField(null=True, blank=True, default=True )
     class Meta:
         db_table = "test_question_response"
 
