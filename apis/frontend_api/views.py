@@ -53,6 +53,16 @@ class FrontendAuthViewSet(ApiViewSet):
             skills = leaderboard_serializer.validated_data["skills"]
 
             url = f"{url}?skills={','.join(skills)}&backend={BACKEND}"
+        
+        elif report_type == ReportType.SUMMARY_LEADERBOARD_REPORT:
+            leaderboard_serializer = FrontendLeaderboardReportSerializer(
+                data=request.data)
+
+            leaderboard_serializer.is_valid(raise_exception=True)
+
+            skills = leaderboard_serializer.validated_data["skills"]
+
+            url = f"{url}?skills={','.join(skills)}&backend={BACKEND}"
 
         elif report_type == ReportType.CANDIDATE_REPORT:
             candidate_serializer = FrontendCandidateReportSerializer(
