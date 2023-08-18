@@ -8,4 +8,6 @@ class ReportType:
     ASKING_GREAT_QUESTIONS_REPORT = "askingGreatQuestionsReport"
     SKILLS_TRACKER_REPORT = 'skillsTrackerReport'
     SKILLS_DISCOVERY_REPORT = 'skillsDiscoveryReport'
+    SUMMARY_LEADERBOARD_REPORT = "summaryPLBReport"
+
 
