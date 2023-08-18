@@ -648,6 +648,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         raise ValueError("failed to get skills_rating json for %s",
                          test_question_response.uid)
 
+    relevance = 1
+    if "relevance" in skills_rating:
+        relevance = int(skills_rating['relevance'])  # taking relevance and deleting it form json
+        del skills_rating['relevance']
+ 
+
     # Removing the skills which are not required in the question
     _to_be_deleted = []
     for key in skills_rating.keys():
@@ -684,7 +690,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # Save skills rating and average score in TestQuestionResponse
     test_question_response.skills_rating = skills_rating
     test_question_response.avg_score = response_avg_score
-    test_question_response.save(update_fields=["skills_rating", "avg_score"])
+    test_question_response.relevance = relevance
+    test_question_response.save(update_fields=["skills_rating", "avg_score","relevance"])
 
     # def __calc_score_in_different_thread():
     #     # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -1459,7 +1466,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Expert Suggestions:  ${question_context} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
@@ -1467,7 +1474,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
+            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1491,7 +1499,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
+            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1568,6 +1577,7 @@ def get_email_type_prompt(test_title,
         NOTE: The total number of words should not be more than 200 words.
         NOTE: Do not show word count.(Eg: 50 words)
         NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
+        NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
         """
     )
 
@@ -1601,7 +1611,8 @@ def get_overridden_prompt(prompt_template: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
+            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.            
             """
         )
         return template.substitute(test_title=test_title,
@@ -1627,7 +1638,8 @@ def get_overridden_prompt(prompt_template: str,
 
             NOTE: The total number of words should not be more than 150 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
+            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
             """
         )
         return template.substitute(test_title=test_title,
