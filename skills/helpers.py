@@ -1,6 +1,7 @@
 import json
 import random
 import time
+import logging
 
 from django.utils.text import slugify
 
@@ -12,7 +13,10 @@ from users.db import get_user_display_name
 from users.models import User
 
 
-def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title):
+logger = logging.getLogger(__name__)
+
+
+def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title, test_code, session_id):
     # prompt = f'''
     # "TITLE:" {test_title};
 
@@ -121,6 +125,16 @@ def evaluate_response(test_question_response, question_text, response_text, skil
             time.sleep(1)
             continue
 
+    try:
+        logger.info({
+            'message': '#### Got Skills Rating for session ###',
+            'SESSION_ID': session_id,
+            'TEST_CODE': test_code,
+            'SKILLS_Rating': response
+            })
+    except:
+        pass
+
     if is_evaluated:
         return response, is_evaluated
 
@@ -137,7 +151,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     return response, True
 
 
-def evaluate_conversation(test_attempt_session, conversation, test_title, test_description):
+def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -215,6 +229,16 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             time.sleep(1)
             continue
 
+    try:
+        logger.info({
+                    'message': '#### Got culture Rating from anthropic ###',
+                    'SESSION_ID': test_attempt_session.uid,
+                    'TEST_CODE': test_code,
+                    'CULTURE_SKILLS': response
+                    })
+    except Exception as e:
+        pass
+
     if is_evaluated:
         return response, is_evaluated
 
@@ -242,6 +266,16 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             time.sleep(1)
             continue
 
+    try:
+        logger.info({
+                    'message': '#### Got culture Rating from open ai after angropic failed ###',
+                    'SESSION_ID': test_attempt_session.uid,
+                    'TEST_CODE': test_code,
+                    'CULTURE_SKILLS': response
+                    })
+    except Exception as e:
+        pass
+
     if is_evaluated:
         return response, is_evaluated
 
@@ -258,7 +292,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     return response, True
 
 
-def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective):
+def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code):
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
@@ -313,6 +347,17 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
             time.sleep(1)
             continue
+
+    try:
+        logger.info({
+                    'message': '#### Got culture Rating for session ###',
+                    'SESSION_ID': test_attempt_session.uid,
+                    'TEST_CODE': test_code,
+                    'CULTURE_rating': response
+                    })
+    except Exception as e:
+        pass
+        
 
     if is_evaluated:
         return response
