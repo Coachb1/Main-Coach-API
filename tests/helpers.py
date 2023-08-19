@@ -638,7 +638,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test_question_response.response_text,
         required_skills,
         test.description,
-        test.title
+        test.title,
+        test.test_code,
+        test_attempt_session.uid
     )
     
     if len(words) <=5:
@@ -847,7 +849,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
+
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
@@ -1443,7 +1446,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     # Evaluate conversation
     culture_skills_rating, is_evaluated = evaluate_conversation(
-        test_attempt_session, conversation, test.title, test.description)
+        test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
         return None
