@@ -52,6 +52,8 @@ from web_auth.helpers import create_new_tokens
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
+import pytz
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -271,12 +273,16 @@ def create_test_question_answer_session(tenant: Tenant,
             "failed to create session, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
+    timezone = pytz.timezone("Asia/Kolkata")
+    now = datetime.datetime.now(timezone)
+    
     test_attempt_session = TestAttemptSession.objects.create(
         tenant_id=tenant.uid,
         test_id=test_id,
         participant_id=participant_id,
         test_invite_id=test_invite_id,
-        started_at=timezone.now(),
+        started_at=now,
+        expires_at=now + datetime.timedelta(minutes=30),
         is_checkin_type=test.is_checkin_type
     )
 
