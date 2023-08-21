@@ -2,6 +2,7 @@ from rest_framework import mixins
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+import logging
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
@@ -15,6 +16,11 @@ from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
 from users.models import User
 
+
+from identities.models import Identity
+from users.models import User
+
+logger = logging.getLogger(__name__)
 
 class AccountsViewSet(ApiViewSet,
                       mixins.ListModelMixin):
@@ -33,10 +39,29 @@ class AccountsViewSet(ApiViewSet,
         user_context = serializer.validated_data["user_context"]
         identity_context = serializer.validated_data["identity_context"]
 
-        user = create_user_account(tenant=request.tenant,
-                                   user_context=UserCreateContextDto(
-                                       **user_context),
-                                   identity_context=IdentityCreateContextDto(**identity_context))
+
+        try:
+            i_context=IdentityCreateContextDto(**identity_context)
+
+            identity = Identity.objects.get(
+                tenant_id=request.tenant.uid,
+                identity_type=i_context.identity_type,
+                value=i_context.value,
+                deleted=0
+                )
+
+            user = User.objects.get(
+                tenant_id=request.tenant.uid,
+                uid=identity.user_id,
+                deleted=0
+            )
+            logger.info("got user")
+        except Exception as e:
+            logger.info("creating user")
+            user = create_user_account(tenant=request.tenant,
+                                user_context=UserCreateContextDto(
+                                    **user_context),
+                                identity_context=IdentityCreateContextDto(**identity_context))
 
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_201_CREATED)
 
