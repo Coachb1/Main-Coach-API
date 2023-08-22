@@ -1491,7 +1491,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
             """
         )
