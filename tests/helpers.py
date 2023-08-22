@@ -52,6 +52,8 @@ from web_auth.helpers import create_new_tokens
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
+import pytz
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -271,12 +273,16 @@ def create_test_question_answer_session(tenant: Tenant,
             "failed to create session, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
+    timezone = pytz.timezone("Asia/Kolkata")
+    now = datetime.datetime.now(timezone)
+    
     test_attempt_session = TestAttemptSession.objects.create(
         tenant_id=tenant.uid,
         test_id=test_id,
         participant_id=participant_id,
         test_invite_id=test_invite_id,
-        started_at=timezone.now(),
+        started_at=now,
+        expires_at=now + datetime.timedelta(minutes=30),
         is_checkin_type=test.is_checkin_type
     )
 
@@ -631,7 +637,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test_question_response.response_text,
         required_skills,
         test.description,
-        test.title
+        test.title,
+        test.test_code,
+        test_attempt_session.uid
     )
     
 
@@ -836,7 +844,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
+
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
@@ -1191,7 +1200,10 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        last_5_sessions_avg_score += session.avg_score
+        try:
+            last_5_sessions_avg_score += session.avg_score
+        except:
+            pass
 
     last_5_sessions_avg_score = last_5_sessions_avg_score / 5
 
@@ -1429,7 +1441,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     # Evaluate conversation
     culture_skills_rating, is_evaluated = evaluate_conversation(
-        test_attempt_session, conversation, test.title, test.description)
+        test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
         return None

@@ -154,11 +154,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             speech_metrics = participant_response.speech_metrics
 
             # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
+            # speech_metrics = {k: v for k, v in speech_metrics.items(
+            # ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
+            #            'filler_words_score', 'volume', 'silence_number']}
+            # speech_metrics = {k: f"{((v/10)*100)}%" if k in [
+            #     'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+
+            # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
             speech_metrics = {k: v for k, v in speech_metrics.items(
-            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
-                       'filler_words_score', 'volume', 'silence_number']}
-            speech_metrics = {k: f"{((v/10)*100)}%" if k in [
-                'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+            ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
 
             # Convert the Keys to human readable format
             speech_metrics = {k.replace("_", " ").title(
@@ -289,11 +293,11 @@ def get_participant_report(user, only_data=False):
             tenant_id=user.tenant_id, deleted=0).custom_rating
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     if only_data:
@@ -349,11 +353,11 @@ def get_leaderboard_report(skills, tenant_id, only_data=False):
 
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     # TODO: Placeholder logic: To be removed soon
@@ -436,11 +440,11 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
             tenant_id=test_attempt_session.tenant_id).custom_rating
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     if only_data:
