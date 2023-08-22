@@ -194,13 +194,14 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?  
         - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)? 
 
-        "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
-
+        "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
         "cultural_list:" "{cultural_skills}"
 
         NOTE: Please put properties of JSON enclosed in double quotes.
 
         Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship-based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+        NOTE: For the entire conversation no two skills from {cultural_skills} can have exact same scores.
 
         NOTE: Do not add any English language sentence in the output.
 
