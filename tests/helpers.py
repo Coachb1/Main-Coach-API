@@ -551,7 +551,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     if len(words) <= 5 :
         feedback_text = "No feedback can be generated because of too low response length"
         go_for_feedback = False
-        updated_response_text = test_question_response.response_text + "\n" + "System message :The response length is too low for processing"
     
     if go_for_feedback:
         anthropic_feedback = anthropic_completion(prompt, 350)
@@ -635,10 +634,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test.title
     )
     
-    if len(words) <=5:
-        test_question_response.response_text = updated_response_text
-        test_question_response.save(
-        update_fields=["response_text"])
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -1471,8 +1466,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1497,7 +1492,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
             NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1573,8 +1568,8 @@ def get_email_type_prompt(test_title,
 
         NOTE: The total number of words should not be more than 200 words.
         NOTE: Do not show word count.(Eg: 50 words)
-        NOTE : If the "Candidate answer:" has more than 5 words but less than 25 words, ONLY THEN add this line after the feedback : "Warning: Very short responses are unrealistic and may lead to poor quality feedback"
-        NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
+        NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
+        NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback. 
         """
     )
 
@@ -1608,8 +1603,8 @@ def get_overridden_prompt(prompt_template: str,
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.            
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1635,8 +1630,8 @@ def get_overridden_prompt(prompt_template: str,
 
             NOTE: The total number of words should not be more than 150 words.
             NOTE: Do not show word count.(Eg: 50 words)
-            NOTE : In cases where the "Candidate answer" consists of more than 5 words but fewer than 25 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, DO Not give feedback just give this warning: "NO FEEDBACK DUE TO POOR RELEVANCE OF THE ANSWER". No additional text should be added.
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
