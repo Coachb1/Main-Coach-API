@@ -31,7 +31,7 @@ from settings import BACKEND
 from settings import FRONTEND_BASE_URL
 from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
-    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -673,8 +673,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         elif skills_rating[skill] < 1.5:
             skills_rating[skill] = 1.5
 
-    skills_rating = update_skills_rating_if_same_scores(skills_rating)
-
     # Calculating the average score of the response
     response_avg_score = 0
     skills_count = 0
@@ -1070,13 +1068,13 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         if response.skills_rating is None:
             continue
 
-        # get skills rating from this response
-        response_skills_rating = response.skills_rating
-        response_avg_score = response.avg_score
+        # # get skills rating from this response
+        # response_skills_rating = response.skills_rating
+        # response_avg_score = response.avg_score
 
-        if response_avg_score:
-            avg_score += response_avg_score
-            response_count += 1
+        # if response_avg_score:
+        #     avg_score += response_avg_score
+        #     response_count += 1
 
         if response.speech_metrics:
             has_speech_metric = True
@@ -1089,15 +1087,37 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
                 else:
                     speech_score[skill] = response_speech_metrics[skill] or random.randint(3, 7)
 
-        for skill in response_skills_rating:
-            if skill in skills_rating:
-                skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
-                skills_count[skill] += 1
-            else:
-                skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
-                skills_count[skill] = 1
+        # for skill in response_skills_rating:
+        #     if skill in skills_rating:
+        #         skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
+        #         skills_count[skill] += 1
+        #     else:
+        #         skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
+        #         skills_count[skill] = 1
 
         attempted_count += 1
+    # skill_ = []
+    # for skill in skills:
+    #     skill_.append(skill['name'])
+
+    questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
+    skills_=[]
+    for question in questions:
+        required_skills = question.key_learning_skills.split(",")
+        required_skills = [skill.strip() for skill in required_skills if skill]
+        required_skills = [skill.lower() for skill in required_skills if skill]
+        for s in required_skills:
+            skills_.append(s)
+
+
+    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_)
+    for skill in response_skills_rating:
+        if skill in skills_rating:
+            skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] += 1
+        else:
+            skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] = 1
 
     skills_rating_score = {}
     test_score = 0
@@ -1106,18 +1126,29 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+
+    # Calculating the average score of the response
+    avg_score = 0
+    response_count = 0
+    for skill in skills_rating_score:
+        if isinstance(skills_rating_score[skill], str):
+            continue
+
+        avg_score += skills_rating_score[skill] or random.randint(3, 7)
+        response_count += 1
+
     if response_count == 0:
         avg_score = 0
     else:
         avg_score = avg_score / response_count
 
-    skills_rating_score, avg_score = increment_avg_score_in_percentages(
-        skills_rating_score, avg_score, participant_id, test_attempt_session)
 
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
-
+    skills_rating_score, avg_score = increment_avg_score_in_percentages(
+        skills_rating_score, avg_score, participant_id, test_attempt_session)
     culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
@@ -1210,17 +1241,28 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = min(total_successful_sessions_count * 2, 20)
-    # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
+    increase_by_percent = min(total_successful_sessions_count, 10)
+    # 1 -> 1%, 2 -> 2%, 3 -> 3%, 4 -> 4%, 5 -> 5%, 6 -> 6%, 7 -> 7%, 8 -> 8%, 9 -> 9%, 10 -> 10%, 11 -> 10%, 12 -> 10%, 13 -> 10%, 14 -> 10%, 15 -> 10%, 16 -> 10%, 17 -> 10%, 18 -> 10%, 19 -> 10%, 20 -> 10%
 
+    # for skill in skills_rating:
+    #     skills_rating[skill] = skills_rating[skill] + \
+    #                            (skills_rating[skill] * increase_by_percent / 100)
+
+    #     skills_rating[skill] = min(10, skills_rating[skill])
+    #     skills_rating[skill] = round_off_rating(skills_rating[skill])
+
+    # avg_score = avg_score + (avg_score * increase_by_percent / 100)
+    # avg_score = round_off_rating(avg_score)
+    # avg_score = min(10.0, avg_score)
     for skill in skills_rating:
-        skills_rating[skill] = skills_rating[skill] + \
-                               (skills_rating[skill] * increase_by_percent / 100)
-
-        skills_rating[skill] = min(10, skills_rating[skill])
-        skills_rating[skill] = round_off_rating(skills_rating[skill])
-
-    avg_score = avg_score + (avg_score * increase_by_percent / 100)
+        if skills_rating[skill] < 6:
+            increase_factor = 1 + (skills_rating[skill] / 10) * (increase_by_percent / 100)
+            skills_rating[skill] *= increase_factor
+            skills_rating[skill] = min(10, skills_rating[skill])
+            skills_rating[skill] = round_off_rating(skills_rating[skill])
+    
+    increase_factor_avg = 1 + (avg_score / 10) * (increase_by_percent / 100)
+    avg_score *= increase_factor_avg
     avg_score = round_off_rating(avg_score)
     avg_score = min(10.0, avg_score)
 
@@ -1266,9 +1308,18 @@ def update_skills_rating_if_same_scores(skills_rating):
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    skills_rating[skill] = skills_rating[skill] + 0.5   # changed 1 to 0.5 aug
+                    if i < i/2:
+                        skills_rating[skill] = skills_rating[skill] + 0.75   # changed 1 to 0.75 aug
+                    else:
+                        skills_rating[skill] = skills_rating[skill] - 0.75   
+
                 elif i > len(scores_frequency[score]) / 2:
-                    skills_rating[skill] = skills_rating[skill] - 0.5
+                    if i > i/2:
+                        skills_rating[skill] = skills_rating[skill] + 0.25   # changed 1 to 0.25 aug
+                    else:
+                        skills_rating[skill] = skills_rating[skill] - 0.25   
+
+                    # skills_rating[skill] = skills_rating[skill] - 0.5
 
                 if skills_rating[skill] < 0:
                     skills_rating[skill] = 0
@@ -1276,10 +1327,10 @@ def update_skills_rating_if_same_scores(skills_rating):
                 if skills_rating[skill] > 10:
                     skills_rating[skill] = 10
 
-    # If the score is greater than 9 then trim it to 9
-    for skill in skills_rating:
-        if skills_rating[skill] > 9:
-            skills_rating[skill] = 9
+    # # If the score is greater than 9 then trim it to 9
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 9:
+    #         skills_rating[skill] = 9
 
     return skills_rating
 
@@ -1455,7 +1506,36 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     return culture_skills_rating
 
+def calc_skills_rating(test_attempt_session, responses, test,skills):
+    skills_rating = {}
 
+    conversation = ""
+    count = 1
+
+    for response in responses:
+
+        question = TestQuestion.objects.get(
+            uid=response.question_id)
+
+        question_text = question.question
+        response_text = response.response_text
+
+        conversation += f"{count}. [Question:] {question_text}\n"
+        if not question.is_view_only:
+            conversation += f"[Answer:] {response_text}\n\n"
+
+        count += 1
+
+    # Evaluate conversation
+    skills_rating, is_evaluated = evaluate_response_skill(
+        test_attempt_session, conversation, test.title, test.description, test.test_code,skills)
+
+    if not is_evaluated:
+        return None
+
+    return skills_rating
+
+    
 def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description: str,
                                     question: str,

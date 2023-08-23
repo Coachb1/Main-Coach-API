@@ -150,6 +150,147 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     return response, True
 
+def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills):
+    skills_rating =skills
+
+    # prompt = f'''
+    # "TITLE:" {test_title};
+
+    # "DESCRIPTION:" {test_description};
+
+    # "CONVERSATION:" {conversation};
+
+    # "Evaluation Criteria:"
+    # - Relevance: Does the answers directly address the questions in the conversation?
+    # - Accuracy: Is the information in the answers correct?
+    # - Completeness: Does the answers provide a comprehensive response to the questions?
+    # - Clarity: Are the answers well-written and easy to understand?
+
+    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+
+    # "cultural_list:" "{skills_rating}"
+
+    # NOTE: Please put properties of JSON enclosed in double quotes.
+
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    # '''
+
+    prompt = f'''
+        "TITLE:" {test_title};
+
+        "DESCRIPTION:" {test_description};
+
+        "CONVERSATION:" {conversation};
+
+        "Evaluation Criteria:"
+
+        - Relevance: Does the answer directly address the question?
+
+        - Accuracy: Is the information in the answer correct?
+
+        - Completeness: Does the answer provide a comprehensive response to the question?
+
+        - Clarity: Is the answer well-written and easy to understand?
+
+        "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
+
+        NOTE: Please put properties of JSON enclosed in double quotes.
+
+        NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
+
+        NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills_rating} only.
+
+        NOTE: For the entire conversation no two skills from {skills_rating} can have exact same scores.
+
+        NOTE: Do not add any English language sentence in the output.
+
+    '''
+
+    is_evaluated = True
+
+    response = {}
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            response = anthropic_completion(prompt, len(skills_rating) * 50)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    try:
+        logger.info({
+                    'message': '#### Got skill Rating from anthropic ###',
+                    'SESSION_ID': test_attempt_session.uid,
+                    'TEST_CODE': test_code,
+                    'SKILLS_RATING': response
+                    })
+    except Exception as e:
+        pass
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    response = None
+    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response:
+                response = response.split('"REPLY:"')[1].strip()
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    try:
+        logger.info({
+                    'message': '#### Got skill Rating from open ai after angropic failed ###',
+                    'SESSION_ID': test_attempt_session.uid,
+                    'TEST_CODE': test_code,
+                    'SKILLS_RATING': response
+                    })
+    except Exception as e:
+        pass
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    # HACK in case everything fails; just evaluate as a random number
+    response = {}
+    for skill in skills_rating:
+        response[skill] = random.randint(3, 7)
+
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_response_skills",
+                        "test_attempt_session": test_attempt_session.uid,
+                        "error": "failed to evaluate; putting random value"})
+
+    return response, True
+
 
 def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code):
 
