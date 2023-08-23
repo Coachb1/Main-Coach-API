@@ -1554,12 +1554,12 @@ def get_chat_conversation_prompt_v3(test_title: str,
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1579,12 +1579,12 @@ def get_chat_conversation_prompt_v3(test_title: str,
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1656,12 +1656,12 @@ def get_email_type_prompt(test_title,
         1) What went well ? - 50 words minimum
         2) What could be improved ? - 50 words minimum 
         3) Some new ideas to reframe the context - 50 words minimum
-        3) Generate a sample re-written email. - 80 words minimum
+        3) A sample re-written email. - 80 words minimum
 
         NOTE: The total number of words should not be more than 200 words.
         NOTE: Do not show word count.(Eg: 50 words)
         NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
-        NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback. 
+        NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
         """
     )
 
@@ -1691,12 +1691,12 @@ def get_overridden_prompt(prompt_template: str,
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
 
             NOTE: The total number of words should not be more than 200 words.
             NOTE: Do not show word count.(Eg: 50 words)
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1718,12 +1718,12 @@ def get_overridden_prompt(prompt_template: str,
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
 
             NOTE: The total number of words should not be more than 150 words.
             NOTE: Do not show word count.(Eg: 50 words)
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO Not give any other feedback.
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
