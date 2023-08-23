@@ -453,15 +453,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
+            # try:
+            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #         test_question_response.response_file)
+            # except:
             try:
-                test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+                test_question_response.response_text = gpt_wishper_api(
                     test_question_response.response_file)
             except:
-                try:
-                    test_question_response.response_text = gpt_wishper_api(
-                        test_question_response.response_file)
-                except:
-                    test_question_response.response_text = "Transcription couldn't be generated"
+                test_question_response.response_text = "Transcription couldn't be generated"
 
             try:
                 test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
