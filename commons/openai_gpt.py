@@ -91,7 +91,7 @@ def gpt_wishper_api(url):
             temp_file.write(audio_data)
             temp_file.seek(0)
             
-            transcription = openai.Audio.transcribe("whisper-1", temp_file)
+            transcription = openai.Audio.transcribe("whisper-1", temp_file, language="en")
             text = transcription['text']
         return text
     
