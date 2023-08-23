@@ -66,7 +66,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills} only.
 
-    NOTE: Check if the response provided is relevant to the question or irrelevant. If the response is irrelevant put "relevance" 0 otherwise 1.
+    NOTE: Check if the responses provided are somewhat relevant to the conversation or completely irrelevant. If the responses are irrelevant put "relevance" 0 otherwise 1.
 
     NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "9", "skill3": "2.5","relevance":"1"}}
 
