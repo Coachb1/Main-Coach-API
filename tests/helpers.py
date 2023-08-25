@@ -483,12 +483,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     'energy_grade': 4,
                     'fluency_grade': 5,
                     'confidence_grade': 3,
-                    'pace': 380,
+                    'pace': 150,
                     'sentiment_percentage': "30%",
                     'power_word_density': 0,
                     'filler_words_score': 0,
                     'volume': 50,
-                    'silence_number': 0,
+                    'silence_number': 1,
                     "pitch": 165.0,
                     "transcript": " The",
                     "energy_cohort": "C",
@@ -505,8 +505,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "aggregate_fluency_percentage": 75.0,
                     "leadership_quotient_percentile": 0.0,
                     "aggregate_confidence_percentage": 55.0,
-                    "power_word_percentage": '70%',
-                    "filler_word_percentage": "50%",
+                    "power_word_percentage": '20%',
+                    "filler_word_percentage": "9%",
                     "fluency_percentage": "50%"
                 }
 
