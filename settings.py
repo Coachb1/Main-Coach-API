@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "commons.ResponseMiddleware.SlackNoRetryMiddleware"
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
