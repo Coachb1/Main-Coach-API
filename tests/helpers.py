@@ -513,7 +513,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            #     test_question_response.response_file)
+            test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
             test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_video(
                 test_question_response.response_file)
@@ -749,10 +751,14 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #     test_question_response.response_file)
+            test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
         elif test.interaction_mode == InteractionModeChoices.video:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            #     test_question_response.response_file)
+            test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
 
     update_fields.extend(["evaluation_status", "updated"])
