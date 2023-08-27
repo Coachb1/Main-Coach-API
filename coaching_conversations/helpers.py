@@ -12,6 +12,7 @@ from tenants.models import Tenant
 from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
+from commons.openai_gpt import gpt_wishper_api
 
 logger = logging.getLogger(__name__)
 
@@ -129,11 +130,17 @@ def continue_coaching_conversation(tenant: Tenant,
                 "participant_message_url is absent")
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_audio(
+            # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_audio(
+            #     participant_message_url
+            # )
+            reply_to_conversation.participant_message_text = gpt_wishper_api(
                 participant_message_url
             )
         elif test.interaction_mode == InteractionModeChoices.video:
-            reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_video(
+            # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_video(
+            #     participant_message_url
+            # )
+            reply_to_conversation.participant_message_text = gpt_wishper_api(
                 participant_message_url
             )
 
