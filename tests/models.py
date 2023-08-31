@@ -33,10 +33,14 @@ class Test(TenantAwareModel):
         default=False, null=True, blank=True)
 
     is_single_bot = models.BooleanField(default=False, null=True, blank=True)
+    is_game_type = models.BooleanField(default=False, null=True, blank=True)
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
     is_learner_path = models.BooleanField(default=False, null=True, blank=True)
     is_email_type = models.BooleanField(default=False, null=True, blank=True)
     skills_to_evaluate = models.TextField(null=True, blank=True, default=None)
+    source = models.TextField(null=True, blank=True, default=None)
+    image_url = models.TextField(null=True, blank=True, default=None)
+    rating = models.TextField(null=True, blank=True, default=None)
     tedtalk_and_hbr_case = models.TextField(
         null=True, blank=True, default=None)
 
