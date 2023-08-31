@@ -116,6 +116,10 @@ def create_test(tenant: Tenant,
                 is_learner_path: bool,
                 is_email_type: bool,
                 scenario_case: str,
+                is_game_type: bool,
+                image_url: str,
+                rating : str,
+                source : str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -150,6 +154,10 @@ def create_test(tenant: Tenant,
             description_media=description_media,
             max_test_allowed=max_test_allowed,
             scenario_case=scenario_case,
+            is_game_type=is_game_type,
+            rating=rating,
+            image_url=image_url,
+            source=source,
         )
 
         test_questions = []
