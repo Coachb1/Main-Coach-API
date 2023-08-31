@@ -466,20 +466,22 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
-            try:
-                test_question_response.response_text = gpt_wishper_api(
-                    test_question_response.response_file)
-            except:
-                test_question_response.response_text = "Transcription couldn't be generated"
+            # try:
+            #     test_question_response.response_text = gpt_wishper_api(
+            #         test_question_response.response_file)
+            # except:
+            #     test_question_response.response_text = "Transcription couldn't be generated"
 
             try:
-                test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
+                speech_met = coach_metric_api.get_speech_metrics_from_audio(
                     test_question_response.response_file)
+                test_question_response.speech_metrics = speech_met
+                test_question_response.response_text = speech_met['transcript']
             except Exception as e:
                 logger.exception(e)
 
                 # HACK sane default values
-                test_question_response.speech_metrics = {
+                speech_met = {
                     'energy_grade': 4,
                     'fluency_grade': 5,
                     'confidence_grade': 3,
@@ -490,7 +492,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     'volume': 50,
                     'silence_number': 1,
                     "pitch": 165.0,
-                    "transcript": " The",
+                    "transcript": "Transcription couldn't be generated",
                     "energy_cohort": "C",
                     "silence_length": 0,
                     "people_quotient": 0.0,
@@ -510,15 +512,57 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "fluency_percentage": "50%"
                 }
 
+                test_question_response.response_text = speech_met['transcript']
+
             update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            test_question_response.response_text = gpt_wishper_api(
-                test_question_response.response_file)
-            test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_video(
-                test_question_response.response_file)
+            # test_question_response.response_text = gpt_wishper_api(
+            #     test_question_response.response_file)
+            try:
+                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                    test_question_response.response_file)
+                test_question_response.speech_metrics = speech_met_video
+                test_question_response.response_text = speech_met_video['transcript']
+
+            except Exception as e:
+                
+                logger.exception(e)
+
+                # HACK sane default values
+                speech_met_video = {
+                    'energy_grade': 4,
+                    'fluency_grade': 5,
+                    'confidence_grade': 3,
+                    'pace': 150,
+                    'sentiment_percentage': "30%",
+                    'power_word_density': 0,
+                    'filler_words_score': 0,
+                    'volume': 50,
+                    'silence_number': 1,
+                    "pitch": 165.0,
+                    "transcript": "Transcription couldn't be generated",
+                    "energy_cohort": "C",
+                    "silence_length": 0,
+                    "people_quotient": 0.0,
+                    "confidence_cohort": "C",
+                    "energy_percentage": 50,
+                    "filler_words_cohort": 0,
+                    "confidence_percentage": 55.0,
+                    "sales_quotient_percentile": 0.0,
+                    "aggregate_energy_percentage": 45.0,
+                    "learner_quotient_percentile": 0.0,
+                    "manager_quotient_percentile": 0.0,
+                    "aggregate_fluency_percentage": 75.0,
+                    "leadership_quotient_percentile": 0.0,
+                    "aggregate_confidence_percentage": 55.0,
+                    "power_word_percentage": '20%',
+                    "filler_word_percentage": "9%",
+                    "fluency_percentage": "50%"
+                }
+                test_question_response.response_text = speech_met_video['transcript']
             update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
