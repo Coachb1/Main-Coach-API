@@ -69,5 +69,5 @@ def process_orchestrated_conversation_slack_file(request):
 def get_filler_and_powerwords(request):
     response = request.GET.get('allresponse')
     power_word,fill_word = filler_power_word(response)
-    data = {"power_words": power_word,"filler_words": fill_word}
+    data = {"Power Words": list(power_word),"Filler Words": list(fill_word)}
     return JsonResponse(data)

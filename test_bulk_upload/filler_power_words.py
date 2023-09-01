@@ -39,4 +39,4 @@ def filler_power_word(response):
         if word.lower() in filler_words:
             fill_word.append(word.lower())
 
-    return power_word,fill_word
+    return set(power_word),set(fill_word)
