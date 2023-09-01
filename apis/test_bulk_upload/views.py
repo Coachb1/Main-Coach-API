@@ -5,6 +5,8 @@ from test_bulk_upload.scripts import create_test_slack, create_test_web, create_
 from .forms import UploadFileForm_slack, UploadFileForm_web
 from django.conf import settings
 import os
+from test_bulk_upload.filler_power_words import filler_power_word
+from django.http import JsonResponse
 
 
 
@@ -63,3 +65,9 @@ def process_orchestrated_conversation_slack_file(request):
             return HttpResponse(content=json.dumps(result), status=400)
         else:
             return result['file_response']
+
+def get_filler_and_powerwords(request):
+    response = request.GET.get('allresponse')
+    power_word,fill_word = filler_power_word(response)
+    data = {"Power Words": list(power_word),"Filler Words": list(fill_word)}
+    return JsonResponse(data)
