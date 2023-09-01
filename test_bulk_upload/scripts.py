@@ -65,15 +65,16 @@ def format_test_orchestrated_conversation(raw_data):
             "questions": [],
         }
 
-        if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
-            is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
+        if IS_GAME_TYPE in input_dict:
+            if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
+                is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
 
-            if is_game_type == "true":
-                output_dict['is_game_type'] = True
-            elif is_game_type == "false":
-                output_dict['is_game_type'] = False
-            else:
-                output_dict['is_game_type'] = False
+                if is_game_type == "true":
+                    output_dict['is_game_type'] = True
+                elif is_game_type == "false":
+                    output_dict['is_game_type'] = False
+                else:
+                    output_dict['is_game_type'] = False
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
@@ -257,15 +258,16 @@ def format_test_data_slack(raw_data):
             "questions": []
         }
 
-        if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
-            is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
+        if IS_GAME_TYPE in input_dict:
+            if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
+                is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
 
-            if is_game_type == "true":
-                output_dict['is_game_type'] = True
-            elif is_game_type == "false":
-                output_dict['is_game_type'] = False
-            else:
-                output_dict['is_game_type'] = False
+                if is_game_type == "true":
+                    output_dict['is_game_type'] = True
+                elif is_game_type == "false":
+                    output_dict['is_game_type'] = False
+                else:
+                    output_dict['is_game_type'] = False
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
