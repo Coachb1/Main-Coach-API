@@ -3,9 +3,6 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import pandas as pd
 import nltk
-nltk.download('punkt')
-nltk.download('stopwords')
-
 
 def filler_power_word(response):
     nltk.download('stopwords')
@@ -16,8 +13,7 @@ def filler_power_word(response):
     for w in word_tokens:
         if w not in stop_words:
             words.append(w)
-    
-    generic_power_words = pd.read_csv(("test_bulk_upload\The Power words dashboard  - Power Words.csv")).drop('Filler words', axis=1)
+    generic_power_words = pd.read_csv(r"test_bulk_upload\filler_power_word.csv").drop('Filler words', axis=1)
 
     power_words = []
 
@@ -32,7 +28,7 @@ def filler_power_word(response):
         if word.lower() in power_words:
             power_word.append(word.lower())
 
-    filler_words = pd.read_csv(("test_bulk_upload\The Power words dashboard  - Power Words.csv"))['Filler words'].dropna()
+    filler_words = pd.read_csv(r"test_bulk_upload\filler_power_word.csv")['Filler words'].dropna()
 
     filler_words = [w.lower() for w in filler_words]
 
