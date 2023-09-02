@@ -7,6 +7,7 @@ from django.conf import settings
 import os
 from test_bulk_upload.filler_power_words import filler_power_word
 from django.http import JsonResponse
+from tests.models import TestQuestionResponse
 
 
 
@@ -67,7 +68,13 @@ def process_orchestrated_conversation_slack_file(request):
             return result['file_response']
 
 def get_filler_and_powerwords(request):
-    response = request.GET.get('allresponse')
-    power_word,fill_word = filler_power_word(response)
+    interaction_session_id = request.GET.get('interaction_session_id')
+    participant_responses = TestQuestionResponse.objects.filter(
+        test_attempt_session_id=interaction_session_id)
+    allresponse = ""
+    for response in participant_responses:
+        allresponse += response.response_text + " "
+
+    power_word,fill_word = filler_power_word(allresponse)
     data = {"Power Words": list(power_word),"Filler Words": list(fill_word)}
     return JsonResponse(data)
