@@ -8,6 +8,7 @@ nltk.download('stopwords')
 
 
 def filler_power_word(response):
+    nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
     
     word_tokens = word_tokenize(response)
