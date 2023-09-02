@@ -1613,9 +1613,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
             4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
-            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
@@ -1638,9 +1640,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
             4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
-            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
@@ -1715,9 +1719,11 @@ def get_email_type_prompt(test_title,
         2) What could be improved ? - 50 words minimum 
         3) Some new ideas to reframe the context - 50 words minimum
         3) A sample re-written email. - 80 words minimum
+        4) A counter intuitive insight - 10 words minimum
 
-        NOTE: The total number of words should not be more than 200 words.
+        NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
         NOTE: Do not show word count.(Eg: 50 words)
+        NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
         NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
         NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
         """
@@ -1745,14 +1751,17 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
+            The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
             4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
-            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
@@ -1772,14 +1781,16 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template}
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
             4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 150 words.
-            NOTE: Do not show word count.(Eg: 50 words)
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
