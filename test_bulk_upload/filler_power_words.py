@@ -2,6 +2,9 @@
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import pandas as pd
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
 
 
 def filler_power_word(response):
