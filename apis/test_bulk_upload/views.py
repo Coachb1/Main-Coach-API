@@ -76,5 +76,6 @@ def get_filler_and_powerwords(request):
         allresponse += response.response_text + " "
 
     power_word,fill_word = filler_power_word(allresponse)
+
     data = {"Power Words": list(power_word),"Filler Words": list(fill_word)}
     return JsonResponse(data)
