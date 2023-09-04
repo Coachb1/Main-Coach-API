@@ -2050,11 +2050,14 @@ def categorize_skills(skill_dict, skills_object):
 
     for skill, score in skill_dict.items():
         if skill.capitalize() in skill_list:
-            categorized_skills.append({
-                "skill": skill.capitalize(),
-                "score": score,
-                "description": skills_object[skill.capitalize()],
-            })
+            try:
+                categorized_skills.append({
+                    "skill": skill.capitalize(),
+                    "score": score,
+                    "description": skills_object[skill.capitalize()],
+                })
+            except Exception as e:
+                logger.info({"!!! ERROR !!!": "Error in categorize_skills", "error":e.args})
 
     return categorized_skills
 
