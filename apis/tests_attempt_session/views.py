@@ -16,6 +16,8 @@ from tests.models import TestAttemptSession
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
+import logging
+logger = logging.getLogger(__name__)
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
