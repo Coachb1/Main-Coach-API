@@ -18,6 +18,7 @@ from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
+from test_bulk_upload.constants import updated_skills
 
 import matplotlib
 matplotlib.use('Agg')
@@ -448,7 +449,21 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
         }
 
     if only_data:
-        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
+        updated_skills_ratings = {}
+        existing_skills = []
+        for skill, values in skills_rating.items():
+            for old , new in updated_skills.items():
+                if skill.strip().capitalize() == old.strip().capitalize():
+                    updated_skills_ratings[new.strip()] = values
+                    existing_skills.append(skill)
+                else:
+                    updated_skills_ratings[skill] = values
+
+        for i  in existing_skills:
+            del updated_skills_ratings[i]
+
+
+        return {'skills_rating': updated_skills_ratings, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5
