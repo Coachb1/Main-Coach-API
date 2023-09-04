@@ -10,9 +10,9 @@ skills = [
         "description": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management."
     },
     {
-        "name": "Goal oriented focus",
-        "display": "Goal oriented focus",
-        "description": " Goal oriented focus is the ability to maintain strong drive and motivation toward specific goals and targets. New managers need this skill to effectively lead their teams and set the priorities and direction. Without clear goals, teams can become directionless and unproductive. Team members look to their manager to define goals that motivate and guide the team's work. Therefore, new managers must learn to craft specific, measurable, and challenging goals for the team that fit within the larger organizational objectives. They should consider the team's interests, skills, and needs when setting the goals to boost buy-in and commitment. New managers also require solid time management and follow-up skills to track progress toward goals, hold team members accountable, and make adjustments as needed. With consistent goal-oriented focus, new managers can infuse their teams with a strong sense of purpose that propels them to achieve meaningful results."
+        "name": "Goal-oriented focus",
+        "display": "Goal-oriented focus",
+        "description": " Goal-oriented focus is the ability to maintain strong drive and motivation toward specific goals and targets. New managers need this skill to effectively lead their teams and set the priorities and direction. Without clear goals, teams can become directionless and unproductive. Team members look to their manager to define goals that motivate and guide the team's work. Therefore, new managers must learn to craft specific, measurable, and challenging goals for the team that fit within the larger organizational objectives. They should consider the team's interests, skills, and needs when setting the goals to boost buy-in and commitment. New managers also require solid time management and follow-up skills to track progress toward goals, hold team members accountable, and make adjustments as needed. With consistent goal-oriented focus, new managers can infuse their teams with a strong sense of purpose that propels them to achieve meaningful results."
     },
     {
         "name": "Ability to handle surprises",
@@ -100,8 +100,8 @@ skills = [
         "description": " Confidence is essential for a new manager to lead a team and drive results. A confident manager speaks and acts with conviction, draws clear lines of accountability for team members, sets ambitious yet achievable goals, and engenders trust that he or she can overcome any obstacle that arises. A lack of confidence shows in hesitancy when assigning duties, apologizing excessively, withholding feedback or praise, ceding too much decision making to others, and failing to stand up for the team when dealing with higher-ups. A new manager can build confidence through preparation before important meetings, asking team members for candid performance reviews, seeking mentoring from more experienced leaders, reflecting on past successes both professional and personal to remember one's capabilities, and celebrating small wins along the way which fuel greater gains in confidence with each victory."
     },
     {
-        "name": "Open Mindedness",
-        "display": "Open Mindedness",
+        "name": "Open-Mindedness",
+        "display": "Open-Mindedness",
         "description": " Open-mindedness for a new manager refers to the willingness to consider new ideas, information and trends objectively and thoughtfully, regardless of preconceived notions. An open-minded manager listens to employees' viewpoints and suggestions without immediate judgment, understands all relevant information before forming an opinion, investigates different approaches to problems and avoids dismissing new proposals too hastily. For instance, an open-minded manager in a traditional industry may consider how incorporating modern technological advancements could benefit operations, instead of rejecting the notion outright. Open-mindedness means having the flexibility of thought that allows a manager to adapt to change and recognize opportunities that a narrow perspective might overlook. An open and curious disposition will help the new manager motivate employees, strengthen communication and collaboration, keep the organization innovative and prepare it for an uncertain future."
     },
     {
@@ -145,8 +145,8 @@ skills = [
         "description": " Tone and volume refer to the pitch, resonance, and loudness of a manager's voice. A new manager needs to be aware that the tone and volume they use can have a significant impact on their team. They should speak in a moderately loud voice that is calm, balanced, and authoritative without being overbearing. Using a condescending, abrasive, bored, or excessively loud or quiet tone can damage morale and trust with employees. When giving difficult feedback or addressing issues, keeping a modulated tone and volume that conveys care, professionalism and thoughtfulness can soften the message and engage listeners. Within meetings and ordinary group interactions, adjusting volume and inflection to suit the context helps maintain audience focus and involvement. In all cases, a new manager should practice and self-monitor their tone and volume to ensure their voice is a positive and productive tool for communication, decision making and team building."
     },
     {
-        "name": "Self motivated",
-        "display": "Self motivated",
+        "name": "Self-motivated",
+        "display": "Self-motivated",
         "description": " A self-motivated new manager exhibits a strong work ethic and initiative without needing constant oversight. They are driven by an internal desire to achieve goals and accomplish tasks, rather than relying solely on external directives. They actively seek opportunities and responsibilities rather than waiting for tasks to be assigned. They develop strategies and plans of action on their own and work diligently to see them through. They monitor and assess their own performance to make ongoing improvements without being prompted. They take initiative to resolve issues encountered and make needed changes. They set high standards for their own work quality and output. They take on more than is required or expected to ensure goals are met and show a passion for continuous learning and development in their managerial role. In short, a self-motivated new manager is autonomous, proactive, dedicated, and driven from within."
     },
     {
@@ -420,8 +420,8 @@ skills = [
         "description": " Being open minded as a new manager means having a willingness to consider new ideas, information and trends objectively and on their own merits. An open minded manager listens to employees' suggestions and concerns without prejudice, evaluates proposals holistically, and makes decisions based on logic rather than preconceived notions. An open and receptive attitude helps encourage employees to share their knowledge and expertise, leading to more innovation and creative solutions to challenges. When processing new information, an open minded manager suspends judgment, gathers all relevant facts, weighs pros and cons fairly, and thinks flexibly rather than becoming stuck in set ways. This receptiveness to alternative perspectives and willingness to update one's views given compelling evidence helps ensure the manager and team remain agile and able to adapt successfully to changing market conditions."
     },
     {
-        "name": "Tough minded",
-        "display": "Tough minded",
+        "name": "Tough-minded",
+        "display": "Tough-minded",
         "description": "As a new manager, being tough-minded means  making decisions objectively rather than emotionally. It requires thinking rationally and logically when dealing with challenging situations. Tough-minded managers consider the facts, data, and implications of various alternatives before making decisions. Things like personal preferences, relationships with employees, and desires for popularity do not cloud their judgment. When issues arise, tough-minded managers confront problems head-on, clearly communicate expectations, and enforce consequences with fairness and consistency. They set boundaries and standards that are best for the organization, rather than seeking to be liked by everyone. Examples of tough-minded decisions include deciding to terminate an underperforming employee, rejecting a supplier's request for preferential treatment, and enforcing an unpopular new policy."
     },
     {
@@ -565,8 +565,8 @@ skills = [
         "description": " Patience is a key skill that new managers must develop to effectively lead their team. Managers require patience when delegating tasks, setting expectations, and providing feedback and coaching to team members. When delegating responsibilities, new managers may feel the need to micro-manage team members and check in frequently. However, showing patience by giving thorough instructions up front and only checking in as needed allows team members the space to accomplish tasks independently. Setting goals and deadlines for projects will also require patience,  as proper timelines are estimated. Giving team members the initial  timeframe while also being flexible  if  unforeseen obstacles arise shows patience. During reviews and coaching moments,  new managers will need patience as they provide constructive feedback and help team members develop skills. Resisting the urge to immediately point out every flaw and instead focusing feedback on a few actionable steps shows patience and builds trust with reports. Mastering the skill of patience will make new managers more effective leaders and help foster a more positive team environment."
     },
     {
-        "name": "High energy",
-        "display": "High energy",
+        "name": "High-energy",
+        "display": "High-energy",
         "description": " High-energy managers have a passion and enthusiasm that motivates their team members. They leverage their positive attitude and vibrant spirits to encourage employees, improve morale and generate productivity. High-energy managers display liveliness and vigor in everything they do, from greeting employees in the morning to leading meetings and discussing goals for the quarter. Their passion is contagious, seeping into projects, deadlines and office culture. Spurts of high energy at the right times, whether celebrating wins as a group or rallying the team during challenges, can rejuvenate employees and spark new ideas. High-energy managers keep interactions interesting, nimble and lively. They celebrate small victories, recognize individuals and foster a workplace environment filled with zeal and zest. These managers role model the type of lively and engaged disposition they hope to inspire within their teams."
     },
     {
