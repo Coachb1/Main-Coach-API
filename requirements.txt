@@ -62,3 +62,4 @@ yarl==1.8.2
 zope.event==4.6
 zope.interface==6.0
 nltk==3.8.1
+pandas==2.1.0

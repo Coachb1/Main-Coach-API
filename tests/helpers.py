@@ -31,7 +31,7 @@ from settings import BACKEND
 from settings import FRONTEND_BASE_URL
 from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
-    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -49,6 +49,11 @@ from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
+from nltk.tokenize import word_tokenize
+import nltk
+nltk.download('punkt')
+import pytz
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +116,10 @@ def create_test(tenant: Tenant,
                 is_learner_path: bool,
                 is_email_type: bool,
                 scenario_case: str,
+                is_game_type: bool,
+                image_url: str,
+                rating : str,
+                source : str,
                 questions: list) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
@@ -145,6 +154,10 @@ def create_test(tenant: Tenant,
             description_media=description_media,
             max_test_allowed=max_test_allowed,
             scenario_case=scenario_case,
+            is_game_type=is_game_type,
+            rating=rating,
+            image_url=image_url,
+            source=source,
         )
 
         test_questions = []
@@ -268,12 +281,16 @@ def create_test_question_answer_session(tenant: Tenant,
             "failed to create session, participant with id %s does not exist", test_id)
         raise serializers.ValidationError("invalid participant id")
 
+    timezone = pytz.timezone("Asia/Kolkata")
+    now = datetime.datetime.now(timezone)
+    
     test_attempt_session = TestAttemptSession.objects.create(
         tenant_id=tenant.uid,
         test_id=test_id,
         participant_id=participant_id,
         test_invite_id=test_invite_id,
-        started_at=timezone.now(),
+        started_at=now,
+        expires_at=now + datetime.timedelta(minutes=30),
         is_checkin_type=test.is_checkin_type
     )
 
@@ -453,35 +470,37 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
-            try:
-                test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
-                    test_question_response.response_file)
-            except:
-                try:
-                    test_question_response.response_text = gpt_wishper_api(
-                        test_question_response.response_file)
-                except:
-                    test_question_response.response_text = "Transcription couldn't be generated"
+            # try:
+            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #         test_question_response.response_file)
+            # except:
+            # try:
+            #     test_question_response.response_text = gpt_wishper_api(
+            #         test_question_response.response_file)
+            # except:
+            #     test_question_response.response_text = "Transcription couldn't be generated"
 
             try:
-                test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_audio(
+                speech_met = coach_metric_api.get_speech_metrics_from_audio(
                     test_question_response.response_file)
+                test_question_response.speech_metrics = speech_met
+                test_question_response.response_text = speech_met['transcript']
             except Exception as e:
                 logger.exception(e)
 
                 # HACK sane default values
-                test_question_response.speech_metrics = {
+                speech_met = {
                     'energy_grade': 4,
                     'fluency_grade': 5,
                     'confidence_grade': 3,
-                    'pace': 380,
+                    'pace': 150,
                     'sentiment_percentage': "30%",
                     'power_word_density': 0,
                     'filler_words_score': 0,
                     'volume': 50,
-                    'silence_number': 0,
+                    'silence_number': 1,
                     "pitch": 165.0,
-                    "transcript": " The",
+                    "transcript": "Transcription couldn't be generated",
                     "energy_cohort": "C",
                     "silence_length": 0,
                     "people_quotient": 0.0,
@@ -495,16 +514,63 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "manager_quotient_percentile": 0.0,
                     "aggregate_fluency_percentage": 75.0,
                     "leadership_quotient_percentile": 0.0,
-                    "aggregate_confidence_percentage": 55.0
+                    "aggregate_confidence_percentage": 55.0,
+                    "power_word_percentage": '20%',
+                    "filler_word_percentage": "9%",
+                    "fluency_percentage": "50%"
                 }
+
+                test_question_response.response_text = speech_met['transcript']
 
             update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
-                test_question_response.response_file)
-            test_question_response.speech_metrics = coach_metric_api.get_speech_metrics_from_video(
-                test_question_response.response_file)
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            #     test_question_response.response_file)
+            # test_question_response.response_text = gpt_wishper_api(
+            #     test_question_response.response_file)
+            try:
+                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                    test_question_response.response_file)
+                test_question_response.speech_metrics = speech_met_video
+                test_question_response.response_text = speech_met_video['transcript']
+
+            except Exception as e:
+                
+                logger.exception(e)
+
+                # HACK sane default values
+                speech_met_video = {
+                    'energy_grade': 4,
+                    'fluency_grade': 5,
+                    'confidence_grade': 3,
+                    'pace': 150,
+                    'sentiment_percentage': "30%",
+                    'power_word_density': 0,
+                    'filler_words_score': 0,
+                    'volume': 50,
+                    'silence_number': 1,
+                    "pitch": 165.0,
+                    "transcript": "Transcription couldn't be generated",
+                    "energy_cohort": "C",
+                    "silence_length": 0,
+                    "people_quotient": 0.0,
+                    "confidence_cohort": "C",
+                    "energy_percentage": 50,
+                    "filler_words_cohort": 0,
+                    "confidence_percentage": 55.0,
+                    "sales_quotient_percentile": 0.0,
+                    "aggregate_energy_percentage": 45.0,
+                    "learner_quotient_percentile": 0.0,
+                    "manager_quotient_percentile": 0.0,
+                    "aggregate_fluency_percentage": 75.0,
+                    "leadership_quotient_percentile": 0.0,
+                    "aggregate_confidence_percentage": 55.0,
+                    "power_word_percentage": '20%',
+                    "filler_word_percentage": "9%",
+                    "fluency_percentage": "50%"
+                }
+                test_question_response.response_text = speech_met_video['transcript']
             update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
@@ -534,58 +600,68 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text)
 
-    anthropic_feedback = anthropic_completion(prompt, 350)
+
     feedback_text = ''
     raw_text = ''
     response_text = test_question_response.response_text
+    go_for_feedback = True
 
-    if not anthropic_feedback:
+    words = word_tokenize(test_question_response.response_text)
 
-        max_retry = 3
+    if len(words) <= 5 :
+        feedback_text = "No feedback can be generated because of too low response length"
+        go_for_feedback = False
+    
+    if go_for_feedback:
+        anthropic_feedback = anthropic_completion(prompt, 400)
 
-        while max_retry > 0:
-            num_tokens = num_tokens_for_prompt(response_text)
-            sentences = sent_tokenize(response_text)
-            if num_tokens < 1500:
-                break
-            else:
-                response_text = " ".join(sentences[:-1])
-                if test.is_email_type:
-                    prompt = get_email_type_prompt(
-                        test_title=test.title,
-                        test_description=test.description,
-                        question=question.question,
-                        candidate_reply=test_question_response.response_text)
+        if not anthropic_feedback:
 
+            max_retry = 3
+
+            while max_retry > 0:
+                num_tokens = num_tokens_for_prompt(response_text)
+                sentences = sent_tokenize(response_text)
+                if num_tokens < 1500:
+                    break
                 else:
-                    if question.gpt_prompt_override or test.gpt_prompt_override:
-                        prompt = get_overridden_prompt(
-                            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    response_text = " ".join(sentences[:-1])
+                    if test.is_email_type:
+                        prompt = get_email_type_prompt(
                             test_title=test.title,
                             test_description=test.description,
                             question=question.question,
-                            question_context=question.subjective_answer,
-                            candidate_reply=response_text
-                        )
+                            candidate_reply=test_question_response.response_text)
+
                     else:
-                        prompt = get_chat_conversation_prompt_v3(
-                            test_title=test.title,
-                            test_description=test.description,
-                            question=question.question,
-                            question_context=question.subjective_answer,
-                            candidate_reply=response_text)
+                        if question.gpt_prompt_override or test.gpt_prompt_override:
+                            prompt = get_overridden_prompt(
+                                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                question_context=question.subjective_answer,
+                                candidate_reply=response_text
+                            )
+                        else:
+                            prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                question_context=question.subjective_answer,
+                                candidate_reply=response_text)
 
-            max_retry -= 1
+                max_retry -= 1
 
-        gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
-        if not gpt_feedback.text:
-            feedback_text = "Feedback couldn't be generated"
+            gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
+            if not gpt_feedback.text:
+                feedback_text = "Feedback couldn't be generated"
+            else:
+                feedback_text = gpt_feedback.text
+                raw_text = gpt_feedback.raw
+
         else:
-            feedback_text = gpt_feedback.text
-            raw_text = gpt_feedback.raw
-
-    else:
-        feedback_text = anthropic_feedback
+            feedback_text = anthropic_feedback
 
     test_question_response.metadata = {
         "gpt": {
@@ -615,8 +691,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test_question_response.response_text,
         required_skills,
         test.description,
-        test.title
+        test.title,
+        test.test_code,
+        test_attempt_session.uid
     )
+    
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -625,6 +704,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         logger.error("failed to get skills_rating json, got %s", skills_rating)
         raise ValueError("failed to get skills_rating json for %s",
                          test_question_response.uid)
+
+    relevance = 1
+    if "relevance" in skills_rating:
+        relevance = int(skills_rating['relevance'])  # taking relevance and deleting it form json
+        del skills_rating['relevance']
+ 
 
     # Removing the skills which are not required in the question
     _to_be_deleted = []
@@ -639,8 +724,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
-
-    skills_rating = update_skills_rating_if_same_scores(skills_rating)
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     # Calculating the average score of the response
     response_avg_score = 0
@@ -660,7 +745,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # Save skills rating and average score in TestQuestionResponse
     test_question_response.skills_rating = skills_rating
     test_question_response.avg_score = response_avg_score
-    test_question_response.save(update_fields=["skills_rating", "avg_score"])
+    test_question_response.relevance = relevance
+    test_question_response.save(update_fields=["skills_rating", "avg_score","relevance"])
 
     # def __calc_score_in_different_thread():
     #     # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -717,10 +803,14 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #     test_question_response.response_file)
+            test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
         elif test.interaction_mode == InteractionModeChoices.video:
-            test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
+            #     test_question_response.response_file)
+            test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
 
     update_fields.extend(["evaluation_status", "updated"])
@@ -810,12 +900,15 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
+
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
@@ -824,6 +917,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
             skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 1.5:
+            skills_rating[skill] = 1.5
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating)
 
@@ -942,7 +1037,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 
     Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in seperate paragraphs where the paragraph headings are {areas_of_improvement} and values are the paragraphs explaining each heading respectively. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
     
-    PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only.
+    PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only. Do not evaluate any other characters.
 
     OUTPUT FORMAT:
     Sticking to Agenda
@@ -1031,34 +1126,58 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         if response.skills_rating is None:
             continue
 
-        # get skills rating from this response
-        response_skills_rating = response.skills_rating
-        response_avg_score = response.avg_score
+        # # get skills rating from this response
+        # response_skills_rating = response.skills_rating
+        # response_avg_score = response.avg_score
 
-        if response_avg_score:
-            avg_score += response_avg_score
-            response_count += 1
+        # if response_avg_score:
+        #     avg_score += response_avg_score
+        #     response_count += 1
 
         if response.speech_metrics:
             has_speech_metric = True
             # get speech metrics from this response
             response_speech_metrics = response.speech_metrics
 
-            for skill in response_speech_metrics:
-                if skill in speech_score:
-                    speech_score[skill] += response_speech_metrics[skill] or random.randint(3, 7)
+            for key,value in response_speech_metrics.items():
+                if isinstance(value, str) and "%" in value:
+                        value = float(value.replace("%", ""))
+                if key in speech_score:
+                    speech_score[key] += value or random.randint(3, 7)
                 else:
-                    speech_score[skill] = response_speech_metrics[skill] or random.randint(3, 7)
+                    speech_score[key] = value or random.randint(3, 7)
 
-        for skill in response_skills_rating:
-            if skill in skills_rating:
-                skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
-                skills_count[skill] += 1
-            else:
-                skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
-                skills_count[skill] = 1
+        # for skill in response_skills_rating:
+        #     if skill in skills_rating:
+        #         skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
+        #         skills_count[skill] += 1
+        #     else:
+        #         skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
+        #         skills_count[skill] = 1
 
         attempted_count += 1
+    # skill_ = []
+    # for skill in skills:
+    #     skill_.append(skill['name'])
+
+    questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
+    skills_=[]
+    for question in questions:
+        required_skills = question.key_learning_skills.split(",")
+        required_skills = [skill.strip() for skill in required_skills if skill]
+        required_skills = [skill.lower() for skill in required_skills if skill]
+        for s in required_skills:
+            skills_.append(s)
+
+
+    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_)
+    for skill in response_skills_rating:
+        if skill in skills_rating:
+            skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] += 1
+        else:
+            skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] = 1
 
     skills_rating_score = {}
     test_score = 0
@@ -1067,18 +1186,29 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score[skill] = skills_rating[skill] / skills_count[skill]
         test_score += skills_rating_score[skill]
 
+
+    # Calculating the average score of the response
+    avg_score = 0
+    response_count = 0
+    for skill in skills_rating_score:
+        if isinstance(skills_rating_score[skill], str):
+            continue
+
+        avg_score += skills_rating_score[skill] or random.randint(3, 7)
+        response_count += 1
+
     if response_count == 0:
         avg_score = 0
     else:
         avg_score = avg_score / response_count
 
-    skills_rating_score, avg_score = increment_avg_score_in_percentages(
-        skills_rating_score, avg_score, participant_id, test_attempt_session)
 
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
-
+    skills_rating_score, avg_score = increment_avg_score_in_percentages(
+        skills_rating_score, avg_score, participant_id, test_attempt_session)
     culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
@@ -1161,24 +1291,38 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        last_5_sessions_avg_score += session.avg_score
+        try:
+            last_5_sessions_avg_score += session.avg_score
+        except:
+            pass
 
     last_5_sessions_avg_score = last_5_sessions_avg_score / 5
 
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
 
-    increase_by_percent = min(total_successful_sessions_count * 2, 20)
-    # 1 -> 2%, 2 -> 4%, 3 -> 6%, 4 -> 8%, 5 -> 10%, 6 -> 12%, 7 -> 14%, 8 -> 16%, 9 -> 18%, 10 -> 20%, 11 -> 20%, 12 -> 20%, 13 -> 20%, 14 -> 20%, 15 -> 20%, 16 -> 20%, 17 -> 20%, 18 -> 20%, 19 -> 20%, 20 -> 20%
+    increase_by_percent = min(total_successful_sessions_count, 10)
+    # 1 -> 1%, 2 -> 2%, 3 -> 3%, 4 -> 4%, 5 -> 5%, 6 -> 6%, 7 -> 7%, 8 -> 8%, 9 -> 9%, 10 -> 10%, 11 -> 10%, 12 -> 10%, 13 -> 10%, 14 -> 10%, 15 -> 10%, 16 -> 10%, 17 -> 10%, 18 -> 10%, 19 -> 10%, 20 -> 10%
 
+    # for skill in skills_rating:
+    #     skills_rating[skill] = skills_rating[skill] + \
+    #                            (skills_rating[skill] * increase_by_percent / 100)
+
+    #     skills_rating[skill] = min(10, skills_rating[skill])
+    #     skills_rating[skill] = round_off_rating(skills_rating[skill])
+
+    # avg_score = avg_score + (avg_score * increase_by_percent / 100)
+    # avg_score = round_off_rating(avg_score)
+    # avg_score = min(10.0, avg_score)
     for skill in skills_rating:
-        skills_rating[skill] = skills_rating[skill] + \
-                               (skills_rating[skill] * increase_by_percent / 100)
-
-        skills_rating[skill] = min(10, skills_rating[skill])
-        skills_rating[skill] = round_off_rating(skills_rating[skill])
-
-    avg_score = avg_score + (avg_score * increase_by_percent / 100)
+        if skills_rating[skill] < 6:
+            increase_factor = 1 + (skills_rating[skill] / 10) * (increase_by_percent / 100)
+            skills_rating[skill] *= increase_factor
+            skills_rating[skill] = min(10, skills_rating[skill])
+            skills_rating[skill] = round_off_rating(skills_rating[skill])
+    
+    increase_factor_avg = 1 + (avg_score / 10) * (increase_by_percent / 100)
+    avg_score *= increase_factor_avg
     avg_score = round_off_rating(avg_score)
     avg_score = min(10.0, avg_score)
 
@@ -1218,14 +1362,24 @@ def update_skills_rating_if_same_scores(skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) > (total_skills / 2):
-            # Increment half the skills by 1 and other half decrement by 1
+        if len(scores_frequency[score]) > 1:
+            random.shuffle(scores_frequency[score])  # Randomly shuffle skills with same score
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    skills_rating[skill] = skills_rating[skill] + 1
-                else:
-                    skills_rating[skill] = skills_rating[skill] - 1
+                    if i < i/2:
+                        skills_rating[skill] = skills_rating[skill] + 0.75   # changed 1 to 0.75 aug
+                    else:
+                        skills_rating[skill] = skills_rating[skill] - 0.75   
+
+                elif i > len(scores_frequency[score]) / 2:
+                    if i > i/2:
+                        skills_rating[skill] = skills_rating[skill] + 0.25   # changed 1 to 0.25 aug
+                    else:
+                        skills_rating[skill] = skills_rating[skill] - 0.25   
+
+                    # skills_rating[skill] = skills_rating[skill] - 0.5
 
                 if skills_rating[skill] < 0:
                     skills_rating[skill] = 0
@@ -1233,10 +1387,10 @@ def update_skills_rating_if_same_scores(skills_rating):
                 if skills_rating[skill] > 10:
                     skills_rating[skill] = 10
 
-    # If the score is greater than 9 then trim it to 9
-    for skill in skills_rating:
-        if skills_rating[skill] > 9:
-            skills_rating[skill] = 9
+    # # If the score is greater than 9 then trim it to 9
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 9:
+    #         skills_rating[skill] = 9
 
     return skills_rating
 
@@ -1261,13 +1415,13 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > len(cultural_skills) / 2:
-            # Increment half the skills by 1 and other half decrement by 1
+            # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] + 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
                 else:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] - 1
+                    culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
 
                 if culture_skills_rating[skill] < 0:
                     culture_skills_rating[skill] = 0
@@ -1398,7 +1552,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     # Evaluate conversation
     culture_skills_rating, is_evaluated = evaluate_conversation(
-        test_attempt_session, conversation, test.title, test.description)
+        test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
         return None
@@ -1407,10 +1561,41 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
+        elif culture_skills_rating[skill] < 1.5:
+            culture_skills_rating[skill] = 1.5
 
     return culture_skills_rating
 
+def calc_skills_rating(test_attempt_session, responses, test,skills):
+    skills_rating = {}
 
+    conversation = ""
+    count = 1
+
+    for response in responses:
+
+        question = TestQuestion.objects.get(
+            uid=response.question_id)
+
+        question_text = question.question
+        response_text = response.response_text
+
+        conversation += f"{count}. [Question:] {question_text}\n"
+        if not question.is_view_only:
+            conversation += f"[Answer:] {response_text}\n\n"
+
+        count += 1
+
+    # Evaluate conversation
+    skills_rating, is_evaluated = evaluate_response_skill(
+        test_attempt_session, conversation, test.title, test.description, test.test_code,skills)
+
+    if not is_evaluated:
+        return None
+
+    return skills_rating
+
+    
 def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description: str,
                                     question: str,
@@ -1425,13 +1610,19 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Expert Suggestions:  ${question_context} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Never give any feedback on the Question or anybody asking the question.
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1451,9 +1642,15 @@ def get_chat_conversation_prompt_v3(test_title: str,
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Never give any feedback on the Question or anybody asking the question.
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1525,9 +1722,15 @@ def get_email_type_prompt(test_title,
         1) What went well ? - 50 words minimum
         2) What could be improved ? - 50 words minimum 
         3) Some new ideas to reframe the context - 50 words minimum
-        3) Generate a sample re-written email. - 80 words minimum
+        3) A sample re-written email. - 80 words minimum
+        4) A counter intuitive insight - 10 words minimum
 
-        NOTE: The total number of words should not be more than 200 words.
+        NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+        NOTE: Do not show word count.(Eg: 50 words)
+        NOTE: Never give any feedback on the Question or anybody asking the question.
+        NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+        NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
+        NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
         """
     )
 
@@ -1553,13 +1756,20 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template} 
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
+            The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 200 words.
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Never give any feedback on the Question or anybody asking the question.
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1577,13 +1787,19 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template}
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
             1) Key insights to improve the response - 50 words.                                    
             2) What went well ? - 50 words minimum
             3) What did not work ? - 50 words minimum 
-            4) Generate a sample candidate answer response. - 50 words minimum
+            4) A sample candidate answer - 50 words minimum
+            5) A counter intuitive insight - 10 words minimum
 
-            NOTE: The total number of words should not be more than 150 words.
+            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Never give any feedback on the Question or anybody asking the question.
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             """
         )
         return template.substitute(test_title=test_title,
@@ -1677,7 +1893,7 @@ def get_test_report(test: Test, only_data=False):
         test_id=test.uid,
         status=TestAttemptSessionStatusChoices.completed,
         deleted=0
-    ).order_by(
+    ).exclude(finished_at=None).order_by(
         "-avg_score"
     )
 
@@ -1691,6 +1907,7 @@ def get_test_report(test: Test, only_data=False):
          "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
         for test_attempt_session in test_attempt_sessions
     ]
+            
 
     # sort the test_scores by score
     test_scores.sort(key=lambda x: x["avg_score"], reverse=True)
@@ -1836,11 +2053,14 @@ def categorize_skills(skill_dict, skills_object):
 
     for skill, score in skill_dict.items():
         if skill.capitalize() in skill_list:
-            categorized_skills.append({
-                "skill": skill.capitalize(),
-                "score": score,
-                "description": skills_object[skill.capitalize()],
-            })
+            try:
+                categorized_skills.append({
+                    "skill": skill.capitalize(),
+                    "score": score,
+                    "description": skills_object[skill.capitalize()],
+                })
+            except Exception as e:
+                logger.info({"!!! ERROR !!!": "Error in categorize_skills", "error":e.args})
 
     return categorized_skills
 

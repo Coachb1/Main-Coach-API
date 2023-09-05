@@ -5,6 +5,8 @@ from rest_framework.response import Response
 # from apis.web_auth.serializers import LoginSerializer
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
+from tests.choices import TestAttemptSessionStatusChoices
+from tests.models import TestAttemptSession
 from .serializers import FrontendAuthSerializer, FrontendAccessTokenSerializer
 from .serializers import FrontendLeaderboardReportSerializer
 from .serializers import FrontendCandidateReportSerializer
@@ -22,7 +24,11 @@ from .report_types import ReportType
 from url_shortener.helpers import check_url_exists, url_shortify
 from url_shortener.models import UrlShortenerMap
 
+
 import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FrontendAuthViewSet(ApiViewSet):
@@ -45,6 +51,16 @@ class FrontendAuthViewSet(ApiViewSet):
         # print(f"Initial url: {url}")
 
         if report_type == ReportType.LEADERBOARD_REPORT:
+            leaderboard_serializer = FrontendLeaderboardReportSerializer(
+                data=request.data)
+
+            leaderboard_serializer.is_valid(raise_exception=True)
+
+            skills = leaderboard_serializer.validated_data["skills"]
+
+            url = f"{url}?skills={','.join(skills)}&backend={BACKEND}"
+        
+        elif report_type == ReportType.SUMMARY_LEADERBOARD_REPORT:
             leaderboard_serializer = FrontendLeaderboardReportSerializer(
                 data=request.data)
 
@@ -92,6 +108,14 @@ class FrontendAuthViewSet(ApiViewSet):
             session_serializer.is_valid(raise_exception=True)
 
             test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
+            try:
+                test_attempt_session =  TestAttemptSession.objects.get(
+                                                        uid=test_attempt_session_id, deleted=0)
+                if test_attempt_session.status == TestAttemptSessionStatusChoices.in_progress:
+                    test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+                    test_attempt_session.save()
+            except Exception as e:
+                logger.info({"!!! Error !!!":"failed to get session from session_id for coaching", "error":e.args})
 
             url = f"{url}?backend={BACKEND}&test_attempt_session_id={test_attempt_session_id}&ordering=id"
 

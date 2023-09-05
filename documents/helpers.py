@@ -10,6 +10,7 @@ from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
 from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
+from commons.openai_gpt import gpt_wishper_api
 
 
 def create_document(tenant: Tenant,
@@ -91,12 +92,16 @@ def execute_actions_pipline(doc: Document):
 
             transcribed_text = ""
             if doc.doc_type == DocTypeChoice.AUDIO_ANSWER:
-                transcribed_text = coach_whisper_api.get_transcribe_from_audio(
+                # transcribed_text = coach_whisper_api.get_transcribe_from_audio(
+                #     get_document_url(doc))
+                transcribed_text = gpt_wishper_api(
                     get_document_url(doc))
                 current_action["status"] = "success"
 
             elif doc.doc_type == DocTypeChoice.VIDEO_ANSWER:
-                transcribed_text = coach_whisper_api.get_transcribe_from_video(
+                # transcribed_text = coach_whisper_api.get_transcribe_from_video(
+                #     get_document_url(doc))
+                transcribed_text = gpt_wishper_api(
                     get_document_url(doc))
                 current_action["status"] = "success"
 

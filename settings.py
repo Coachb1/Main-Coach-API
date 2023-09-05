@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "commons.ResponseMiddleware.SlackNoRetryMiddleware"
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -97,7 +98,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 

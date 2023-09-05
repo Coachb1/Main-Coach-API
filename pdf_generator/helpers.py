@@ -18,6 +18,7 @@ from tests.db_helpers import get_test_questions_from_test
 from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
+from test_bulk_upload.constants import updated_skills
 
 import matplotlib
 matplotlib.use('Agg')
@@ -154,11 +155,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             speech_metrics = participant_response.speech_metrics
 
             # We only need ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace'] from speech_metrics
+            # speech_metrics = {k: v for k, v in speech_metrics.items(
+            # ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
+            #            'filler_words_score', 'volume', 'silence_number']}
+            # speech_metrics = {k: f"{((v/10)*100)}%" if k in [
+            #     'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+
+            # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
             speech_metrics = {k: v for k, v in speech_metrics.items(
-            ) if k in ['energy_grade', 'fluency_grade', 'confidence_grade', 'pace', 'sentiment_percentage', 'power_word_density',
-                       'filler_words_score', 'volume', 'silence_number']}
-            speech_metrics = {k: f"{((v/10)*100)}%" if k in [
-                'power_word_density', 'filler_words_score'] else v for k, v in speech_metrics.items()}
+            ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
 
             # Convert the Keys to human readable format
             speech_metrics = {k.replace("_", " ").title(
@@ -198,6 +203,13 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             speech_metrics_avg[k] = v / len(participant_responses)
 
     if only_data:
+        response_relevance = True
+        for participant_response in participant_responses:
+            relevance = participant_response.relevance
+            if not relevance :
+                response_relevance = False
+                break
+
 
         candidate_type = test.candidate_type
         if not candidate_type:
@@ -208,17 +220,19 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
         ted_talk_and_hbr = ''
         test_codes = []
-        if test.is_checkin_type:
-            ted_talk_and_hbr = test.tedtalk_and_hbr_case
-            test_codes = get_test_code_lowest_skill(
-                skills_graph_data["skills_rating"], test_attempt_session)
+        
 
         skills_graph_data = get_test_attempt_session_skills_graph(
             test_attempt_session, only_data=True)
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
             test_attempt_session, only_data=True)
+        
+        if test.is_checkin_type:
+            ted_talk_and_hbr = test.tedtalk_and_hbr_case
+            test_codes = get_test_code_lowest_skill(
+                skills_graph_data["skills_rating"], test_attempt_session)
 
-        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg}
+        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
@@ -280,11 +294,11 @@ def get_participant_report(user, only_data=False):
             tenant_id=user.tenant_id, deleted=0).custom_rating
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     if only_data:
@@ -340,11 +354,11 @@ def get_leaderboard_report(skills, tenant_id, only_data=False):
 
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     # TODO: Placeholder logic: To be removed soon
@@ -427,15 +441,29 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
             tenant_id=test_attempt_session.tenant_id).custom_rating
     else:
         custom_rating = {
-            "1": "Non Manager",
-            "2": "Beginner Manager",
-            "3": "Average Manager",
-            "4": "Good Manager",
-            "5": "Super Manager"
+            "1": "Starting Point",
+            "2": "Learning Phase",
+            "3": "Growth Stage",
+            "4": "Proficient",
+            "5": "High Achiever"
         }
 
     if only_data:
-        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
+        updated_skills_ratings = {}
+        existing_skills = []
+        for skill, values in skills_rating.items():
+            for old , new in updated_skills.items():
+                if skill.strip().capitalize() == old.strip().capitalize():
+                    updated_skills_ratings[new.strip()] = values
+                    existing_skills.append(skill)
+                else:
+                    updated_skills_ratings[skill] = values
+
+        for i  in existing_skills:
+            del updated_skills_ratings[i]
+
+
+        return {'skills_rating': updated_skills_ratings, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5
