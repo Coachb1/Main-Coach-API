@@ -22,7 +22,7 @@ LOCALHOST = "http://localhost:8000/api/v1/tests/"
 
 # CONSTANTS
 COURSE = "Course"  # not using as not implemented in backend
-SOURCE = "Source"  # not using as not implemented in backend
+SOURCE = "source"  
 TITLE = "Title"
 INTERACTION_MODE = "Interaction Mode"
 TEST_TYPE = "Test Type"
@@ -43,6 +43,9 @@ IS_LEARNER_PATH = "is learner path"
 TED_TALK_AND_HBR_CASE = "Ted talks and HBR Case"
 IS_EMAIL_TYPE = "is_email_type"
 SCENARIO_CASE = "Scenario Case"
+RATINGS = "rating"
+IS_GAME_TYPE = "is_game_type"
+IMAGE_URL = "image_url"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -62,6 +65,26 @@ def format_test_orchestrated_conversation(raw_data):
             "questions": [],
         }
 
+        if IS_GAME_TYPE in input_dict:
+            if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
+                is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
+
+                if is_game_type == "true":
+                    output_dict['is_game_type'] = True
+                elif is_game_type == "false":
+                    output_dict['is_game_type'] = False
+                else:
+                    output_dict['is_game_type'] = False
+        
+        if IMAGE_URL in input_dict:
+            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+
+        if SOURCE in input_dict :
+            output_dict['source'] = input_dict.get(SOURCE,None)
+        
+        if RATINGS in input_dict:
+            output_dict['rating'] = input_dict.get(RATINGS,None)
+
         bot_count = sum(1 for key in input_dict.keys()
                         if key.startswith('Person'))
         if bot_count == 1:
@@ -73,7 +96,10 @@ def format_test_orchestrated_conversation(raw_data):
             check_pass = True
 
         skills_list = input_dict[SKILLS_TO_EVALUATE]
-        skills_list = skills_list.split(',')
+        skills_list_temp = []
+        for s in skills_list.split(','):
+            skills_list_temp.append(s.strip().capitalize())
+        skills_list = skills_list_temp
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
@@ -231,6 +257,26 @@ def format_test_data_slack(raw_data):
             "gpt_prompt_override": "",
             "questions": []
         }
+
+        if IS_GAME_TYPE in input_dict:
+            if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
+                is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
+
+                if is_game_type == "true":
+                    output_dict['is_game_type'] = True
+                elif is_game_type == "false":
+                    output_dict['is_game_type'] = False
+                else:
+                    output_dict['is_game_type'] = False
+        
+        if IMAGE_URL in input_dict:
+            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+
+        if SOURCE in input_dict :
+            output_dict['source'] = input_dict.get(SOURCE,None)
+        
+        if RATINGS in input_dict:
+            output_dict['rating'] = input_dict.get(RATINGS,None)
 
         test_type = input_dict[TEST_TYPE].strip().lower()
 
