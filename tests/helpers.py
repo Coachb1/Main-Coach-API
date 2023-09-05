@@ -1900,18 +1900,35 @@ def get_test_report(test: Test, only_data=False):
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
 
-    test_scores = [
-        {"score": test_attempt_session.test_score,
-         "avg_score": test_attempt_session.avg_score,
-         "speech_score": {"pace": test_attempt_session.speech_score['pace'],
+    # test_scores = [
+    #     {"score": test_attempt_session.test_score,
+    #      "avg_score": test_attempt_session.avg_score,
+    #      "speech_score": {"pace": test_attempt_session.speech_score['pace'],
+    #                       "silence_number": test_attempt_session.speech_score['silence_number'],
+    #                       "fluency_percentage": test_attempt_session.speech_score['fluency_percentage'],
+    #                       "power_word_percentage": test_attempt_session.speech_score['power_word_percentage'],
+    #                       "filler_word_percentage": test_attempt_session.speech_score['filler_word_percentage'],
+    #                       },
+    #      "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
+    #     for test_attempt_session in test_attempt_sessions
+    # ]
+    test_scores = []
+    temp = {}
+    for test_attempt_session in test_attempt_sessions:
+        temp["score"] = test_attempt_session.test_score
+        temp['avg_score'] = test_attempt_session.avg_score
+        temp['participant'] = get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]
+
+        if test_attempt_session.speech_score:
+            temp["speech_score"] = {"pace": test_attempt_session.speech_score['pace'],
                           "silence_number": test_attempt_session.speech_score['silence_number'],
                           "fluency_percentage": test_attempt_session.speech_score['fluency_percentage'],
                           "power_word_percentage": test_attempt_session.speech_score['power_word_percentage'],
                           "filler_word_percentage": test_attempt_session.speech_score['filler_word_percentage'],
-                          },
-         "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
-        for test_attempt_session in test_attempt_sessions
-    ]
+                          }
+            
+        test_scores.append(temp)
+            
 
     # sort the test_scores by score
     test_scores.sort(key=lambda x: x["avg_score"], reverse=True)
