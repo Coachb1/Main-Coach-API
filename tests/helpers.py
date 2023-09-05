@@ -1139,11 +1139,13 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
             # get speech metrics from this response
             response_speech_metrics = response.speech_metrics
 
-            for skill in response_speech_metrics:
-                if skill in speech_score:
-                    speech_score[skill] += response_speech_metrics[skill] or random.randint(3, 7)
+            for key,value in response_speech_metrics.items():
+                if isinstance(value, str) and "%" in value:
+                        value = float(value.replace("%", ""))
+                if key in speech_score:
+                    speech_score[key] += value or random.randint(3, 7)
                 else:
-                    speech_score[skill] = response_speech_metrics[skill] or random.randint(3, 7)
+                    speech_score[key] = value or random.randint(3, 7)
 
         # for skill in response_skills_rating:
         #     if skill in skills_rating:
@@ -1891,7 +1893,7 @@ def get_test_report(test: Test, only_data=False):
         test_id=test.uid,
         status=TestAttemptSessionStatusChoices.completed,
         deleted=0
-    ).order_by(
+    ).exclude(finished_at=None).order_by(
         "-avg_score"
     )
 
@@ -1901,7 +1903,12 @@ def get_test_report(test: Test, only_data=False):
     test_scores = [
         {"score": test_attempt_session.test_score,
          "avg_score": test_attempt_session.avg_score,
-         "speech_score": test_attempt_session.speech_score,
+         "speech_score": {"pace": test_attempt_session.speech_score['pace'],
+                          "silence_number": test_attempt_session.speech_score['silence_number'],
+                          "fluency_percentage": test_attempt_session.speech_score['fluency_percentage'],
+                          "power_word_percentage": test_attempt_session.speech_score['power_word_percentage'],
+                          "filler_word_percentage": test_attempt_session.speech_score['filler_word_percentage'],
+                          },
          "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
         for test_attempt_session in test_attempt_sessions
     ]
