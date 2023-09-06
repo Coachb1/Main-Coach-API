@@ -26,7 +26,7 @@ class AccountsViewSet(ApiViewSet,
                       mixins.ListModelMixin):
     queryset = User.objects.filter(deleted=0)
     serializer_class = AccountSerializer
-    permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
+    # permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     lookup_field = "uid"
 
     def get_queryset(self):
