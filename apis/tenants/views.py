@@ -14,4 +14,4 @@ class TenantViewSet(ApiViewSet,
     queryset = Tenant.objects.filter(deleted=0)
     serializer_class = TenantSerializer
     lookup_field = "uid"
-    # permission_classes = (IsAuthenticatedRootUser,)
+    permission_classes = (IsAuthenticatedRootUser,)

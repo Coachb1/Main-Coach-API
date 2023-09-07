@@ -13,7 +13,7 @@ class ClientViewSet(ApiViewSet,
     queryset = Client.objects.filter(deleted=0)
     serializer_class = ClientSerializer
     lookup_field = "uid"
-    # permission_classes = (IsAuthenticatedRootUser,)
+    permission_classes = (IsAuthenticatedRootUser,)
 
     def create(self, request, *args, **kwargs):
         serializer = SetupClientSerializer(data=request.data)
