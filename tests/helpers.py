@@ -474,17 +474,19 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
-            # try:
-            #     test_question_response.response_text = gpt_wishper_api(
-            #         test_question_response.response_file)
-            # except:
-            #     test_question_response.response_text = "Transcription couldn't be generated"
+            
+            try:
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+            except:
+                transcript = "Transcription couldn't be generated"
+                test_question_response.response_text = transcript
 
             try:
                 speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                    test_question_response.response_file)
+                    test_question_response.response_file,transcript)
                 test_question_response.speech_metrics = speech_met
-                test_question_response.response_text = speech_met['transcript']
             except Exception as e:
                 logger.exception(e)
 
@@ -520,20 +522,24 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "fluency_percentage": "50%"
                 }
 
-                test_question_response.response_text = speech_met['transcript']
+                test_question_response.speech_metrics = speech_met
 
             update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            # test_question_response.response_text = gpt_wishper_api(
-            #     test_question_response.response_file)
+            try:
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+            except:
+                transcript = "Transcription couldn't be generated"
+                test_question_response.response_text = transcript
             try:
                 speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                    test_question_response.response_file)
+                    test_question_response.response_file,transcript)
                 test_question_response.speech_metrics = speech_met_video
-                test_question_response.response_text = speech_met_video['transcript']
 
             except Exception as e:
                 
@@ -570,7 +576,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     "filler_word_percentage": "9%",
                     "fluency_percentage": "50%"
                 }
-                test_question_response.response_text = speech_met_video['transcript']
+                test_question_response.speech_metrics = speech_met_video
             update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
