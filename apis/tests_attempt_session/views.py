@@ -110,3 +110,28 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         return Response({"status": "cancelled","message":f"{cancel_count} sessions cancelled.","cancelled_session": cancel_count}, status=status.HTTP_200_OK)
 
+
+    @action(methods=["GET"], detail=False, url_path="get-past-completed-interactions")
+    def get_past_completed_interactions(self, request, *args, **kwargs):
+        participant_id = request.query_params.get("participant_id")
+        try:
+            qs = super().get_queryset().filter(participant_id=participant_id,tenant_id=self.request.tenant.uid, status=TestAttemptSessionStatusChoices.completed).order_by("-id")
+            
+            test_dict = {}
+
+            for session in qs:
+                test = Test.objects.get(uid=session.test_id)
+                test_name = test.title
+                test_name = test_name[:min(len(test_name), 50)]
+
+                if len(test_name) == 50:
+                    test_name = f"{test_name}..."
+                
+                if test_name not in test_dict:
+                    test_dict[test_name] = f"{session.test_id},{session.uid}"
+                if len(test_dict) == 10:
+                    break
+        
+            return Response(data=test_dict, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.info({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
