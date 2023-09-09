@@ -660,27 +660,30 @@ def top_N_leadership_board(skills, N, tenant_id):
 
     for obj in skill_rating_objects:
 
-        skills_info = obj.skills_info
-        average_score = 0
-        skills_dict = {}
-        skills_to_search = original_skills_required
+        user = User.objects.filter(uid=obj.participant_id,is_excluded=0)
 
-        if len(skills_to_search) == 1 and skills_to_search[0].lower() == 'all':
-            skills_to_search = skills_info.keys()
+        if user:
+            skills_info = obj.skills_info
+            average_score = 0
+            skills_dict = {}
+            skills_to_search = original_skills_required
 
-        for skill in skills_to_search:
-            if skill in skills_info:
-                average_score += skills_info[skill]['average_score']
-                skills_dict[skill] = skills_info[skill]
+            if len(skills_to_search) == 1 and skills_to_search[0].lower() == 'all':
+                skills_to_search = skills_info.keys()
 
-        participants.append({
-            "participant_id": obj.participant_id,
-            "name": get_user_display_name(User.objects.get(uid=obj.participant_id)),
-            "total_questions_attempted": obj.total_questions_attempted,
-            "total_tests_attempted": obj.total_tests_attempted,
-            "average_score": average_score,
-            "skills_info": skills_dict
-        })
+            for skill in skills_to_search:
+                if skill in skills_info:
+                    average_score += skills_info[skill]['average_score']
+                    skills_dict[skill] = skills_info[skill]
+
+            participants.append({
+                "participant_id": obj.participant_id,
+                "name": get_user_display_name(User.objects.get(uid=obj.participant_id)),
+                "total_questions_attempted": obj.total_questions_attempted,
+                "total_tests_attempted": obj.total_tests_attempted,
+                "average_score": average_score,
+                "skills_info": skills_dict
+            })
 
     # sort participants based on the sum of average_score of skills in skills list from the skills_info dictionary in skills_rating object
     participants = sorted(
