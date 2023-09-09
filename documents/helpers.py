@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from commons.s3_get_url import get_url
-from commons.s3_upload import s3_upload
+from commons.s3_upload import s3_upload, upload_blob
 from commons.timeit import timeit
 from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
@@ -25,14 +25,20 @@ def create_document(tenant: Tenant,
     file_extension = display_name.rsplit(".", 1)[-1]
     date_str = timezone.now().date().isoformat()
     object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{date_str}/{str(uuid.uuid4())}.{file_extension}"
-    bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
+    # bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
+    bucket_name = tenant.document_storage_bucket_name or "botsforslack"
     region_name = "ap-south-1"
 
-    s3_upload(
-        file=file,
-        bucket_name=bucket_name,
-        s3_file_name=object_id,
-        region_name=region_name
+    # s3_upload(
+    #     file=file,
+    #     bucket_name=bucket_name,
+    #     s3_file_name=object_id,
+    #     region_name=region_name
+    # )
+    upload_blob(
+        bucket_name,
+        file,
+        object_id
     )
 
     with transaction.atomic():
@@ -65,7 +71,7 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 
 def get_document_url(doc: Document) -> str:
-    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    return get_url(doc.region_name, doc.bucket_name, doc.object_id,3600)
 
 
 @timeit
