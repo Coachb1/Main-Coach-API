@@ -71,7 +71,7 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 
 def get_document_url(doc: Document) -> str:
-    return get_url(doc.region_name, doc.bucket_name, doc.object_id,3600)
+    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
 
 
 @timeit

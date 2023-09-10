@@ -5,7 +5,8 @@ import boto3
 from commons.timeit import timeit
 from google.cloud import storage
 import io
-
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ def s3_upload(file,
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
     try:
-
-        client = storage.Client.from_service_account_json(r'C:\Users\Hello\gcp\bucketaccess.json')
-        # storage_client = storage.Client()
+        os.chdir(f"{Path(__file__).resolve().parent}")
+        client = storage.Client.from_service_account_json(r'bucketaccess.json')
+        # client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(destination_blob_name)
         generation_match_precondition = 0
