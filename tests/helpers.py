@@ -1905,13 +1905,12 @@ def get_test_report(test: Test, only_data=False):
 
     css = os.path.join(settings.TEMPLATES_DIR, 'pdf_generator',
                        'reports', 'static', 'styles_report.css')
-
     test_scores = [
         {"score": test_attempt_session.test_score,
          "avg_score": test_attempt_session.avg_score,
          "speech_score": test_attempt_session.speech_score,
          "participant": get_participant_info(get_user_by_id(test_attempt_session.participant_id))["name"]}
-        for test_attempt_session in test_attempt_sessions
+        for test_attempt_session in test_attempt_sessions if User.objects.filter(uid=test_attempt_session.participant_id,is_excluded=0)
     ]
             
 
@@ -1931,7 +1930,7 @@ def get_test_report(test: Test, only_data=False):
         return {
             'test_name': test.title,
             'total_questions': total_questions,
-            'total_tests_attempts': len(test_attempt_sessions),
+            'total_tests_attempts': len(test_scores),
             'test_scores': test_scores,
             'test_code': test.test_code
         }
@@ -1939,7 +1938,7 @@ def get_test_report(test: Test, only_data=False):
     t = render_to_string(
         f"pdf_generator/reports/test_report.html", {
             'test_name': test.title,
-            'total_tests_attempts': len(test_attempt_sessions),
+            'total_tests_attempts': len(test_scores),
             'test_scores': test_scores,
             'test_code': test.test_code
         })
