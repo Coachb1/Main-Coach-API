@@ -41,4 +41,3 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
         )
     except Exception as error: 
         print(f"Error uploading file {source_file_name} due to {str(error)}")
-        raise error
