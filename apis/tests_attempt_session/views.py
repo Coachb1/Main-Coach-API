@@ -135,3 +135,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response(data=test_dict, status=status.HTTP_200_OK)
         except Exception as e:
             logger.info({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+
+
+    @action(methods=["GET"], detail=False, url_path="get-session-status")
+    def get_session_status(self, request, *args, **kwargs):
+        try:
+            session_id = request.query_params.get('session_id')
+            logger.info({"SESSION_ID":session_id})
+            session_status = TestAttemptSession.objects.get(uid=session_id).status
+
+            return Response(data={"status":session_status}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
