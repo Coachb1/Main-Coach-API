@@ -135,3 +135,22 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response(data=test_dict, status=status.HTTP_200_OK)
         except Exception as e:
             logger.info({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+
+
+    @action(methods=["GET","POST"], detail=False, url_path="get-attempted-test-list")
+    def get_list(self, request, *args, **kwargs):
+        # participant_id = request.data.get("user_id")
+
+        participant_id =  request.data.get("user_id")
+
+        # Filter the test_attempt_session with the given participant_id 
+        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed)
+
+        test_codes = set()
+        for test_attempt_session in test_attempt_sessions:
+
+            test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
+
+        data = {"codes": list(test_codes)}
+        print(data)
+        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
