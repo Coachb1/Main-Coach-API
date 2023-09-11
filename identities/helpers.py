@@ -30,17 +30,20 @@ def create_identity(tenant: Tenant,
 def get_user_via_identity(tenant: Tenant,
                           identity_type: str,
                           identity_value: str) -> User:
-    identity = Identity.objects.get(
-        tenant_id=tenant.uid,
-        identity_type=identity_type,
-        value=identity_value,
-        deleted=0
-    )
+    try:
+        identity = Identity.objects.get(
+            tenant_id=tenant.uid,
+            identity_type=identity_type,
+            value=identity_value,
+            deleted=0
+        )
 
-    user = User.objects.get(
-        tenant_id=tenant.uid,
-        uid=identity.user_id,
-        deleted=0
-    )
+        user = User.objects.get(
+            tenant_id=tenant.uid,
+            uid=identity.user_id,
+            deleted=0
+        )
+    except Exception as e:
+        logger.info({"!!!!ERROR": e}, exc_info=True)
 
     return user
