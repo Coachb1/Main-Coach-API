@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import logging
+from django.db.models import Subquery
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
@@ -14,7 +15,7 @@ from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
-from users.models import User
+from users.models import User, UserAttribute
 
 
 from identities.models import Identity
@@ -107,3 +108,18 @@ class AccountsViewSet(ApiViewSet,
         data = get_participant_report(user, only_data=True)
 
         return Response({"data": data, "status": "completed"})
+
+
+    @action(methods=["GET"], detail=False, url_path="get-workspace-users")
+    def get_workspace_users(self, request, *args, **kwargs):
+        try:
+            included_users = self.get_queryset().filter(is_excluded=0).values('uid')
+            users = UserAttribute.objects.filter(user_id__in=Subquery(included_users))
+
+            user_data = {}
+            for user in users:
+                user_data[user.attributes['name']] = user.attributes['id']
+
+            return Response(user_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error({"!!!! Error":e},exc_info=True)
