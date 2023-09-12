@@ -137,11 +137,10 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.info({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
 
 
-    @action(methods=["GET","POST"], detail=False, url_path="get-attempted-test-list")
+    @action(methods=["GET"], detail=False, url_path="get-attempted-test-list")
     def get_list(self, request, *args, **kwargs):
         # participant_id = request.data.get("user_id")
-
-        participant_id =  request.data.get("user_id")
+        participant_id =  request.query_params.get("user_id")
 
         # Filter the test_attempt_session with the given participant_id 
         test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed)
