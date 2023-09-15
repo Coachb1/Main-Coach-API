@@ -33,6 +33,7 @@ class Test(TenantAwareModel):
         default=False, null=True, blank=True)
 
     is_single_bot = models.BooleanField(default=False, null=True, blank=True)
+    is_repeat = models.BooleanField(default=True, null=True, blank=True)
     is_game_type = models.BooleanField(default=False, null=True, blank=True)
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
     is_learner_path = models.BooleanField(default=False, null=True, blank=True)
