@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "url_shortener.apps.UrlShortenerConfig",
     "email_sender.apps.EmailSenderConfig",
     "corsheaders",
+    "utilities.apps.UtilitiesConfig",
 ]
 
 MIDDLEWARE = [
