@@ -131,7 +131,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_game_type",
                   "image_url",
                   "source",
-                  "rating"
+                  "rating",
+                  "is_repeat"
                   ]
 
     def get_questions(self, instance):
