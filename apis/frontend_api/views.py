@@ -1,6 +1,8 @@
 from rest_framework import status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from utilities.helpers import get_sid,get_h
+from dotenv import load_dotenv
 
 # from apis.web_auth.serializers import LoginSerializer
 from commons.viewset import ApiViewSet
@@ -23,12 +25,17 @@ from settings import BACKEND
 from .report_types import ReportType
 from url_shortener.helpers import check_url_exists, url_shortify
 from url_shortener.models import UrlShortenerMap
+from utilities.models import JotUrlSession
+import datetime
+import pytz
+import os
 
 
 import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 
 class FrontendAuthViewSet(ApiViewSet):
@@ -195,3 +202,22 @@ class FrontendAuthViewSet(ApiViewSet):
         }
 
         return Response(data=data, status=status.HTTP_200_OK)
+
+
+    @action(methods=["GET"], detail=False, url_path="get-or-refresh-sid")
+    def get_or_refresh_sid(self, request, *args, **kwargs):
+        user_email = os.getenv("JOTURL_EMAIL")
+        try:
+            session = JotUrlSession.objects.get(email=user_email)
+            session_updated_at = session.updated_at.replace(tzinfo=pytz.utc)
+
+            date_25_day_ago = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=25)
+            if session_updated_at < date_25_day_ago:
+                session.session_id = get_sid(user_email)
+                session.save()
+                
+        except Exception as e:
+            session = JotUrlSession.objects.create(email=user_email, session_id=get_sid(user_email))
+            logger.error({"!!!Error":e},exc_info=True)
+            
+        return Response(data={"sid": session.session_id,"_h":get_h(session.session_id)}, status=status.HTTP_200_OK)
