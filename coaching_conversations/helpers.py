@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from coaching_conversations.choices import CoachingConversationChoices
 from coaching_conversations.models import CoachingConversation
-from commons.openai_gpt import gpt4_completion
+from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
 from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
@@ -166,7 +166,7 @@ def continue_coaching_conversation(tenant: Tenant,
     )
 
     prompt = get_coaching_conversation_prompt(" ".join(previous_conversations))
-    gpt_feedback = gpt4_completion(prompt, stop=["USER:", "CoachBot"])
+    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
     if not gpt_feedback.text:
         raise ValueError("unable to get feedback for %s",
