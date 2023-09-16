@@ -4,13 +4,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from commons.s3_get_url import get_url
-from commons.s3_upload import s3_upload, upload_blob
+from commons.s3_upload import s3_upload
 from commons.timeit import timeit
 from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
 from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
 from commons.openai_gpt import gpt_wishper_api
+from commons.gcp_upload import gcp_upload
 
 
 def create_document(tenant: Tenant,
@@ -35,7 +36,7 @@ def create_document(tenant: Tenant,
     #     s3_file_name=object_id,
     #     region_name=region_name
     # )
-    upload_blob(
+    gcp_upload(
         bucket_name,
         file,
         object_id
