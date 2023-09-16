@@ -6,7 +6,7 @@ import logging
 from django.utils.text import slugify
 
 from commons.anthropic import anthropic_completion
-from commons.openai_gpt import gpt4_completion
+from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
 from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
@@ -103,12 +103,12 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     is_evaluated = True
     response = None
-    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response or '"ANSWER:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -243,13 +243,13 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         return response, is_evaluated
 
     response = None
-    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
 
     while max_tries > 0:
         try:
-            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response or '"ANSWER:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -385,13 +385,13 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         return response, is_evaluated
 
     response = None
-    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
 
     while max_tries > 0:
         try:
-            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response or '"ANSWER:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -506,12 +506,12 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     is_evaluated = True
     response = None
-    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response or '"ANSWER:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
@@ -608,13 +608,13 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         return response
 
     response = None
-    max_tries = 1  # because gpt4_completion function itself retries 3 times
+    max_tries = 1  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
 
     while max_tries > 0:
         try:
-            response = gpt4_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response:
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            if '"REPLY:"' in response or '"ANSWER:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             response = json.loads(response)
             for skill in response:
