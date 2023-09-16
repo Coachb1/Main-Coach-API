@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from commons.s3_get_url import get_url
-from commons.s3_upload import s3_upload
+from commons.s3_upload import s3_upload, upload_blob
 from commons.timeit import timeit
 from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
@@ -36,6 +36,7 @@ def create_document(tenant: Tenant,
     #     s3_file_name=object_id,
     #     region_name=region_name
     # )
+
     gcp_upload(
         bucket_name,
         file,
