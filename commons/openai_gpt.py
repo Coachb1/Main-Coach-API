@@ -37,9 +37,9 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
 
 
 @timeit
-def gpt4_completion(prompt,
+def gpt3_completion(prompt,
                     stop,
-                    engine='gpt-4',
+                    engine='text-davinci-003',
                     temp=0,
                     top_p=1.0,
                     max_tokens=5000,
@@ -53,16 +53,16 @@ def gpt4_completion(prompt,
     prompt = prompt.encode(encoding='ASCII', errors='ignore').decode()
     while True:
         try:
-            response = openai.ChatCompletion.create(
-                model=engine,
-                messages=[{'role':'user','content':prompt}],
+            response = openai.Completion.create(
+                engine=engine,
+                prompt=prompt,
                 temperature=temp,
                 max_tokens=max_tokens - prompt_tokens,
                 top_p=top_p,
                 frequency_penalty=freq_pen,
                 presence_penalty=pres_pen,
                 stop=stop)
-            text = response['choices'][0]['message']['content'].strip()
+            text = response['choices'][0]['text'].strip()
             text = re.sub('[\r\n]+', '\n', text)
             text = re.sub('[\t ]+', ' ', text)
 
