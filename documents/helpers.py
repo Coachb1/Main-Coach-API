@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from commons.s3_get_url import get_url
-from commons.s3_upload import s3_upload, upload_blob
+from commons.s3_upload import s3_upload
 from commons.timeit import timeit
 from documents.choices import DocActionTypeChoice, DocTypeChoice
 from documents.models import Document
