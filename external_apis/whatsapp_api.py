@@ -18,7 +18,7 @@ class WhatsappApi(object):
 
         data = {
             "apiKey": api_key,
-            "campaignName": "Feedback Report Link New",
+            "campaignName": "Whatsappdemo",
             "destination": phone_number,
             "userName": "Samarth",
             "templateParams": [
