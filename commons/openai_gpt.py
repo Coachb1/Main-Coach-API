@@ -42,7 +42,7 @@ def gpt3_completion(prompt,
                     engine='text-davinci-003',
                     temp=0,
                     top_p=1.0,
-                    max_tokens=5000,
+                    max_tokens=4000,
                     freq_pen=0.0,
                     pres_pen=0.0) -> GPTResponse:
     logger.info(f"prompt: {prompt}")
