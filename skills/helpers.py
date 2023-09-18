@@ -77,29 +77,29 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
 '''
 
-    # is_evaluated = True
-    # response = None
+    is_evaluated = True
+    response = None
 
-    # max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
-    # while max_tries > 0:
-    #     try:
-    #         response = anthropic_completion(prompt, len(skills) * 50)
-    #         response = json.loads(response)
-    #         for skill in response:
-    #             response[skill] = float(response[skill])
-    #         break
-    #     except:
-    #         max_tries -= 1
-    #         if max_tries == 0:
-    #             is_evaluated = False
-    #             break
+    while max_tries > 0:
+        try:
+            response = anthropic_completion(prompt, len(skills) * 50)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+            break
+        except:
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
 
-    #         time.sleep(1)
-    #         continue
+            time.sleep(1)
+            continue
 
-    # if is_evaluated:
-    #     return response, is_evaluated
+    if is_evaluated:
+        return response, is_evaluated
 
     is_evaluated = True
     response = None
@@ -108,7 +108,6 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            print(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
@@ -120,8 +119,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
             break
 
-        except Exception as e:
-            logger.exception(e)
+        except:
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
