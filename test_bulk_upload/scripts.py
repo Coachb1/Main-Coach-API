@@ -9,6 +9,7 @@ import logging
 from django.http import HttpResponse
 from .constants import get_skills
 from settings import BACKEND
+from skills.constants import skills as pre_defined_skills
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -95,27 +96,27 @@ def format_test_orchestrated_conversation(raw_data):
         else:
             check_pass = True
 
-        skills_list = input_dict[SKILLS_TO_EVALUATE]
-        skills_list_temp = []
-        for s in skills_list.split(','):
-            skills_list_temp.append(s.strip().capitalize())
-        skills_list = skills_list_temp
+        # skills_list = input_dict[SKILLS_TO_EVALUATE]
+        # skills_list_temp = []
+        # for s in skills_list.split(','):
+        #     skills_list_temp.append(s.strip().capitalize())
+        # skills_list = skills_list_temp
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-            if not candidate_type:
-                candidate_type = 'Manager'
-            skills_list_candidate = set()
-            for item in get_skills(candidate_type):
-                skills_list_candidate.add(item.capitalize())
-            skills_list_candidate = list(skills_list_candidate)
+            # candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+            # if not candidate_type:
+            #     candidate_type = 'Manager'
+            # skills_list_candidate = set()
+            # for item in get_skills(candidate_type):
+            #     skills_list_candidate.add(item.capitalize())
+            # skills_list_candidate = list(skills_list_candidate)
 
             # print('*'*100)
             # print(sorted(skills_list_candidate))
             # print(sorted(skills_list))
             # print()
-            if sorted(skills_list_candidate) == sorted(skills_list):
-                check_pass = True
+            # if sorted(skills_list_candidate) == sorted(skills_list):
+            check_pass = True
 
         if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
             is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
@@ -135,12 +136,29 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
+        # if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
 
-            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-            skill_list = [skill.strip() for skill in skill_list]
-            skill_list = ','.join(skill_list)
-            output_dict["skills_to_evaluate"] = skill_list
+        #     skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+        #     skill_list = [skill.strip() for skill in skill_list]
+        #     skill_list = ','.join(skill_list)
+        #     output_dict["skills_to_evaluate"] = skill_list
+
+        # saving skills_to_evaluate from backend only
+
+        candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+        if not candidate_type:
+            candidate_type = 'Manager'
+        skills_list_candidate = set()
+        for item in get_skills(candidate_type):
+            skills_list_candidate.add(item.capitalize())
+
+        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+        evaluation_skill_list = ','.join(evaluation_skill_list)
+        output_dict["skills_to_evaluate"] = evaluation_skill_list
+
+
+        if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
+            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
         initial_messages = []
         test_main_context = input_dict['Context']
@@ -290,6 +308,16 @@ def format_test_data_slack(raw_data):
                 for skill in temp_skills:
                     skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
+
+        defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
+
+        unmatched_skills = []
+        for skills in skills_list:
+            if skills not in defined_skills_list:
+                unmatched_skills.append(skills)
+
+        if len(unmatched_skills) > 0:
+            return {"unmatched_skills": unmatched_skills}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -634,6 +662,12 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         raise Exception("API call failed")
 
                 else:
+                    if "unmatched_skills" in json_data:
+                        return {
+                            "errors": [f"csv file contains Mismatching skills: {', '.join(json_data['unmatched_skills'])}"],
+                            "exception": True,
+                        }
+                        
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
                                             ] = "Not Created For This Title"
                     cnt += 1
@@ -679,7 +713,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE, SKILLS_TO_EVALUATE]
+                     SCENARIO_CASE]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -748,7 +782,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         record_created += 1
 
                     except Exception as e:
-                        logger.error(e)
+                        logger.exception(e)
                         return {
                             "errors": [f"Error occurred; Could not create tests"],
                             "exception": True,
