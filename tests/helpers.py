@@ -1469,13 +1469,16 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     else:
         participant_name = participant_attributes.get("name")
 
-    email_subject = f"{test_name} completed by {participant_name} on {test_completion_date} 🚀🚀"
+    
 
     data = {
         "report_url": report_url,
         "test_name": test_name,
         "candidate_name": participant_name,
+        "real_name": participant_attributes.get("real_name"),
     }
+
+    email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email")
