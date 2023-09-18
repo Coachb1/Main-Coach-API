@@ -10,7 +10,7 @@ def get_user_display_name(user: User):
     name = ""
     slack_profile_attribute = get_user_attribute(user, tag="slack_profile")
     if slack_profile_attribute:
-        name = slack_profile_attribute.attributes.get("real_name")
+        name = f"{slack_profile_attribute.attributes.get('real_name')} (username: {slack_profile_attribute.attributes.get('name')})"
 
     else:
         whatsapp_profile_attribute = get_user_attribute(
