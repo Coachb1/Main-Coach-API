@@ -108,8 +108,11 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response or '"ANSWER:"' in response:
+            if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
+            elif '"ANSWER:"' in response:
+                response = response.split('"ANSWER:"')[1].strip()
+
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -249,8 +252,10 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response or '"ANSWER:"' in response:
+            if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
+            elif '"ANSWER:"' in response:
+                response = response.split('"ANSWER:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -391,8 +396,10 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response or '"ANSWER:"' in response:
+            if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
+            elif '"ANSWER:"' in response:
+                response = response.split('"ANSWER:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -511,8 +518,10 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response or '"ANSWER:"' in response:
+            if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
+            elif '"ANSWER:"' in response:
+                response = response.split('"ANSWER:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -614,8 +623,10 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     while max_tries > 0:
         try:
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            if '"REPLY:"' in response or '"ANSWER:"' in response:
+            if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
+            elif '"ANSWER:"' in response:
+                response = response.split('"ANSWER:"')[1].strip()
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
