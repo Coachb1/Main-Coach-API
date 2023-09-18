@@ -20,8 +20,11 @@ def send_email(to_email, subject, data):
     msg['From'] = FROM_EMAIL_DISPLAY
     msg['To'] = to_email
 
+
+    candidate_name = f"{data['real_name']} (username: {data['candidate_name']})"
+
     html_body = get_html_body(
-        data["candidate_name"], data["test_name"], data["report_url"])
+        candidate_name, data["test_name"], data["report_url"])
 
     msg.attach(MIMEText(html_body, 'html'))
     msg_str = msg.as_string()
@@ -40,7 +43,7 @@ def send_learner_path_email(tests, user):
 
     user_attributes = UserAttribute.objects.get(user_id=user.uid).attributes
     to_email = user_attributes.get("profile", {}).get("email")
-    user_name = user_attributes.get("name", "you")
+    user_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
 
     if to_email is None:
         logging.error(f"Email not found for user {user.uid}")
@@ -54,7 +57,7 @@ def send_learner_path_email(tests, user):
     msg['From'] = FROM_EMAIL_DISPLAY
     msg['To'] = to_email
 
-    html_body = get_html_body_learner_path(test_list)
+    html_body = get_html_body_learner_path(user_name,test_list)
 
     msg.attach(MIMEText(html_body, 'html'))
     msg_str = msg.as_string()
@@ -238,7 +241,7 @@ def get_html_body(candidate_name, test_name, report_url):
     """
 
 
-def get_html_body_learner_path(test_list):
+def get_html_body_learner_path(user_name,test_list):
 
     test_list_str = ""
 
@@ -363,7 +366,7 @@ def get_html_body_learner_path(test_list):
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The Recommended Simulations for you is ready!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The Recommended Simulations for {user_name} is ready!</p>
                             <ul>
                                 {test_list_str}
                             </ul>
