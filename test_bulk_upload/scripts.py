@@ -9,6 +9,7 @@ import logging
 from django.http import HttpResponse
 from .constants import get_skills
 from settings import BACKEND
+from skills.constants import skills as pre_defined_skills
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -290,6 +291,16 @@ def format_test_data_slack(raw_data):
                 for skill in temp_skills:
                     skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
+
+        defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
+
+        unmatched_skills = []
+        for skills in skills_list:
+            if skills not in defined_skills_list:
+                unmatched_skills.append(skills)
+
+        if len(unmatched_skills) > 0:
+            return {"unmatched_skills": unmatched_skills}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -634,6 +645,12 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         raise Exception("API call failed")
 
                 else:
+                    if "unmatched_skills" in json_data:
+                        return {
+                            "errors": [f"csv file contains Mismatching skills: {', '.join(json_data['unmatched_skills'])}"],
+                            "exception": True,
+                        }
+                        
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
                                             ] = "Not Created For This Title"
                     cnt += 1
