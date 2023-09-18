@@ -19,7 +19,7 @@ from users.models import User, UserAttribute
 
 
 from identities.models import Identity
-from users.models import User
+from skills.models import SkillsRating
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,12 @@ class AccountsViewSet(ApiViewSet,
 
             user_data = {}
             for user in users:
-                user_data[user.attributes['name']] = user.attributes['id']
+                try:
+                    skills_rating = SkillsRating.objects.get(participant_id=user.user_id)
+                    if skills_rating.total_tests_attempted > 0:
+                        user_data[f"{user.attributes['real_name']} - {user.attributes['name']}"] = user.attributes['id']
+                except:
+                    pass
 
             return Response(user_data, status=status.HTTP_200_OK)
         except Exception as e:
