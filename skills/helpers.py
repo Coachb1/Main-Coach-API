@@ -122,8 +122,8 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
             break
 
-        except:
-            logger.error({"****evaluate_response ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -269,8 +269,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
             break
 
-        except:
-            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -417,8 +417,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
             break
 
-        except:
-            logger.error({"****evaluate_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -543,8 +543,8 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
             break
 
-        except:
-            logger.error({"****evaluate_group_discussion_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -652,8 +652,8 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
             break
 
-        except:
-            logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
