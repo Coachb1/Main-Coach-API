@@ -11,6 +11,7 @@ from commons.timeit import timeit
 
 import requests
 import tempfile
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ def gpt3_completion(prompt,
     prompt = prompt.encode(encoding='ASCII', errors='ignore').decode()
     while True:
         try:
+            logger.info({"****evaluate_response_skill ":f"trying gpt for {retry} time"})
             response = openai.Completion.create(
                 engine=engine,
                 prompt=prompt,
@@ -69,13 +71,14 @@ def gpt3_completion(prompt,
             logger.info(f"text: {text}")
             return GPTResponse(raw=response, text=text)
         except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {retry} time"})
             logger.exception('Error communicating with OpenAI err: %s', e)
 
             retry += 1
             if retry >= max_retry:
                 raise e
 
-            time.sleep(1)
+            time.sleep(random.randint(1,3))
 
 
 
