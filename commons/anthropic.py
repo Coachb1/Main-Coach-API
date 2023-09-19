@@ -13,7 +13,7 @@ ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(ANTHROPIC_KEY)
 
-    max_retries = 10
+    max_retries = 5
 
     while True:
         try:

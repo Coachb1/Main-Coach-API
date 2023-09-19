@@ -661,7 +661,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
             gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
             if not gpt_feedback.text:
-                feedback_text = "Feedback couldn't be generated Because of server overload you may try after few minutes or you can choose to complete this interaction as well."
+                feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
             else:
                 feedback_text = gpt_feedback.text
                 raw_text = gpt_feedback.raw
