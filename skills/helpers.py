@@ -80,18 +80,16 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     is_evaluated = True
     response = None
 
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_response ":f"trying anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(skills) * 50)
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
             break
         except:
-            logger.error({"****evaluate_response ":f"failed anthropic for {3 - max_tries + 1} time"})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -122,8 +120,8 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
             break
 
-        except:
-            logger.error({"****evaluate_response ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -216,11 +214,10 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     is_evaluated = True
 
     response = {}
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_response_skill ":f"trying anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(skills_rating) * 50)
             response = json.loads(response)
             for skill in response:
@@ -229,7 +226,6 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             break
 
         except:
-            logger.error({"****evaluate_response_skill ":f"failed anthropic for {3 - max_tries + 1} time"})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -269,8 +265,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
             break
 
-        except:
-            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -364,11 +360,10 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     is_evaluated = True
 
     response = {}
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_conversation ":f"trying anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(cultural_skills) * 50)
             response = json.loads(response)
             for skill in response:
@@ -377,7 +372,6 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             break
 
         except:
-            logger.error({"****evaluate_conversation ":f"failed anthropic for {3 - max_tries + 1} time"})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -417,8 +411,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
             break
 
-        except:
-            logger.error({"****evaluate_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -489,11 +483,10 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     response = None
     is_evaluated = True
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_group_discussion_conversation ":f"trying anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(cultural_skills) * 50)
             response = json.loads(response)
             for skill in response:
@@ -502,7 +495,6 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             break
 
         except:
-            logger.error({"****evaluate_group_discussion_conversation ":f"failed anthropic for {3 - max_tries + 1} time"})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -543,8 +535,8 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
             break
 
-        except:
-            logger.error({"****evaluate_group_discussion_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -610,11 +602,10 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     response = None
     is_evaluated = True
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(
                 prompt, len(skills_to_evaluate) * 50)
             response = json.loads(response)
@@ -622,7 +613,6 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                 response[skill] = float(response[skill])
             break
         except:
-            logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed anthropic for {3 - max_tries + 1} time"})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -652,8 +642,8 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
             break
 
-        except:
-            logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed gpt for {3 - max_tries + 1} time"})
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
