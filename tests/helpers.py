@@ -485,16 +485,23 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
 
             if transcript_length > 10:
-                
-                try:
-                    speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                        test_question_response.response_file,transcript)
-                    test_question_response.speech_metrics = speech_met
-                except Exception as e:
-                    logger.exception(e)
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met
+                        break
+                    except Exception as e:
+                        logger.exception(e)
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            break
 
-                    # HACK sane default values
-                    test_question_response.speech_metrics = default_metrics
+                    
             else:
                 # HACK sane default values
                     test_question_response.speech_metrics = default_metrics
@@ -515,15 +522,21 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
 
             if transcript_length > 10:
-                try:
-                    speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                        test_question_response.response_file,transcript)
-                    test_question_response.speech_metrics = speech_met_video
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met_video
+                        break
 
-                except Exception as e:
-                    
-                    logger.exception(e)
-                    test_question_response.speech_metrics = default_metrics
+                    except Exception as e:
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            break
             else:
                 test_question_response.speech_metrics = default_metrics
                 
