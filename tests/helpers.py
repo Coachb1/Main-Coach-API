@@ -537,6 +537,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
                             break
+
             else:
                 test_question_response.speech_metrics = default_metrics
                 
