@@ -58,12 +58,33 @@ def get_skills(candidate_type):
         "Decisiveness"
     ]
 
+    EMPLOYEE = [
+        "Communication",
+        "Objection handling",
+        "Problem solving",
+        "Social skills",
+        "Collaboration",
+        "Accountable",
+        "Improve lives around you",
+        "Negotiation",
+        "Get the best from others",
+        "Flexible",
+        "Coaching",
+        "Methodical approach",
+        "Empathy",
+        "Decisiveness",
+        "Self assurance",
+        "Clarity and concision"
+    ]
+
     if candidate_type == 'Manager':
         return MANAGER
     elif candidate_type == 'Sales manager':
         return SALES_MANAGER
     elif candidate_type == 'Customer service':
         return CUSTOMER_SERVICES
+    elif candidate_type == 'Employee':
+        return EMPLOYEE
     else:
         return []
 
@@ -154,6 +175,38 @@ class CustomerServiceSkills:
     }
 
 
+class EmployeeSkills:
+    PEOPLE = {
+        "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
+        "Objection handling": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management.",
+        "Problem solving": "Problem solving is the ability to identify and solve problems. It is the aptitude to analyze challenges, devise innovative solutions, and make sound decisions to achieve desired outcomes.",
+        "Social skills": "Build rapport and relate well to people from diverse backgrounds; emotionally intelligent.",
+    }
+
+    PARTNERSHIP = {
+        "Collaboration": "Collaboration is the ability to work together with others to achieve a common goal. It includes working harmoniously with others, leveraging diverse perspectives, and combining efforts effectively.",
+        "Accountable": "Being accountable involves taking ownership, responsibly addressing challenges, and transparently delivering on commitments, fostering trust and results.",
+        "Improve lives around you": "Proactively seek out opportunities to have a positive impact on others through acts of service, mentorship, or community leadership.",
+        "Negotiation": "Negotiation skills are the ability to reach an agreement that is mutually beneficial.",
+    }
+
+    PROCESS = {
+        "Get the best from others": "Motivate and empower people around you to achieve their full potential through encouragement, effective delegation, and providing support.",
+        "Flexible": "Adapt readily to changing priorities, environments, or requirements; willing and able to modify approaches to achieve goals.",
+        "Coaching": "Coaching is the ability to help others develop their skills and abilities.It includes the practice of guiding and developing individuals, unlocking their potential and fostering continuous growth.",
+        "Methodical approach": "Adopt a systematic, step-by-step approach to ensure tasks are completed thoroughly, accurately, and efficiently.",
+    }
+
+    PERSONALITY = {
+        "Empathy": "Empathy is the ability to understand and share the feelings of others. It is the capacity to understand perspectives of others, promoting compassion and strong interpersonal connections.",
+        "Decisiveness": "Decisiveness is the ability to make decisions quickly and effectively. It is the skill of making well-considered and timely choices, crucial for effective leadership and problem-solving.",
+        "Self assurance": "Project confidence in your abilities and decisions; willing to take calculated risks and responsibility for outcomes.",
+        "Clarity and concision": "Clarity and concision is the ability to communicate information clearly and precisely, focusing on essential points while avoiding unnecessary complexity or ambiguity.",
+    }
+
+
+
+
 def get_skills_by_candidate_type(candidate_type):
     if candidate_type.capitalize() == 'Manager':
         return ManagerSkills
@@ -161,6 +214,8 @@ def get_skills_by_candidate_type(candidate_type):
         return SalesManagerSkills
     elif candidate_type.capitalize() == 'Customer services':
         return CustomerServiceSkills
+    elif candidate_type.capitalize() == 'Employee':
+        return EmployeeSkills
 
 
 updated_skills = {
@@ -213,6 +268,7 @@ updated_skills = {
                 "Perspective": "Objective",
                 "Risk management": "Caution",
                 "Self-assurance": "Confident",
+                "Self-Assurance": "Confident",
                 "Maturity": "Maturity",
                 "Relationship building": "Network",
                 "Social skills": "Social",
