@@ -16,6 +16,7 @@ from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
 from users.models import User, UserAttribute
+from tenants.models import Tenant
 
 
 from identities.models import Identity
@@ -128,3 +129,12 @@ class AccountsViewSet(ApiViewSet,
             return Response(user_data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error({"!!!! Error":e},exc_info=True)
+
+
+    @action(methods=['GET'], detail=False, url_path="get_is_repeat_status")
+    def get_is_repeat_status(self,request,*args, **kwargs):
+        tenant_id = self.request.tenant.uid
+
+        query = Tenant.objects.get(uid = tenant_id)
+        data = {"tenant_id": tenant_id,"is_repeat" : query.is_repeat}
+        return Response(data, status=status.HTTP_200_OK)
