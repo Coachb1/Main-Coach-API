@@ -17,6 +17,8 @@ from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
 import logging
+from email_sender.helpers import send_feedbackd_email
+from users.models import UserAttribute
 logger = logging.getLogger(__name__)
 
 
@@ -164,3 +166,27 @@ class TestAttemptSessionViewSet(ApiViewSet,
         data = {"codes": list(test_codes)}
         print(data)
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+
+
+
+    @action(methods=["GET","POST"], detail=False, url_path="submit_feedback")
+    def submit_feedback(self, request, *args, **kwargs):
+        try:
+            participant_id = request.query_params.get("participant_id")
+            session_id = request.query_params.get("session_id")
+            feedback = request.query_params.get("feedback")
+            rating = request.query_params.get("rating")
+            test_id = request.query_params.get("test_id")
+            test_title = request.query_params.get("test_title")
+
+            user_attributes = UserAttribute.objects.get(
+                                    user_id=participant_id).attributes
+            candidate_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
+            
+            send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
+
+            return Response({"status": "sent"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_200_OK)
