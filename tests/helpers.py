@@ -545,12 +545,26 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         test_question_response.save(update_fields=update_fields)
 
+    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+    difficulty_level = user_info.difficulty_level
+    user_feedback_prompt = ''
+    if difficulty_level == 'easy':
+        user_feedback_prompt = user_info.easy_feedback_prompt
+    elif difficulty_level == 'critical':
+        user_feedback_prompt == user_info.critical_feedback_prompt
+
+    if user_info.custom_feedback_prompt_1:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
+    if user_info.custom_feedback_prompt_2:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
+
     if test.is_email_type:
         prompt = get_email_type_prompt(
             test_title=test.title,
             test_description=test.description,
             question=question.question,
-            candidate_reply=test_question_response.response_text)
+            candidate_reply=test_question_response.response_text,
+            user_feedback_prompt=user_feedback_prompt)
 
     else:
         if question.gpt_prompt_override or test.gpt_prompt_override:
@@ -560,7 +574,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_description=test.description,
                 question=question.question,
                 question_context=question.subjective_answer,
-                candidate_reply=test_question_response.response_text
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt
             )
         else:
             prompt = get_chat_conversation_prompt_v3(
@@ -568,7 +583,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_description=test.description,
                 question=question.question,
                 question_context=question.subjective_answer,
-                candidate_reply=test_question_response.response_text)
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt)
 
 
     feedback_text = ''
@@ -601,7 +617,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                             test_title=test.title,
                             test_description=test.description,
                             question=question.question,
-                            candidate_reply=test_question_response.response_text)
+                            candidate_reply=test_question_response.response_text,
+                            user_feedback_prompt=user_feedback_prompt)
 
                     else:
                         if question.gpt_prompt_override or test.gpt_prompt_override:
@@ -611,7 +628,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 test_description=test.description,
                                 question=question.question,
                                 question_context=question.subjective_answer,
-                                candidate_reply=response_text
+                                candidate_reply=response_text,
+                                user_feedback_prompt=user_feedback_prompt
                             )
                         else:
                             prompt = get_chat_conversation_prompt_v3(
@@ -619,7 +637,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 test_description=test.description,
                                 question=question.question,
                                 question_context=question.subjective_answer,
-                                candidate_reply=response_text)
+                                candidate_reply=response_text,
+                                user_feedback_prompt=user_feedback_prompt)
 
                 max_retry -= 1
 
@@ -1139,8 +1158,20 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         for s in required_skills:
             skills_.append(s)
 
+    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+    difficulty_level = user_info.difficulty_level
+    user_skill_prompt = ''
+    if difficulty_level == 'easy':
+        user_skill_prompt = user_info.easy_skill_prompt
+    elif difficulty_level == 'critical':
+        user_skill_prompt == user_info.critical_skill_prompt
 
-    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_)
+    if user_info.custom_skill_prompt_1:
+        user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_1
+    if user_info.custom_skill_prompt_2:
+        user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
+
+    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
     for skill in response_skills_rating:
         if skill in skills_rating:
             skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
@@ -1247,7 +1278,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     # Get number of interactions for that candidate which are completed but are not the current one
     total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
                                                                   status=TestAttemptSessionStatusChoices.completed,
-                                                                  deleted=0).exclude(uid=test_attempt_session.uid)
+                                                                  deleted=0).exclude(uid=test_attempt_session.uid).exclude(finished_at=None)
 
     total_successful_sessions_count = total_successful_sessions.count()
 
@@ -1261,12 +1292,13 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        try:
-            last_5_sessions_avg_score += session.avg_score
-        except:
-            pass
+        last_5_sessions_avg_score += session.avg_score
 
-    last_5_sessions_avg_score = last_5_sessions_avg_score / 5
+    if total_successful_sessions_count >=5:
+        last_5_sessions_avg_score = last_5_sessions_avg_score / 5
+    else:
+        last_5_sessions_avg_score = last_5_sessions_avg_score / total_successful_sessions_count
+
 
     if last_5_sessions_avg_score < 5:
         return skills_rating, avg_score
@@ -1274,25 +1306,15 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     increase_by_percent = min(total_successful_sessions_count, 10)
     # 1 -> 1%, 2 -> 2%, 3 -> 3%, 4 -> 4%, 5 -> 5%, 6 -> 6%, 7 -> 7%, 8 -> 8%, 9 -> 9%, 10 -> 10%, 11 -> 10%, 12 -> 10%, 13 -> 10%, 14 -> 10%, 15 -> 10%, 16 -> 10%, 17 -> 10%, 18 -> 10%, 19 -> 10%, 20 -> 10%
 
-    # for skill in skills_rating:
-    #     skills_rating[skill] = skills_rating[skill] + \
-    #                            (skills_rating[skill] * increase_by_percent / 100)
-
-    #     skills_rating[skill] = min(10, skills_rating[skill])
-    #     skills_rating[skill] = round_off_rating(skills_rating[skill])
-
-    # avg_score = avg_score + (avg_score * increase_by_percent / 100)
-    # avg_score = round_off_rating(avg_score)
-    # avg_score = min(10.0, avg_score)
     for skill in skills_rating:
-        if skills_rating[skill] < 6:
-            increase_factor = 1 + (skills_rating[skill] / 10) * (increase_by_percent / 100)
-            skills_rating[skill] *= increase_factor
+        if skills_rating[skill] > 8:
+            skills_rating[skill] = skills_rating[skill] + \
+                                (skills_rating[skill] * increase_by_percent / 100)
+
             skills_rating[skill] = min(10, skills_rating[skill])
             skills_rating[skill] = round_off_rating(skills_rating[skill])
-    
-    increase_factor_avg = 1 + (avg_score / 10) * (increase_by_percent / 100)
-    avg_score *= increase_factor_avg
+
+    avg_score = sum(skills_rating.values()) / len(skills_rating)
     avg_score = round_off_rating(avg_score)
     avg_score = min(10.0, avg_score)
 
@@ -1539,7 +1561,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     return culture_skills_rating
 
-def calc_skills_rating(test_attempt_session, responses, test,skills):
+def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
     skills_rating = {}
 
     conversation = ""
@@ -1561,7 +1583,7 @@ def calc_skills_rating(test_attempt_session, responses, test,skills):
 
     # Evaluate conversation
     skills_rating, is_evaluated = evaluate_response_skill(
-        test_attempt_session, conversation, test.title, test.description, test.test_code,skills)
+        test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
 
     if not is_evaluated:
         return None
@@ -1573,7 +1595,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description: str,
                                     question: str,
                                     question_context: str,
-                                    candidate_reply: str):
+                                    candidate_reply: str,
+                                    user_feedback_prompt:str):
     if question_context:
         template = Template(
             """
@@ -1596,13 +1619,15 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            ${user_feedback_prompt}
             """
         )
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
                                    question_context=question_context,
-                                   candidate_reply=candidate_reply)
+                                   candidate_reply=candidate_reply,
+                                   user_feedback_prompt=user_feedback_prompt)
     else:
         template = Template(
             """
@@ -1624,12 +1649,14 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            ${user_feedback_prompt}
             """
         )
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
-                                   candidate_reply=candidate_reply)
+                                   candidate_reply=candidate_reply,
+                                   user_feedback_prompt=user_feedback_prompt)
 
 
 def get_orchestrated_test_conversation_prompt(test: Test,
@@ -1681,7 +1708,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 def get_email_type_prompt(test_title,
                           test_description,
                           question,
-                          candidate_reply):
+                          candidate_reply,
+                          user_feedback_prompt):
     template = Template(
         """
         Title: ${test_title}. 
@@ -1704,13 +1732,15 @@ def get_email_type_prompt(test_title,
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
         NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
         NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
+        ${user_feedback_prompt}
         """
     )
 
     return template.substitute(test_title=test_title,
                                test_description=test_description,
                                question=question,
-                               candidate_reply=candidate_reply)
+                               candidate_reply=candidate_reply,
+                               user_feedback_prompt=user_feedback_prompt)
 
 
 def get_overridden_prompt(prompt_template: str,
@@ -1718,7 +1748,8 @@ def get_overridden_prompt(prompt_template: str,
                           test_description: str,
                           question: str,
                           question_context: str,
-                          candidate_reply: str):
+                          candidate_reply: str,
+                          user_feedback_prompt:str):
     if question_context:
         template = Template(
             """
@@ -1743,13 +1774,15 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            ${user_feedback_prompt}
             """
         )
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
                                    question_context=question_context,
-                                   candidate_reply=candidate_reply)
+                                   candidate_reply=candidate_reply,
+                                   user_feedback_prompt=user_feedback_prompt)
 
     else:
         template = Template(
@@ -1773,13 +1806,15 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            ${user_feedback_prompt}
             """
         )
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
                                    prompt_template=prompt_template,
-                                   candidate_reply=candidate_reply)
+                                   candidate_reply=candidate_reply,
+                                   user_feedback_prompt=user_feedback_prompt)
 
 
 @timeit

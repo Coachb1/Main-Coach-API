@@ -28,6 +28,19 @@ class UserAttribute(TenantAwareModel):
     user_id = models.CharField(max_length=255)
     tag = models.CharField(max_length=255)
     attributes = models.JSONField(null=True, blank=True, default=None)
+    difficulty_level = models.CharField(max_length=255,default="Midium",null=True,blank=True)
+    easy_feedback_prompt = models.TextField(null=True, blank=True, default="NOTE: Evaluate the candidate answer from a very liberal perspective and provide feedback in a friendly manner.")
+    midium_feedback_prompt = models.TextField(null=True, blank=True, default=None)
+    critical_feedback_prompt = models.TextField(null=True, blank=True, default="NOTE: Evaluate the candidate answer in a very strict manner and provide a critical feedback.")
+    custom_feedback_prompt_1 = models.TextField(null=True, blank=True, default=None)
+    custom_feedback_prompt_2 = models.TextField(null=True, blank=True, default=None)
+    easy_skill_prompt = models.TextField(null=True, blank=True, default="NOTE: Evaluate the answers from a very liberal perspective and rate the skills.")
+    midium_skill_prompt = models.TextField(null=True, blank=True, default=None)
+    critical_skill_prompt = models.TextField(null=True, blank=True, default="NOTE: Evaluate the answers from a very critical perspective and rate the skills.")
+    custom_skill_prompt_1 = models.TextField(null=True, blank=True, default=None)
+    custom_skill_prompt_2 = models.TextField(null=True, blank=True, default=None)
+    
+
 
     class Meta:
         db_table = "user_attribute"
