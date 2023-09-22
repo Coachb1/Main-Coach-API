@@ -157,7 +157,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     return response, True
 
-def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills):
+def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt):
     skills_rating =skills
 
     # prompt = f'''
@@ -210,6 +210,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         NOTE: For the entire conversation no two skills from {skills_rating} can have exact same scores.
 
         NOTE: Do not add any English language sentence in the output.
+        
+        {user_skill_prompt}
 
     '''
 
