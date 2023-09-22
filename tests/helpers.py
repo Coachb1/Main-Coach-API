@@ -550,8 +550,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     user_feedback_prompt = ''
     if difficulty_level == 'easy':
         user_feedback_prompt = user_info.easy_feedback_prompt
-    elif difficulty_level == 'midium':
-        user_feedback_prompt = user_info.midium_feedback_prompt
     elif difficulty_level == 'critical':
         user_feedback_prompt == user_info.critical_feedback_prompt
 
@@ -1165,8 +1163,6 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     user_skill_prompt = ''
     if difficulty_level == 'easy':
         user_skill_prompt = user_info.easy_skill_prompt
-    elif difficulty_level == 'midium':
-        user_skill_prompt = user_info.midium_skill_prompt
     elif difficulty_level == 'critical':
         user_skill_prompt == user_info.critical_skill_prompt
 
