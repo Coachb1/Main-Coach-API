@@ -187,7 +187,7 @@ def format_test_orchestrated_conversation(raw_data):
                     "gpt_prompt_override": "",
                     "subjective_answer": ""
                 }
-                if "Respond as a manager" in input_dict[key]:
+                if "Please respond in order to continue" in input_dict[key]:
                     question['question_for'] = "user"
 
                 else:
