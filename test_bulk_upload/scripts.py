@@ -187,16 +187,28 @@ def format_test_orchestrated_conversation(raw_data):
                     "gpt_prompt_override": "",
                     "subjective_answer": ""
                 }
-                if "Please respond in order to continue" in input_dict[key]:
-                    question['question_for'] = "user"
+                # if "Please respond in order to continue" in input_dict[key]:
+                #     question['question_for'] = "user"
 
+                # else:
+                #     for name in persons:
+                #         if name.split()[0].lower() in input_dict[key].lower():
+                #             question['question_for'] = name
+                #             break
+
+                matched_name = next((name for name in persons if name.split()[0].lower() in input_dict[key].lower()), None)
+                if matched_name:
+                    question['question_for'] = matched_name
                 else:
-                    for name in persons:
-                        if name.split()[0].lower() in input_dict[key].lower():
-                            question['question_for'] = name
-                            break
-
+                    question['question_for'] = "user"
+                                
                 output_dict["questions"].append(question)
+        
+        # checking if last column is for user or not
+        last_question = output_dict['questions'][-1]
+        if last_question['question_for'] != 'user':
+            json_data = {"last_question_for_user": False}
+            return json_data, False
 
         output_json = json.dumps(output_dict)
 
@@ -793,6 +805,11 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     if response.status_code != 201:
                         raise Exception("API call failed")
                 else:
+                    if "last_question_for_user" in json_data:
+                        return {
+                            "errors": ["Last question should be for user not bot."],
+                            "exception": True,
+                        }
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
                                             ] = "Not Created For This Title"
                     cnt += 1
