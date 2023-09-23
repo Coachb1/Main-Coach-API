@@ -11,9 +11,25 @@ from external_apis.slack_alert_api import send_slack_message
 from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
+import re
 
 
 logger = logging.getLogger(__name__)
+
+
+def json_extraction(text):
+    pattern = r'{.*}'
+
+    # Use re.search to find the JSON portion in the text
+    match = re.search(pattern, text)
+
+    if match:
+        json_data = match.group()
+        logger.info({"json": json_data})
+        return json_data
+    else:
+        logger.info({"message": "json not found"})
+        return text
 
 
 def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title, test_code, session_id):
@@ -87,6 +103,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
             logger.info({"****evaluate_response ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(skills) * 50)
             logger.info({"****evaluate_response ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -115,6 +132,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
             logger.info({"****evaluate_response ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_response ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
@@ -224,6 +242,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(skills_rating) * 50)
             logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             response = json.loads(response)
             for skill in response:
                 response[skill] = float(response[skill])
@@ -255,6 +274,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
@@ -363,6 +383,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(cultural_skills) * 50)
             logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             response = json.loads(response)
             
             for skill in response:
@@ -395,6 +416,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
@@ -480,6 +502,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(prompt, len(cultural_skills) * 50)
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             response = json.loads(response)
             
             for skill in response:
@@ -512,6 +535,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
@@ -602,6 +626,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             response = anthropic_completion(
                 prompt, len(skills_to_evaluate) * 50)
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             response = json.loads(response)
             
             for skill in response:
@@ -631,6 +656,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
             if '"REPLY:"' in response:
                 response = response.split('"REPLY:"')[1].strip()
             elif '"ANSWER:"' in response:
