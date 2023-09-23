@@ -157,14 +157,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # Filter the test_attempt_session with the given participant_id 
         test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed)
+        checkin_type_sessions_count = test_attempt_sessions.filter(is_checkin_type=1).count()
 
         test_codes = set()
         for test_attempt_session in test_attempt_sessions:
 
             test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
 
-        data = {"codes": list(test_codes)}
-        print(data)
+        data = {"codes": list(test_codes),"checkin_type_test_count": checkin_type_sessions_count, "total_session":test_attempt_sessions.count()}
+
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
 
