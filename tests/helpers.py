@@ -476,11 +476,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             # except:
             transcript_length = 0
             try:
+                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
                 transcript = gpt_wishper_api(
                     test_question_response.response_file)
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
-            except:
+                3/0
+                logger.info({"message":"************ transcript generated ******","transcript":transcript})
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
                 transcript = "Transcription couldn't be generated"
                 test_question_response.response_text = transcript
 
@@ -513,11 +517,14 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_file)
             transcript_length = 0
             try:
+                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
                 transcript = gpt_wishper_api(
                     test_question_response.response_file)
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
-            except:
+                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
                 transcript = "Transcription couldn't be generated"
                 test_question_response.response_text = transcript
 
@@ -594,7 +601,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     words = word_tokenize(test_question_response.response_text)
 
-    if len(words) <= 5 :
+    if len(words) <= 10 :
         feedback_text = "No feedback can be generated because of too low response length"
         go_for_feedback = False
     
