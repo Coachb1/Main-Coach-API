@@ -481,7 +481,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_file)
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
-                3/0
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
