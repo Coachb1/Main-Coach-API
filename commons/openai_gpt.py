@@ -89,7 +89,10 @@ def gpt_wishper_api(url):
         response = requests.get(url)
         audio_data = response.content
         text = ''
-        with tempfile.NamedTemporaryFile(suffix=".mp3") as temp_file:
+        suffix = '.mp3'
+        if '.m4a' in url:
+            suffix = '.m4a'
+        with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
             # Write the audio data to the temporary file
             temp_file.write(audio_data)
             temp_file.seek(0)
