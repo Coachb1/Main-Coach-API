@@ -1316,7 +1316,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     # 1 -> 1%, 2 -> 2%, 3 -> 3%, 4 -> 4%, 5 -> 5%, 6 -> 6%, 7 -> 7%, 8 -> 8%, 9 -> 9%, 10 -> 10%, 11 -> 10%, 12 -> 10%, 13 -> 10%, 14 -> 10%, 15 -> 10%, 16 -> 10%, 17 -> 10%, 18 -> 10%, 19 -> 10%, 20 -> 10%
 
     for skill in skills_rating:
-        if skills_rating[skill] > 8:
+        if skills_rating[skill] < 8:
             skills_rating[skill] = skills_rating[skill] + \
                                 (skills_rating[skill] * increase_by_percent / 100)
 
