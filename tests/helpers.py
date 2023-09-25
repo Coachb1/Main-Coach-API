@@ -1134,17 +1134,25 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
             has_speech_metric = True
             # get speech metrics from this response
             response_speech_metrics = response.speech_metrics
+            # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
+            # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
 
-            for key,value in response_speech_metrics.items():
-                if isinstance(value, str) and "%" in value:
-                    value = value.replace("%", "")
-                    if value.isdigit():
-                        value = float(value)
-                        
-                if key in speech_score:
-                    speech_score[key] += value or random.randint(3, 7)
-                else:
-                    speech_score[key] = value or random.randint(3, 7)
+            try:
+                for key,value in response_speech_metrics.items():
+                    if isinstance(value, str) and "%" in value:
+                        try: 
+                            value = float(value.replace("%", ""))
+                        except:
+                            pass
+                            
+                    if key in speech_score:
+                        speech_score[key] += value or random.randint(3, 7)
+                    else:
+                        speech_score[key] = value or random.randint(3, 7)
+
+            except Exception as e :
+                has_speech_metric = False
+                logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
 
         # for skill in response_skills_rating:
         #     if skill in skills_rating:
