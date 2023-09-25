@@ -1033,6 +1033,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     Based on the discussion above please analyze the efficiency and efficacy of the meeting as it relates to the following parameters:{areas_of_improvement}. Please comment the output in seperate paragraphs where the paragraph headings are {areas_of_improvement} and values are the paragraphs explaining each heading respectively. Include what went well and where are the areas of improvment. Do not provide any introductions and conclusion. Each paragraph must be 50-70 words appropriately.
     
     PLEASE NOTE that you may evaluate the {areas_of_improvement} parameters for the {user_persona} persona only. Do not evaluate any other characters.
+    NOTE: Do not include any mentions of word count requirements or limits in your response.
 
     OUTPUT FORMAT:
     Sticking to Agenda
@@ -1136,7 +1137,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
             for key,value in response_speech_metrics.items():
                 if isinstance(value, str) and "%" in value:
-                        value = float(value.replace("%", ""))
+                    value = value.replace("%", "")
+                    if value.isdigit():
+                        value = float(value)
+                        
                 if key in speech_score:
                     speech_score[key] += value or random.randint(3, 7)
                 else:
@@ -1623,7 +1627,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             5) A counter intuitive insight - 10 words minimum
 
             NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
-            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
@@ -1653,7 +1657,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             5) A counter intuitive insight - 10 words minimum
 
             NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
-            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
@@ -1736,7 +1740,7 @@ def get_email_type_prompt(test_title,
         4) A counter intuitive insight - 10 words minimum
 
         NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
-        NOTE: Do not show word count.(Eg: 50 words)
+        NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
         NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
@@ -1778,7 +1782,7 @@ def get_overridden_prompt(prompt_template: str,
             5) A counter intuitive insight - 10 words minimum
 
             NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
-            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
@@ -1810,7 +1814,7 @@ def get_overridden_prompt(prompt_template: str,
             5) A counter intuitive insight - 10 words minimum
 
             NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
-            NOTE: Never include any word count in the feedback output. (For eg. 50 words)
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
