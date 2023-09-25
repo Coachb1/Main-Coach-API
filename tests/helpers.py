@@ -1136,7 +1136,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
             for key,value in response_speech_metrics.items():
                 if isinstance(value, str) and "%" in value:
-                        value = float(value.replace("%", ""))
+                    value = value.replace("%", "")
+                    if value.isdigit():
+                        value = float(value)
+                        
                 if key in speech_score:
                     speech_score[key] += value or random.randint(3, 7)
                 else:
