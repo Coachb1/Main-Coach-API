@@ -54,6 +54,7 @@ import nltk
 nltk.download('punkt')
 import pytz
 import datetime
+from test_bulk_upload.constants import updated_skills
 
 logger = logging.getLogger(__name__)
 
@@ -990,7 +991,22 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     }
 
     if test_attempt_session.skills_rating:
-        data["skills_rating"] = test_attempt_session.skills_rating
+        skills_rating = test_attempt_session.skills_rating
+
+        updated_skills_ratings = {}
+        existing_skills = []
+        for skill, values in skills_rating.items():
+            for old , new in updated_skills.items():
+                if skill.strip().capitalize() == old.strip().capitalize():
+                    updated_skills_ratings[new.strip()] = values
+                    existing_skills.append(skill)
+                else:
+                    updated_skills_ratings[skill] = values
+
+        for i  in existing_skills:
+            del updated_skills_ratings[i]
+        
+        data["skills_rating"] = updated_skills_ratings
 
     return data
 
