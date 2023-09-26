@@ -70,7 +70,7 @@ def process_orchestrated_conversation_slack_file(request):
 def get_filler_and_powerwords(request):
     interaction_session_id = request.GET.get('interaction_session_id')
     participant_responses = TestQuestionResponse.objects.filter(
-        test_attempt_session_id=interaction_session_id)
+        test_attempt_session_id=interaction_session_id,responder_type='user')
     allresponse = ""
     for response in participant_responses:
         allresponse += response.response_text + " "
