@@ -55,6 +55,7 @@ nltk.download('punkt')
 import pytz
 import datetime
 from test_bulk_upload.constants import updated_skills
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -669,7 +670,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         }
     }
 
-    test_question_response.feedback_text = feedback_text
+    feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+    test_question_response.feedback_text_text = feedback_text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=["metadata", "feedback_text", "evaluation_status", "updated"])
@@ -978,6 +980,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
+    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()}  # to strip extra qoutes from key
 
     data = {
         "participant_name": participant_name,
@@ -992,6 +995,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
+        skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
         updated_skills_ratings = {}
         existing_skills = []
@@ -1248,6 +1252,8 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         culture_skills_rating)
 
     # update skills_rating field in test_attempt_session
+    skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
+    
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
     test_attempt_session.avg_score = avg_score
@@ -1263,6 +1269,8 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         updated_fields.append("speech_score")
 
     if culture_skills_rating is not None:
+        culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+        
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
 
