@@ -191,7 +191,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     for metric in all_speech_metrics:
         for k, v in metric.items():
             if isinstance(v, str) and "%" in v:
-                v = float(v.replace("%", ""))
+                try:
+                    v = float(v.replace("%", ""))
+                except:
+                    pass
 
             if k in speech_metrics_avg:
                 speech_metrics_avg[k] += v
@@ -433,6 +436,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # get the skills_rating for the test_attempt_session
     skills_rating = test_attempt_session.skills_rating
+    skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
     # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
     # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
