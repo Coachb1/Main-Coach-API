@@ -56,6 +56,7 @@ import pytz
 import datetime
 from test_bulk_upload.constants import updated_skills
 import re
+from commons.google_stt import speech_to_text
 
 logger = logging.getLogger(__name__)
 
@@ -485,9 +486,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
 
             if transcript_length > 10:
                 max_tries = 2
@@ -525,9 +533,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
 
             if transcript_length > 10:
                 max_tries = 2
