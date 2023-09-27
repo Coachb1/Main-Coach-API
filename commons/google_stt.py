@@ -17,7 +17,7 @@ def get_uri(url):
     uri = "gs://"+uri
     return uri
 
-
+@timeit
 def speech_to_text(url):
     try:
         os.chdir(f"{Path(__file__).resolve().parent}")
