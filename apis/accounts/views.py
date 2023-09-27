@@ -137,17 +137,21 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get_is_repeat_status")
     def get_is_repeat_status(self,request,*args, **kwargs):
-        tenant_id = self.request.tenant.uid
+        tenant = self.request.tenant
         participant_id = request.query_params.get("participant_id")
 
-        query = Tenant.objects.get(uid = tenant_id)
         try:
-            test_per_month = query.test_per_month
-            date_month_ago = datetime.datetime.now() - datetime.timedelta(days=30)
-            date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
-            total_test_attempted = TestAttemptSession.objects.filter(participant_id = participant_id,status=TestAttemptSessionStatusChoices.completed, created__gte = date_month_ago).count()
+            test_per_month = tenant.test_per_month
+            current_month = timezone.now().month
+            # date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
+            sessions = TestAttemptSession.objects.filter(participant_id = participant_id,tenant_id=tenant.uid, status=TestAttemptSessionStatusChoices.completed)
+            this_month_sessions = []
+            for session in sessions:
+                if session.created.month == current_month:
+                    this_month_sessions.append(session)
+            total_test_attempted = len(this_month_sessions)
         except Exception as e:
             logger.error({"!!!!!!!!!! Error":e},exc_info=True)
             total_test_attempted = 0
-        data = {"tenant_id": tenant_id,"is_repeat" : query.is_repeat,"monthly_remaining_tests": test_per_month - total_test_attempted}
+        data = {"tenant_id": tenant.uid,"is_repeat" : tenant.is_repeat,"monthly_remaining_tests": test_per_month - total_test_attempted}
         return Response(data, status=status.HTTP_200_OK)
