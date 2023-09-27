@@ -116,7 +116,8 @@ class CoachingConversationViewSet(ApiViewSet,
             "results": results,
             "test_title": test_title,
             "participant_name": participant_name,
-            "date": date
+            "date": date,
+            "logo": request.tenant.logo,
         }
 
         return Response(data, status=status.HTTP_200_OK)

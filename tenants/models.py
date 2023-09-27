@@ -10,6 +10,7 @@ class Tenant(MyModel):
     subscription = models.CharField(max_length=255, choices=SubscriptionChoices, default=SubscriptionChoices.paused)
     document_storage_bucket_name = models.TextField(default="")
     is_repeat = models.BooleanField(default=True, null=True, blank=True)
+    logo = models.TextField(default="", null=True, blank=True)
 
     class Meta:
         db_table = 'tenant'

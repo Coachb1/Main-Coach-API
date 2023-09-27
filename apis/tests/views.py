@@ -86,6 +86,8 @@ class TestViewSet(ApiViewSet,
         test = self.get_object()
 
         data = get_test_report(test, only_data=True)
+        tenant = request.tenant
+        data['logo'] = tenant.logo
 
         return Response({"data": data, "status": "completed"})
 
