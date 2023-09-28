@@ -851,6 +851,9 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
+        report_url = generate_meeting_report_link(test_attempt_session)
+        if test.email_address_list:
+            send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
 
     return test_question_response
@@ -951,7 +954,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
     updated_fields = ["culture_skills_rating",
-                      "meeting_summary", "areas_of_improvement"]
+                      "meeting_summary", "areas_of_improvement","finished_at","updated"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -963,6 +966,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     test_attempt_session.meeting_summary = meeting_summary
     test_attempt_session.areas_of_improvement = areas_of_improvement
+    test_attempt_session.finished_at = timezone.now()
 
     test_attempt_session.save(update_fields=updated_fields)
 
@@ -1413,6 +1417,26 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
     return report_url
 
+def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
+    if test_attempt_session.report_url:
+        return test_attempt_session.report_url
+
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.MEETING_ANALYSIS_REPORT}/{refresh_token}/?test_attempt_session_id={test_attempt_session_id}&backend={BACKEND}"
+
+    test_attempt_session.report_url = report_url
+    test_attempt_session.save(update_fields=["report_url"])
+
+    return report_url
+
 
 def update_skills_rating_if_same_scores(skills_rating):
     total_skills = len(skills_rating)
@@ -1501,6 +1525,63 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 
 
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
+                              is_whatsapp: bool = False):
+    if test_attempt_session.is_report_sent_to_email:
+        return
+
+    test_name = test.title
+    test_description = test.description
+    test_completion_date = test_attempt_session.finished_at.strftime(
+        "%d %b %Y")
+    participant_id = test_attempt_session.participant_id
+
+    participant_attributes = UserAttribute.objects.get(
+        user_id=participant_id).attributes
+
+    email_address_list = test.email_address_list
+    email_address_list = email_address_list.split(",")
+    email_address_list = [email_address.strip()
+                          for email_address in email_address_list]
+
+    if is_whatsapp:
+        participant_name = participant_attributes.get("user_name")
+        mobile_number = participant_attributes.get("mobile_number")
+        participant_name = f"{participant_name} ({mobile_number})"
+    else:
+        participant_name = participant_attributes.get("name")
+
+    
+
+    data = {
+        "report_url": report_url,
+        "test_name": test_name,
+        "candidate_name": participant_name,
+        "real_name": participant_attributes.get("real_name"),
+    }
+
+    email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
+
+    participant_email = participant_attributes.get(
+        "profile", {}).get("email")
+
+    if test.email_candidate:
+        try:
+            send_email(participant_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception("failed to send email to participant %s email %s, err: %s",
+                             participant_id, participant_email, e)
+            raise e
+
+    for to_email in email_address_list:
+        send_email(to_email, email_subject, data=data)
+
+    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
+
+    test_attempt_session.is_report_sent_to_email = True
+    test_attempt_session.save(update_fields=["is_report_sent_to_email"])
+
+
+def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
         return
