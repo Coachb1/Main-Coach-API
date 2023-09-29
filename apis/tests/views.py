@@ -19,6 +19,7 @@ from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
 from users.models import User
+from utilities.models import SpecialTypeTests
 
 
 class TestViewSet(ApiViewSet,
@@ -125,3 +126,21 @@ class TestViewSet(ApiViewSet,
         potential_test = generate_test_from_objective_anthropic(objective)
 
         return Response(potential_test, status=status.HTTP_200_OK)
+
+    @action(methods=["GET"], detail=False, url_path="get-special-case-tests")
+    def get_tenant_special_case_test(self, request, *args, **kwargs):
+        tenant_id=self.request.tenant.uid
+        case_type = request.query_params.get("case_type")
+
+        case_tests = SpecialTypeTests.objects.filter(tenant_id=tenant_id,case_type=case_type).order_by('title')
+        data = []
+        for case_test in case_tests:
+            data.append({
+                "title": case_test.title,
+                "description": case_test.description,
+                "test_code": case_test.test_code,
+
+            })
+
+        return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
+
