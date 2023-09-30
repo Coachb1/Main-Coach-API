@@ -47,6 +47,7 @@ SCENARIO_CASE = "Scenario Case"
 RATINGS = "rating"
 IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
+MEDIA_LINK = 'ML'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -431,6 +432,8 @@ def format_test_data_slack(raw_data):
                     question['is_view_only'] = True
                 elif test_type == "single":
                     question['is_view_only'] = True
+                elif test_type == 'lesson':
+                    question['media_link'] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
 
                 output_dict["questions"].append(question)
 
