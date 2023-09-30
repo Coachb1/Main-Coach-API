@@ -127,19 +127,29 @@ class TestViewSet(ApiViewSet,
 
         return Response(potential_test, status=status.HTTP_200_OK)
 
-    @action(methods=["GET"], detail=False, url_path="get-special-case-tests")
-    def get_tenant_special_case_test(self, request, *args, **kwargs):
+    @action(methods=["GET"], detail=False, url_path="get-special-category")
+    def get_tenant_special_case_test_category(self, request, *args, **kwargs):
         tenant_id=self.request.tenant.uid
         case_type = request.query_params.get("case_type")
 
         case_tests = SpecialTypeTests.objects.filter(tenant_id=tenant_id,case_type=case_type).order_by('title')
+        data = set()
+        for case_test in case_tests:
+            data.add(case_test.category)
+
+        return Response({"data": list(data), 'status': "ok"},status=status.HTTP_200_OK)
+    
+    @action(methods=["GET"], detail=False, url_path="get-special-case-tests")
+    def get_tenant_special_case_test(self, request, *args, **kwargs):
+        tenant_id=self.request.tenant.uid
+        case_category = request.query_params.get("case_category")
+
+        case_tests = SpecialTypeTests.objects.filter(tenant_id=tenant_id,category=case_category).order_by('title')
         data = []
         for case_test in case_tests:
             data.append({
                 "title": case_test.title,
-                "description": case_test.description,
-                "test_code": case_test.test_code,
-
+                "code" : case_test.test_code
             })
 
         return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
