@@ -923,10 +923,16 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
+    
+    test_score = 0
+    for skill in skills_rating:
+        test_score += skills_rating[skill]
+
+    avg_score = test_score / len(skills_rating.keys())
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
     updated_fields = ["culture_skills_rating",
-                      "meeting_summary", "areas_of_improvement","finished_at","updated"]
+                      "meeting_summary", "areas_of_improvement","test_score","avg_score","finished_at","updated"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -939,6 +945,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     test_attempt_session.meeting_summary = meeting_summary
     test_attempt_session.areas_of_improvement = areas_of_improvement
     test_attempt_session.finished_at = timezone.now()
+    test_attempt_session.test_score = test_score
+    test_attempt_session.avg_score = avg_score
 
     test_attempt_session.save(update_fields=updated_fields)
 
@@ -1330,7 +1338,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     last_5_sessions_avg_score = 0
 
     for session in last_5_sessions:
-        last_5_sessions_avg_score += session.avg_score
+        last_5_sessions_avg_score += session.avg_score or random.randint(3,7)
 
     if total_successful_sessions_count >=5:
         last_5_sessions_avg_score = last_5_sessions_avg_score / 5
