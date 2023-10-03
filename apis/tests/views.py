@@ -18,7 +18,7 @@ from tests.models import Test
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
-from users.models import User
+from users.models import User, UserAttribute
 from utilities.models import SpecialTypeTests
 
 
@@ -154,3 +154,18 @@ class TestViewSet(ApiViewSet,
 
         return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
 
+    @action(methods=["GET"], detail=False, url_path="get-test-previlage-user")
+    def get_test_previlage(self, request, *args, **kwargs):
+        user_id = request.query_params.get("user_id")
+
+        user_att = UserAttribute.objects.get(user_id = user_id)
+
+        active = False
+        test_list = []
+        if user_att:
+            if user_att.test_previlage :
+                active = True
+                test_list = [ test_code.strip() for test_code in user_att.test_previlage.split(',')]
+
+        return Response({"data": test_list,'active': active, 'status': "ok"},status=status.HTTP_200_OK)
+        
