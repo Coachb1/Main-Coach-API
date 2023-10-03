@@ -47,6 +47,7 @@ SCENARIO_CASE = "Scenario Case"
 RATINGS = "rating"
 IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
+MEDIA_LINK = 'ML'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -424,7 +425,9 @@ def format_test_data_slack(raw_data):
                     "gpt_prompt_override": input_dict.get(f"{CUSTOM_PROMPT} {key[len(QUESTION) + 1:]}", ''),
                     "subjective_answer": "",
                     "key_learning_point": input_dict.get(f"{KLP} {key[len(QUESTION) + 1:]}", ''),
-                    "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None)
+                    "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
+                    "media_link" : input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+
                 }
 
                 if test_type == "view":

@@ -12,6 +12,7 @@ class TestTypeChoices(DjangoChoices):
     single = ChoiceItem("single")
     case = ChoiceItem("case")
     group = ChoiceItem("group")
+    lesson = ChoiceItem('lesson')
 
 class ScenarioCaseChoices(DjangoChoices):
     simulation = ChoiceItem("simulation")
