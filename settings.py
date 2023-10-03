@@ -63,6 +63,9 @@ DATABASES = {
         # Or an IP Address that your DB is hosted on
         "HOST": os.getenv("MYSQL_HOST"),
         "PORT": os.getenv("MYSQL_PORT"),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
     }
 }
 
