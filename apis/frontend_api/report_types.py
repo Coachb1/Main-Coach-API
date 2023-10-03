@@ -9,5 +9,6 @@ class ReportType:
     SKILLS_TRACKER_REPORT = 'skillsTrackerReport'
     SKILLS_DISCOVERY_REPORT = 'skillsDiscoveryReport'
     SUMMARY_LEADERBOARD_REPORT = "summaryPLBReport"
+    DYNAMIC_DISCUSSOIN_REPORT = "dynamicDiscussionReport"
 
 
