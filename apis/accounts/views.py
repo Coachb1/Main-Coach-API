@@ -155,3 +155,13 @@ class AccountsViewSet(ApiViewSet,
             total_test_attempted = 0
         data = {"tenant_id": tenant.uid,"is_repeat" : tenant.is_repeat,"monthly_remaining_tests": test_per_month - total_test_attempted}
         return Response(data, status=status.HTTP_200_OK)
+
+    @action(methods=['GET'], detail=False, url_path="get-user-type")
+    def get_user_type(self,request,*args, **kwargs):
+        user_id = request.query_params.get('user_id')
+
+        user = User.objects.get(uid=user_id)
+
+        user_role = user.role
+
+        return Response({"user_role":user_role}, status=status.HTTP_200_OK)
