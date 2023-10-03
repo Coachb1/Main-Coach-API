@@ -113,11 +113,13 @@ class TestAttemptSession(TenantAwareModel):
     report_doc_id = models.TextField(
         null=True, blank=True, default=None)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
+    skills_explanation = models.JSONField(null=True, blank=True, default=None)
     test_score = models.FloatField(null=True, blank=True, default=None)
     avg_score = models.FloatField(null=True, blank=True, default=None)
     speech_score = models.JSONField(null=True, blank=True, default=None)
     culture_skills_rating = models.JSONField(
         null=True, blank=True, default=None)
+    culture_skills_explanation = models.JSONField(null=True, blank=True, default=None)
 
     meeting_summary = models.TextField(null=True, blank=True, default=None)
     areas_of_improvement = models.TextField(
@@ -134,6 +136,7 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
 
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
+    
 
     class Meta:
         db_table = "test_attempt_session"
