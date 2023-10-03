@@ -25,18 +25,6 @@ def split_skills_string(str):
     return skills_rating_str, skills_explanation_str
 
 
-def extract_string_after_json(response):
-    try:
-        json_end_pattern = re.compile(r'(?<=\}\n)\s*-?\s*')
-        match = json_end_pattern.search(response)
-        if match:
-            return response[match.end():]
-        else:
-            return None
-    except Exception as e:
-        logger.error({"!!!!!extract_string_after_json ":"failed to extract json","error":e})
-        return None
-
 def to_dict(string):
     try:
         data = {}
@@ -52,7 +40,7 @@ def to_dict(string):
         return None
     
 def json_extraction(text):
-    pattern = r'{.*}'
+    pattern = r'{[^}]+}'
 
     # Use re.search to find the JSON portion in the text
     match = re.search(pattern, text)
@@ -297,7 +285,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         NOTE: For the entire question and answer conversation no two skills from {skills} can have exact same scores.
 
-        NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) Each skill should have only one bullet point with a minimum 20 words.
+        NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) Each skill should have only one bullet point with a minimum 40 words and maximum 80 words.
 
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
@@ -317,7 +305,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = split_skills_string(response)
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -358,7 +346,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = split_skills_string(response)
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -489,7 +477,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         NOTE: For the entire question and answer conversation no two skills from {cultural_skills} can have exact same scores.
 
-        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) Each culture skill should have only one bullet point with minimum 20 words.
+        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) Each culture skill should have only one bullet point with minimum 40 words and maximum 80 words.
 
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
@@ -511,7 +499,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
 
 
-            skills_rating_str, skills_explanation_str = split_skills_string(response)
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -552,7 +540,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = split_skills_string(response)
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -612,22 +600,39 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     # '''
 
-    prompt = f'''
-    "Objective:" {objective};
+    # prompt = f'''
+    # "Objective:" {objective};
 
-    "Conversation:" {conversation};
+    # "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
+    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
 
-    "cultural_list:" "{cultural_skills}"
+    # "cultural_list:" "{cultural_skills}"
 
-    Please put properties of JSON enclosed in double quotes.
+    # Please put properties of JSON enclosed in double quotes.
 
-    Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
 
-    NOTE: Do not add any English language sentence in the output.
+    # NOTE: Do not add any English language sentence in the output.
+    # '''
+
+
+    prompt = prompt = f''' 
+        "Objective:" {objective}; 
+        "Conversation:" {conversation}; 
+        "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+        "cultural_list:" "{cultural_skills}" 
+        Please put properties of JSON enclosed in double quotes. 
+        Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}} 
+        NOTE: Do not add any English language sentence in the output. 
+
+        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) Each culture skill should have only one bullet point with minimum 40 words and maximum 80 words.
+        NOTE : Do not provide any kind of heading or introduction text in the output.
     '''
 
+
+
+    responses = []
     response = None
     is_evaluated = True
     max_tries = 1  # because anthropic_completion function itself retries 3 times
@@ -635,13 +640,19 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     while max_tries > 0:
         try:
             logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(cultural_skills) * 50)
+            response = anthropic_completion(prompt, len(cultural_skills) * 75)
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            response = json.loads(response)
-            
-            for skill in response:
-                response[skill] = float(response[skill])
+
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
 
             break
 
@@ -657,10 +668,11 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
 
     if is_evaluated:
-        return response
+        return responses
 
     logger.info({"****evaluate_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
 
+    responses = []
     is_evaluated = True
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -670,17 +682,17 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            if '"REPLY:"' in response:
-                response = response.split('"REPLY:"')[1].strip()
-            elif '"ANSWER:"' in response:
-                response = response.split('"ANSWER:"')[1].strip()
-            elif '"Anthropic Answer:"' in response:
-                response = response.split('"Anthropic Answer:"')[1].strip()
-            response = json.loads(response)
             
-            for skill in response:
-                response[skill] = float(response[skill])
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
 
             break
 
@@ -695,7 +707,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             continue
 
     if is_evaluated:
-        return response
+        return responses
 
     logger.info({"****evaluate_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
@@ -709,7 +721,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
                         "test_attempt_session": test_attempt_session.uid,
                         "error": "failed to evaluate; putting random value"})
 
-    return response
+    return response, {}
 
 
 def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate):
@@ -732,25 +744,41 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     # NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
     # '''
 
+    # prompt = f'''
+    # "Objective:" {objective};
+
+    # "Conversation:" {conversation};
+
+    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
+
+    # "skills_list:" "{skills_to_evaluate}"
+
+    # Please put properties of JSON enclosed in double quotes.
+
+    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+
+    # NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
+
+    # NOTE: For the entire conversation no two skills from can have exact same scores.
+
+    # NOTE: Do not add any English language sentence in the output.'''
+
+
     prompt = f'''
     "Objective:" {objective};
-
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
-
+    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
     "skills_list:" "{skills_to_evaluate}"
-
     Please put properties of JSON enclosed in double quotes.
-
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+    NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
-    NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
+    NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) Each skill should have only one bullet point with a minimum 40 words and maximum 80 words.
+    NOTE : Do not provide any kind of heading or introduction text in the output.
+    '''
 
-    NOTE: For the entire conversation no two skills from can have exact same scores.
-
-    NOTE: Do not add any English language sentence in the output.'''
-
+    responses = []
     response = None
     is_evaluated = True
     max_tries = 1  # because anthropic_completion function itself retries 3 times
@@ -759,13 +787,20 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         try:
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(
-                prompt, len(skills_to_evaluate) * 50)
+                prompt, len(skills_to_evaluate) * 75)
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            response = json.loads(response)
             
-            for skill in response:
-                response[skill] = float(response[skill])
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
+            
             break
         except Exception as e:
             logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
@@ -778,10 +813,11 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             continue
 
     if is_evaluated:
-        return response
+        return responses
 
     logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
 
+    responses = []
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
@@ -791,17 +827,17 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            if '"REPLY:"' in response:
-                response = response.split('"REPLY:"')[1].strip()
-            elif '"ANSWER:"' in response:
-                response = response.split('"ANSWER:"')[1].strip()
-            elif '"Anthropic Answer:"' in response:
-                response = response.split('"Anthropic Answer:"')[1].strip()
-            response = json.loads(response)
             
-            for skill in response:
-                response[skill] = float(response[skill])
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
 
             break
 
@@ -816,7 +852,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             continue
 
     if is_evaluated:
-        return response
+        return responses
 
     logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
@@ -830,7 +866,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                         "test_attempt_session": test_attempt_session.uid,
                         "error": "failed to evaluate; putting random value"})
 
-    return response
+    return response,{}
 
 
 def top_N_leadership_board(skills, N, tenant_id):
