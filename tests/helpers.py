@@ -165,7 +165,7 @@ def create_test(tenant: Tenant,
 
         test_questions = []
         for inx, question in enumerate(questions, start=1):
-            if test.test_type == TestTypeChoices.orchestrated_conversation:
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 klp = ''
                 kls = ''
             else:
@@ -344,7 +344,7 @@ def create_test_question_answer(tenant: Tenant,
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
     # handle orchestrated conversation in a different manner
-    if test.test_type == TestTypeChoices.orchestrated_conversation:
+    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
         if question.question_for == QuestionForChoices.user:
             return process_orchestrated_test_response_by_user(test_question_response)
         else:
