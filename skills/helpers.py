@@ -196,6 +196,102 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     return response, True
 
+def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title):
+    
+    prompt = f'''
+
+    "TITLE:" {test_title};
+
+    "DESCRIPTION:" {test_description};
+
+    "QUESTION:" {question_text};
+
+    "ANSWER:" {response_text};
+
+    "REQUIRED FROM ANTHROPIC:" Evaluate the given conversation and check whether the answers provided are relevant to the questions asked and the description provided. If the answers are relevant to the questions put the relevance value as 1, if the answers are irrelevant put the relevance value as 0.
+
+    NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
+
+    NOTE: Don't put any other text in the reply other than the JSON.
+
+    NOTE: Output Format Example: {{"relevance":"1"}}
+
+    NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above.
+    '''
+
+    is_evaluated = True
+    response = None
+
+    max_tries = 1  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_relevacy ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+            response = anthropic_completion(prompt, 1000)
+            logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
+            response = json.loads(response)
+            for skill in response:
+                response[skill] = float(response[skill])
+            break
+        except Exception as e:
+            logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    logger.info({"****evaluate_relevacy ":f"failed anthropic, so trying gpt"})
+
+    is_evaluated = True
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_relevacy ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
+            response = json.loads(response)
+            
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_relevacy ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+
+    if is_evaluated:
+        return response, is_evaluated
+
+    # HACK in case everything fails; just evaluate as a random number
+    logger.info({"****evaluate_relevacy ":f"failed everything, so assigning default values"})
+    response = {"relevance": 1}
+    
+
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_relevacy",
+                        "test_question_response": test_question_response.uid,
+                        "error": "failed to evaluate; putting random value"})
+
+    return response, True
+
 def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt):
     skills_rating =skills
 

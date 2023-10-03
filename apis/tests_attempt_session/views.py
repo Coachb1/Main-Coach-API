@@ -69,6 +69,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         data['title'] = test_title
         data['skills_explanation'] = test_attempt_session.skills_explanation
         data['culture_skills_explanation'] = test_attempt_session.culture_skills_explanation
+        tenant = self.request.tenant
+        data['logo'] = tenant.logo
+
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
@@ -76,6 +79,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         data = get_meeting_report_from_test_attempt_session(
             test_attempt_session)
+
+        tenant = self.request.tenant
+        data['logo'] = tenant.logo
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")
@@ -93,6 +99,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
     def get_skills_tracker_report_data(self, request, *args, **kwargs):
         participant_id = request.query_params.get("participant_id")
         data = get_skills_tracker_data(participant_id)
+
+        tenant = self.request.tenant
+        data['logo'] = tenant.logo
         
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
     

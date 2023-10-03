@@ -47,6 +47,7 @@ SCENARIO_CASE = "Scenario Case"
 RATINGS = "rating"
 IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
+MEDIA_LINK = 'ML'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -207,8 +208,19 @@ def format_test_orchestrated_conversation(raw_data):
         # checking if last column is for user or not
         last_question = output_dict['questions'][-1]
         if last_question['question_for'] != 'user':
-            json_data = {"last_question_for_user": False}
+            json_data = {"last_question_for_user": "Last question should be for user"}
             return json_data, False
+        
+
+        # checking wheater two user type coming one after other
+        question_for = [q['question_for'] for q in output_dict['questions']]
+        for i in range(len(question_for) - 1):
+            if question_for[i] == "user" and question_for[i + 1] == "user":
+                json_data = {"last_question_for_user": "Questions for user should not occur continously"}
+
+                return json_data, False
+
+        
 
         output_json = json.dumps(output_dict)
 
@@ -329,7 +341,7 @@ def format_test_data_slack(raw_data):
                 unmatched_skills.append(skills)
 
         if len(unmatched_skills) > 0:
-            return {"unmatched_skills": unmatched_skills}, False
+            return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -424,7 +436,9 @@ def format_test_data_slack(raw_data):
                     "gpt_prompt_override": input_dict.get(f"{CUSTOM_PROMPT} {key[len(QUESTION) + 1:]}", ''),
                     "subjective_answer": "",
                     "key_learning_point": input_dict.get(f"{KLP} {key[len(QUESTION) + 1:]}", ''),
-                    "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None)
+                    "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
+                    "media_link" : input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+
                 }
 
                 if test_type == "view":
@@ -664,7 +678,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     except Exception as e:
                         logger.error(e)
                         return {
-                            "errors": [f"Error occurred; Could not create tests"],
+                            "errors": [f"Error occurred; Could not create tests {e.args}"],
                             "exception": True,
                             "response": response
                         }
@@ -676,7 +690,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 else:
                     if "unmatched_skills" in json_data:
                         return {
-                            "errors": [f"csv file contains Mismatching skills: {', '.join(json_data['unmatched_skills'])}"],
+                            "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
                             "exception": True,
                         }
                         
@@ -710,7 +724,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         except Exception as e:
             logger.error(e)
             return {
-                "errors": [f"Error occurred; Could not create tests"],
+                "errors": [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,
             }
     else:
@@ -796,7 +810,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     except Exception as e:
                         logger.exception(e)
                         return {
-                            "errors": [f"Error occurred; Could not create tests"],
+                            "errors": [f"Error occurred; Could not create tests {e.args}"],
                             "exception": True,
                             "response": response
                         }
@@ -807,7 +821,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                 else:
                     if "last_question_for_user" in json_data:
                         return {
-                            "errors": ["Last question should be for user not bot."],
+                            "errors": [json_data['last_question_for_user']],
                             "exception": True,
                         }
                     test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
@@ -840,7 +854,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
         except Exception as e:
             logger.error(e)
             return {
-                "errors": [f"Error occurred; Could not create tests"],
+                "errors": [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,
             }
     else:
