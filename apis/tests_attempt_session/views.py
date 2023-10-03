@@ -67,8 +67,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test = Test.objects.get(uid=test_attempt_session.test_id)
         test_title = test.title
         data['title'] = test_title
+        data['skills_explanation'] = test_attempt_session.skills_explanation
+        data['culture_skills_explanation'] = test_attempt_session.culture_skills_explanation
         tenant = self.request.tenant
         data['logo'] = tenant.logo
+
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")

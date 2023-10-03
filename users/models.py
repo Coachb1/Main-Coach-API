@@ -39,6 +39,7 @@ class UserAttribute(TenantAwareModel):
     critical_skill_prompt = models.TextField(null=True, blank=True, default="NOTE: Evaluate the answers from a very critical perspective and rate the skills.")
     custom_skill_prompt_1 = models.TextField(null=True, blank=True, default=None)
     custom_skill_prompt_2 = models.TextField(null=True, blank=True, default=None)
+    test_previlage = models.TextField(null=True,blank=True,default=None)
     
 
 
