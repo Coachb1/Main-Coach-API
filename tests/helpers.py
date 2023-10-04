@@ -837,6 +837,35 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             test_question_response.response_text = gpt_wishper_api(
                 test_question_response.response_file)
 
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        logger.info(f"***************question number is {question.question_number}**************")
+        if question.question_number == 1:
+            question_text = test.orchestrated_conversation_details.get('initial_messages')[0]
+        else:
+            question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
+        logger.info(f"***************question text is {question_text}**************")
+
+        prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question_text,
+                                question_context=question.subjective_answer,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt="")
+        
+        anthropic_feedback = anthropic_completion(prompt, 400)
+        test_question_response.feedback_text = anthropic_feedback
+        update_fields.append("feedback_text")
+        logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
+
+
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not extra sentence"
+        logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+        kls = anthropic_completion(kls_prompt, 400)
+        test_question_response.skills_rating = {"kls":kls}
+        update_fields.append("skills_rating")
+        logger.info(f"************dynamic discussion kls : {kls}")
+
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
@@ -1015,16 +1044,52 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         test_attempt_session, user_persona, is_report=True)
 
     chat_conversation_with_details = []
+    flashcards = []
 
-    for message in chat_conversation:
-        user_name, message = message.split(":", 1)
-        is_bot = False
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        data = {}
+        mindmap_data = {}
+        mindmap_contents = []
+        count = 1
+        test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                deleted=0).order_by('id')
+        test_data = []
+        for test_response in test_responses:
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
+        logger.info({"************test_responses":test_data})
+        for test_response in test_responses:
+            if test_response.responder_type == QuestionForChoices.user:
+                if count == 1:
+                    data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
+                data["response"] = test_response.response_text.strip('" \'')
+                data["feedback"] = test_response.feedback_text
+                key_learning_point = data['feedback'].split('\n')[-1].split(' - ')[-1].split('(')[0].strip()
+                flashcards.append({'text':key_learning_point})
+                chat_conversation_with_details.append(data)
+                count += 1
+                mindmap_contents.append(
+                    {
+                        "question":data["question"],
+                        "ideal_answer": key_learning_point,
+                        "learnings": test_response.skills_rating.get('kls').split(','),
+                    }
+                )
+                data = {}
+                
+            else:
+                data[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
 
-        if user_name.strip().lower() != user_persona.strip().lower():
-            is_bot = True
+    else:
+        for message in chat_conversation:
+            user_name, message = message.split(":", 1)
+            is_bot = False
 
-        chat_conversation_with_details.append(
-            {"user_name": user_name, "message": message, "is_bot": is_bot})
+            if user_name.strip().lower() != user_persona.strip().lower():
+                is_bot = True
+
+            chat_conversation_with_details.append(
+                {"user_name": user_name, "message": message, "is_bot": is_bot})
 
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
@@ -1044,6 +1109,13 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "culture_skills_explanation":test_attempt_session.culture_skills_explanation
     }
 
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        data['flashcards'] = flashcards
+        data['mindmap_data'] = {
+            "test_name": test.title,
+            "content": mindmap_contents
+        }
+        
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
         skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
