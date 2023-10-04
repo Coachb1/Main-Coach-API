@@ -50,6 +50,7 @@ IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
 IS_DYNAMIC = "is_dynamic"
 MEDIA_LINK = 'ML'
+CLIENT = "Client Name"
 
 
 
@@ -76,6 +77,10 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
+                    
+        if CLIENT in input_dict:
+            if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
+                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
 
 
         if IS_GAME_TYPE in input_dict:
@@ -324,6 +329,10 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if CLIENT in input_dict:
+            if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
+                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
