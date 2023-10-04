@@ -1,15 +1,18 @@
+import datetime
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import logging
 from django.db.models import Subquery
+from django.utils import timezone
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
 from apis.accounts.serializers import SetupAccountSerializer
 from clients.permissions import IsAuthenticatedClient
+from tests.models import TestAttemptSession
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
@@ -17,6 +20,7 @@ from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
 from users.models import User, UserAttribute
 from tenants.models import Tenant
+from tests.choices import TestAttemptSessionStatusChoices
 
 
 from identities.models import Identity
@@ -133,12 +137,24 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get_is_repeat_status")
     def get_is_repeat_status(self,request,*args, **kwargs):
-        tenant_id = self.request.tenant.uid
+        tenant = self.request.tenant
+        participant_id = request.query_params.get("participant_id")
 
-        query = Tenant.objects.get(uid = tenant_id)
-        data = {"tenant_id": tenant_id,"is_repeat" : query.is_repeat}
+        try:
+            test_per_month = tenant.test_per_month
+            current_month = timezone.now().month
+            # date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
+            sessions = TestAttemptSession.objects.filter(participant_id = participant_id,tenant_id=tenant.uid, status=TestAttemptSessionStatusChoices.completed)
+            this_month_sessions = []
+            for session in sessions:
+                if session.created.month == current_month:
+                    this_month_sessions.append(session)
+            total_test_attempted = len(this_month_sessions)
+        except Exception as e:
+            logger.error({"!!!!!!!!!! Error":e},exc_info=True)
+            total_test_attempted = 0
+        data = {"tenant_id": tenant.uid,"is_repeat" : tenant.is_repeat,"monthly_remaining_tests": test_per_month - total_test_attempted}
         return Response(data, status=status.HTTP_200_OK)
-    
 
     
     @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
@@ -151,3 +167,13 @@ class AccountsViewSet(ApiViewSet,
             number_list = [number.strip() for number in number_list]
 
         return Response({"mobile_numbers": number_list,'active': tenant.mobile_number_restriction_whatsapp},status=status.HTTP_200_OK)
+
+    @action(methods=['GET'], detail=False, url_path="get-user-type")
+    def get_user_type(self,request,*args, **kwargs):
+        user_id = request.query_params.get('user_id')
+
+        user = User.objects.get(uid=user_id)
+
+        user_role = user.role
+
+        return Response({"user_role":user_role}, status=status.HTTP_200_OK)

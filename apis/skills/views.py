@@ -90,6 +90,9 @@ class SkillsViewSet(ApiViewSet,
         data = get_leaderboard_report(
             skills, tenant_id=request.tenant.uid, only_data=True)
 
+        tenant = request.tenant
+        data['logo'] = tenant.logo
+
         return Response({"data": data, "status": "completed"})
 
 

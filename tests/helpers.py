@@ -31,7 +31,7 @@ from settings import BACKEND
 from settings import FRONTEND_BASE_URL
 from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
-    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -55,6 +55,8 @@ nltk.download('punkt')
 import pytz
 import datetime
 from test_bulk_upload.constants import updated_skills
+import re
+from commons.google_stt import speech_to_text
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +165,7 @@ def create_test(tenant: Tenant,
 
         test_questions = []
         for inx, question in enumerate(questions, start=1):
-            if test.test_type == TestTypeChoices.orchestrated_conversation:
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 klp = ''
                 kls = ''
             else:
@@ -342,7 +344,7 @@ def create_test_question_answer(tenant: Tenant,
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
     # handle orchestrated conversation in a different manner
-    if test.test_type == TestTypeChoices.orchestrated_conversation:
+    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
         if question.question_for == QuestionForChoices.user:
             return process_orchestrated_test_response_by_user(test_question_response)
         else:
@@ -484,9 +486,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
 
             if transcript_length > 10:
                 max_tries = 2
@@ -524,9 +533,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
 
             if transcript_length > 10:
                 max_tries = 2
@@ -669,80 +685,92 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         }
     }
 
+    feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
     test_question_response.feedback_text = feedback_text
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=["metadata", "feedback_text", "evaluation_status", "updated"])
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
-    required_skills = question.key_learning_skills.split(",")
-    required_skills = [skill.strip() for skill in required_skills if skill]
-    required_skills = [skill.lower() for skill in required_skills if skill]
+    # required_skills = question.key_learning_skills.split(",")
+    # required_skills = [skill.strip() for skill in required_skills if skill]
+    # required_skills = [skill.lower() for skill in required_skills if skill]
 
-    skills_rating = {}
+    # skills_rating = {}
 
-    skills_rating, is_evaluated = evaluate_response(
-        test_question_response,
-        question.question,
-        test_question_response.response_text,
-        required_skills,
-        test.description,
-        test.title,
-        test.test_code,
-        test_attempt_session.uid
-    )
-    
+    # skills_rating, is_evaluated = evaluate_response(
+    #     test_question_response,
+    #     question.question,
+    #     test_question_response.response_text,
+    #     required_skills,
+    #     test.description,
+    #     test.title,
+    #     test.test_code,
+    #     test_attempt_session.uid
+    # )
+
+
+    # instead of calculating relevace from skill we are now getting it 
+    # from another prompt and skill for individual qustion is deprecated
+    # because now we are cal skill_ratings at the end of conversation
+
+    relevancy_score = {}
+    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                        question.question,
+                                        test_question_response.response_text,
+                                        test.description,
+                                        test.title,
+                                        )
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
         # delete this response
         delete_test_response(test_question_response)
-        logger.error("failed to get skills_rating json, got %s", skills_rating)
-        raise ValueError("failed to get skills_rating json for %s",
+        logger.error("failed to get relevancy_score, got %s", relevancy_score)
+        raise ValueError("failed to get relevancy_score json for %s",
                          test_question_response.uid)
 
     relevance = 1
-    if "relevance" in skills_rating:
-        relevance = int(skills_rating['relevance'])  # taking relevance and deleting it form json
-        del skills_rating['relevance']
+    if "relevance" in relevancy_score:
+        relevance = int(relevancy_score['relevance'])  # taking relevance and deleting it form json
  
 
-    # Removing the skills which are not required in the question
-    _to_be_deleted = []
-    for key in skills_rating.keys():
-        if key not in required_skills:
-            _to_be_deleted.append(key)
+    # # Removing the skills which are not required in the question
+    # _to_be_deleted = []
+    # for key in skills_rating.keys():
+    #     if key not in required_skills:
+    #         _to_be_deleted.append(key)
 
-    for key in _to_be_deleted:
-        del skills_rating[key]
+    # for key in _to_be_deleted:
+    #     del skills_rating[key]
 
-    # If skill rating score is greater than 8.5 then we are setting it to 8.5
-    for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
-        elif skills_rating[skill] < 1.5:
-            skills_rating[skill] = 1.5
+    # # If skill rating score is greater than 8.5 then we are setting it to 8.5
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 8.5:
+    #         skills_rating[skill] = 8.5
+    #     elif skills_rating[skill] < 1.5:
+    #         skills_rating[skill] = 1.5
 
-    # Calculating the average score of the response
-    response_avg_score = 0
-    skills_count = 0
-    for skill in skills_rating:
-        if isinstance(skills_rating[skill], str):
-            continue
+    # # Calculating the average score of the response
+    # response_avg_score = 0
+    # skills_count = 0
+    # for skill in skills_rating:
+    #     if isinstance(skills_rating[skill], str):
+    #         continue
 
-        response_avg_score += skills_rating[skill] or random.randint(3, 7)
-        skills_count += 1
+    #     response_avg_score += skills_rating[skill] or random.randint(3, 7)
+    #     skills_count += 1
 
-    if skills_count == 0:
-        response_avg_score = 0
-    else:
-        response_avg_score = response_avg_score / skills_count
+    # if skills_count == 0:
+    #     response_avg_score = 0
+    # else:
+    #     response_avg_score = response_avg_score / skills_count
 
-    # Save skills rating and average score in TestQuestionResponse
-    test_question_response.skills_rating = skills_rating
-    test_question_response.avg_score = response_avg_score
+    # # Save skills rating and average score in TestQuestionResponse
+    # test_question_response.skills_rating = skills_rating
+    # test_question_response.avg_score = response_avg_score
     test_question_response.relevance = relevance
-    test_question_response.save(update_fields=["skills_rating", "avg_score","relevance"])
+    test_question_response.save(update_fields=["relevance"])
 
     # def __calc_score_in_different_thread():
     #     # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -898,7 +926,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
 
-    culture_skills_rating = evaluate_group_discussion_conversation(
+    culture_skills_rating, culture_skills_explanation = evaluate_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
 
 
@@ -909,8 +937,10 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         elif culture_skills_rating[skill] < 1.5:
             culture_skills_rating[skill] = 1.5
 
-    skills_rating = evaluate_skills_group_discussion_conversation(
+    skills_rating, skills_explanation = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
+
+    logger.info({"*********skills explanation":skills_explanation, "****cultures skills explanation":culture_skills_explanation})
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
@@ -931,11 +961,20 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     avg_score = test_score / len(skills_rating.keys())
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
+    
     updated_fields = ["culture_skills_rating",
                       "meeting_summary", "areas_of_improvement","test_score","avg_score","finished_at","updated"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
+
+    if skills_explanation:
+        test_attempt_session.skills_explanation = skills_explanation
+        updated_fields.append("skills_explanation")
+
+    if culture_skills_explanation:
+        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+        updated_fields.append("culture_skills_explanation")
 
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
@@ -990,6 +1029,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
+    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()}  # to strip extra qoutes from key
 
     data = {
         "participant_name": participant_name,
@@ -999,11 +1039,14 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "chat_conversation": chat_conversation_with_details,
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
-        "culture_skills": culture_skills
+        "culture_skills": culture_skills,
+        "skills_explanation": test_attempt_session.skills_explanation,
+        "culture_skills_explanation":test_attempt_session.culture_skills_explanation
     }
 
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
+        skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
         updated_skills_ratings = {}
         existing_skills = []
@@ -1147,8 +1190,8 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     response_count = 0
 
     for response in responses:
-        if response.skills_rating is None:
-            continue
+        # if response.skills_rating is None:
+        #     continue
 
         # # get skills rating from this response
         # response_skills_rating = response.skills_rating
@@ -1217,7 +1260,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if user_info.custom_skill_prompt_2:
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
-    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating, skills_explanation = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
     for skill in response_skills_rating:
         if skill in skills_rating:
             skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
@@ -1249,18 +1292,24 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     else:
         avg_score = avg_score / response_count
 
+    logger.info({"***************************skills_rating_score":skills_rating_score,"#####################skills explanation":skills_explanation})
 
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
     skills_rating_score, avg_score = increment_avg_score_in_percentages(
         skills_rating_score, avg_score, participant_id, test_attempt_session)
-    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+    culture_skills_rating, culture_skills_explanation = calc_culture_skills_rating(test_attempt_session, responses, test)
+
+    logger.info({"***************************culture_skills_rating_score":culture_skills_rating,"########################culture skills explanation":culture_skills_explanation})
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
     # update skills_rating field in test_attempt_session
+    skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
+    
     test_attempt_session.skills_rating = skills_rating_score
+    test_attempt_session.skills_explanation = skills_explanation
     test_attempt_session.test_score = test_score
     test_attempt_session.avg_score = avg_score
     test_attempt_session.finished_at = timezone.now()
@@ -1274,9 +1323,19 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if has_speech_metric:
         updated_fields.append("speech_score")
 
+    if skills_explanation is not None:
+        test_attempt_session.skills_explanation = skills_explanation
+        updated_fields.append("skills_explanation")
+
     if culture_skills_rating is not None:
+        culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+        
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
+
+    if culture_skills_explanation is not None:
+        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+        updated_fields.append("culture_skills_explanation")
 
     test_attempt_session.save(update_fields=updated_fields)
 
@@ -1672,7 +1731,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         count += 1
 
     # Evaluate conversation
-    culture_skills_rating, is_evaluated = evaluate_conversation(
+    culture_skills_rating, culture_skills_explanation, is_evaluated = evaluate_conversation(
         test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
@@ -1685,7 +1744,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         elif culture_skills_rating[skill] < 1.5:
             culture_skills_rating[skill] = 1.5
 
-    return culture_skills_rating
+    return culture_skills_rating, culture_skills_explanation
 
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
     skills_rating = {}
@@ -1708,13 +1767,13 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
         count += 1
 
     # Evaluate conversation
-    skills_rating, is_evaluated = evaluate_response_skill(
+    skills_rating, skills_explanation, is_evaluated = evaluate_response_skill(
         test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
 
     if not is_evaluated:
         return None
 
-    return skills_rating
+    return skills_rating, skills_explanation
 
     
 def get_chat_conversation_prompt_v3(test_title: str,
