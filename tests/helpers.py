@@ -1932,6 +1932,12 @@ def get_chat_conversation_prompt_v3(test_title: str,
             ${user_feedback_prompt}
             """
         )
+        # log template for debugging
+        logger.info({"***************************************template*************": template.substitute(test_title=test_title,
+                                   test_description=test_description,
+                                   question=question,
+                                   candidate_reply=candidate_reply,
+                                   user_feedback_prompt=user_feedback_prompt)})
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
@@ -1967,18 +1973,35 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
     question_text = question.question
 
-    template = Template(
-        """
-        ${test_main_context}
-        
-        ${current_conversation}
-        
-        ${question_text}
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        template = Template(
+                '''
+                ${test_main_context}
+                ${current_conversation}
+                ${question_text}
 
-        NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
-        NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
-        """
-    )
+                NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+                NOTE: The question should not be more than 30 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                '''
+            )
+    else:
+        template = Template(
+            """
+            ${test_main_context}
+            
+            ${current_conversation}
+            
+            ${question_text}
+
+            NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
+            NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
+            """
+        )
     return template.substitute(test_main_context=test_main_context,
                                current_conversation=current_conversation,
                                question_text=question_text,

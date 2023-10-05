@@ -26,7 +26,7 @@ def split_skills_string(str):
     return skills_rating_str, skills_explanation_str
 
 
-def to_dict(string):
+def to_dict(string, skills = None):
     try:
         data = {}
         for line in string.strip().split("\n"):
@@ -37,8 +37,15 @@ def to_dict(string):
         # return json.dumps(data, indent=4)
         return data
     except Exception as e:
-        logger.error({"!!!!!to_json ":"failed to convert to json","error":e})
-        return None
+        logger.error({"!!!!!to_dict ":"failed to convert to json","error":e,"*****alternate":"mapping skills to explanation"})
+        if skills:
+            try:
+                for key,val in zip(skills.keys(),string.strip().split("\n\n")):
+                    data[key] = val.strip('- ')
+                return data
+            except Exception as e:
+                logger.error({"!!!!! failed to map skills to explanation ":e})
+    return None
     
 def json_extraction(text):
     pattern = r'{[^}]+}'
@@ -445,7 +452,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str,skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -486,7 +493,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str,skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -681,7 +688,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str,skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -722,7 +729,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str, skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -866,7 +873,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str, skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -906,7 +913,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str, skills_rating)
             responses.append(skills_explanation)
 
             break
@@ -1052,7 +1059,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str, skills_rating)
             responses.append(skills_explanation)
             
             break
@@ -1090,7 +1097,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
+            skills_explanation = to_dict(skills_explanation_str,skills_rating)
             responses.append(skills_explanation)
 
             break
