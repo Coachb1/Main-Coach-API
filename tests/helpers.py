@@ -56,7 +56,7 @@ import pytz
 import datetime
 from test_bulk_upload.constants import updated_skills
 import re
-from commons.google_stt import speech_to_text
+from commons.google_apis import speech_to_text, text_bison_compeletion
 
 logger = logging.getLogger(__name__)
 
@@ -670,7 +670,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
                 gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                 if not gpt_feedback.text:
-                    feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                    try:
+                        gpt_feedback = text_bison_compeletion(prompt)
+                    except Exception as e:
+                        logger.exception(e)
+                        feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
                 else:
                     feedback_text = gpt_feedback.text
                     raw_text = gpt_feedback.raw
