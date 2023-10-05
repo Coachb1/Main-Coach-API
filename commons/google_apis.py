@@ -4,6 +4,11 @@ from pathlib import Path
 import logging
 from commons.timeit import timeit
 
+import vertexai
+from vertexai.language_models import TextGenerationModel
+import time
+import random
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,3 +58,41 @@ def speech_to_text(url):
     except Exception as e :
         logger.error({"Google speech to text failed with error": e})
         raise e
+    
+
+def text_bison_compeletion(prompt):
+
+    max_retry = 3
+    retry = 0
+    os.chdir(f"{Path(__file__).resolve().parent}")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
+
+    vertexai.init(project="summer-nucleus-397019", location="us-central1")
+    parameters = {
+        "max_output_tokens": 1024,
+        "temperature": 0.2,
+        "top_p": 0.8,
+        "top_k": 40
+    }
+
+    while True:
+        try:
+            logger.info({"**** text_bison_compeletion":f"trying text_bison_compeletion for {retry} time"})
+            model = TextGenerationModel.from_pretrained("text-bison@001")
+            response = model.predict(
+                prompt,
+                **parameters
+            )
+            return response.text
+        
+        except Exception as e:
+            logger.error({"****text_bison_compeletion ":f"failed text_bison_compeletion for {retry} time"})
+            logger.exception('Error communicating with OpenAI err: %s', e)
+
+            retry += 1
+            if retry >= max_retry:
+                raise e
+
+            time.sleep(random.randint(1,3))
+
+
