@@ -26,6 +26,7 @@ class ScenarioCaseChoices(DjangoChoices):
     case_study = ChoiceItem("case_study")
     counseling = ChoiceItem("counseling")
     presentation  = ChoiceItem("presentation")
+    dynamic_discussion  = ChoiceItem("dynamic_discussion")
 
 
 class InteractionModeChoices(DjangoChoices):
