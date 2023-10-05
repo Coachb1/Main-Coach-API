@@ -433,7 +433,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     while max_tries > 0:
         try:
             logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(skills_rating) * 75)
+            response = anthropic_completion(prompt, len(skills_rating) * 100)
             logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
@@ -668,7 +668,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     while max_tries > 0:
         try:
             logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(cultural_skills) * 75)
+            response = anthropic_completion(prompt, len(cultural_skills) * 100)
             logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
