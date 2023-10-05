@@ -79,6 +79,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     description_media = serializers.CharField(
         default=None, required=False, allow_null=True, allow_blank=True)
+    client_name = serializers.CharField(
+        default="Demo", required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
