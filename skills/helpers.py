@@ -33,6 +33,8 @@ def to_dict(string, skills = None):
             if len(line.strip()) == 0:
                 continue
             key, val = line.strip('- ').split(':')
+            if len(key.strip()) == 0 or len(val.strip()) == 0:
+                continue
             data[key.strip()] = val.strip()
         # return json.dumps(data, indent=4)
         return data
