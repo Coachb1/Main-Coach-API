@@ -165,3 +165,14 @@ class AccountsViewSet(ApiViewSet,
         user_role = user.role
 
         return Response({"user_role":user_role}, status=status.HTTP_200_OK)
+
+    @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
+    def get_mobile_number_res_list_whatsapp(self,request,*args, **kwargs):
+        tenant = self.request.tenant
+        number_list = []
+
+        if tenant.mobile_number_restriction_whatsapp:
+            number_list = tenant.mobile_number_list.split(',')
+            number_list = [number.strip() for number in number_list]
+
+        return Response({"mobile_numbers": number_list,'active': tenant.mobile_number_restriction_whatsapp},status=status.HTTP_200_OK)
