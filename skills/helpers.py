@@ -12,6 +12,7 @@ from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
 import re
+from commons.google_apis import text_bison_compeletion
 
 
 logger = logging.getLogger(__name__)
@@ -279,6 +280,41 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     if is_evaluated:
         return response, is_evaluated
+    
+    logger.info({"****evaluate_relevacy ":f"failed gpt, so trying text_bison_compeletion"})
+
+    is_evaluated = True
+    response = None
+    max_tries = 3
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_relevacy ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_relevacy ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            response = json_extraction(response)
+            response = json.loads(response)
+            
+            for skill in response:
+                response[skill] = float(response[skill])
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_relevacy ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+
+    if is_evaluated:
+        return response, is_evaluated
+
+
 
     # HACK in case everything fails; just evaluate as a random number
     logger.info({"****evaluate_relevacy ":f"failed everything, so assigning default values"})
@@ -468,6 +504,48 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
     if is_evaluated:
         return *responses, is_evaluated
+    
+    logger.info({"****evaluate_response_skill ":f"failed gpt, so trying text_bison_compeletion"})
+
+    responses = []
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_response_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_response_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+
+
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+
+    if is_evaluated:
+        return *responses, is_evaluated
+
 
     logger.info({"****evaluate_response_skill ":f"failed everything, so assigning default values"})
 
@@ -662,6 +740,47 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
     if is_evaluated:
         return *responses, is_evaluated
+    
+    logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
+
+    responses = []
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+
+
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e },exc_info=True)
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+
+    if is_evaluated:
+        return *responses, is_evaluated
 
     logger.info({"****evaluate_conversation ":f"failed everything, so assigning default values"})
 
@@ -793,7 +912,46 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             break
 
         except Exception as e:
-            logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return responses
+    
+    logger.info({"****evaluate_group_discussion_conversation ":f"failed gpt, so trying text_bison_compeletion "})
+
+    responses = []
+    is_evaluated = True
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -938,7 +1096,46 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             break
 
         except Exception as e:
-            logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return responses
+
+    logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed gpt, so trying text-bison"})
+
+    responses = []
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+
+            skills_rating = json.loads(skills_rating_str)
+            for skill in skills_rating:
+                skills_rating[skill] = float(skills_rating[skill])
+            responses.append(skills_rating)
+
+
+            skills_explanation = to_dict(skills_explanation_str)
+            responses.append(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
