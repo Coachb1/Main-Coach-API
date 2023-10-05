@@ -166,6 +166,7 @@ class TestQuestionResponse(TenantAwareModel):
     speech_metrics = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
     relevance = models.BooleanField(null=True, blank=True, default=True )
+    kls_klp = models.JSONField(null=True, blank=True, default=None)
     class Meta:
         db_table = "test_question_response"
 

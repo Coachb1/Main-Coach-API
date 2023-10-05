@@ -866,18 +866,29 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                 candidate_reply=test_question_response.response_text,
                                 user_feedback_prompt="")
         
-        anthropic_feedback = anthropic_completion(prompt, 400)
+        anthropic_feedback = anthropic_completion(prompt, 1000)
         test_question_response.feedback_text = anthropic_feedback
         update_fields.append("feedback_text")
         logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
 
 
-        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not extra sentence"
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-        kls = anthropic_completion(kls_prompt, 400)
-        test_question_response.skills_rating = {"kls":kls}
-        update_fields.append("skills_rating")
-        logger.info(f"************dynamic discussion kls : {kls}")
+        kls = anthropic_completion(kls_prompt, 50)
+
+        klp_prompt = f"""
+            TestTitle: {test.title}
+            Question: {question_text}
+
+            For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+            """
+
+        logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+        klp = anthropic_completion(klp_prompt, 50)
+        
+        test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+        update_fields.append("kls_klp")
+        logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
 
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1077,7 +1088,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
                 data["feedback"] = test_response.feedback_text
-                key_learning_point = data['feedback'].split('\n')[-1].split(' - ')[-1].split('(')[0].strip()
+                key_learning_point = test_response.kls_klp.get('klp')
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
                 count += 1
@@ -1085,7 +1096,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     {
                         "question":data["question"],
                         "ideal_answer": key_learning_point,
-                        "learnings": test_response.skills_rating.get('kls').split(','),
+                        "learnings": test_response.kls_klp.get('kls').strip().split(','),
                     }
                 )
                 data = {}
