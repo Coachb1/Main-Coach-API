@@ -625,7 +625,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     
     if go_for_feedback:
         for i  in range(3):
-            anthropic_feedback = anthropic_completion(prompt, 800)
+            anthropic_feedback = anthropic_completion(prompt, 1200)
 
             if not anthropic_feedback:
 
