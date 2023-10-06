@@ -128,7 +128,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     is_evaluated = True
     response = None
 
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -232,7 +232,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
     is_evaluated = True
     response = None
 
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -439,7 +439,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
     responses = []
     response = {}
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -603,7 +603,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     is_evaluated = True
 
     response = ""
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -713,7 +713,7 @@ def feedback_summary(test_attempt_session,feedbacks):
     is_evaluated = True
 
     response = ""
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -914,7 +914,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
     responses = []
     response = {}
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -1102,7 +1102,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     responses = []
     response = None
     is_evaluated = True
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
@@ -1288,7 +1288,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     responses = []
     response = None
     is_evaluated = True
-    max_tries = 1  # because anthropic_completion function itself retries 3 times
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
     while max_tries > 0:
         try:
