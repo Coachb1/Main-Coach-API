@@ -31,7 +31,8 @@ from settings import BACKEND
 from settings import FRONTEND_BASE_URL
 from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
-    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy, \
+          calulate_summary_for_culture_and_normal_skill, feedback_summary
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -1030,6 +1031,30 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session.culture_skills_explanation = culture_skills_explanation
         updated_fields.append("culture_skills_explanation")
 
+    responses = TestQuestionResponse.objects.filter(
+        test_attempt_session_id=test_attempt_session.uid,
+        responder_type='user',
+        deleted=0
+    )
+    feedbacks = ''
+    for response in responses:
+        if response.feedback_text:
+            feedbacks += response.feedback_text + '\n'
+
+    # calculating feedback_summary and skill summary
+    skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
+    if len(skills_summary) > 0:
+        test_attempt_session.culture_and_skill_summary = skills_summary
+        updated_fields.append("culture_and_skill_summary")
+    
+
+    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    if len(feedbacks_summary) > 0:
+        test_attempt_session.feedback_summary = feedbacks_summary
+        updated_fields.append("feedback_summary")
+
+
+
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
     areas_of_improvement = get_areas_of_improvement(
@@ -1131,7 +1156,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "areas_of_improvement": areas_of_improvement,
         "culture_skills": culture_skills,
         "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
-        "culture_skills_explanation":test_attempt_session.culture_skills_explanation
+        "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
+        "feedback_summary" : test_attempt_session.feedback_summary,
+        "skill_summary" : test_attempt_session.culture_and_skill_summary
     }
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
@@ -1281,6 +1308,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_count = {}
     attempted_count = 0
     has_speech_metric = False
+    feedbacks = ''
 
     # For calculating average score of the test
     avg_score = 0
@@ -1321,6 +1349,15 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
             except Exception as e :
                 has_speech_metric = False
                 logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
+
+
+        # joining every feedback for summary
+
+        if response.feedback_text:
+            feedbacks += response.feedback_text + "\n"
+
+
+
 
         # for skill in response_skills_rating:
         #     if skill in skills_rating:
@@ -1434,7 +1471,22 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         test_attempt_session.culture_skills_explanation = culture_skills_explanation
         updated_fields.append("culture_skills_explanation")
 
+
+
+    # calculating feedback_summary and skill summary
+    skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating_score)
+    if len(skills_summary) > 0:
+        test_attempt_session.culture_and_skill_summary = skills_summary
+        updated_fields.append("culture_and_skill_summary")
+    
+
+    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    if len(feedbacks_summary) > 0:
+        test_attempt_session.feedback_summary = feedbacks_summary
+        updated_fields.append("feedback_summary")
+
     test_attempt_session.save(update_fields=updated_fields)
+
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
     skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
