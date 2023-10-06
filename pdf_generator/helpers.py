@@ -688,15 +688,16 @@ def get_test_code_lowest_skill(skills_rating, test_attempt_session):
 def update_skill_name(skills_rating):
     updated_skills_ratings = {}
     existing_skills = []
-    for skill, values in skills_rating.items():
-        for old , new in updated_skills.items():
-            if skill.strip().capitalize() == old.strip().capitalize():
-                updated_skills_ratings[new.strip()] = values
-                existing_skills.append(skill)
-            else:
-                updated_skills_ratings[skill] = values
+    if skills_rating:
+        for skill, values in skills_rating.items():
+            for old , new in updated_skills.items():
+                if skill.strip().capitalize() == old.strip().capitalize():
+                    updated_skills_ratings[new.strip()] = values
+                    existing_skills.append(skill)
+                else:
+                    updated_skills_ratings[skill] = values
 
-    for i  in existing_skills:
-        del updated_skills_ratings[i]
+        for i  in existing_skills:
+            del updated_skills_ratings[i]
 
     return updated_skills_ratings
