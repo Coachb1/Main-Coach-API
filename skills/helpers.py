@@ -426,8 +426,10 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         NOTE: For the entire question and answer conversation no two skills from {skills} can have exact same scores.
 
-        NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) Each skill should have only one bullet point with a minimum 40 words and maximum 80 words.
+        NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) 
 
+        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
+        
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
         NOTE: Do not add any English language sentence in the output.
@@ -898,7 +900,9 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         NOTE: For the entire question and answer conversation no two skills from {cultural_skills} can have exact same scores.
 
-        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) Each culture skill should have only one bullet point with minimum 40 words and maximum 80 words.
+        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) 
+
+        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
 
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
@@ -1088,7 +1092,8 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}} 
         NOTE: Do not add any English language sentence in the output. 
 
-        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) Each culture skill should have only one bullet point with minimum 40 words and maximum 80 words.
+        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) 
+        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
         NOTE : Do not provide any kind of heading or introduction text in the output.
     '''
 
@@ -1275,7 +1280,8 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
-    NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) Each skill should have only one bullet point with a minimum 40 words and maximum 80 words.
+    NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Collaboration: Scored 7.5 as the manager focused on eliciting different viewpoints and finding collective solutions. Created opportunities for teamwork through policy review and future discussions. Could drive more direct collaboration through delegated tasks.)
+    NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
     NOTE : Do not provide any kind of heading or introduction text in the output.
     '''
 
