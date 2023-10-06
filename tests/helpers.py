@@ -1031,6 +1031,30 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session.culture_skills_explanation = culture_skills_explanation
         updated_fields.append("culture_skills_explanation")
 
+    responses = TestQuestionResponse.objects.filter(
+        test_attempt_session_id=test_attempt_session.uid,
+        responder_type='user',
+        deleted=0
+    )
+    feedbacks = ''
+    for response in responses:
+        if response.feedback_text:
+            feedbacks += response.feedback_text + '\n'
+
+    # calculating feedback_summary and skill summary
+    skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
+    if len(skills_summary) > 0:
+        test_attempt_session.culture_and_skill_summary = skills_summary
+        updated_fields.append("culture_and_skill_summary")
+    
+
+    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    if len(feedbacks_summary) > 0:
+        test_attempt_session.feedback_summary = feedbacks_summary
+        updated_fields.append("feedback_summary")
+
+
+
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
     areas_of_improvement = get_areas_of_improvement(
