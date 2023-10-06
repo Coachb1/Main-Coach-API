@@ -11,7 +11,7 @@ from commons.viewset import ApiViewSet
 from tests.helpers import get_meeting_report_from_test_attempt_session
 from tests.helpers import get_skills_tracker_data
 from tests.helpers import create_test_question_answer_session
-from pdf_generator.helpers import get_report_from_test_attempt_session
+from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
 from tests.models import TestAttemptSession
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
@@ -67,7 +67,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test = Test.objects.get(uid=test_attempt_session.test_id)
         test_title = test.title
         data['title'] = test_title
-        data['skills_explanation'] = test_attempt_session.skills_explanation
+        data['skills_explanation'] = update_skill_name(test_attempt_session.skills_explanation)
         data['culture_skills_explanation'] = test_attempt_session.culture_skills_explanation
         tenant = self.request.tenant
         data['logo'] = tenant.logo
