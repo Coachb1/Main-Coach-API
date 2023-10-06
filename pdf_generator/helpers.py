@@ -700,4 +700,6 @@ def update_skill_name(skills_rating):
         for i  in existing_skills:
             del updated_skills_ratings[i]
 
-    return updated_skills_ratings
+        return updated_skills_ratings
+    else:
+        return None
