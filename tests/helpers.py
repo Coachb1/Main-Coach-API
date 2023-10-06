@@ -57,6 +57,7 @@ import datetime
 from test_bulk_upload.constants import updated_skills
 import re
 from commons.google_apis import speech_to_text, text_bison_compeletion
+from pdf_generator.helpers import update_skill_name
 
 logger = logging.getLogger(__name__)
 
@@ -1129,7 +1130,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
         "culture_skills": culture_skills,
-        "skills_explanation": test_attempt_session.skills_explanation,
+        "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
         "culture_skills_explanation":test_attempt_session.culture_skills_explanation
     }
 
