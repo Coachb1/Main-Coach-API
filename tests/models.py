@@ -137,6 +137,9 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
 
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
+    feedback_summary = models.TextField(null=True,blank=True, default=None)
+    culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
+
     
 
     class Meta:
