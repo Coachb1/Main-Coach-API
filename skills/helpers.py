@@ -237,7 +237,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
     while max_tries > 0:
         try:
             logger.info({"****evaluate_relevacy ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, 1000)
+            response = anthropic_completion(prompt, 100)
             logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
             response = json_extraction(response)
             response = json.loads(response)
@@ -864,7 +864,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     while max_tries > 0:
         try:
             logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(cultural_skills) * 75)
+            response = anthropic_completion(prompt, len(cultural_skills) * 100)
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
             skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
@@ -1050,7 +1050,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         try:
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
             response = anthropic_completion(
-                prompt, len(skills_to_evaluate) * 75)
+                prompt, len(skills_to_evaluate) * 100)
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
             
             skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
