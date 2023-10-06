@@ -234,8 +234,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
             test_codes = get_test_code_lowest_skill(
                 skills_graph_data["skills_rating"], test_attempt_session)
+            
+        feedback_summary = test_attempt_session.feedback_summary
+        skill_summary = test_attempt_session.culture_and_skill_summary
 
-        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance}
+        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,"feedback_summary":feedback_summary,"skill_summary":skill_summary}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
