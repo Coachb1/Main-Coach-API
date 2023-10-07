@@ -47,6 +47,7 @@ def to_dict(string, skills = None):
                 return data
             except Exception as e:
                 logger.error({"!!!!! failed to map skills to explanation ":e})
+                raise e
     return None
     
 def json_extraction(text):
