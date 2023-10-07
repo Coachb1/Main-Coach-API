@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ./manage.py migrate
 gunicorn --bind 0.0.0.0:"${WEB_SERVER_PORT:=8000}"\
-         --timeout 120 \
+         --timeout 150 \
          --graceful-timeout 30 \
          --workers 5 \
          --worker-connections 200 \
