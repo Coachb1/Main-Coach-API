@@ -14,7 +14,7 @@ from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic
-from tests.models import Test
+from tests.models import Test, TestQuestionResponse
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -169,3 +169,26 @@ class TestViewSet(ApiViewSet,
 
         return Response({"data": test_list,'active': active, 'status': "ok"},status=status.HTTP_200_OK)
         
+
+    @action(methods=["GET"], detail=False, url_path="check-duplicate-response")
+    def check_duplicate_response(self, request, *args, **kwargs):
+
+        try:
+            question_id = request.query_params.get("question_id")
+            test_attempt_session_id = request.query_params.get("test_attempt_session_id")
+
+            question_response = TestQuestionResponse.objects.filter(question_id=question_id,
+                                                                    test_attempt_session_id=test_attempt_session_id,
+                                                                    deleted=0)
+            
+            check_duplicate = False
+
+            if question_response.count() > 0:
+                check_duplicate = True
+        
+
+
+            return Response({"duplicate_check": check_duplicate,"status": "sent"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"status": "error"}, status=status.HTTP_200_OK)
