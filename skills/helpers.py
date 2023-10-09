@@ -1516,6 +1516,8 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
     if is_evaluated:
         return skills_explanation
 
+    return {}
+
 
 
 def evaluate_culture_skills_explanation(title, description, conversation, culture_skills_rating, test_attempt_session):
@@ -1633,6 +1635,8 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
     if is_evaluated:
         return skills_explanation
 
+    return {}
+
 
 def evaluate_skills_explanation_conversation(objective, conversation, user_persona, skills_rating, test_attempt_session):
     prompt = f'''
@@ -1738,6 +1742,8 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
     if is_evaluated:
         return skills_explanation
+
+    return {}
 
 
 def evaluate_culture_skills_explanation_conversation(objective, conversation, user_persona, culture_skills_rating, test_attempt_session):
@@ -1854,6 +1860,8 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
     if is_evaluated:
         return skills_explanation
+
+    return {}
 
 
 ##########################* SKILLS EXPLANATION END *##########################
