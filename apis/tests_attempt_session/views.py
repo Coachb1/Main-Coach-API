@@ -335,3 +335,4 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
