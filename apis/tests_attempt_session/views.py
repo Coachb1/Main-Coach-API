@@ -332,3 +332,27 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=["GET"], detail=False, url_path="check-duplicate-response")
+    def check_duplicate_response(self, request, *args, **kwargs):
+
+        try:
+            question_id = request.query_params.get("question_id")
+            test_attempt_session_id = request.query_params.get("test_attemtp_session_id")
+
+            question_response = TestQuestionResponse.objects.filter(question_id=question_id,
+                                                                    test_attempt_session_id=test_attempt_session_id,
+                                                                    deleted=0)
+            
+            check_duplicate = False
+
+            if question_response.count() > 0:
+                check_duplicate = True
+        
+
+
+            return Response({"duplicate_check": check_duplicate,"status": "sent"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_200_OK)
