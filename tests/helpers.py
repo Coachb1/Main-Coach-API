@@ -806,9 +806,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         calc_score(test_attempt_session, test)
         report_url = generate_session_report_link(test_attempt_session, test)
 
-        if test.email_address_list:
-            send_report_link_to_email(
-                test, test_attempt_session, report_url, is_whatsapp)
+        # if test.email_address_list:
+        #     send_report_link_to_email(
+        #         test, test_attempt_session, report_url, is_whatsapp)
 
         if is_whatsapp and test.test_type != TestTypeChoices.interview:
             send_report_link_to_whatsapp(
@@ -907,8 +907,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
         report_url = generate_meeting_report_link(test_attempt_session)
-        if test.email_address_list:
-            send_report_link_to_email_orch(test,test_attempt_session,report_url)
+        # if test.email_address_list:
+        #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
 
     return test_question_response
@@ -981,7 +981,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
 
-    culture_skills_rating, culture_skills_explanation = evaluate_group_discussion_conversation(
+    culture_skills_rating = evaluate_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
 
 
@@ -992,10 +992,9 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         elif culture_skills_rating[skill] < 1.5:
             culture_skills_rating[skill] = 1.5
 
-    skills_rating, skills_explanation = evaluate_skills_group_discussion_conversation(
+    skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
-    logger.info({"*********skills explanation":skills_explanation, "****cultures skills explanation":culture_skills_explanation})
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
@@ -1023,13 +1022,13 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
 
-    if skills_explanation:
-        test_attempt_session.skills_explanation = skills_explanation
-        updated_fields.append("skills_explanation")
+    # if skills_explanation:
+    #     test_attempt_session.skills_explanation = skills_explanation
+    #     updated_fields.append("skills_explanation")
 
-    if culture_skills_explanation:
-        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-        updated_fields.append("culture_skills_explanation")
+    # if culture_skills_explanation:
+    #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
+    #     updated_fields.append("culture_skills_explanation")
 
     responses = TestQuestionResponse.objects.filter(
         test_attempt_session_id=test_attempt_session.uid,
@@ -1042,16 +1041,16 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
             feedbacks += response.feedback_text + '\n'
 
     # calculating feedback_summary and skill summary
-    skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
-    if len(skills_summary) > 0:
-        test_attempt_session.culture_and_skill_summary = skills_summary
-        updated_fields.append("culture_and_skill_summary")
+    # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
+    # if len(skills_summary) > 0:
+    #     test_attempt_session.culture_and_skill_summary = skills_summary
+    #     updated_fields.append("culture_and_skill_summary")
     
 
-    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
-    if len(feedbacks_summary) > 0:
-        test_attempt_session.feedback_summary = feedbacks_summary
-        updated_fields.append("feedback_summary")
+    # feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    # if len(feedbacks_summary) > 0:
+    #     test_attempt_session.feedback_summary = feedbacks_summary
+    #     updated_fields.append("feedback_summary")
 
 
 
@@ -1394,7 +1393,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if user_info.custom_skill_prompt_2:
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
-    response_skills_rating, skills_explanation = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
     for skill in response_skills_rating:
         if skill in skills_rating:
             skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
@@ -1426,15 +1425,15 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     else:
         avg_score = avg_score / response_count
 
-    logger.info({"***************************skills_rating_score":skills_rating_score,"#####################skills explanation":skills_explanation})
+    logger.info({"***************************skills_rating_score":skills_rating_score})
 
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
     skills_rating_score, avg_score = increment_avg_score_in_percentages(
         skills_rating_score, avg_score, participant_id, test_attempt_session)
-    culture_skills_rating, culture_skills_explanation = calc_culture_skills_rating(test_attempt_session, responses, test)
+    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
 
-    logger.info({"***************************culture_skills_rating_score":culture_skills_rating,"########################culture skills explanation":culture_skills_explanation})
+    logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
@@ -1443,7 +1442,6 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
     
     test_attempt_session.skills_rating = skills_rating_score
-    test_attempt_session.skills_explanation = skills_explanation
     test_attempt_session.test_score = test_score
     test_attempt_session.avg_score = avg_score
     test_attempt_session.finished_at = timezone.now()
@@ -1457,9 +1455,9 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if has_speech_metric:
         updated_fields.append("speech_score")
 
-    if skills_explanation is not None:
-        test_attempt_session.skills_explanation = skills_explanation
-        updated_fields.append("skills_explanation")
+    # if skills_explanation is not None:
+    #     test_attempt_session.skills_explanation = skills_explanation
+    #     updated_fields.append("skills_explanation")
 
     if culture_skills_rating is not None:
         culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
@@ -1467,23 +1465,23 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
 
-    if culture_skills_explanation is not None:
-        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-        updated_fields.append("culture_skills_explanation")
+    # if culture_skills_explanation is not None:
+    #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
+    #     updated_fields.append("culture_skills_explanation")
 
 
 
     # calculating feedback_summary and skill summary
-    skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating_score)
-    if len(skills_summary) > 0:
-        test_attempt_session.culture_and_skill_summary = skills_summary
-        updated_fields.append("culture_and_skill_summary")
+    # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating_score)
+    # if len(skills_summary) > 0:
+    #     test_attempt_session.culture_and_skill_summary = skills_summary
+    #     updated_fields.append("culture_and_skill_summary")
     
 
-    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
-    if len(feedbacks_summary) > 0:
-        test_attempt_session.feedback_summary = feedbacks_summary
-        updated_fields.append("feedback_summary")
+    # feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    # if len(feedbacks_summary) > 0:
+    #     test_attempt_session.feedback_summary = feedbacks_summary
+    #     updated_fields.append("feedback_summary")
 
     test_attempt_session.save(update_fields=updated_fields)
 
@@ -1880,7 +1878,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         count += 1
 
     # Evaluate conversation
-    culture_skills_rating, culture_skills_explanation, is_evaluated = evaluate_conversation(
+    culture_skills_rating, is_evaluated = evaluate_conversation(
         test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
@@ -1893,7 +1891,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         elif culture_skills_rating[skill] < 1.5:
             culture_skills_rating[skill] = 1.5
 
-    return culture_skills_rating, culture_skills_explanation
+    return culture_skills_rating
 
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
     skills_rating = {}
@@ -1916,13 +1914,13 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
         count += 1
 
     # Evaluate conversation
-    skills_rating, skills_explanation, is_evaluated = evaluate_response_skill(
+    skills_rating, is_evaluated = evaluate_response_skill(
         test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
 
     if not is_evaluated:
         return None
 
-    return skills_rating, skills_explanation
+    return skills_rating
 
     
 def get_chat_conversation_prompt_v3(test_title: str,
