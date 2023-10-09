@@ -16,7 +16,7 @@ from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
-from tests.helpers import send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation
+from tests.helpers import send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation, send_report_link_to_whatsapp
 from tests.choices import TestTypeChoices
 import logging
 from email_sender.helpers import send_feedbackd_email
@@ -320,6 +320,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             #####################* explanation end #################
             test_attempt_session.save(update_fields=updated_fields)
+            if is_whatsapp and test.test_type != TestTypeChoices.interview:
+                send_report_link_to_whatsapp(
+                    test, test_attempt_session, report_url)
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
