@@ -589,12 +589,14 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
     Do not provide the {High_culture}, {Low_culture} in the output.
 
-    "Here are the key things that were observed in the interaction:
+    "
+    You have displayed the two skills {Top_skills} at the top of your skills rating but on the other hand these skills {Low_skills} are the lowest rated. {Improvement}
+    {Culture_summary}  "
 
-    You have displayed the two skills {Top_skills} at the top of your skills rating with but on the other hand these skills {Low_skills} are the lowest rated. {Improvement}
-    {Culture_summary}"
     Do not provide the Top_skills, Low_skills, High_culture, Low_culture in the output.
 
+
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
     """%(cultural_skill,skill_rating)
 
     is_evaluated = True
