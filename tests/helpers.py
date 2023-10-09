@@ -810,9 +810,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         #     send_report_link_to_email(
         #         test, test_attempt_session, report_url, is_whatsapp)
 
-        if is_whatsapp and test.test_type != TestTypeChoices.interview:
-            send_report_link_to_whatsapp(
-                test, test_attempt_session, report_url)
+        # if is_whatsapp and test.test_type != TestTypeChoices.interview:
+        #     send_report_link_to_whatsapp(
+        #         test, test_attempt_session, report_url)
 
     return test_question_response
 
@@ -906,7 +906,11 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
-        report_url = generate_meeting_report_link(test_attempt_session)
+
+        if test.test_type == TestTypeChoices.dynamic_discussion:
+            report_url = generate_dynamic_discussion_report_link(test_attempt_session)
+        else:
+            report_url = generate_meeting_report_link(test_attempt_session)
         # if test.email_address_list:
         #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -1112,7 +1116,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                 if count == 1:
                     data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = test_response.feedback_text
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
                 key_learning_point = test_response.kls_klp.get('klp')
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
@@ -1617,6 +1621,26 @@ def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
 
     return report_url
 
+
+def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSession):
+    if test_attempt_session.report_url:
+        return test_attempt_session.report_url
+
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.DYNAMIC_DISCUSSOIN_REPORT}/{refresh_token}/?test_attempt_session_id={test_attempt_session_id}&backend={BACKEND}"
+
+    test_attempt_session.report_url = report_url
+    test_attempt_session.save(update_fields=["report_url"])
+
+    return report_url
 
 def update_skills_rating_if_same_scores(skills_rating):
     total_skills = len(skills_rating)
