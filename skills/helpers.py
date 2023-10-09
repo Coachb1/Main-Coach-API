@@ -426,10 +426,6 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "9", "skill3": "2.5"}}
 
         NOTE: For the entire question and answer conversation no two skills from {skills} can have exact same scores.
-
-        NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Communication: Scored 6.5 as manager directly answers questions and provides updates, but some key details are missing. Could be more concise and clear.) 
-
-        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
         
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
@@ -449,7 +445,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -457,8 +453,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -490,7 +486,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -498,8 +494,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -531,7 +527,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             logger.info({"****evaluate_response_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -539,8 +535,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str)
+            # responses.append(skills_explanation)
 
             break
 
@@ -901,10 +897,6 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         NOTE: For the entire question and answer conversation no two skills from {cultural_skills} can have exact same scores.
 
-        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) 
-
-        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
-
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
         NOTE: Do not add any English language sentence in the output.
@@ -925,7 +917,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str= json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -933,8 +925,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -966,7 +958,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -974,8 +966,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str, skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1007,7 +999,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             logger.info({"****evaluate_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
@@ -1015,8 +1007,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1093,14 +1085,12 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}} 
         NOTE: Do not add any English language sentence in the output. 
 
-        NOTE: After the culture rating write a small note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Provide an idea in what situation or condition, the scores are likely to be higher AND in which conditions scores are likely to be lower based on the given scenario. Each point should always provide both cases where scores can be higher or lower based on the given scenario. (For example - Consensual: Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions.) 
-        NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
         NOTE : Do not provide any kind of heading or introduction text in the output.
     '''
 
 
 
-    responses = []
+    skills_rating = None
     response = None
     is_evaluated = True
     max_tries = 3  # because anthropic_completion function itself retries 3 times
@@ -1111,16 +1101,16 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             response = anthropic_completion(prompt, len(cultural_skills) * 100)
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str, skills_rating)
-            responses.append(skills_explanation)
+
+            # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1136,11 +1126,11 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
 
     if is_evaluated:
-        return responses
+        return skills_rating
 
     logger.info({"****evaluate_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
 
-    responses = []
+    skills_rating = None
     is_evaluated = True
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -1151,16 +1141,16 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+            
 
 
-            skills_explanation = to_dict(skills_explanation_str, skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1175,11 +1165,11 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             continue
 
     if is_evaluated:
-        return responses
+        return skills_rating
     
     logger.info({"****evaluate_group_discussion_conversation ":f"failed gpt, so trying text_bison_compeletion "})
 
-    responses = []
+    skills_rating = None
     is_evaluated = True
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -1190,16 +1180,16 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             response = text_bison_compeletion(prompt)
             logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
-            responses.append(skills_explanation)
+
+            # skills_explanation = to_dict(skills_explanation_str)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1214,7 +1204,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             continue
 
     if is_evaluated:
-        return responses
+        return skills_rating
 
     logger.info({"****evaluate_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
@@ -1281,12 +1271,10 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
-    NOTE: After the skill rating write a small note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences. The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills.(For example - Collaboration: Scored 7.5 as the manager focused on eliciting different viewpoints and finding collective solutions. Created opportunities for teamwork through policy review and future discussions. Could drive more direct collaboration through delegated tasks.)
-    NOTE : Each skill should have only one bullet point with a minimum of 80 words. Each bullet point should never be less than 80 words.
     NOTE : Do not provide any kind of heading or introduction text in the output.
     '''
 
-    responses = []
+    skills_rating = None
     response = None
     is_evaluated = True
     max_tries = 3  # because anthropic_completion function itself retries 3 times
@@ -1298,16 +1286,15 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                 prompt, len(skills_to_evaluate) * 100)
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
             
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str, skills_rating)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+            # responses.append(skills_explanation)
             
             break
         except Exception as e:
@@ -1321,11 +1308,12 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             continue
 
     if is_evaluated:
-        return responses
+        return skills_rating
 
     logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
 
-    responses = []
+
+    skills_rating = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
@@ -1336,16 +1324,12 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
 
-
-            skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            responses.append(skills_explanation)
 
             break
 
@@ -1360,11 +1344,11 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             continue
 
     if is_evaluated:
-        return responses
+        return skills_rating
 
     logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed gpt, so trying text-bison"})
 
-    responses = []
+    skills_rating = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
     is_evaluated = True
@@ -1375,16 +1359,15 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             response = text_bison_compeletion(prompt)
             logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_rating_str, skills_explanation_str = json_extraction(response), response.split('}')[1]
+            skills_rating_str = json_extraction(response)
 
             skills_rating = json.loads(skills_rating_str)
             for skill in skills_rating:
                 skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
 
 
-            skills_explanation = to_dict(skills_explanation_str)
-            responses.append(skills_explanation)
+            # skills_explanation = to_dict(skills_explanation_str)
+            # responses.append(skills_explanation)
 
             break
 
@@ -1399,7 +1382,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             continue
 
     if is_evaluated:
-        return responses
+        return skills_rating
 
     logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
@@ -1415,6 +1398,465 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     return response,{}
 
+
+##########################* SKILLS EXPLANATION START *##########################
+
+def evaluate_skills_explanation(title, description, conversation, skills_rating, test_attempt_session):
+    prompt = f'''
+        "TITLE:" {title};
+
+        "DESCRIPTION:" {description};
+
+        "CONVERSATION:" {conversation};
+
+        skills_list : {skills_rating}
+
+        The skills rating of the responder based on the given conversation is given in skills_list. Provide a note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences.
+
+        NOTE : The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills. Each skill explanation should have only one bullet point with the explanation and ways to improve.
+
+        NOTE : Output format example - {{ "Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
+
+        NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+
+        NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
+
+        NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+    '''
+
+    skills_explanation = None
+    response = None
+    is_evaluated = True
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] anthropic for {3 - max_tries + 1} time"})
+            response = anthropic_completion(
+                prompt, len(skills_rating) * 100)
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
+            
+
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+            
+            break
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_skills_explanation ":f"failed anthropic, so trying gpt"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_skills_explanation ":f"failed gpt, so trying text-bison"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+
+
+def evaluate_culture_skills_explanation(title, description, conversation, culture_skills_rating, test_attempt_session):
+    prompt = f'''
+        "TITLE:" {title};
+
+        "DESCRIPTION:" {description};
+
+        "CONVERSATION:" {conversation};
+
+        cultural_list :  {"hierarchy": "5.5", "consensual": "7.5", "indirect negative feedback": "8.5", "relationship-based": "9", "high context communication": "3", "Persuasion": "6", "argumentative": "1.5"}
+
+        The cultural skills rating of the responder based on the given conversation is given in cultural_list. Provide a note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Based on the given context provide an idea in which conditions the scores are likely to be higher AND in which conditions scores are likely to be lower. Each point should always provide both cases where scores can be higher or lower based on the given scenario.
+
+        NOTE : The notes should be given for each cultural skill and they should be in bullet points.
+
+        NOTE : Output format example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
+
+        NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+
+        NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
+
+        NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        '''
+
+    skills_explanation = None
+    response = None
+    is_evaluated = True
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] anthropic for {3 - max_tries + 1} time"})
+            response = anthropic_completion(
+                prompt, len(culture_skills_rating) * 100)
+            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
+            
+
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+            
+            break
+        except Exception as e:
+            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_culture_skills_explanation ":f"failed anthropic, so trying gpt"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_culture_skills_explanation ":f"failed gpt, so trying text-bison"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+
+def evaluate_skills_explanation_conversation(objective, conversation, user_persona, skills_rating, test_attempt_session):
+    prompt = f'''
+        "Objective:" {objective};
+
+        "Conversation:" {conversation};
+        skills_list: {skills_rating}
+        The skills rating of {user_persona} based on the given conversation is given in skills_list. Provide a note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences.
+        NOTE : The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills. Each skill explanation should have only one bullet point with the explanation and ways to improve.
+        NOTE : Output format example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
+        NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+        NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
+        NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+    '''
+    skills_explanation = None
+    response = None
+    is_evaluated = True
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] anthropic for {3 - max_tries + 1} time"})
+            response = anthropic_completion(
+                prompt, len(skills_rating) * 100)
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
+            
+
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+            
+            break
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_skills_explanation ":f"failed anthropic, so trying gpt"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"****evaluate_skills_explanation ":f"failed gpt, so trying text-bison"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+
+def evaluate_culture_skills_explanation_conversation(objective, conversation, user_persona, culture_skills_rating, test_attempt_session):
+    prompt = f'''
+        Culture skills explanation orchestrated 
+
+        "Objective:" {objective}; 
+
+        "Conversation:" {conversation}; 
+
+        cultural_list : {culture_skills_rating}
+
+        The cultural skills rating of {user_persona} based on the given conversation is given in cultural_list. Provide a note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Based on the given context provide an idea in which conditions the scores are likely to be higher AND in which conditions scores are likely to be lower. Each point should always provide both cases where scores can be higher or lower based on the given scenario.
+
+        NOTE : The notes should be given for each cultural skill and they should be in bullet points.
+
+        NOTE : Output format example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
+
+        NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+
+        NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
+
+        NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+    '''
+
+    skills_explanation = None
+    response = None
+    is_evaluated = True
+    max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+    while max_tries > 0:
+        try:
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] anthropic for {3 - max_tries + 1} time"})
+            response = anthropic_completion(
+                prompt, len(culture_skills_rating) * 100)
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
+            
+
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+            
+            break
+        except Exception as e:
+            logger.error({"**** evaluate_culture_skills_explanation_conversation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed anthropic, so trying gpt"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"****  evaluate_culture_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed gpt, so trying text-bison"})
+
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            response = text_bison_compeletion(prompt)
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extraction(response)
+            skills_explanation = json.loads(skills_explanation)
+
+            break
+
+        except Exception as e:
+            logger.error({"**** evaluate_culture_skills_explanation_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+
+##########################* SKILLS EXPLANATION END *##########################
 
 def top_N_leadership_board(skills, N, tenant_id):
     # Get all skills_rating objects of this tenant
