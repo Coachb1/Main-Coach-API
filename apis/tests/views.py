@@ -175,7 +175,7 @@ class TestViewSet(ApiViewSet,
 
         try:
             question_id = request.query_params.get("question_id")
-            test_attempt_session_id = request.query_params.get("test_attemtp_session_id")
+            test_attempt_session_id = request.query_params.get("test_attempt_session_id")
 
             question_response = TestQuestionResponse.objects.filter(question_id=question_id,
                                                                     test_attempt_session_id=test_attempt_session_id,
