@@ -64,6 +64,36 @@ def json_extraction(text):
         logger.info({"message": "json not found"})
         return text
 
+def json_extractor_for_explaination(text):
+    
+    # Define a regex pattern to match JSON objects
+    pattern = r'\{.*?\}'
+
+    # Find all matches of JSON objects in the text
+    json_objects = re.findall(pattern, text, re.DOTALL)
+
+    # Initialize a list to store parsed JSON objects
+    parsed_json_list = []
+    updated_json = {}
+
+    # Iterate through the found JSON objects and parse them
+    for json_str in json_objects:
+        try:
+            parsed_json = json.loads(json_str)
+            parsed_json_list.append(parsed_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON: {str(e)}")
+            raise e
+
+    # Print the list of parsed JSON objects
+    for parsed_json in parsed_json_list:
+        for key, value in parsed_json.items():
+            updated_json[key] = value
+
+    return updated_json
+        
+
+
 
 def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title, test_code, session_id):
     # prompt = f'''
@@ -1417,9 +1447,9 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
         NOTE : The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills. Each skill explanation should have only one bullet point with the explanation and ways to improve.
 
-        NOTE : Output format example - {{ "Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
-
         NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+
+        NOTE : Output format should be JSON example - {{ "Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
 
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
@@ -1439,8 +1469,10 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             logger.info({"****evaluate_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
             
 
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
             
             break
         except Exception as e:
@@ -1469,8 +1501,10 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
 
             break
 
@@ -1500,8 +1534,10 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             response = text_bison_compeletion(prompt)
             logger.info({"****evaluate_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
 
             break
 
@@ -1530,15 +1566,15 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
 
         "CONVERSATION:" {conversation};
 
-        cultural_list :  {"hierarchy": "5.5", "consensual": "7.5", "indirect negative feedback": "8.5", "relationship-based": "9", "high context communication": "3", "Persuasion": "6", "argumentative": "1.5"}
+        cultural_list :  {culture_skills_rating}
 
         The cultural skills rating of the responder based on the given conversation is given in cultural_list. Provide a note explaining the reason behind the rating of each culture skill based on the given scenario in 3-4 sentences. Based on the given context provide an idea in which conditions the scores are likely to be higher AND in which conditions scores are likely to be lower. Each point should always provide both cases where scores can be higher or lower based on the given scenario.
 
         NOTE : The notes should be given for each cultural skill and they should be in bullet points.
 
-        NOTE : Output format example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
-
         NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+        NOTE : Output format be in JSON example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
+
 
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
@@ -1558,8 +1594,10 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
             
 
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
             
             break
         except Exception as e:
@@ -1588,8 +1626,10 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
 
             break
 
@@ -1619,9 +1659,11 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             response = text_bison_compeletion(prompt)
             logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
-
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
+            
             break
 
         except Exception as e:
@@ -1648,8 +1690,8 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
         skills_list: {skills_rating}
         The skills rating of {user_persona} based on the given conversation is given in skills_list. Provide a note explaining the reason behind the rating of each skill and ways the responder can improve these skills in 3-4 sentences.
         NOTE : The notes should be given for each skill and they should be in bullet points. Each point should always include one sentence that will help the responder improve these skills. Each skill explanation should have only one bullet point with the explanation and ways to improve.
-        NOTE : Output format example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
         NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+        NOTE : Output format should be Json example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
     '''
@@ -1663,15 +1705,17 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
             logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] anthropic for {3 - max_tries + 1} time"})
             response = anthropic_completion(
                 prompt, len(skills_rating) * 100)
-            logger.info({"****evaluate_skills_explanation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
             
 
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
             
             break
         except Exception as e:
-            logger.error({"****evaluate_skills_explanation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -1683,7 +1727,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
     if is_evaluated:
         return skills_explanation
 
-    logger.info({"****evaluate_skills_explanation ":f"failed anthropic, so trying gpt"})
+    logger.info({"****evaluate_skills_explanation_conversation ":f"failed anthropic, so trying gpt"})
 
     skills_explanation = None
     response = None
@@ -1692,17 +1736,19 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
 
             break
 
         except Exception as e:
-            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -1714,7 +1760,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
     if is_evaluated:
         return skills_explanation
 
-    logger.info({"****evaluate_skills_explanation ":f"failed gpt, so trying text-bison"})
+    logger.info({"****evaluate_skills_explanation_conversation ":f"failed gpt, so trying text-bison"})
 
     skills_explanation = None
     response = None
@@ -1723,17 +1769,19 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
             response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
 
             break
 
         except Exception as e:
-            logger.error({"****evaluate_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -1762,9 +1810,9 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
         NOTE : The notes should be given for each cultural skill and they should be in bullet points.
 
-        NOTE : Output format example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
-
         NOTE : The output should always be generated in this JSON format only. DO NOT create any sub bullets for any of the point.
+
+        NOTE : Output format should be in JSON example - {{"Consensual": "Scored 7.5 as the conversation shows empathy and respect for boundaries. It could be potentially rated higher if proactively seeking consensus on action plans. It could potentially be rated lower, if the conversation comes across straightforward interactions."}}
 
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
@@ -1784,8 +1832,10 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] anthropic for {3 - max_tries + 1} time","response":response})
             
 
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
             
             break
         except Exception as e:
@@ -1814,8 +1864,10 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
             logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
 
             break
 
@@ -1845,8 +1897,10 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             response = text_bison_compeletion(prompt)
             logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
             
-            skills_explanation = json_extraction(response)
-            skills_explanation = json.loads(skills_explanation)
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
 
             break
 
