@@ -1165,7 +1165,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     }
 
     skill_exp = update_skill_name(test_attempt_session.skills_explanation)
-    if len(test_attempt_session.skills_rating) == len(skill_exp):
+    logger.info({"skill explaination": skill_exp, "len": len(skill_exp)})
+    if len(test_attempt_session.skills_rating) == len(test_attempt_session.skills_explanation):
         data['skills_explanation'] = skill_exp
     else:
         data['skills_explanation'] = None
