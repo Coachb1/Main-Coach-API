@@ -1158,11 +1158,23 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
         "culture_skills": culture_skills,
-        "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
-        "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
+        # "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
+        # "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
         "feedback_summary" : test_attempt_session.feedback_summary,
         "skill_summary" : test_attempt_session.culture_and_skill_summary
     }
+
+    skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    if len(test_attempt_session.skills_rating) == len(skill_exp):
+        data['skills_explanation'] = skill_exp
+    else:
+        data['skills_explanation'] = None
+
+    culture_skill_exp = test_attempt_session.culture_skills_explanation
+    if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
+        data['culture_skills_explanation'] = culture_skill_exp
+    else:
+        data['culture_skills_explanation'] = None
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         data['flashcards'] = flashcards
