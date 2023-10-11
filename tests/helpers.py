@@ -1316,17 +1316,19 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     }
 
     skill_exp = update_skill_name(test_attempt_session.skills_explanation)
-    logger.info({"skill explaination": skill_exp, "len": len(skill_exp)})
-    if len(test_attempt_session.skills_rating) == len(test_attempt_session.skills_explanation):
-        data['skills_explanation'] = skill_exp
-    else:
-        data['skills_explanation'] = None
+
+    if skill_exp:
+        if len(test_attempt_session.skills_rating) == len(skill_exp):
+            data['skills_explanation'] = skill_exp
+        else:
+            data['skills_explanation'] = None
 
     culture_skill_exp = test_attempt_session.culture_skills_explanation
-    if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
-        data['culture_skills_explanation'] = culture_skill_exp
-    else:
-        data['culture_skills_explanation'] = None
+    if culture_skill_exp:
+        if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
+            data['culture_skills_explanation'] = culture_skill_exp
+        else:
+            data['culture_skills_explanation'] = None
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         data['flashcards'] = flashcards
@@ -1339,20 +1341,20 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         skills_rating = test_attempt_session.skills_rating
         skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
-        updated_skills_ratings = {}
-        existing_skills = []
-        for skill, values in skills_rating.items():
-            for old , new in updated_skills.items():
-                if skill.strip().capitalize() == old.strip().capitalize():
-                    updated_skills_ratings[new.strip()] = values
-                    existing_skills.append(skill)
-                else:
-                    updated_skills_ratings[skill] = values
+        # updated_skills_ratings = {}
+        # existing_skills = []
+        # for skill, values in skills_rating.items():
+        #     for old , new in updated_skills.items():
+        #         if skill.strip().capitalize() == old.strip().capitalize():
+        #             updated_skills_ratings[new.strip()] = values
+        #             existing_skills.append(skill)
+        #         else:
+        #             updated_skills_ratings[skill] = values
 
-        for i  in existing_skills:
-            del updated_skills_ratings[i]
+        # for i  in existing_skills:
+        #     del updated_skills_ratings[i]
         
-        data["skills_rating"] = updated_skills_ratings
+        data["skills_rating"] = update_skill_name(skills_rating)
 
     return data
 
