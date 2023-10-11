@@ -68,27 +68,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         data = get_report_from_test_attempt_session(
             test_attempt_session, only_data=True)
-        test = Test.objects.get(uid=test_attempt_session.test_id)
-        test_title = test.title
-        skill_exp = update_skill_name(test_attempt_session.skills_explanation)
-        if len(test_attempt_session.skills_rating) == len(skill_exp):
-            data['skills_explanation'] = skill_exp
-        else:
-            data['skills_explanation'] = None
-
-        culture_skill_exp = test_attempt_session.culture_skills_explanation
-        if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
-            data['culture_skills_explanation'] = culture_skill_exp
-        else:
-            data['culture_skills_explanation'] = None
-
-        
-        data['title'] = test_title
-        # data['skills_explanation'] = update_skill_name(test_attempt_session.skills_explanation)
-        # data['culture_skills_explanation'] = test_attempt_session.culture_skills_explanation
         tenant = self.request.tenant
         data['logo'] = tenant.logo
-
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
