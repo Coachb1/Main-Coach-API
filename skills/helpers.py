@@ -605,9 +605,9 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
     skills_list: %s
 
-    {Top_skills} : From the skills_list get the two skills with the highest score. Write the skill name and the score.
+    {Top_skills} : From the skills_list get the two skills with the highest score. Write the skill name and the score in this format skill : score
 
-    {Low_skills} : From the skills_list get the two skills with the lowest score. Write the skill name and the score.
+    {Low_skills} : From the skills_list get the two skills with the lowest score. Write the skill name and the score in this format skill : score
 
     {Improvement} : Provide some ideas on how the user can improve the {Low_skills} in 2-3 sentences.
 
@@ -619,12 +619,19 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
     Do not provide the {High_culture}, {Low_culture} in the output.
 
-    "
-    You have displayed the two skills {Top_skills} at the top of your skills rating but on the other hand these skills {Low_skills} are the lowest rated. {Improvement}
-    {Culture_summary}  "
+    The output should be in the given format :
 
-    Do not provide the Top_skills, Low_skills, High_culture, Low_culture in the output.
+    " 1. The highest rated skills : {Top_skills}
 
+    2. The lowest rated skills : {Low_skills}
+
+    3. {Improvement}
+
+    4. {Culture_summary}"
+
+    Do not provide the High_culture, Low_culture in the output.
+
+    NOTE : Always provide the output in the given format.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
     """%(cultural_skill,skill_rating)
@@ -734,8 +741,11 @@ def feedback_summary(test_attempt_session,feedbacks):
 
     NOTE : Do not mention "feedback" or "summary" in the summary provided.
 
-    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : Never start with any kind of introductory sentence.
 
+    NOTE :  Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+
+    NOTE : NEVER include sentences like (Here is a 100 word summary of the feedback in a single paragraph:) in the output.
 
     """%(feedbacks)
 
