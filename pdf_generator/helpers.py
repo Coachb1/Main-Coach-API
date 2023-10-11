@@ -703,22 +703,19 @@ def get_test_code_lowest_skill(skills_rating, test_attempt_session):
     return test_codes
 
 def update_skill_name(skills_rating):
-    updated_skills_ratings = {}
-    existing_skills = []
-    if skills_rating:
-        for skill, values in skills_rating.items():
-            for old , new in updated_skills.items():
-                if skill.strip().capitalize() == old.strip().capitalize():
-                    updated_skills_ratings[new.strip()] = values
-                    existing_skills.append(skill)
-                    break
-                else:
-                    updated_skills_ratings[skill] = values
-                    break
-
-        for i  in existing_skills:
-            del updated_skills_ratings[i]
-
-        return updated_skills_ratings
-    else:
+    if not skills_rating:
         return None
+
+    updated_skills_ratings = {}
+    for skill, values in skills_rating.items():
+        
+        updated_skill = skill.strip().capitalize()
+        for old,new in updated_skills.items():
+            if skill.strip().capitalize() == old.strip().capitalize():
+                updated_skill = new.strip().capitalize()
+                break
+        
+                
+        updated_skills_ratings[updated_skill.strip()] = values
+
+    return updated_skills_ratings
