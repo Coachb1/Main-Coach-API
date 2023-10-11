@@ -842,15 +842,98 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
-            #     test_question_response.response_file)
-            test_question_response.response_text = gpt_wishper_api(
-                test_question_response.response_file)
+            # try:
+            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #         test_question_response.response_file)
+            # except:
+            transcript_length = 0
+            try:
+                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+                transcript_length = len(transcript.split())
+                logger.info({"message":"************ transcript generated ******","transcript":transcript})
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            if transcript_length > 10:
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met
+                        break
+                    except Exception as e:
+                        logger.exception(e)
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            break
+
+                    
+            else:
+                # HACK sane default values
+                    test_question_response.speech_metrics = default_metrics
+
+            update_fields.append("speech_metrics")
+
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            test_question_response.response_text = gpt_wishper_api(
-                test_question_response.response_file)
+            transcript_length = 0
+            try:
+                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+                transcript_length = len(transcript.split())
+                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            if transcript_length > 10:
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met_video
+                        break
+
+                    except Exception as e:
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            break
+
+            else:
+                test_question_response.speech_metrics = default_metrics
+                
+            update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         logger.info(f"***************question number is {question.question_number}**************")
@@ -1040,9 +1123,35 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         deleted=0
     )
     feedbacks = ''
+    speech_score = {}
+    has_speech_metric = False
     for response in responses:
         if response.feedback_text:
             feedbacks += response.feedback_text + '\n'
+
+        if response.speech_metrics:
+            has_speech_metric = True
+            # get speech metrics from this response
+            response_speech_metrics = response.speech_metrics
+            # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
+            # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+
+            try:
+                for key,value in response_speech_metrics.items():
+                    if isinstance(value, str) and "%" in value:
+                        try: 
+                            value = float(value.replace("%", ""))
+                        except:
+                            pass
+                            
+                    if key in speech_score:
+                        speech_score[key] += value or random.randint(3, 7)
+                    else:
+                        speech_score[key] = value or random.randint(3, 7)
+
+            except Exception as e :
+                has_speech_metric = False
+                logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
 
     # calculating feedback_summary and skill summary
     # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
@@ -1062,6 +1171,10 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         objective, chat_conversation)
     areas_of_improvement = get_areas_of_improvement(
         objective, chat_conversation, user_persona)
+    
+    if has_speech_metric:
+        test_attempt_session.speech_score = speech_score
+        updated_fields.append("speech_score")
 
     test_attempt_session.meeting_summary = meeting_summary
     test_attempt_session.areas_of_improvement = areas_of_improvement
@@ -1098,8 +1211,11 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     chat_conversation_with_details = []
     flashcards = []
+    speech_metrics_avg = {}
+
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
+        all_speech_metrics = []
         data = {}
         mindmap_data = {}
         mindmap_contents = []
@@ -1133,6 +1249,40 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             else:
                 data[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
 
+            
+            if test_response.speech_metrics:
+                speech_metrics = test_response.speech_metrics
+
+                # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
+                speech_metrics = {k: v for k, v in speech_metrics.items(
+                ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+
+                # Convert the Keys to human readable format
+                speech_metrics = {k.replace("_", " ").title(
+                ): v for k, v in speech_metrics.items()}
+
+                # Add the speech_metrics to the list of all_speech_metrics
+                all_speech_metrics.append(speech_metrics)
+
+        # Get the averaged speech metrics for the test attempt session
+        for metric in all_speech_metrics:
+            for k, v in metric.items():
+                if isinstance(v, str) and "%" in v:
+                    try:
+                        v = float(v.replace("%", ""))
+                    except:
+                        pass
+
+                if k in speech_metrics_avg:
+                    speech_metrics_avg[k] += v
+                else:
+                    speech_metrics_avg[k] = v
+
+        if test_responses[0].speech_metrics:
+            for k, v in speech_metrics_avg.items():
+                speech_metrics_avg[k] = v / len(test_responses)
+
+
     else:
         for message in chat_conversation:
             user_name, message = message.split(":", 1)
@@ -1161,7 +1311,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         # "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
         # "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
         "feedback_summary" : test_attempt_session.feedback_summary,
-        "skill_summary" : test_attempt_session.culture_and_skill_summary
+        "skill_summary" : test_attempt_session.culture_and_skill_summary,
+        "speech_metrics_avg" : speech_metrics_avg
     }
 
     skill_exp = update_skill_name(test_attempt_session.skills_explanation)
