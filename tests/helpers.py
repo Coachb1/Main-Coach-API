@@ -956,6 +956,19 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields.append("feedback_text")
         logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
 
+        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                            question_text,
+                                            test_question_response.response_text,
+                                            test.description,
+                                            test.title,
+                                            )
+
+        relevance = 1
+        if "relevance" in relevancy_score:
+            relevance = int(relevancy_score['relevance'])
+
+        test_question_response.relevance = relevance
+        update_fields.append("relevance")
 
         kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
@@ -1212,6 +1225,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     chat_conversation_with_details = []
     flashcards = []
     speech_metrics_avg = {}
+    response_relevance = True
 
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
@@ -1223,6 +1237,13 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                                 evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                 deleted=0).order_by('id')
+        for participant_response in test_responses:
+            relevance = participant_response.relevance
+            if not relevance :
+                response_relevance = False
+                break
+
+
         test_data = []
         for test_response in test_responses:
             test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
@@ -1312,7 +1333,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         # "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
         "feedback_summary" : test_attempt_session.feedback_summary,
         "skill_summary" : test_attempt_session.culture_and_skill_summary,
-        "speech_metrics_avg" : speech_metrics_avg
+        "speech_metrics_avg" : speech_metrics_avg,
+        "response_relevance" : response_relevance
     }
 
     skill_exp = update_skill_name(test_attempt_session.skills_explanation)
