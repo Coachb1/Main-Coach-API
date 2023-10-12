@@ -214,9 +214,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.info("send_report_email")
             test_attempt_session_id = request.query_params.get("test_attempt_session_id")
             report_url = request.query_params.get("report_url")
-            logger.info({"message":"##################################### Request Received for sending email #####################################",
-                            "test_attempt_session_id":test_attempt_session_id, "report_url":report_url})
             is_whatsapp = request.query_params.get("is_whatsapp")
+            is_whatsapp = True if is_whatsapp in ["true", "True"] else False
+            
+            logger.info({"message":"##################################### Request Received for sending email #####################################",
+                            "test_attempt_session_id":test_attempt_session_id, "report_url":report_url, "is_whatsapp":is_whatsapp})
+            
 
 
             try:

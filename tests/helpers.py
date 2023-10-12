@@ -854,13 +854,20 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         logger.info(f"***************question number is {question.question_number}**************")
-        if question.question_number == 1:
+        start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+        if question.question_number == 1 and start_with_user_message is not None:
+            question_text = test.description
+        elif question.question_number == 1:
             question_text = test.orchestrated_conversation_details.get('initial_messages')[0]
         else:
             question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
         logger.info(f"***************question text is {question_text}**************")
 
-        prompt = get_chat_conversation_prompt_v3(
+        if start_with_user_message is not None:
+            prompt = get_user_first_dynamic_discussion_prompt(test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+
+        else:
+            prompt = get_chat_conversation_prompt_v3(
                                 test_title=test.title,
                                 test_description=test.description,
                                 question=question_text,
@@ -953,6 +960,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     prompt = get_orchestrated_test_conversation_prompt(test=test,
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
+    logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
     bot_llm_response_text = anthropic_completion(prompt, 300)
 
@@ -1098,6 +1106,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     chat_conversation_with_details = []
     flashcards = []
+    start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         data = {}
@@ -1114,7 +1123,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
                 if count == 1:
-                    data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
+                    if start_with_user_message is not None:
+                        data[f"question"] = test.description
+                    else:
+                        data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
                 data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
                 key_learning_point = test_response.kls_klp.get('klp')
@@ -1161,8 +1173,13 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
         "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
         "feedback_summary" : test_attempt_session.feedback_summary,
-        "skill_summary" : test_attempt_session.culture_and_skill_summary
+        "skill_summary" : test_attempt_session.culture_and_skill_summary,
+        "start_with_user": False if start_with_user_message is None else True,
     }
+
+    if data["start_with_user"]:
+        data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
+        data["candidate_type"] = test.candidate_type
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         data['flashcards'] = flashcards
@@ -2019,16 +2036,121 @@ def get_chat_conversation_prompt_v3(test_title: str,
             """
         )
         # log template for debugging
-        logger.info({"***************************************template*************": template.substitute(test_title=test_title,
-                                   test_description=test_description,
-                                   question=question,
-                                   candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)})
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
                                    candidate_reply=candidate_reply,
                                    user_feedback_prompt=user_feedback_prompt)
+
+
+def get_user_first_dynamic_discussion_prompt(test_title: str, test_description: str, manager_comment: str, bot_response:str, question_number: int):
+    if question_number == 1:
+        template = Template(
+        """
+            Title: ${title}.
+
+            Test Description: ${description}
+
+            Manager Comment: ${manager_context}
+
+            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
+
+            "Feedback for the manager comments/responses : "
+
+            Key insights to improve the response
+
+            What went well ?
+
+            What did not work ?
+
+            A sample candidate answer
+
+            A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+            NOTE: Only provide feedback on the "Manager Comment" not on the "Test Description."
+
+            NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
+
+            NOTE : A sample candidate answer is a sample Manager comment based on the context provided.
+
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+            NOTE : Never start with any kind of introductory sentence.
+
+            NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+            NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+        """
+                )
+        return template.substitute(title=test_title, description=test_description,
+                                    manager_context=manager_comment)
+
+    template = Template(
+    '''
+    Title: ${title}.
+
+    Test Description: ${description}
+
+    Bot response : ${bot_response}
+
+    Manager Comment : ${manager_context}
+
+    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
+
+    "Feedback for the manager comments/responses : "
+
+    Key insights to improve the response
+
+    What went well ?
+
+    What did not work ?
+
+    A sample candidate answer
+
+    A counter intuitive insight
+
+    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+    NOTE: Only provide feedback on the "Manager Comment". 
+
+    NOTE : NEVER give any feedback on the "Bot response"
+
+    NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
+
+    NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
+
+    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+
+    NOTE : If the "Manager Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+    NOTE : Check if the response provided by the Manager is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+    ''')
+
+    
+    return template.substitute(title=test_title, description=test_description,
+                                manager_context=manager_comment, bot_response=bot_response)
 
 
 def get_orchestrated_test_conversation_prompt(test: Test,
@@ -2040,12 +2162,18 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         "test_user_persona")
     initial_messages = test.orchestrated_conversation_details.get(
         "initial_messages")
+    start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
 
     current_conversation = ''
 
-    for message in initial_messages:
-        conv_text = message
-        current_conversation = current_conversation + "\n" + conv_text
+    if start_with_user_message is None:
+        for message in initial_messages:
+            conv_text = message
+            current_conversation = current_conversation + "\n" + conv_text
+    # else:
+    #     current_conversation += f"{test.candidate_type}:" + TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+    #                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+    #                                                             deleted=0).order_by('id').first().response_text
 
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                              evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
@@ -2058,7 +2186,80 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         current_conversation = current_conversation + "\n" + conv_text
 
     question_text = question.question
+    
+    logger.info({"******************************conversation":current_conversation, "question number is": question.question_number,
+                "question_text": question_text})
 
+    if test.test_type == TestTypeChoices.dynamic_discussion and start_with_user_message is not None:
+        
+        logger.info("******************************************************************************* and now we are good")
+        # template = Template(
+        #         '''
+        #         main_context: ${test_main_context}
+        #         comment: ${user_comment}
+
+        #         NOTE: Based on the candidate comment and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+        #         NOTE: The question should not be more than 30 words.
+
+        #         NOTE: Do not show the word count.
+
+        #         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+        #         '''
+        #     )
+
+        # return template.substitute(test_main_context=test_main_context,
+        #                             user_comment=user_comment.response_text)
+
+        if question.question_number == 2:
+            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                            responder_type=QuestionForChoices.user,
+                                                            deleted=0).first()
+            template = Template(
+            '''
+            main_context: ${test_main_context}
+
+            comment: ${user_comment}
+
+            Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+            NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+            NOTE: The response should not be more than 25 words.
+
+            NOTE: Do not show the word count.
+
+            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            '''
+            )
+
+            return template.substitute(test_main_context=test.description,
+                                    user_comment=user_comment.response_text)
+        else:
+            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+            template = Template(
+            '''
+            main_context: ${test_main_context}
+            current_conversation: ${current_conversation}
+            comment: ${user_comment}
+
+            Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+            NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+            NOTE: The response should not be more than 25 words.
+
+            NOTE: Do not show the word count.
+
+            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            '''
+            )
+
+            return template.substitute(test_main_context=test.description,
+                                    user_comment=user_comment.response_text, current_conversation=current_conversation)
+    
     if test.test_type == TestTypeChoices.dynamic_discussion:
         template = Template(
                 '''
@@ -2068,7 +2269,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
                 NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
 
-                NOTE: The question should not be more than 30 words.
+                NOTE: The question should not be more than 25 words.
 
                 NOTE: Do not show the word count.
 
