@@ -864,7 +864,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         logger.info(f"***************question text is {question_text}**************")
 
         if start_with_user_message is not None:
-            prompt = get_user_first_dynamic_discussion_prompt(test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
         else:
             prompt = get_chat_conversation_prompt_v3(
@@ -2043,17 +2043,73 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                    user_feedback_prompt=user_feedback_prompt)
 
 
-def get_user_first_dynamic_discussion_prompt(test_title: str, test_description: str, manager_comment: str, bot_response:str, question_number: int):
-    if question_number == 1:
-        template = Template(
-        """
+def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
+    match scenareo:
+        case 'manager-team':
+            if question_number == 1:
+                template = Template(
+                """
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Manager Comment: ${manager_context}
+
+                    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
+
+                    "Feedback for the manager comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Manager Comment" not on the "Test Description."
+
+                    NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Manager comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            manager_context=comment)
+
+            template = Template(
+            '''
             Title: ${title}.
 
             Test Description: ${description}
 
-            Manager Comment: ${manager_context}
+            Bot response : ${bot_response}
 
-            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
+            Manager Comment : ${manager_context}
+
+            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
 
             "Feedback for the manager comments/responses : "
 
@@ -2067,90 +2123,426 @@ def get_user_first_dynamic_discussion_prompt(test_title: str, test_description: 
 
             A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
             NOTE: Do not include any mentions of word count requirements or limits in your response.
 
-            NOTE: Only provide feedback on the "Manager Comment" not on the "Test Description."
+            NOTE: Only provide feedback on the "Manager Comment". 
 
-            NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
+            NOTE : NEVER give any feedback on the "Bot response"
 
-            NOTE : A sample candidate answer is a sample Manager comment based on the context provided.
+            NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
 
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
 
             NOTE : Minimum response length is 300 words. Always adhere to the same.
 
-            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
-            NOTE : Never start with any kind of introductory sentence.
+            NOTE : If the "Manager Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-            NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+            NOTE : Check if the response provided by the Manager is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
             NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
-        """
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        manager_context=comment, bot_response=bot_response)
+            
+        case 'team-manager':
+            if question_number == 1:
+                template = Template(
+                """
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Team Member Comment: ${team_comment}
+
+                    Please provide communication and subject matter feedback for a team member who has provided a "Team Member Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+
+                    "Feedback for the team member's comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Team Member Comment" not on the "Test Description."
+
+                    NOTE : If the Team Member Comment is a question provide feedback on how the team member can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team members answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            team_comment=comment)
+
+            template = Template(
+            '''
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response : ${bot_response}
+
+                Team Member Comment : ${team_comment}
+
+                Please provide communication and subject matter feedback for a team member who has provided a "Team Member". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+
+                "Feedback for the team member comments/responses : "
+
+                Key insights to improve the response
+
+                What went well ?
+
+                What did not work ?
+
+                A sample candidate answer
+
+                A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Team Member". 
+
+                NOTE : NEVER give any feedback on the "Bot response"
+
+                NOTE : If the Team Member Comment is a question, provide feedback on how the team member can ask better questions.
+
+                NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
+
+                NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
+
+                NOTE : If the "Team Member Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE : Check if the response provided by the team member is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        team_comment=comment, bot_response=bot_response)
+        case 'sales-customer':
+            if question_number == 1:
+                template = Template(
+                """
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Sales rep Comment: ${sales_comment}
+
+                    Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+
+                    "Feedback for the Sales rep comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Sales rep Comment" not on the "Test Description."
+
+                    NOTE : If the Sales rep Comment is a question provide feedback on how the Sales rep can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Sales rep comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep’s answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            sales_comment=comment)
+
+            template = Template(
+            '''
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response : ${bot_response}
+
+                Sales rep Comment : ${sales_comment}
+
+                Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+
+                "Feedback for the Sales rep comments/responses : "
+
+                Key insights to improve the response
+
+                What went well ?
+
+                What did not work ?
+
+                A sample candidate answer
+
+                A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+
+                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Sales rep".
+
+                NOTE : NEVER give any feedback on the "Bot response"
+
+                NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
+
+                NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
+
+                NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
+
+                NOTE : If the "Sales rep Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE : Check if the response provided by the Sales rep is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+
+
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        sales_comment=comment, bot_response=bot_response)
+        case 'customer-sales':
+            return "something"
+        case default:
+            logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
+            return "nothing"
+
+def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,current_conversation, question_number):
+    match scenareo:
+        case 'manager-team':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                main_context: ${test_main_context}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                '''
                 )
-        return template.substitute(title=test_title, description=test_description,
-                                    manager_context=manager_comment)
 
-    template = Template(
-    '''
-    Title: ${title}.
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                main_context: ${test_main_context}
+                current_conversation: ${current_conversation}
+                comment: ${user_comment}
 
-    Test Description: ${description}
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
 
-    Bot response : ${bot_response}
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
-    Manager Comment : ${manager_context}
+                NOTE: The response should not be more than 25 words.
 
-    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
+                NOTE: Do not show the word count.
 
-    "Feedback for the manager comments/responses : "
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                '''
+                )
 
-    Key insights to improve the response
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'team-manager':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                main_context: ${test_main_context}}
 
-    What went well ?
+                comment: ${user_comment}
 
-    What did not work ?
+                Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
 
-    A sample candidate answer
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
-    A counter intuitive insight
+                NOTE: The response should not be more than 25 words.
 
-    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                NOTE: Do not show the word count.
 
-    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
 
-    NOTE: Do not include any mentions of word count requirements or limits in your response.
+                '''
+                )
 
-    NOTE: Only provide feedback on the "Manager Comment". 
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                 main_context: ${test_main_context}
 
-    NOTE : NEVER give any feedback on the "Bot response"
+                current_conversation: ${current_conversation}
 
-    NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
+                comment: ${user_comment}
 
-    NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
+                Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
 
-    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
-    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                NOTE: The response should not be more than 25 words.
 
-    NOTE : If the "Manager Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+                NOTE: Do not show the word count.
 
-    NOTE : Check if the response provided by the Manager is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
 
-    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+                '''
+                )
 
-    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
-    ''')
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'sales-customer':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                main_context: ${test_main_context}
 
-    
-    return template.substitute(title=test_title, description=test_description,
-                                manager_context=manager_comment, bot_response=bot_response)
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                main_context: ${test_main_context}
+
+                current_conversation: ${current_conversation}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'customer-sales':
+            return "something"
+        case default:
+            logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
+            return "nothing"
+
 
 
 def get_orchestrated_test_conversation_prompt(test: Test,
@@ -2191,74 +2583,75 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 "question_text": question_text})
 
     if test.test_type == TestTypeChoices.dynamic_discussion and start_with_user_message is not None:
+        return get_user_first_question_promt(start_with_user_message, test, test_attempt_session.uid, current_conversation, question.question_number)
         
-        logger.info("******************************************************************************* and now we are good")
-        # template = Template(
-        #         '''
-        #         main_context: ${test_main_context}
-        #         comment: ${user_comment}
+        # logger.info("******************************************************************************* and now we are good")
+        # # template = Template(
+        # #         '''
+        # #         main_context: ${test_main_context}
+        # #         comment: ${user_comment}
 
-        #         NOTE: Based on the candidate comment and the main context ask the candidate another question. Do not provide any feedback on the response.
+        # #         NOTE: Based on the candidate comment and the main context ask the candidate another question. Do not provide any feedback on the response.
 
-        #         NOTE: The question should not be more than 30 words.
+        # #         NOTE: The question should not be more than 30 words.
 
-        #         NOTE: Do not show the word count.
+        # #         NOTE: Do not show the word count.
 
-        #         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
-        #         '''
+        # #         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+        # #         '''
+        # #     )
+
+        # # return template.substitute(test_main_context=test_main_context,
+        # #                             user_comment=user_comment.response_text)
+
+        # if question.question_number == 2:
+        #     user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+        #                                                     responder_type=QuestionForChoices.user,
+        #                                                     deleted=0).first()
+        #     template = Template(
+        #     '''
+        #     main_context: ${test_main_context}
+
+        #     comment: ${user_comment}
+
+        #     Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+        #     NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+        #     NOTE: The response should not be more than 25 words.
+
+        #     NOTE: Do not show the word count.
+
+        #     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+        #     '''
         #     )
 
-        # return template.substitute(test_main_context=test_main_context,
+        #     return template.substitute(test_main_context=test.description,
         #                             user_comment=user_comment.response_text)
+        # else:
+        #     user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+        #                                                         evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+        #                                                         deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+        #     template = Template(
+        #     '''
+        #     main_context: ${test_main_context}
+        #     current_conversation: ${current_conversation}
+        #     comment: ${user_comment}
 
-        if question.question_number == 2:
-            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                            responder_type=QuestionForChoices.user,
-                                                            deleted=0).first()
-            template = Template(
-            '''
-            main_context: ${test_main_context}
+        #     Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
 
-            comment: ${user_comment}
+        #     NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
-            Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+        #     NOTE: The response should not be more than 25 words.
 
-            NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+        #     NOTE: Do not show the word count.
 
-            NOTE: The response should not be more than 25 words.
+        #     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+        #     '''
+        #     )
 
-            NOTE: Do not show the word count.
-
-            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
-            '''
-            )
-
-            return template.substitute(test_main_context=test.description,
-                                    user_comment=user_comment.response_text)
-        else:
-            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
-                                                                deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
-            template = Template(
-            '''
-            main_context: ${test_main_context}
-            current_conversation: ${current_conversation}
-            comment: ${user_comment}
-
-            Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
-
-            NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
-
-            NOTE: The response should not be more than 25 words.
-
-            NOTE: Do not show the word count.
-
-            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
-            '''
-            )
-
-            return template.substitute(test_main_context=test.description,
-                                    user_comment=user_comment.response_text, current_conversation=current_conversation)
+        #     return template.substitute(test_main_context=test.description,
+        #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
     
     if test.test_type == TestTypeChoices.dynamic_discussion:
         template = Template(
