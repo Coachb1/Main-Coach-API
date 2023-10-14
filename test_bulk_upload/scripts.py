@@ -55,7 +55,7 @@ GOALS = "Goals"
 COURSE = "Course"
 INDUSTRY = "Industry"
 EXP_LEVEL = "Experience Level"
-
+START_WITH_USER = "start with user"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -217,6 +217,13 @@ def format_test_orchestrated_conversation(raw_data):
             "objective": input_dict['Context'],
             "initial_messages": initial_messages
         }
+
+        if START_WITH_USER in input_dict:
+            if input_dict[START_WITH_USER] and len(input_dict[START_WITH_USER].strip()) > 0:
+                start_with_user = input_dict[START_WITH_USER].strip().lower()
+                orchestrated_conversation_details["start_with_user"] = start_with_user
+
+        
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
 
         for key in input_dict:

@@ -12,13 +12,17 @@ from tests.helpers import get_meeting_report_from_test_attempt_session
 from tests.helpers import get_skills_tracker_data
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
-from tests.models import TestAttemptSession
+from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
+from tests.helpers import send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation, send_report_link_to_whatsapp
+from tests.choices import TestTypeChoices
 import logging
 from email_sender.helpers import send_feedbackd_email
 from users.models import UserAttribute
+from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
+                            evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 logger = logging.getLogger(__name__)
 
 
@@ -64,14 +68,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session = self.get_object()
         data = get_report_from_test_attempt_session(
             test_attempt_session, only_data=True)
-        test = Test.objects.get(uid=test_attempt_session.test_id)
-        test_title = test.title
-        data['title'] = test_title
-        data['skills_explanation'] = update_skill_name(test_attempt_session.skills_explanation)
-        data['culture_skills_explanation'] = test_attempt_session.culture_skills_explanation
         tenant = self.request.tenant
         data['logo'] = tenant.logo
-
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
@@ -201,4 +199,137 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
-            return Response({"status": "error"}, status=status.HTTP_200_OK)
+            return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(methods=["POST"], detail=False, url_path="send-report-email")
+    def send_report_email(self, request, *args, **kwargs):
+        try:
+            logger.info("send_report_email")
+            test_attempt_session_id = request.query_params.get("test_attempt_session_id")
+            report_url = request.query_params.get("report_url")
+            is_whatsapp = request.query_params.get("is_whatsapp")
+            is_whatsapp = True if is_whatsapp in ["true", "True"] else False
+            
+            logger.info({"message":"##################################### Request Received for sending email #####################################",
+                            "test_attempt_session_id":test_attempt_session_id, "report_url":report_url, "is_whatsapp":is_whatsapp})
+            
+
+
+            try:
+                test_attempt_session = TestAttemptSession.objects.get(uid=test_attempt_session_id)
+                test = Test.objects.get(uid=test_attempt_session.test_id)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+            #################* summary  start #################
+            updated_fields = []
+            if is_whatsapp or report_url is None or report_url == "":
+                report_url = test_attempt_session.report_url
+            
+            skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
+                                                                            test_attempt_session.culture_skills_rating,
+                                                                            test_attempt_session.skills_rating)
+            logger.info({"************************skills_summary in submit email ********************":skills_summary})
+            if len(skills_summary) > 0:
+                test_attempt_session.culture_and_skill_summary = skills_summary
+                updated_fields.append("culture_and_skill_summary")
+
+            responses = TestQuestionResponse.objects.filter(
+                test_attempt_session_id=test_attempt_session.uid,
+                responder_type='user',
+                deleted=0
+            )
+            feedbacks = ''
+            for response in responses:
+                if response.feedback_text:
+                    feedbacks += response.feedback_text + '\n'
+
+            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+            logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+            if len(feedbacks_summary) > 0:
+                test_attempt_session.feedback_summary = feedbacks_summary
+                updated_fields.append("feedback_summary")
+
+
+            #####################* summary end #################
+
+
+            #####################* explanation start #################
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+                user_persona = test.orchestrated_conversation_details.get("test_user_persona")
+                objective = test.orchestrated_conversation_details.get("objective")
+
+                chat_conversation = get_group_discussion_chat_conversation(
+                    test_attempt_session, user_persona)
+
+                skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
+                logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+
+                culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+
+                if skills_explanation:
+                    test_attempt_session.skills_explanation = skills_explanation
+                    updated_fields.append("skills_explanation")
+
+                if culture_skills_explanation:
+                    test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                    updated_fields.append("culture_skills_explanation")
+
+            else:
+            
+                responses = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=test_attempt_session.uid,
+                    deleted=0
+                )
+                conversation = ""
+                count = 1
+
+                for response in responses:
+
+                    question = TestQuestion.objects.get(
+                        uid=response.question_id)
+
+                    question_text = question.question
+                    response_text = response.response_text
+
+                    conversation += f"{count}. [Question:] {question_text}\n"
+                    if not question.is_view_only:
+                        conversation += f"[Answer:] {response_text}\n\n"
+
+                    count += 1
+
+                skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+                logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                if skills_explanation:
+                    test_attempt_session.skills_explanation = skills_explanation
+                    updated_fields.append("skills_explanation")
+
+
+                culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
+                if culture_skills_explanation:
+                    test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                    updated_fields.append("culture_skills_explanation")
+            
+
+            #####################* explanation end #################
+            test_attempt_session.save(update_fields=updated_fields)
+            if is_whatsapp and test.test_type != TestTypeChoices.interview:
+                send_report_link_to_whatsapp(
+                    test, test_attempt_session, report_url)
+
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+                if test.email_address_list:
+                    send_report_link_to_email_orch(test,test_attempt_session,report_url)
+            else:
+                if test.email_address_list:
+                    send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+
+            return Response({"status": "sent"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
