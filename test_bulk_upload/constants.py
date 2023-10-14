@@ -269,6 +269,7 @@ updated_skills = {
                 "Risk management": "Caution",
                 "Self-assurance": "Confident",
                 "Self-Assurance": "Confident",
+                "Self Assurance": "Confident",
                 "Maturity": "Maturity",
                 "Relationship building": "Network",
                 "Social skills": "Social",
