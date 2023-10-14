@@ -201,7 +201,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         if START_WITH_USER in input_dict:
             if input_dict[START_WITH_USER] and len(input_dict[START_WITH_USER].strip()) > 0:
-                start_with_user = input_dict[START_WITH_USER].strip()
+                start_with_user = input_dict[START_WITH_USER].strip().lower()
                 orchestrated_conversation_details["start_with_user"] = start_with_user
 
         
