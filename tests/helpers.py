@@ -126,7 +126,11 @@ def create_test(tenant: Tenant,
                 rating : str,
                 source : str,
                 client_name : str,
-                questions: list) -> tuple[Test, list[TestQuestion]]:
+                questions: list,
+                goals: str,
+                course: str,
+                industry: str,
+                exp_level: str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -165,6 +169,10 @@ def create_test(tenant: Tenant,
             image_url=image_url,
             source=source,
             client_name=client_name,
+            goals=goals,
+            course=course,
+            industry=industry,
+            exp_level=exp_level
         )
 
         test_questions = []
