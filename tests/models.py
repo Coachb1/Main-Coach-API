@@ -53,6 +53,10 @@ class Test(TenantAwareModel):
     description_media = models.TextField(
         null=True, blank=True, default=None)
     client_name = models.CharField(max_length=255,default='Demo',null=True,blank=True)
+    goals = models.TextField(null=True, blank=True, default=None)
+    course = models.CharField(max_length=255, null=True, blank=True, default=None)
+    industry = models.CharField(max_length=255, null=True, blank=True, default=None)
+    exp_level = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"

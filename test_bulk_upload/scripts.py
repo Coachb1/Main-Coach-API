@@ -51,8 +51,11 @@ IMAGE_URL = "image_url"
 IS_DYNAMIC = "is_dynamic"
 MEDIA_LINK = 'ML'
 CLIENT = "Client Name"
+GOALS = "Goals"
+COURSE = "Course"
+INDUSTRY = "Industry"
+EXP_LEVEL = "Experience Level"
 START_WITH_USER = "start with user"
-
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -117,6 +120,22 @@ def format_test_orchestrated_conversation(raw_data):
             check_pass = False
         else:
             check_pass = True
+
+        print('#'*100, input_dict)
+
+        if GOALS in input_dict:
+            output_dict['goals'] = input_dict.get(GOALS, None)
+
+        if COURSE in input_dict:
+            output_dict['course'] = input_dict.get(COURSE, None)
+
+        if INDUSTRY in input_dict:
+            output_dict['industry'] = input_dict.get(INDUSTRY, None)
+
+        if EXP_LEVEL in input_dict:
+            output_dict['exp_level'] = input_dict.get(EXP_LEVEL, None)
+
+        print('*'*100, output_dict)
 
         # skills_list = input_dict[SKILLS_TO_EVALUATE]
         # skills_list_temp = []
