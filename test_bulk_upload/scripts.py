@@ -78,6 +78,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
+                    output_dict["interaction_mode"] = 'audio'
                     
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
@@ -194,7 +195,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         orchestrated_conversation_details = {
             "test_main_context": test_main_context,
-            "test_user_persona": "Manager",
+            "test_user_persona": candidate_type,
             "objective": input_dict['Context'],
             "initial_messages": initial_messages
         }
