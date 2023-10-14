@@ -21,6 +21,7 @@ from email_sender.helpers import send_learner_path_email
 from users.models import User, UserAttribute
 from utilities.models import SpecialTypeTests
 from django.db.models import Q
+from skills.constants import skills as all_skills_present
 
 import logging
 
@@ -179,43 +180,46 @@ class TestViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="get-selection-options")
     def get_selection_options(self, request, *args, **kwargs):
         tenant_id = self.request.tenant.uid
-        all_skills_qs = Test.objects.filter(tenant_id=tenant_id).values_list('skills_to_evaluate')
+        all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
         all_skills = set()
+        up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_skills_present]]
+
         for skills in all_skills_qs:
             if skills[0]:
-                all_skills.update(skills[0].split(','))
+                skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
+                all_skills.update(skill_name_list)
                 
-        all_goals_qs = Test.objects.filter(tenant_id=tenant_id).values_list('goals')
+        all_goals_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('goals')
         all_goals = set()
         for goals in all_goals_qs:
             if goals[0]:
                 all_goals.update(goals[0].split(','))
         
-        all_roles_qs = Test.objects.filter(tenant_id=tenant_id).values_list('candidate_type')
+        all_roles_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('candidate_type')
         all_roles = set()
         for roles in all_roles_qs:
             if roles[0]:
                 all_roles.add(roles[0])
         
-        all_courses_qs = Test.objects.filter(tenant_id=tenant_id).values_list('course')
+        all_courses_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('course')
         all_courses = set()
         for courses in all_courses_qs:
             if courses[0]:
                 all_courses.add(courses[0])
         
-        all_industry_qs = Test.objects.filter(tenant_id=tenant_id).values_list('industry')
+        all_industry_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('industry')
         all_industry = set()
         for industry in all_industry_qs:
             if industry[0]:
                 all_industry.add(industry[0])
         
-        all_exp_level_qs = Test.objects.filter(tenant_id=tenant_id).values_list('exp_level')
+        all_exp_level_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('exp_level')
         all_exp_level = set()
         for exp_level in all_exp_level_qs:
             if exp_level[0]:
                 all_exp_level.add(exp_level[0])
 
-        all_format_qs = Test.objects.filter(tenant_id=tenant_id).values_list('test_type')
+        all_format_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('test_type')
         all_format = set()
         for format in all_format_qs:    
             if format[0]:
@@ -223,7 +227,7 @@ class TestViewSet(ApiViewSet,
 
 
         data = {
-            "skills": list(all_skills),
+            "skills": list(all_skills)[:100],
             "goals": list(all_goals),
             "role": list(all_roles),
             "course": list(all_courses),
@@ -245,14 +249,14 @@ class TestViewSet(ApiViewSet,
         course = request.query_params.get("course")
         industry = request.query_params.get("industry")
         exp_level = request.query_params.get("exp_level")
-        format = request.query_params.get("tformat")
+        tformat = request.query_params.get("tformat")
         page = request.query_params.get("page")
 
         logger.info(f"***********************Request received for get_tests_by_choice***********************{request.query_params}")
-        logger.info({"skill": skill, "goal": goal, "role": role, "course": course, "industry": industry, "exp_level": exp_level, "format": format})
+        logger.info({"skill": skill, "goal": goal, "role": role, "course": course, "industry": industry, "exp_level": exp_level, "format": tformat})
 
         try:
-            tests = Test.objects.filter(tenant_id=tenant_id).order_by('title')
+            tests = Test.objects.filter(tenant_id=tenant_id,deleted=0).order_by('title')
 
             if course is not None and course != '':
                 tests = tests.filter(course=course)
@@ -268,22 +272,41 @@ class TestViewSet(ApiViewSet,
                     tests = tests.filter(industry__icontains=industry)
                 if exp_level is not None and exp_level != '':
                     tests = tests.filter(exp_level__icontains=exp_level)
-                if format is not None and format != '':
-                    tests = tests.filter(test_type__icontains=format)
+                if tformat is not None and tformat != '':
+                    tests = tests.filter(test_type__icontains=tformat)
 
-            if tests.count() == 0:
-                tests = tests.filter(Q(skill__icontains=skill) | Q(goal__icontains=goal) | Q(role__icontains=role) | Q(course__icontains=course) | Q(industry__icontains=industry) | Q(exp_level__icontains=exp_level) | Q(format__icontains=format))
-            
+                if tests.count() == 0:
+                    query = Q()
+
+                    # Check and add conditions for each field if it is not None
+                    if skill is not None:
+                        query |= Q(skills_to_evaluate__icontains=skill)
+                    if tformat is not None:
+                        query |= Q(test_type__icontains=tformat)
+                    if goal is not None:
+                        query |= Q(goals__icontains=goal)
+                    if industry is not None:
+                        query |= Q(industry__icontains=industry)
+                    if exp_level is not None:
+                        query |= Q(exp_level__icontains=exp_level)
+                    if role is not None:
+                        query |= Q(candidate_type__icontains=role)
+
+                    # Apply the filter with the constructed query
+                    tests = tests.filter(query)
             
             
             
 
             data = []
+            cnt = 1
             for test in tests:
                 data.append({
                     "title": test.title,
-                    "code" : test.test_code
+                    "code" : test.test_code,
+                    "count": cnt
                 })
+                cnt += 1
 
             if page is not None and page != '':
                 page = int(page)
