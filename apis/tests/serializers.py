@@ -81,6 +81,10 @@ class CreateTestSerializer(serializers.Serializer):
         default=None, required=False, allow_null=True, allow_blank=True)
     client_name = serializers.CharField(
         default="Demo", required=False, allow_null=True, allow_blank=True)
+    goals = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    course = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):

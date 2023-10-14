@@ -20,6 +20,11 @@ from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
 from users.models import User, UserAttribute
 from utilities.models import SpecialTypeTests
+from django.db.models import Q
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TestViewSet(ApiViewSet,
@@ -168,4 +173,124 @@ class TestViewSet(ApiViewSet,
                 test_list = [ test_code.strip() for test_code in user_att.test_previlage.split(',')]
 
         return Response({"data": test_list,'active': active, 'status': "ok"},status=status.HTTP_200_OK)
+
+
+
+    @action(methods=["GET"], detail=False, url_path="get-selection-options")
+    def get_selection_options(self, request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        all_skills_qs = Test.objects.filter(tenant_id=tenant_id).values_list('skills_to_evaluate')
+        all_skills = set()
+        for skills in all_skills_qs:
+            if skills[0]:
+                all_skills.update(skills[0].split(','))
+                
+        all_goals_qs = Test.objects.filter(tenant_id=tenant_id).values_list('goals')
+        all_goals = set()
+        for goals in all_goals_qs:
+            if goals[0]:
+                all_goals.update(goals[0].split(','))
         
+        all_roles_qs = Test.objects.filter(tenant_id=tenant_id).values_list('candidate_type')
+        all_roles = set()
+        for roles in all_roles_qs:
+            if roles[0]:
+                all_roles.add(roles[0])
+        
+        all_courses_qs = Test.objects.filter(tenant_id=tenant_id).values_list('course')
+        all_courses = set()
+        for courses in all_courses_qs:
+            if courses[0]:
+                all_courses.add(courses[0])
+        
+        all_industry_qs = Test.objects.filter(tenant_id=tenant_id).values_list('industry')
+        all_industry = set()
+        for industry in all_industry_qs:
+            if industry[0]:
+                all_industry.add(industry[0])
+        
+        all_exp_level_qs = Test.objects.filter(tenant_id=tenant_id).values_list('exp_level')
+        all_exp_level = set()
+        for exp_level in all_exp_level_qs:
+            if exp_level[0]:
+                all_exp_level.add(exp_level[0])
+
+        all_format_qs = Test.objects.filter(tenant_id=tenant_id).values_list('test_type')
+        all_format = set()
+        for format in all_format_qs:    
+            if format[0]:
+                all_format.add(format[0])
+
+
+        data = {
+            "skills": list(all_skills),
+            "goals": list(all_goals),
+            "role": list(all_roles),
+            "course": list(all_courses),
+            "industry": list(all_industry),
+            "exp_level": list(all_exp_level),
+            "format": list(all_format)
+        }
+
+        return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
+
+    
+    @action(methods=["GET"], detail=False, url_path="get-tests-by-choice")
+    def get_tests_by_choice(self, request, *args, **kwargs):
+        # return Response("Ok")
+        tenant_id = self.request.tenant.uid
+        skill = request.query_params.get("skill")
+        goal = request.query_params.get("goal")
+        role = request.query_params.get("role")
+        course = request.query_params.get("course")
+        industry = request.query_params.get("industry")
+        exp_level = request.query_params.get("exp_level")
+        format = request.query_params.get("tformat")
+        page = request.query_params.get("page")
+
+        logger.info(f"***********************Request received for get_tests_by_choice***********************{request.query_params}")
+        logger.info({"skill": skill, "goal": goal, "role": role, "course": course, "industry": industry, "exp_level": exp_level, "format": format})
+
+        try:
+            tests = Test.objects.filter(tenant_id=tenant_id).order_by('title')
+
+            if course is not None and course != '':
+                tests = tests.filter(course=course)
+            else:
+                # tests = tests.filter(skills_to_evaluate__icontains=skill,goals__icontains=goal, candidate_type__icontains=role, industry__icontains=industry, exp_level__icontains=exp_level, test_type__icontains=format)
+                if skill is not None and skill != '':
+                    tests = tests.filter(skills_to_evaluate__icontains=skill)
+                if goal is not None and goal != '':
+                    tests = tests.filter(goals__icontains=goal)
+                if role is not None and role != '':
+                    tests = tests.filter(candidate_type__icontains=role)
+                if industry is not None and industry != '':
+                    tests = tests.filter(industry__icontains=industry)
+                if exp_level is not None and exp_level != '':
+                    tests = tests.filter(exp_level__icontains=exp_level)
+                if format is not None and format != '':
+                    tests = tests.filter(test_type__icontains=format)
+
+            if tests.count() == 0:
+                tests = tests.filter(Q(skill__icontains=skill) | Q(goal__icontains=goal) | Q(role__icontains=role) | Q(course__icontains=course) | Q(industry__icontains=industry) | Q(exp_level__icontains=exp_level) | Q(format__icontains=format))
+            
+            
+            
+            
+
+            data = []
+            for test in tests:
+                data.append({
+                    "title": test.title,
+                    "code" : test.test_code
+                })
+
+            if page is not None and page != '':
+                page = int(page)
+                data = data[(page-1)*10:page*10]
+
+            return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception({"!!!!!!!!!!!Error!!!!!!!!!!!!": e})
+            return Response({"data": [], 'status': "error"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # return Response({"status": "ok"},status=status.HTTP_200_OK)
