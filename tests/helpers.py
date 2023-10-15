@@ -3331,3 +3331,78 @@ def get_skills_tracker_data(participant_id):
     }
 
     return data
+
+
+def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,tenant_id,test_codes,user_id,test_type,scenario_case,test_code,interaction_mode):
+
+    tenant_query = Tenant.objects.get(uid=tenant_id)
+    updated_fields = []
+
+    # updates related to worksapce/user level control
+
+    if interaction_per_month:
+        tenant_query.test_per_month = int(interaction_per_month)
+        updated_fields.append('test_per_month')
+    
+    if interaction_repeatation:
+        tenant_query.is_repeat = interaction_repeatation
+        updated_fields.append('is_repeat')
+
+    if logo_url:
+        tenant_query.logo = logo_url
+        updated_fields.append('logo')
+
+    if len(updated_fields) > 0 :
+        tenant_query.save(update_fields=updated_fields)
+
+
+    # test_privilage control 
+
+    if user_id and test_codes:
+        user = UserAttribute.objects.get(user_id=user_id)
+
+        user.test_previlage = test_codes
+        user.save(update_fields=['test_previlage'])
+
+    # TEst related updates
+
+    if test_code:
+        test = Test.objects.get(test_code=test_code,deleted=0)
+        test_update_field = []
+
+        if test:
+            if test_type:
+                test.test_type = test_type
+                test_update_field.append("test_type")
+
+            if scenario_case:
+                test.scenario_case = scenario_case
+                test_update_field.append("scenario_case")
+
+            if interaction_mode:
+                test.interaction_mode = interaction_mode
+                test_update_field.append("interaction_mode")
+
+            if len(test_update_field)> 0:
+                test.save(update_fields=test_update_field)
+
+def update_prompt_user_attributes(user_id, var_dict):
+    # Retrieve the UserAttribute object for the given user_id
+    user_att = UserAttribute.objects.filter(user_id=user_id).first()
+
+    # Initialize a list to track updated fields
+    update_fields = []
+
+    if user_att:
+        # Iterate through the keys in var_dict
+        for var in var_dict:
+            # Check if the key exists in UserAttribute model
+            if hasattr(user_att, var):
+                # Update the attribute in the UserAttribute model
+                setattr(user_att, var, var_dict[var])
+                update_fields.append(var)
+
+        # Save the changes to the UserAttribute object
+        user_att.save(update_fields=update_fields)
+
+    
