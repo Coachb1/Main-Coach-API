@@ -13,7 +13,7 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic
+from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates, update_prompt_user_attributes
 from tests.models import Test, TestQuestionResponse
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -22,6 +22,7 @@ from users.models import User, UserAttribute
 from utilities.models import SpecialTypeTests
 from django.db.models import Q
 from skills.constants import skills as all_skills_present
+from tests.choices import TestTypeChoices, ScenarioCaseChoices
 
 import logging
 
@@ -340,3 +341,66 @@ class TestViewSet(ApiViewSet,
 
         except Exception as e:
             return Response({"status": "error"}, status=status.HTTP_200_OK)
+
+
+    @action(methods=['POST'],detail=False,url_path="updates-admin-panel")
+    def set_admin_controls(self,request, *args, **kwargs):
+        tenant = self.request.tenant.uid
+        interaction_per_month = request.query_params.get('interaction_per_month')
+        interaction_repeatation = request.query_params.get('interaction_repeatation')
+        logo_url = request.query_params.get('logo_url')
+        user_id = request.query_params.get('user_id')
+        test_codes = request.query_params.get('test_codes')
+
+
+        test_code = request.query_params.get('test_code')
+        test_type = request.query_params.get('test_type')
+        scenario_case = request.query_params.get('scenario_case')
+        interaction_mode = request.query_params.get("interaction_mode")
+
+        
+
+        admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,tenant,test_codes,user_id,test_type,scenario_case,test_code,interaction_mode)
+
+        return Response({"status": "updated"}, status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False,url_path="get-test-scenario-case")
+    def get_test_scanrio_case(self,request, *args, **kwargs):
+
+        test_types = dict(TestTypeChoices.values)
+        scenario_cases = dict(ScenarioCaseChoices.values)
+
+        return Response({"data":{"test_types":test_types,"scenario_cases": scenario_cases},"status": "updated"}, status=status.HTTP_200_OK)
+
+    @action(methods=['POST'],detail=False,url_path="user-attributes-prompt-updation")
+    def user_att_prmpt_updation(self,request, *args, **kwargs):
+
+        user_id = request.query_params.get('user_id')
+        difficulty_level = request.query_params.get('difficulty_level')
+        easy_feedback_prompt = request.query_params.get('easy_feedback_prompt')
+        midium_feedback_prompt = request.query_params.get('midium_feedback_prompt')
+        critical_feedback_prompt = request.query_params.get('critical_feedback_prompt')
+        custom_feedback_prompt_1 = request.query_params.get('custom_feedback_prompt_1')
+        custom_feedback_prompt_2 = request.query_params.get('custom_feedback_prompt_2')
+        easy_skill_prompt = request.query_params.get('easy_skill_prompt')
+        midium_skill_prompt = request.query_params.get('midium_skill_prompt')
+        critical_skill_prompt = request.query_params.get('critical_skill_prompt')
+        custom_skill_prompt_1 = request.query_params.get('custom_skill_prompt_1')
+        custom_skill_prompt_2 = request.query_params.get('custom_skill_prompt_2')
+
+
+        var_list= [("difficulty_level",difficulty_level),
+                ("easy_feedback_prompt",easy_feedback_prompt),
+                ("midium_feedback_prompt",midium_feedback_prompt),
+                ("critical_feedback_prompt",critical_feedback_prompt),
+                ("custom_feedback_prompt_1",custom_feedback_prompt_1),
+                ("custom_feedback_prompt_2",custom_feedback_prompt_2),
+                ("easy_skill_prompt",easy_skill_prompt),
+                ("midium_skill_prompt",midium_skill_prompt),
+                ("critical_skill_prompt",critical_skill_prompt),
+                ("custom_skill_prompt_1",custom_skill_prompt_1),
+                ("custom_skill_prompt_2",custom_skill_prompt_2)]
+
+        update_prompt_user_attributes(user_id,dict(var_list))
+
+        return Response({"status": "updated"}, status=status.HTTP_200_OK)
