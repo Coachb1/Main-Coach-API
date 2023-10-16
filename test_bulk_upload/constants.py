@@ -340,6 +340,12 @@ updated_skills = {
                 "Persuasion skills": "Persuade",
                 "Persuasion": "Persuade",
                 "Time management skills": "Efficient",
-                "Time management": "Efficient"
+                "Time management": "Efficient",
+                "Knowledge of Pay Equity Laws": "Equity",
+                "DEI Strategy Development": "DEI plan",
+                "Inclusive Interviewing": "Inclusive",
+                "Mentorship": "Mentoring",
+                "Feedback Mechanism Implementation": "Implement",
+                "Leadership Commitment": "Commit"
 
             }

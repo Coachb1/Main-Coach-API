@@ -608,5 +608,35 @@ skills = [
         "name": "Time management",
         "display": "Time management",
         "description": " As a new manager, time management skills will be crucial for your success. You will need to juggle many demands on your schedule from projects, deadlines, tasks, trainings, and people, all vying for your attention. Prioritizing what needs your immediate focus and what can wait will help you maximize your productivity and effectiveness. Tools like to-do lists, calendars, and reminders can help ensure nothing falls through the cracks. Saying no to non-essential tasks and learning to delegate appropriately to your team can free up your time for more important responsibilities. Focusing on the highest value activities and automating or eliminating low-value tasks allows you to manage your most precious resource, your time, wisely so you can achieve the goals you have set for your team and department. Developing good time management habits will instill confidence in your leadership and readiness to take on the challenges of your new management role."
+    },
+    {
+        "name": "Knowledge of Pay Equity Laws",
+        "display" : "Knowledge of Pay Equity Laws",
+        "description" : "A skilled manager possesses a deep understanding of pay equity laws, ensuring that their organization complies with legal regulations regarding fair compensation. They can analyze pay data, identify disparities, and take proactive steps to rectify any inequalities, fostering a workplace that values equality and fairness."
+    },
+    {
+        "name": "DEI Strategy Development",
+        "display": "DEI Strategy Development",
+        "description": "Effective managers are proficient in developing Diversity, Equity, and Inclusion (DEI) strategies. They can create comprehensive plans to promote diversity, ensure equity, and foster an inclusive workplace. These strategies encompass hiring practices, employee development, and overall company culture to promote a diverse and equitable workforce."
+    },
+    {
+        "name": "Inclusive Interviewing",
+        "display": "Inclusive Interviewing",
+        "description": "A proficient manager recognizes the critical significance of employing inclusive interviewing techniques. They design interview processes that effectively counteract biases, enthusiastically embrace a wide range of diverse talents, and fundamentally base candidate evaluations on their demonstrated skills and qualifications."
+    },
+    {
+        "name": "Mentorship",
+        "display": "Mentorship",
+        "description": "A capable manager recognizes the profound impact of mentorship as a catalyst for employee growth and development. They proactively initiate mentorship programs within their organization, taking a hands-on approach by actively participating in these programs. Through one-on-one guidance and constructive feedback, they nurture the skills and talents of their team members, empowering them to unlock their full potential."
+    },
+    {
+        "name": "Feedback Mechanism Implementation",
+        "display": "Feedback Mechanism Implementation",
+        "description": "Effective managers establish and maintain feedback mechanisms to promote open and honest communication within their team. They encourage regular feedback sessions, enabling employees to voice their concerns, ideas, and suggestions, fostering an environment of continuous improvement."
+    },
+    {
+        "name": "Leadership Commitment",
+        "display": "Leadership Commitment",
+        "description": "A skilled manager is committed to modeling leadership behaviors aligned with their organization's values. They lead by example, setting the tone for inclusivity, fairness, and accountability. Their unwavering dedication to these principles encourages their team to follow suit, creating a harmonious and effective work environment."
     }
 ]
