@@ -423,6 +423,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             ).count()
 
             if not_evaluated_test_responses_count == 0:
+                end = time.time()
+                logger.info(f"************************** process_test_response: processing LAST QUESTION took {end - start_time:.2f}")
                 break
 
     # if this was the last question; mark the session as completed
@@ -489,6 +491,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
@@ -497,6 +500,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"************************** __process_test_response: transcript generation for AUDIO took {end - start:.2f}")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -509,7 +514,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     transcript = "Transcription couldn't be generated"
                     test_question_response.response_text = transcript
 
+            end = time.time()
+            logger.info(f"************************** _process_test_response: transcript generation for AUDIO took {end - start:.2f}")
+
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -517,6 +526,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met
+
+                        end = time.time()
+                        logger.info(f"************************** _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f}")
                         break
                     except Exception as e:
                         logger.exception(e)
@@ -524,6 +536,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
                             break
 
                     
@@ -536,6 +549,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
@@ -544,6 +558,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"************************** _process_test_response: transcript generation for VIDEO took {end - start:.2f}")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -551,12 +567,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     logger.info("*************** generating transcription for(video) using speech_to_text *****")
                     transcript = speech_to_text(test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    end = time.time()
+                    logger.info(f"************************** _process_test_response: transcript generation for VIDEO took {end - start:.2f}")
                 except Exception as e:
                     logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
                     transcript = "Transcription couldn't be generated"
                     test_question_response.response_text = transcript
 
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -564,6 +583,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         speech_met_video = coach_metric_api.get_speech_metrics_from_video(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met_video
+                        end = time.time()
+                        logger.info(f"************************** _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f}")
                         break
 
                     except Exception as e:
@@ -571,6 +592,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
                             break
 
             else:
@@ -634,6 +656,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         go_for_feedback = False
     
     if go_for_feedback:
+        start = time.time()
         for i  in range(3):
             anthropic_feedback = anthropic_completion(prompt, 1200)
 
@@ -695,6 +718,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             if "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
                 continue
 
+            end = time.time()
+            logger.info(f"************************** _process_response: fetching FEEDBACK  took {end - start:.2f}")
             break
             
 
@@ -846,6 +871,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
     update_fields = []
+    print("########################## process_orchestrated_test_response_by_user: test.interaction_mode",test.interaction_mode)
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields.extend(["response_text"])
 
@@ -854,6 +880,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
@@ -862,6 +889,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"************************** process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f}")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -875,6 +904,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                     test_question_response.response_text = transcript
 
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -882,6 +912,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                         speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met
+                        end = time.time()
+                        logger.info(f"************************** process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f}")
                         break
                     except Exception as e:
                         logger.exception(e)
@@ -889,6 +921,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
                             break
 
                     
@@ -901,6 +934,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
@@ -909,6 +943,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"************************** process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f}")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -922,6 +958,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                     test_question_response.response_text = transcript
 
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -929,6 +966,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                         speech_met_video = coach_metric_api.get_speech_metrics_from_video(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met_video
+                        end = time.time()
+                        logger.info(f"************************** process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f}")
                         break
 
                     except Exception as e:
@@ -936,6 +975,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
                             break
 
             else:
@@ -944,6 +984,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
+        start = time.time()
         logger.info(f"***************question number is {question.question_number}**************")
         start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
         if question.question_number == 1 and start_with_user_message is not None:
@@ -1002,6 +1043,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
         update_fields.append("kls_klp")
         logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        end = time.time()
+        logger.info(f"************************** process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f}")
 
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1014,6 +1057,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                                           deleted=0).count()
 
     if total_questions == total_responses:
+        start = time.time()
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
@@ -1025,6 +1069,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         # if test.email_address_list:
         #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
+        end = time.time()
+        logger.info(f"************************** process_orchestrated_test_response_by_user: LOGIC for 'total_questions == total_responses:' took {end - start:.2f}")
 
     return test_question_response
 
@@ -1061,12 +1107,15 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     test_attempt_session.save(
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
+    start = time.time()
     prompt = get_orchestrated_test_conversation_prompt(test=test,
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
     logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
     bot_llm_response_text = anthropic_completion(prompt, 300)
+    end = time.time()
+    logger.info(f"************************** process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f}")
 
     if not bot_llm_response_text:
         # delete this response
@@ -1089,6 +1138,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     return test_question_response
 
 
+@timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
@@ -1195,11 +1245,13 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     #     updated_fields.append("feedback_summary")
 
 
-
+    start = time.time()
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
     areas_of_improvement = get_areas_of_improvement(
         objective, chat_conversation, user_persona)
+    end = time.time()
+    logger.info(f"************************** calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f}")
     
     if has_speech_metric:
         test_attempt_session.speech_score = speech_score
@@ -1216,6 +1268,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     return test_attempt_session
 
 
+@timeit
 def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
     test_attempt_session_id = test_attempt_session.uid
 
@@ -1246,6 +1299,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
+        start = time.time()
         all_speech_metrics = []
         data = {}
         mindmap_data = {}
@@ -1322,6 +1376,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         if test_responses[0].speech_metrics:
             for k, v in speech_metrics_avg.items():
                 speech_metrics_avg[k] = v / len(test_responses)
+
+        end = time.time()
+        logger.info(f"************************** get_meeting_report_from_test_attempt_session: LOGIC for dynamic discussion REPORT took {end - start:.2f}")
 
 
     else:
@@ -1406,6 +1463,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     return data
 
 
+@timeit
 def get_group_discussion_summary(objective: str, chat_conversation: str):
     prompt = f"""
     \n\nHuman:
@@ -1435,6 +1493,7 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
     return summary
 
 
+@timeit
 def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
     areas_of_improvement = ["Sticking to Agenda",
                             "Driving to decision", "Sticking to Positive behavior"]
@@ -1480,6 +1539,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     return res
 
 
+@timeit
 def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str,
                                            is_report: bool = False):
     current_conversation = ''
@@ -1508,6 +1568,7 @@ def calc_score(test_attempt_session: TestAttemptSession, test: Test):
         return _calc_score(test_attempt_session, test)
 
 
+@timeit
 def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     """
     This function calculates the score for the test attempt session and update the skills_rating field in this object
@@ -1747,6 +1808,7 @@ def round_off_rating(number):
     return round(number * 2) / 2
 
 
+@timeit
 def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
     # Get number of interactions for that candidate which are completed but are not the current one
     total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
@@ -1797,6 +1859,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     return skills_rating, avg_score
 
 
+@timeit
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -1818,6 +1881,7 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
     return report_url
 
+@timeit
 def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -1839,6 +1903,7 @@ def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
     return report_url
 
 
+@timeit
 def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSession):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -1859,6 +1924,8 @@ def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSes
 
     return report_url
 
+
+@timeit
 def update_skills_rating_if_same_scores(skills_rating):
     total_skills = len(skills_rating)
     scores_frequency = {}
@@ -1903,6 +1970,8 @@ def update_skills_rating_if_same_scores(skills_rating):
     return skills_rating
 
 
+
+@timeit
 def update_culture_skills_if_same_scores(culture_skills_rating):
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -1945,6 +2014,7 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
     return culture_skills_rating
 
 
+@timeit
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
@@ -2002,6 +2072,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
 
 
+@timeit
 def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
@@ -2059,6 +2130,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
 
 
+@timeit
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
     if test_attempt_session.is_report_sent_to_whatsapp:
         return
@@ -2098,6 +2170,8 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
+
+@timeit
 def calc_culture_skills_rating(test_attempt_session, responses, test):
     culture_skills_rating = {}
 
@@ -2134,6 +2208,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     return culture_skills_rating
 
+
+@timeit
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
     skills_rating = {}
 
@@ -2163,7 +2239,8 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     return skills_rating
 
-    
+
+@timeit
 def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description: str,
                                     question: str,
@@ -2247,6 +2324,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                    user_feedback_prompt=user_feedback_prompt)
 
 
+@timeit
 def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
     match scenareo:
         case 'manager-team':
@@ -2596,6 +2674,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
             return "nothing"
 
+@timeit
 def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,current_conversation, question_number):
     match scenareo:
         case 'manager-team':
@@ -2768,7 +2847,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
             return "nothing"
 
 
-
+@timeit
 def get_orchestrated_test_conversation_prompt(test: Test,
                                               test_attempt_session: TestAttemptSession,
                                               question: TestQuestion):
@@ -2915,7 +2994,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                                question_text=question_text,
                                question_for=question.question_for)
 
-
+@timeit
 def get_email_type_prompt(test_title,
                           test_description,
                           question,
@@ -2956,7 +3035,7 @@ def get_email_type_prompt(test_title,
                                candidate_reply=candidate_reply,
                                user_feedback_prompt=user_feedback_prompt)
 
-
+@timeit
 def get_overridden_prompt(prompt_template: str,
                           test_title: str,
                           test_description: str,
@@ -3127,6 +3206,7 @@ Output:
     # return gpt_feedback.text
 
 
+@timeit
 def get_test_report(test: Test, only_data=False):
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
@@ -3202,6 +3282,7 @@ def get_test_report(test: Test, only_data=False):
     return get_document_url(doc)
 
 
+@timeit
 def generate_test_from_objective_anthropic(objective: str):
     skills_name_list = [skill['name'] for skill in skills]
 
@@ -3288,6 +3369,7 @@ def generate_test_from_objective_anthropic(objective: str):
 
 # Skills Tracker REport:
 
+@timeit
 def categorize_skills(skill_dict, skills_object):
     categorized_skills = []
     skill_list = [skill.capitalize() for skill in skills_object.keys()]
@@ -3306,6 +3388,7 @@ def categorize_skills(skill_dict, skills_object):
     return categorized_skills
 
 
+@timeit
 def get_skills_tracker_data(participant_id):
     # Filter the test_attempt_session with the given participant_id and ordered by created
     test_attempt_sessions = TestAttemptSession.objects.filter(
@@ -3377,6 +3460,7 @@ def get_skills_tracker_data(participant_id):
     return data
 
 
+@timeit
 def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,tenant_id,test_codes,user_id,test_type,scenario_case,test_code,interaction_mode):
 
     tenant_query = Tenant.objects.get(uid=tenant_id)
@@ -3430,6 +3514,7 @@ def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,t
             if len(test_update_field)> 0:
                 test.save(update_fields=test_update_field)
 
+@timeit
 def update_prompt_user_attributes(user_id, var_dict):
     # Retrieve the UserAttribute object for the given user_id
     user_att = UserAttribute.objects.filter(user_id=user_id).first()
