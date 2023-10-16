@@ -65,6 +65,7 @@ def skills_from_anthropic(objective, skills_list):
     ant_skills_list = []
 
     prompt = f"""
+    \n\nHuman:
     We have a candidate in the company and his objective is: {objective}. Please recommend what skills he should improve/learn from the list:
     "{skills_list}".
 
@@ -76,6 +77,7 @@ def skills_from_anthropic(objective, skills_list):
     }}
 
     NOTE THAT: the key of the json must be enclosed in double quotes and the skills inside the list must be enclosed in double quotes.
+    \n\nAssistant:
     """
 
     cnt = 0
