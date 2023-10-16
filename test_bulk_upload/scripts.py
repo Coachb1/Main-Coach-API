@@ -488,9 +488,11 @@ def format_test_data_slack(raw_data):
                     "subjective_answer": "",
                     "key_learning_point": input_dict.get(f"{KLP} {key[len(QUESTION) + 1:]}", ''),
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
-                    "media_link" : input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
 
                 }
+
+                if input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"] and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
 
                 if test_type == "view":
                     question['is_view_only'] = True
