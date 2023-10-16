@@ -1408,12 +1408,14 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
 def get_group_discussion_summary(objective: str, chat_conversation: str):
     prompt = f"""
+    \n\nHuman:
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
     Please provide a summary of the meeting in 100 words.
     NOTE: Please do NOT provide any introductions, conclusion or text like "Here is your summary". 
     NOTE: Please only provide the summary of the meeting.
+    \n\nAssistant:
     """
 
     cnt = 0
@@ -1438,6 +1440,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
                             "Driving to decision", "Sticking to Positive behavior"]
 
     prompt = f"""
+    \n\nHuman:
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
@@ -1455,6 +1458,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 
     Sticking to Positive behavior
     <paragraph>
+    \n\nAssistant:
     """
 
     cnt = 0
@@ -2169,6 +2173,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
     if question_context:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -2194,6 +2199,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -2205,6 +2211,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
     else:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -2229,6 +2236,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         # log template for debugging
@@ -2245,6 +2253,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             if question_number == 1:
                 template = Template(
                 """
+                    \n\nHuman:
                     Title: ${title}.
 
                     Test Description: ${description}
@@ -2290,6 +2299,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
                     NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
                 """
                         )
                 return template.substitute(title=test_title, description=test_description,
@@ -2297,6 +2307,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             template = Template(
             '''
+            \n\nHuman:
             Title: ${title}.
 
             Test Description: ${description}
@@ -2344,6 +2355,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
             NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+            \n\nAssistant:
             ''')
 
             
@@ -2354,6 +2366,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             if question_number == 1:
                 template = Template(
                 """
+                    \n\nHuman:
                     Title: ${title}.
 
                     Test Description: ${description}
@@ -2399,6 +2412,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
                     NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
 
                 """
                         )
@@ -2407,6 +2421,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             template = Template(
             '''
+                \n\nHuman:
                 Title: ${title}.
 
                 Test Description: ${description}
@@ -2454,6 +2469,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
                 NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                \n\nAssistant:
 
             ''')
 
@@ -2464,6 +2480,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             if question_number == 1:
                 template = Template(
                 """
+                    \n\nHuman:
                     Title: ${title}.
 
                     Test Description: ${description}
@@ -2509,6 +2526,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
                     NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
 
                 """
                         )
@@ -2517,6 +2535,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             template = Template(
             '''
+                \n\nHuman:
                 Title: ${title}.
 
                 Test Description: ${description}
@@ -2564,7 +2583,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
                 NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
-
+                \n\nAssistant:
 
             ''')
 
@@ -2586,6 +2605,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                 deleted=0).first()
                 template = Template(
                 '''
+                \n\nHuman:
                 main_context: ${test_main_context}
 
                 comment: ${user_comment}
@@ -2599,6 +2619,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
                 '''
                 )
 
@@ -2610,6 +2631,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
+                \n\nHuman:
                 main_context: ${test_main_context}
                 current_conversation: ${current_conversation}
                 comment: ${user_comment}
@@ -2623,6 +2645,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
                 '''
                 )
 
@@ -2635,6 +2658,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                 deleted=0).first()
                 template = Template(
                 '''
+                \n\nHuman:
                 main_context: ${test_main_context}}
 
                 comment: ${user_comment}
@@ -2648,7 +2672,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
-
+                \n\nAssistant:
                 '''
                 )
 
@@ -2660,6 +2684,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
+                \n\nHuman:
                  main_context: ${test_main_context}
 
                 current_conversation: ${current_conversation}
@@ -2675,7 +2700,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
-
+                \n\nAssistant:
                 '''
                 )
 
@@ -2688,6 +2713,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                 deleted=0).first()
                 template = Template(
                 '''
+                \n\nHuman:
                 main_context: ${test_main_context}
 
                 comment: ${user_comment}
@@ -2701,6 +2727,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
                 '''
                 )
 
@@ -2712,6 +2739,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
+                \n\nHuman:
                 main_context: ${test_main_context}
 
                 current_conversation: ${current_conversation}
@@ -2727,7 +2755,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
-
+                \n\nAssistant:
                 '''
                 )
 
@@ -2852,6 +2880,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     if test.test_type == TestTypeChoices.dynamic_discussion:
         template = Template(
                 '''
+                \n\nHuman:
                 ${test_main_context}
                 ${current_conversation}
                 ${question_text}
@@ -2863,11 +2892,13 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                \n\nAssistant:
                 '''
             )
     else:
         template = Template(
             """
+            \n\nHuman:
             ${test_main_context}
             
             ${current_conversation}
@@ -2876,6 +2907,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
+            \n\nAssistant:
             """
         )
     return template.substitute(test_main_context=test_main_context,
@@ -2891,6 +2923,7 @@ def get_email_type_prompt(test_title,
                           user_feedback_prompt):
     template = Template(
         """
+        \n\nHuman:
         Title: ${test_title}. 
         Test Description: ${test_description}
         Customer question:  ${question} 
@@ -2913,6 +2946,7 @@ def get_email_type_prompt(test_title,
         NOTE : Minimum response length is 300 words. Always adhere to the same.
         NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
         ${user_feedback_prompt}
+        \n\nAssistant:
         """
     )
 
@@ -2933,6 +2967,7 @@ def get_overridden_prompt(prompt_template: str,
     if question_context:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -2960,6 +2995,7 @@ def get_overridden_prompt(prompt_template: str,
             NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -2972,6 +3008,7 @@ def get_overridden_prompt(prompt_template: str,
     else:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -2997,6 +3034,7 @@ def get_overridden_prompt(prompt_template: str,
             NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -3012,13 +3050,15 @@ def get_question_key_learning_point(test_title,
                                     test_question):
     prompt = Template(
         """
-TestTitle: ${test_title}
-Question: ${question_text}
+        \n\nHuman:
+        TestTitle: ${test_title}
+        Question: ${question_text}
 
-For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
+        For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
 
-Output:
-"""
+        Output:
+        \n\nAssistant:
+        """
     ).safe_substitute(
         test_title=test_title,
         question_text=test_question
@@ -3045,6 +3085,7 @@ def get_question_key_learning_skills(test_title,
     skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
+        \n\nHuman:
 TestTitle: ${test_title}
 Question: ${question_text}
 
@@ -3053,6 +3094,7 @@ Choose skills from this list only: ${skills_name_list}
 NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
 NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
 Output:
+\n\nAssistant:
 """
     ).safe_substitute(
         test_title=test_title,
@@ -3164,6 +3206,7 @@ def generate_test_from_objective_anthropic(objective: str):
     skills_name_list = [skill['name'] for skill in skills]
 
     prompt = f"""
+    \n\nHuman:
     Develop a a set of six questions asked by a employee to his manager where the questions must be related to this objective: [{objective}]. Add a initial paragraph titled
     "introduction" to explain the context of the questions in 100 to 200 words that includes any reference
     to any Youtube video links or other article links. Add a title to the session of 5 to 10 words which tells us about the context. Do not add any conclusion. With each question, add a
@@ -3220,6 +3263,7 @@ def generate_test_from_objective_anthropic(objective: str):
     {"}"}
 
     Generate the data in the above format only. Do not output anything else.
+    \n\nAssistant:
     """
 
     cnt = 0
