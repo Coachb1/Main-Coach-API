@@ -123,6 +123,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     # '''
 
     prompt = f'''
+    \n\nHuman:
     "TITLE:" {test_title};
 
     "DESCRIPTION:" {test_description};
@@ -152,7 +153,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     NOTE:  For the entire question and answer conversation no two skills from {skills} can have exact same scores.
 
     NOTE: Do not add any English language sentence in the output.
-
+    \n\nAssistant:
 
 '''
 
@@ -240,7 +241,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title):
     
     prompt = f'''
-
+    \n\nHuman:
     "TITLE:" {test_title};
 
     "DESCRIPTION:" {test_description};
@@ -258,6 +259,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
     NOTE: Output Format Example: {{"relevance":"1"}}
 
     NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above.
+    \n\nAssistant:
     '''
 
     is_evaluated = True
@@ -427,7 +429,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     # '''
 
     prompt = f'''
-
+        \n\nHuman:
         "TITLE:" {test_title};
 
         "DESCRIPTION:" {test_description};
@@ -460,6 +462,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
         NOTE: Do not add any English language sentence in the output.
+        \n\nAssistant:
         '''
 
     is_evaluated = True
@@ -601,6 +604,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
 def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_skill, skill_rating):
     prompt= """
+    \n\nHuman:
     cultural_list: %s
 
     skills_list: %s
@@ -634,6 +638,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     NOTE : Always provide the output in the given format.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    \n\nAssistant:
     """%(cultural_skill,skill_rating)
 
     is_evaluated = True
@@ -736,6 +741,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
 def feedback_summary(test_attempt_session,feedbacks):
     prompt= """
+    \n\nHuman:
     {feedback} : %s
     Summarize the entire feedback in 100 words in a single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
@@ -746,7 +752,7 @@ def feedback_summary(test_attempt_session,feedbacks):
     NOTE :  Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
 
     NOTE : NEVER include sentences like (Here is a 100 word summary of the feedback in a single paragraph:) in the output.
-
+    \n\nAssistant:
     """%(feedbacks)
 
     is_evaluated = True
@@ -907,6 +913,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     # '''
 
     prompt = '''
+        \n\nHuman:
         "TITLE:" {title};
 
         "DESCRIPTION:" {description};
@@ -942,7 +949,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
         NOTE: Do not add any English language sentence in the output.
-
+        \n\nAssistant:
         '''
 
     is_evaluated = True
@@ -1119,6 +1126,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
 
     prompt = prompt = f''' 
+        \n\nHuman:
         "Objective:" {objective}; 
         "Conversation:" {conversation}; 
         "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
@@ -1128,6 +1136,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         NOTE: Do not add any English language sentence in the output. 
 
         NOTE : Do not provide any kind of heading or introduction text in the output.
+        \n\nAssistant:
     '''
 
 
@@ -1304,6 +1313,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
 
     prompt = f'''
+    \n\nHuman:
     "Objective:" {objective};
     "Conversation:" {conversation};
 
@@ -1314,6 +1324,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
     NOTE : Do not provide any kind of heading or introduction text in the output.
+    \n\nAssistant:
     '''
 
     skills_rating = None
@@ -1445,6 +1456,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
 def evaluate_skills_explanation(title, description, conversation, skills_rating, test_attempt_session):
     prompt = f'''
+        \n\nHuman:
         "TITLE:" {title};
 
         "DESCRIPTION:" {description};
@@ -1464,6 +1476,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        \n\nAssistant:
     '''
 
     skills_explanation = None
@@ -1570,6 +1583,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
 def evaluate_culture_skills_explanation(title, description, conversation, culture_skills_rating, test_attempt_session):
     prompt = f'''
+        \n\nHuman:
         "TITLE:" {title};
 
         "DESCRIPTION:" {description};
@@ -1589,6 +1603,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        \n\nAssistant:
         '''
 
     skills_explanation = None
@@ -1694,6 +1709,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
 
 def evaluate_skills_explanation_conversation(objective, conversation, user_persona, skills_rating, test_attempt_session):
     prompt = f'''
+        \n\nHuman:
         "Objective:" {objective};
 
         "Conversation:" {conversation};
@@ -1704,6 +1720,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
         NOTE : Output format should be Json example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        \n\nAssistant:
     '''
     skills_explanation = None
     response = None
@@ -1808,6 +1825,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
 def evaluate_culture_skills_explanation_conversation(objective, conversation, user_persona, culture_skills_rating, test_attempt_session):
     prompt = f'''
+        \n\nHuman:
         Culture skills explanation orchestrated 
 
         "Objective:" {objective}; 
@@ -1827,6 +1845,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        \n\nAssistant:
     '''
 
     skills_explanation = None
