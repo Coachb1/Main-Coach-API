@@ -340,16 +340,20 @@ def create_test_question_answer(tenant: Tenant,
     if question.question_for == QuestionForChoices.user and not response_file and not response_text:
         raise serializers.ValidationError(
             "either response_file or response_text should be present")
-
-    test_question_response = TestQuestionResponse.objects.create(
-        tenant_id=tenant.uid,
-        test_attempt_session_id=test_attempt_session_id,
-        question_id=question_id,
-        responder_type=question.question_for,
-        responder_display_name=question.question_for,
-        response_text=response_text,
-        response_file=response_file
-    )
+    
+    
+    try:
+        test_question_response = TestQuestionResponse.objects.create(
+            tenant_id=tenant.uid,
+            test_attempt_session_id=test_attempt_session_id,
+            question_id=question_id,
+            responder_type=question.question_for,
+            responder_display_name=question.question_for,
+            response_text=response_text,
+            response_file=response_file
+        )
+    except:
+        test_question_response = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,question_id=question_id).first()
 
     logger.info("created test_question_response for tenant %s", tenant.uid)
 
@@ -602,142 +606,148 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         test_question_response.save(update_fields=update_fields)
 
-    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
-    difficulty_level = user_info.difficulty_level
-    user_feedback_prompt = ''
-    if difficulty_level == 'easy':
-        user_feedback_prompt = user_info.easy_feedback_prompt
-    elif difficulty_level == 'critical':
-        user_feedback_prompt == user_info.critical_feedback_prompt
+    updated_fields = ["evaluation_status", "updated"]
+    if test.scenario_case != "feedback_role_play":
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+        difficulty_level = user_info.difficulty_level
+        user_feedback_prompt = ''
+        if difficulty_level == 'easy':
+            user_feedback_prompt = user_info.easy_feedback_prompt
+        elif difficulty_level == 'critical':
+            user_feedback_prompt == user_info.critical_feedback_prompt
 
-    if user_info.custom_feedback_prompt_1:
-        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
-    if user_info.custom_feedback_prompt_2:
-        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
+        if user_info.custom_feedback_prompt_1:
+            user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
+        if user_info.custom_feedback_prompt_2:
+            user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
 
-    if test.is_email_type:
-        prompt = get_email_type_prompt(
-            test_title=test.title,
-            test_description=test.description,
-            question=question.question,
-            candidate_reply=test_question_response.response_text,
-            user_feedback_prompt=user_feedback_prompt)
-
-    else:
-        if question.gpt_prompt_override or test.gpt_prompt_override:
-            prompt = get_overridden_prompt(
-                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+        if test.is_email_type:
+            prompt = get_email_type_prompt(
                 test_title=test.title,
                 test_description=test.description,
                 question=question.question,
-                question_context=question.subjective_answer,
-                candidate_reply=test_question_response.response_text,
-                user_feedback_prompt=user_feedback_prompt
-            )
-        else:
-            prompt = get_chat_conversation_prompt_v3(
-                test_title=test.title,
-                test_description=test.description,
-                question=question.question,
-                question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text,
                 user_feedback_prompt=user_feedback_prompt)
 
+        else:
+            if question.gpt_prompt_override or test.gpt_prompt_override:
+                prompt = get_overridden_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    question_context=question.subjective_answer,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt
+                )
+            else:
+                prompt = get_chat_conversation_prompt_v3(
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    question_context=question.subjective_answer,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt)
 
-    feedback_text = ''
-    raw_text = ''
-    response_text = test_question_response.response_text
-    go_for_feedback = True
 
-    words = word_tokenize(test_question_response.response_text)
+        feedback_text = ''
+        raw_text = ''
+        response_text = test_question_response.response_text
+        go_for_feedback = True
 
-    if len(words) <= 10 :
-        feedback_text = "No feedback can be generated because of too low response length"
-        go_for_feedback = False
-    
-    if go_for_feedback:
-        start = time.time()
-        for i  in range(3):
-            anthropic_feedback = anthropic_completion(prompt, 1200)
+        words = word_tokenize(test_question_response.response_text)
 
-            if not anthropic_feedback:
+        if len(words) <= 10 :
+            feedback_text = "No feedback can be generated because of too low response length"
+            go_for_feedback = False
+        
+        if go_for_feedback:
+            start = time.time()
+            for i  in range(3):
+                anthropic_feedback = anthropic_completion(prompt, 1200)
 
-                max_retry = 3
+                if not anthropic_feedback:
 
-                while max_retry > 0:
-                    num_tokens = num_tokens_for_prompt(response_text)
-                    sentences = sent_tokenize(response_text)
-                    if num_tokens < 1500:
-                        break
-                    else:
-                        response_text = " ".join(sentences[:-1])
-                        if test.is_email_type:
-                            prompt = get_email_type_prompt(
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question.question,
-                                candidate_reply=test_question_response.response_text,
-                                user_feedback_prompt=user_feedback_prompt)
+                    max_retry = 3
 
+                    while max_retry > 0:
+                        num_tokens = num_tokens_for_prompt(response_text)
+                        sentences = sent_tokenize(response_text)
+                        if num_tokens < 1500:
+                            break
                         else:
-                            if question.gpt_prompt_override or test.gpt_prompt_override:
-                                prompt = get_overridden_prompt(
-                                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                            response_text = " ".join(sentences[:-1])
+                            if test.is_email_type:
+                                prompt = get_email_type_prompt(
                                     test_title=test.title,
                                     test_description=test.description,
                                     question=question.question,
-                                    question_context=question.subjective_answer,
-                                    candidate_reply=response_text,
-                                    user_feedback_prompt=user_feedback_prompt
-                                )
-                            else:
-                                prompt = get_chat_conversation_prompt_v3(
-                                    test_title=test.title,
-                                    test_description=test.description,
-                                    question=question.question,
-                                    question_context=question.subjective_answer,
-                                    candidate_reply=response_text,
+                                    candidate_reply=test_question_response.response_text,
                                     user_feedback_prompt=user_feedback_prompt)
 
-                    max_retry -= 1
+                            else:
+                                if question.gpt_prompt_override or test.gpt_prompt_override:
+                                    prompt = get_overridden_prompt(
+                                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                        test_title=test.title,
+                                        test_description=test.description,
+                                        question=question.question,
+                                        question_context=question.subjective_answer,
+                                        candidate_reply=response_text,
+                                        user_feedback_prompt=user_feedback_prompt
+                                    )
+                                else:
+                                    prompt = get_chat_conversation_prompt_v3(
+                                        test_title=test.title,
+                                        test_description=test.description,
+                                        question=question.question,
+                                        question_context=question.subjective_answer,
+                                        candidate_reply=response_text,
+                                        user_feedback_prompt=user_feedback_prompt)
 
-                gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-                if not gpt_feedback.text:
-                    try:
-                        gpt_feedback = text_bison_compeletion(prompt)
-                    except Exception as e:
-                        logger.exception(e)
-                        feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                        max_retry -= 1
+
+                    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                    if not gpt_feedback.text:
+                        try:
+                            gpt_feedback = text_bison_compeletion(prompt)
+                        except Exception as e:
+                            logger.exception(e)
+                            feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                    else:
+                        feedback_text = gpt_feedback.text
+                        raw_text = gpt_feedback.raw
+
                 else:
-                    feedback_text = gpt_feedback.text
-                    raw_text = gpt_feedback.raw
+                    feedback_text = anthropic_feedback
 
-            else:
-                feedback_text = anthropic_feedback
+                if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+                    continue
 
-            if "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
-                continue
-
-            end = time.time()
-            logger.info(f"************************** _process_response: fetching FEEDBACK  took {end - start:.2f}")
-            break
+                end = time.time()
+                logger.info(f"************************** _process_response: fetching FEEDBACK  took {end - start:.2f}")
+                break
             
 
-    test_question_response.metadata = {
-        "gpt": {
-            "prompt": prompt,
-            "response": {
-                "raw": raw_text,
-                "text": feedback_text,
+        test_question_response.metadata = {
+            "gpt": {
+                "prompt": prompt,
+                "response": {
+                    "raw": raw_text,
+                    "text": feedback_text,
+                }
             }
         }
-    }
 
-    feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
-    test_question_response.feedback_text = feedback_text
+        feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+        test_question_response.feedback_text = feedback_text
+        updated_fields.append("feedback_text")
+        updated_fields.append("metadata")
+
+
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
-        update_fields=["metadata", "feedback_text", "evaluation_status", "updated"])
+        update_fields=updated_fields)
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     # required_skills = question.key_learning_skills.split(",")
@@ -3534,4 +3544,164 @@ def update_prompt_user_attributes(user_id, var_dict):
         # Save the changes to the UserAttribute object
         user_att.save(update_fields=update_fields)
 
+@timeit
+def submit_feedback(
+        session_id,
+        tenant_id,
+        question_id,
+        response_file,
+):
+    test_attempt_session = TestAttemptSession.objects.filter(tenant_id=tenant_id,uid=session_id,deleted=0).first()
+    question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
+    test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
+
+    test_question_response = TestQuestionResponse.objects.get_or_create(
+                                tenant_id=tenant_id,
+                                test_attempt_session_id=session_id,
+                                question_id=question_id,
+                                responder_type=question.question_for,
+                                responder_display_name=question.question_for,
+                                response_text="",
+                                response_file = response_file
+                            )[0]
     
+    transcript = gpt_wishper_api(
+                    response_file)
+    
+    test_question_response.response_text = transcript
+    test_question_response.save(update_fields=['response_text'])
+
+    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+    difficulty_level = user_info.difficulty_level
+    user_feedback_prompt = ''
+    if difficulty_level == 'easy':
+        user_feedback_prompt = user_info.easy_feedback_prompt
+    elif difficulty_level == 'critical':
+        user_feedback_prompt == user_info.critical_feedback_prompt
+
+    if user_info.custom_feedback_prompt_1:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
+    if user_info.custom_feedback_prompt_2:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
+
+    if test.is_email_type:
+        prompt = get_email_type_prompt(
+            test_title=test.title,
+            test_description=test.description,
+            question=question.question,
+            candidate_reply=test_question_response.response_text,
+            user_feedback_prompt=user_feedback_prompt)
+
+    else:
+        if question.gpt_prompt_override or test.gpt_prompt_override:
+            prompt = get_overridden_prompt(
+                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt
+            )
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt)
+
+
+    feedback_text = ''
+    raw_text = ''
+    response_text = test_question_response.response_text
+    go_for_feedback = True
+
+    words = word_tokenize(test_question_response.response_text)
+
+    if len(words) <= 10 :
+        feedback_text = "No feedback can be generated because of too low response length"
+        go_for_feedback = False
+    
+    if go_for_feedback:
+        for i  in range(3):
+            anthropic_feedback = anthropic_completion(prompt, 1200)
+
+            if not anthropic_feedback:
+
+                max_retry = 3
+
+                while max_retry > 0:
+                    num_tokens = num_tokens_for_prompt(response_text)
+                    sentences = sent_tokenize(response_text)
+                    if num_tokens < 1500:
+                        break
+                    else:
+                        response_text = " ".join(sentences[:-1])
+                        if test.is_email_type:
+                            prompt = get_email_type_prompt(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt=user_feedback_prompt)
+
+                        else:
+                            if question.gpt_prompt_override or test.gpt_prompt_override:
+                                prompt = get_overridden_prompt(
+                                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=response_text,
+                                    user_feedback_prompt=user_feedback_prompt
+                                )
+                            else:
+                                prompt = get_chat_conversation_prompt_v3(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=response_text,
+                                    user_feedback_prompt=user_feedback_prompt)
+
+                    max_retry -= 1
+
+                gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                if not gpt_feedback.text:
+                    try:
+                        gpt_feedback = text_bison_compeletion(prompt)
+                    except Exception as e:
+                        logger.exception(e)
+                        feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                else:
+                    feedback_text = gpt_feedback.text
+                    raw_text = gpt_feedback.raw
+
+            else:
+                feedback_text = anthropic_feedback
+
+            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+                continue
+
+            break
+            
+
+    test_question_response.metadata = {
+        "gpt": {
+            "prompt": prompt,
+            "response": {
+                "raw": raw_text,
+                "text": feedback_text,
+            }
+        }
+    }
+
+    feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+    test_question_response.feedback_text = feedback_text
+    
+    test_question_response.save(update_fields=['metadata','feedback_text'])
+
+    return test_question_response.feedback_text
