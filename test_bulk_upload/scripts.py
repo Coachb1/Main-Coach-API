@@ -491,7 +491,7 @@ def format_test_data_slack(raw_data):
 
                 }
 
-                if input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"] and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
+                if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
 
                 if test_type == "view":
