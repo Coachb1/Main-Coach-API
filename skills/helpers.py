@@ -13,6 +13,7 @@ from users.db import get_user_display_name
 from users.models import User
 import re
 from commons.google_apis import text_bison_compeletion
+from commons.timeit import timeit
 
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ def json_extractor_for_explaination(text):
         
 
 
-
+@timeit
 def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title, test_code, session_id):
     # prompt = f'''
     # "TITLE:" {test_title};
@@ -238,6 +239,8 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
     return response, True
 
+
+@timeit
 def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title):
     
     prompt = f'''
@@ -370,6 +373,8 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     return response, True
 
+
+@timeit
 def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt):
     skills_rating =skills
 
@@ -602,6 +607,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
     return response, {}, True
 
+
+@timeit
 def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_skill, skill_rating):
     prompt= """
     \n\nHuman:
@@ -739,6 +746,8 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     return response
 
 
+
+@timeit
 def feedback_summary(test_attempt_session,feedbacks):
     prompt= """
     \n\nHuman:
@@ -855,7 +864,7 @@ def feedback_summary(test_attempt_session,feedbacks):
 
     
 
-
+@timeit
 def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
@@ -1090,6 +1099,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     return response,{}, True
 
 
+
+@timeit
 def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code):
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -1272,6 +1283,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     return response, {}
 
 
+@timeit
 def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate):
     skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
         skills_to_evaluate, str) else skills_to_evaluate
@@ -1454,6 +1466,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
 ##########################* SKILLS EXPLANATION START *##########################
 
+@timeit
 def evaluate_skills_explanation(title, description, conversation, skills_rating, test_attempt_session):
     prompt = f'''
         \n\nHuman:
@@ -1581,6 +1594,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
 
 
+@timeit
 def evaluate_culture_skills_explanation(title, description, conversation, culture_skills_rating, test_attempt_session):
     prompt = f'''
         \n\nHuman:
@@ -1707,6 +1721,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
     return {}
 
 
+@timeit
 def evaluate_skills_explanation_conversation(objective, conversation, user_persona, skills_rating, test_attempt_session):
     prompt = f'''
         \n\nHuman:
@@ -1823,6 +1838,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
     return {}
 
 
+@timeit
 def evaluate_culture_skills_explanation_conversation(objective, conversation, user_persona, culture_skills_rating, test_attempt_session):
     prompt = f'''
         \n\nHuman:
@@ -1951,6 +1967,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
 ##########################* SKILLS EXPLANATION END *##########################
 
+@timeit
 def top_N_leadership_board(skills, N, tenant_id):
     # Get all skills_rating objects of this tenant
     skill_rating_objects = SkillsRating.objects.filter(
@@ -1996,6 +2013,7 @@ def top_N_leadership_board(skills, N, tenant_id):
     return participants[:N]
 
 
+@timeit
 def get_participant_info(participant: User):
     participant_skill_rating_object = SkillsRating.objects.filter(
         deleted=0,
@@ -2017,6 +2035,7 @@ def get_participant_info(participant: User):
     return participant_info
 
 
+@timeit
 def get_top_participant_skills(skills, q_set, top_n=10):
     skills = skills.split(",") if isinstance(skills, str) else skills
     top_participant_skills = q_set.filter(
@@ -2030,11 +2049,13 @@ def get_top_participant_skills(skills, q_set, top_n=10):
     return top_participant_skills
 
 
+@timeit
 def save_the_custom_rating(custom_rating, custom_rating_object):
     custom_rating_object.custom_rating = custom_rating
     custom_rating_object.save()
 
 
+@timeit
 def upsert_into_skill_index(tenant_id: str,
                             skills: list):
     if not skills:
