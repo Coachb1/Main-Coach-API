@@ -428,7 +428,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
             if not_evaluated_test_responses_count == 0:
                 end = time.time()
-                logger.info(f"************************** process_test_response: processing LAST QUESTION took {end - start_time:.2f}")
+                logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
                 break
 
     # if this was the last question; mark the session as completed
@@ -505,7 +505,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
                 end = time.time()
-                logger.info(f"************************** __process_test_response: transcript generation for AUDIO took {end - start:.2f}")
+                logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -519,7 +519,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_text = transcript
 
             end = time.time()
-            logger.info(f"************************** _process_test_response: transcript generation for AUDIO took {end - start:.2f}")
+            logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
             if transcript_length > 10:
                 start = time.time()
@@ -532,7 +532,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         test_question_response.speech_metrics = speech_met
 
                         end = time.time()
-                        logger.info(f"************************** _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f}")
+                        logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                         break
                     except Exception as e:
                         logger.exception(e)
@@ -563,7 +563,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
                 end = time.time()
-                logger.info(f"************************** _process_test_response: transcript generation for VIDEO took {end - start:.2f}")
+                logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -572,7 +572,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     transcript = speech_to_text(test_question_response.response_file)
                     test_question_response.response_text = transcript
                     end = time.time()
-                    logger.info(f"************************** _process_test_response: transcript generation for VIDEO took {end - start:.2f}")
+                    logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
                 except Exception as e:
                     logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
                     transcript = "Transcription couldn't be generated"
@@ -588,7 +588,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met_video
                         end = time.time()
-                        logger.info(f"************************** _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f}")
+                        logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                         break
 
                     except Exception as e:
@@ -725,7 +725,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     continue
 
                 end = time.time()
-                logger.info(f"************************** _process_response: fetching FEEDBACK  took {end - start:.2f}")
+                logger.info(f"######################## _process_response: fetching FEEDBACK  took {end - start:.2f} ########################")
                 break
             
 
@@ -900,7 +900,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
                 end = time.time()
-                logger.info(f"************************** process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f}")
+                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -923,7 +923,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met
                         end = time.time()
-                        logger.info(f"************************** process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f}")
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                         break
                     except Exception as e:
                         logger.exception(e)
@@ -954,7 +954,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
                 end = time.time()
-                logger.info(f"************************** process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f}")
+                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
@@ -977,7 +977,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met_video
                         end = time.time()
-                        logger.info(f"************************** process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f}")
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                         break
 
                     except Exception as e:
@@ -1054,7 +1054,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields.append("kls_klp")
         logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
         end = time.time()
-        logger.info(f"************************** process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f}")
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
 
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1080,7 +1080,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
         end = time.time()
-        logger.info(f"************************** process_orchestrated_test_response_by_user: LOGIC for 'total_questions == total_responses:' took {end - start:.2f}")
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for 'total_questions == total_responses:' took {end - start:.2f} #######################")
 
     return test_question_response
 
@@ -1125,7 +1125,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     bot_llm_response_text = anthropic_completion(prompt, 300)
     end = time.time()
-    logger.info(f"************************** process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f}")
+    logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
 
     if not bot_llm_response_text:
         # delete this response
@@ -1261,7 +1261,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     areas_of_improvement = get_areas_of_improvement(
         objective, chat_conversation, user_persona)
     end = time.time()
-    logger.info(f"************************** calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f}")
+    logger.info(f"####################### calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f} #######################")
     
     if has_speech_metric:
         test_attempt_session.speech_score = speech_score
@@ -1388,7 +1388,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                 speech_metrics_avg[k] = v / len(test_responses)
 
         end = time.time()
-        logger.info(f"************************** get_meeting_report_from_test_attempt_session: LOGIC for dynamic discussion REPORT took {end - start:.2f}")
+        logger.info(f"####################### get_meeting_report_from_test_attempt_session: LOGIC for dynamic discussion REPORT took {end - start:.2f} #######################")
 
 
     else:
@@ -3703,5 +3703,6 @@ def submit_feedback(
     test_question_response.feedback_text = feedback_text
     
     test_question_response.save(update_fields=['metadata','feedback_text'])
+    logger.info("######################## Feedback is ready ######################")
 
     return test_question_response.feedback_text
