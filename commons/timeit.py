@@ -12,7 +12,7 @@ def timeit(func):
         start = time.time()
         result = func(*args, **kwargs)
         end = time.time()
-        logger.info(f"{func.__name__} took {end - start:.2f}")
+        logger.info(f"################## {func.__name__} took {end - start:.2f} ##################")
         return result
 
     return wrapper
