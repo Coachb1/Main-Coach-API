@@ -49,6 +49,7 @@ RATINGS = "rating"
 IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
 IS_DYNAMIC = "is_dynamic"
+IS_DYNAMIC_THREAD = "is_dynamic_thread"
 MEDIA_LINK = 'ML'
 CLIENT = "Client Name"
 GOALS = "Goals"
@@ -81,6 +82,14 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
+                    output_dict["interaction_mode"] = 'audio'
+
+        if IS_DYNAMIC_THREAD in input_dict:
+            if input_dict[IS_DYNAMIC_THREAD] and len(input_dict[IS_DYNAMIC_THREAD].strip()) > 0:
+                is_dynamic_thread = input_dict[IS_DYNAMIC_THREAD].strip().lower()
+
+                if is_dynamic_thread == "true":
+                    output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
                     output_dict["interaction_mode"] = 'audio'
                     
         if CLIENT in input_dict:
