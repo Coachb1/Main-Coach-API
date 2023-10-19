@@ -24,6 +24,11 @@ from django.db.models import Q
 from skills.constants import skills as all_skills_present
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 
+from commons.anthropic import anthropic_completion
+from commons.openai_gpt import gpt3_completion
+from commons.google_apis import text_bison_compeletion
+import time
+
 import logging
 
 logger = logging.getLogger(__name__)
