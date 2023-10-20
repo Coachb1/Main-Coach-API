@@ -35,7 +35,7 @@ class OrchestratedConversationDetails(serializers.Serializer):
     initial_messages = serializers.ListField(
         child=serializers.CharField()
     )
-    start_with_user = serializers.CharField()
+    start_with_user = serializers.CharField(required=False)
 
 
 class CreateTestSerializer(serializers.Serializer):
