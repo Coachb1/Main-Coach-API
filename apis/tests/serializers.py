@@ -35,6 +35,7 @@ class OrchestratedConversationDetails(serializers.Serializer):
     initial_messages = serializers.ListField(
         child=serializers.CharField()
     )
+    start_with_user = serializers.CharField()
 
 
 class CreateTestSerializer(serializers.Serializer):
@@ -79,6 +80,12 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     description_media = serializers.CharField(
         default=None, required=False, allow_null=True, allow_blank=True)
+    client_name = serializers.CharField(
+        default="Demo", required=False, allow_null=True, allow_blank=True)
+    goals = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    course = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):

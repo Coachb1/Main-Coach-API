@@ -12,6 +12,9 @@ class TestTypeChoices(DjangoChoices):
     single = ChoiceItem("single")
     case = ChoiceItem("case")
     group = ChoiceItem("group")
+    dynamic_discussion = ChoiceItem("dynamic_discussion")
+    lesson = ChoiceItem('lesson')
+
 
 class ScenarioCaseChoices(DjangoChoices):
     simulation = ChoiceItem("simulation")
@@ -23,6 +26,8 @@ class ScenarioCaseChoices(DjangoChoices):
     case_study = ChoiceItem("case_study")
     counseling = ChoiceItem("counseling")
     presentation  = ChoiceItem("presentation")
+    dynamic_discussion  = ChoiceItem("dynamic_discussion")
+    feedback_role_play = ChoiceItem("feedback_role_play")
 
 
 class InteractionModeChoices(DjangoChoices):

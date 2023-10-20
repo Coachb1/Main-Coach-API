@@ -7,8 +7,10 @@ from apis.tests_question_response.filtersets import TestQuestionResponseFilterSe
 from apis.tests_question_response.serializers import TestQuestionResponseSerializer
 from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
-from tests.helpers import create_test_question_answer
-from tests.models import TestQuestionResponse
+from tests.helpers import create_test_question_answer, submit_feedback
+from tests.models import TestQuestionResponse, TestAttemptSession, TestQuestion, Test
+from rest_framework.decorators import action
+
 
 
 class TestQuestionResponseViewSet(ApiViewSet,
@@ -52,3 +54,16 @@ class TestQuestionResponseViewSet(ApiViewSet,
 
         return Response(data=TestQuestionResponseSerializer(instance=test_question_answer).data,
                         status=status.HTTP_201_CREATED)
+    
+    @action(methods=['POST'],detail=False,url_path="submit-feedback-response")
+    def submit_feedback_response(self,request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        session_id = request.query_params.get('test_attempt_session_id')
+        question_id = request.query_params.get('question_id')
+        response_file = request.query_params.get('response_file')
+        
+        feedback = submit_feedback(session_id,tenant_id,question_id,response_file)
+
+        return Response({"feedback_text": feedback}, status=status.HTTP_201_CREATED)
+
+        
