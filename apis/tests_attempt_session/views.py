@@ -222,6 +222,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+            
+
+            if is_whatsapp and test.test_type != TestTypeChoices.interview:
+                send_report_link_to_whatsapp(
+                    test, test_attempt_session, report_url)
 
             #################* summary  start #################
             updated_fields = []
@@ -317,9 +322,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             #####################* explanation end #################
             test_attempt_session.save(update_fields=updated_fields)
-            if is_whatsapp and test.test_type != TestTypeChoices.interview:
-                send_report_link_to_whatsapp(
-                    test, test_attempt_session, report_url)
+            
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:

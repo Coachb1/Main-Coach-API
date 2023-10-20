@@ -364,7 +364,7 @@ def create_test_question_answer(tenant: Tenant,
         if question.question_for == QuestionForChoices.user:
             return process_orchestrated_test_response_by_user(test_question_response)
         else:
-            return process_orchestrated_test_response_by_bot_llm(test_question_response)
+            return process_orchestrated_test_response_by_bot_llm(test_question_response,is_whatsapp=is_whatsapp)
 
     return process_test_response(
         test_question_response, is_whatsapp
@@ -1086,7 +1086,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
 
 @timeit
-def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse):
+def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
     """
        bot_llm response is always a text;; ignore test mode or question response type
    """
@@ -1123,7 +1123,11 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                                                        question=question)
     logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
-    bot_llm_response_text = anthropic_completion(prompt, 300)
+    if is_whatsapp:
+        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=500).text
+    else:
+        bot_llm_response_text = anthropic_completion(prompt, 300)
+
     end = time.time()
     logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
 
@@ -1429,7 +1433,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
         data["candidate_type"] = test.candidate_type
 
-    skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    # skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    skill_exp = test_attempt_session.skills_explanation
 
     if skill_exp:
         if len(test_attempt_session.skills_rating) == len(skill_exp):
@@ -1468,7 +1473,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         # for i  in existing_skills:
         #     del updated_skills_ratings[i]
         
-        data["skills_rating"] = update_skill_name(skills_rating)
+        # data["skills_rating"] = update_skill_name(skills_rating)
+        data["skills_rating"] = skills_rating
 
     return data
 
