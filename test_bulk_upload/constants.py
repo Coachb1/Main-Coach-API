@@ -2,7 +2,7 @@
 
 def get_skills(candidate_type):
     MANAGER = [
-        "Communication",
+        "Communication skills",
         "Objection handling",
         "Problem solving",
         "Social skills",
@@ -21,10 +21,10 @@ def get_skills(candidate_type):
     ]
 
     SALES_MANAGER = [
-        "Communication",
+        "Communication skills",
         "Presence",
         "Ability to inspire",
-        "Persuasion",
+        "Persuasive",
         "Strategic thinking",
         "Negotiation",
         "Presentation skills",
@@ -36,11 +36,11 @@ def get_skills(candidate_type):
         "Tenacity",
         "Patience",
         "Curiosity",
-        "Passion"
+        "Passionate"
     ]
 
     CUSTOMER_SERVICES = [
-        "Communication",
+        "Communication skills",
         "Presence",
         "Social skills",
         "Coaching",
@@ -59,7 +59,7 @@ def get_skills(candidate_type):
     ]
 
     EMPLOYEE = [
-        "Communication",
+        "Communication skills",
         "Objection handling",
         "Problem solving",
         "Social skills",
@@ -91,7 +91,7 @@ def get_skills(candidate_type):
 
 class ManagerSkills:
     PEOPLE = {
-        "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
+        "Communication skills": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
         "Objection handling": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management.",
         "Problem solving": "Problem solving is the ability to identify and solve problems. It is the aptitude to analyze challenges, devise innovative solutions, and make sound decisions to achieve desired outcomes.",
         "Social skills": "Build rapport and relate well to people from diverse backgrounds; emotionally intelligent.",
@@ -121,10 +121,10 @@ class ManagerSkills:
 
 class SalesManagerSkills:
     PEOPLE = {
-        "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
+        "Communication skills": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
         "Presence": "Presence as it relates to a new manager's training needs can be defined as the ability to command attention and generate confidence through one's actions, words, and overall personality. Having presence means that when a new manager walks into a room, meets with direct reports, or facilitates a meeting, a calm authority and self-assurance automatically emanates from them. Strong presence comes from understanding one's own strengths, weaknesses, and emotions so that communication with team members feels natural and authentic rather than forced or contrived. New managers can develop presence through practicing active listening to gain insights without judgment, speaking concisely yet genuinely from the heart to build resonance with others, and staying grounded in core values while responding flexibly to situations with adaptability and humor. These skills allow a new manager's innate personality and competencies to shine through and truly lead their team through the force of their authentic presence.",
         "Ability to inspire": "Energize and motivate others through passion, vision, and leading by example.",
-        "Persuasion": "Persuasion is the ability to influence others to see things your way. It is the art of convincing others through compelling arguments and empathy, influencing their decisions positively.",
+        "Persuasive": "Persuasive is the ability to influence others to see things your way. It is the art of convincing others through compelling arguments and empathy, influencing their decisions positively.",
     }
 
     PARTNERSHIP = {
@@ -144,13 +144,13 @@ class SalesManagerSkills:
         "Tenacity": "Persist in the face of obstacles and setbacks until the desired outcome is achieved; unwavering resolve and determination. ",
         "Patience": "Patience is the ability to wait for something without getting upset or frustrated. It requires the ability to control emotions, stay focused, and avoid making impulsive decisions.",
         "Curiosity": "Curiosity is the desire to learn new things. It requires the ability to ask questions, seek out new information, and be open to new experiences.",
-        "Passion": "Passion is the enthusiasm and excitement you have for something. It requires the ability to be motivated, focused, and driven to succeed.",
+        "Passionate": "Passionate is the enthusiasm and excitement you have for something. It requires the ability to be motivated, focused, and driven to succeed.",
     }
 
 
 class CustomerServiceSkills:
     PEOPLE = {
-        "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
+        "Communication skills": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
         "Presence": "Presence as it relates to a new manager's training needs can be defined as the ability to command attention and generate confidence through one's actions, words, and overall personality. Having presence means that when a new manager walks into a room, meets with direct reports, or facilitates a meeting, a calm authority and self-assurance automatically emanates from them. Strong presence comes from understanding one's own strengths, weaknesses, and emotions so that communication with team members feels natural and authentic rather than forced or contrived. New managers can develop presence through practicing active listening to gain insights without judgment, speaking concisely yet genuinely from the heart to build resonance with others, and staying grounded in core values while responding flexibly to situations with adaptability and humor. These skills allow a new manager's innate personality and competencies to shine through and truly lead their team through the force of their authentic presence.",
         "Social skills": "Build rapport and relate well to people from diverse backgrounds; emotionally intelligent.",
         "Coaching": "Coaching is the ability to help others develop their skills and abilities.It includes the practice of guiding and developing individuals, unlocking their potential and fostering continuous growth.",
@@ -177,7 +177,7 @@ class CustomerServiceSkills:
 
 class EmployeeSkills:
     PEOPLE = {
-        "Communication": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
+        "Communication skills": "Communication skills are the ability to express oneself clearly and effectively. It is the skill of conveying information clearly and efficiently to ensure effective understanding and collaboration.",
         "Objection handling": "Objection handling is the ability to successfully navigate and respond to concerns or pushback raised by employees over new initiatives, proposals, or directives from management.",
         "Problem solving": "Problem solving is the ability to identify and solve problems. It is the aptitude to analyze challenges, devise innovative solutions, and make sound decisions to achieve desired outcomes.",
         "Social skills": "Build rapport and relate well to people from diverse backgrounds; emotionally intelligent.",
@@ -227,7 +227,7 @@ updated_skills = {
                 "Empathy": "Empathy",
                 "Methodical approach": "Organize",
                 "Willingness to learn": "Curious",
-                "Communication": "Interact",
+                "Communication skills": "Interact",
                 "Business Acumen": "Savvy",
                 "Social Selling": "Social",
                 "Storytelling": "Narrative",
@@ -339,7 +339,7 @@ updated_skills = {
                 "Attentiveness": "Attentive",
                 "Creativity and resourcefulness": "Inventive",
                 "Persuasion skills": "Persuade",
-                "Persuasion": "Persuade",
+                "Persuasive": "Persuade",
                 "Time management skills": "Efficient",
                 "Time management": "Efficient",
                 "Knowledge of Pay Equity Laws": "Equity",
