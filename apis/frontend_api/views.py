@@ -18,7 +18,7 @@ from .serializers import FrontendCoachingSessionReportSerializer
 from .serializers import FrontendMeetingAnalysisReportSerializer
 from .serializers import FrontendAskingGreatQuestionsReportSerializer
 from .serializers import FrontendSkillsTrackerReportSerializer
-from .serializers import FrontendSkillsDiscoveryReportSerializer
+from .serializers import FrontendSkillsDiscoveryReportSerializer, DynamicDiscussionReportSerializer
 from web_auth.helpers import create_new_tokens, get_new_access_token
 from settings import FRONTEND_BASE_URL
 from settings import BACKEND
@@ -167,6 +167,19 @@ class FrontendAuthViewSet(ApiViewSet):
             interaction_id = session_serializer.validated_data["interaction_id"]
 
             url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
+
+        elif report_type == ReportType.DYNAMIC_DISCUSSOIN_REPORT:
+            serializer = DynamicDiscussionReportSerializer(
+                data=request.data)
+
+            serializer.is_valid(raise_exception=True)
+
+            test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
+            interaction_id = serializer.validated_data['interaction_id']
+
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&interaction_id={interaction_id}&backend={BACKEND}"
+        
+
 
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:

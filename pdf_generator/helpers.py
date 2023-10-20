@@ -15,7 +15,7 @@ from documents.helpers import create_document, get_document_url_from_doc_id, get
 from skills.helpers import get_participant_info, top_N_leadership_board
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
-from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse
+from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse, TestAttemptSessionStatusChoices
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
@@ -191,7 +191,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     for metric in all_speech_metrics:
         for k, v in metric.items():
             if isinstance(v, str) and "%" in v:
-                v = float(v.replace("%", ""))
+                try:
+                    v = float(v.replace("%", ""))
+                except:
+                    pass
 
             if k in speech_metrics_avg:
                 speech_metrics_avg[k] += v
@@ -203,6 +206,22 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             speech_metrics_avg[k] = v / len(participant_responses)
 
     if only_data:
+
+        test_title = test.title
+        skill_exp = test_attempt_session.skills_explanation
+        if skill_exp:
+            if len(test_attempt_session.skills_rating) == len(skill_exp):
+                skill_exp = skill_exp
+            else:
+                skill_exp = None
+
+        culture_skill_exp = test_attempt_session.culture_skills_explanation
+        if culture_skill_exp:
+            if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
+                culture_skill_exp = culture_skill_exp
+            else:
+                culture_skill_exp = None
+
         response_relevance = True
         for participant_response in participant_responses:
             relevance = participant_response.relevance
@@ -231,8 +250,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
             test_codes = get_test_code_lowest_skill(
                 skills_graph_data["skills_rating"], test_attempt_session)
+            
+        feedback_summary = test_attempt_session.feedback_summary
+        skill_summary = test_attempt_session.culture_and_skill_summary
 
-        return {'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance}
+        return {'skills_explanation':skill_exp,'culture_skills_explanation':culture_skill_exp,"title":test_title,'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,"feedback_summary":feedback_summary,"skill_summary":skill_summary}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
@@ -312,6 +334,27 @@ def get_participant_report(user, only_data=False):
                  })
 
         participant_info['skills_info'] = skills_info
+
+        test_attempt_sessions = TestAttemptSession.objects.filter(deleted=0, status = TestAttemptSessionStatusChoices.completed , participant_id = user.uid).exclude(finished_at=None).order_by('-finished_at')
+        test_attempt_session_list = []
+        cnt = 1
+
+        for test_attempt_session in test_attempt_sessions:
+            try:
+                session_info = {
+                    "slno" : cnt,
+                    "title": Test.objects.get(uid=test_attempt_session.test_id).title,
+                    "link" : test_attempt_session.report_url,
+                    "date" : test_attempt_session.created.date()
+                }
+                test_attempt_session_list.append(session_info)
+                cnt += 1
+
+            except Exception as e:
+                pass
+
+        participant_info['test_attempt_session_list'] = test_attempt_session_list
+        
 
         return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
 
@@ -433,6 +476,7 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
     # get the skills_rating for the test_attempt_session
     skills_rating = test_attempt_session.skills_rating
+    skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
     # Y ticks should be from 'very bad', 'bad', 'average', 'good', 'very good'
     # Super Manager , Good manager,  Average Manager , Beginning Manager , Non Manager.
@@ -449,21 +493,23 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
         }
 
     if only_data:
-        updated_skills_ratings = {}
-        existing_skills = []
-        for skill, values in skills_rating.items():
-            for old , new in updated_skills.items():
-                if skill.strip().capitalize() == old.strip().capitalize():
-                    updated_skills_ratings[new.strip()] = values
-                    existing_skills.append(skill)
-                else:
-                    updated_skills_ratings[skill] = values
+        # updated_skills_ratings = {}
+        # existing_skills = []
+        # for skill, values in skills_rating.items():
+        #     for old , new in updated_skills.items():
+        #         if skill.strip().capitalize() == old.strip().capitalize():
+        #             updated_skills_ratings[new.strip()] = values
+        #             existing_skills.append(skill)
+        #         else:
+        #             updated_skills_ratings[skill] = values
 
-        for i  in existing_skills:
-            del updated_skills_ratings[i]
+        # for i  in existing_skills:
+        #     del updated_skills_ratings[i]
+
+        # updated_skills_ratings = update_skill_name(skills_rating)
 
 
-        return {'skills_rating': updated_skills_ratings, 'custom_rating': custom_rating}
+        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5
@@ -656,3 +702,21 @@ def get_test_code_lowest_skill(skills_rating, test_attempt_session):
             test_codes = test_codes[:2]
 
     return test_codes
+
+def update_skill_name(skills_rating):
+    if not skills_rating:
+        return None
+
+    updated_skills_ratings = {}
+    for skill, values in skills_rating.items():
+        
+        updated_skill = skill.strip().capitalize()
+        for old,new in updated_skills.items():
+            if skill.strip().capitalize() == old.strip().capitalize():
+                updated_skill = new.strip().capitalize()
+                break
+        
+                
+        updated_skills_ratings[updated_skill.strip()] = values
+
+    return updated_skills_ratings

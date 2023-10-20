@@ -52,6 +52,11 @@ class Test(TenantAwareModel):
         null=True, blank=True, default=None)
     description_media = models.TextField(
         null=True, blank=True, default=None)
+    client_name = models.CharField(max_length=255,default='Demo',null=True,blank=True)
+    goals = models.TextField(null=True, blank=True, default=None)
+    course = models.CharField(max_length=255, null=True, blank=True, default=None)
+    industry = models.CharField(max_length=255, null=True, blank=True, default=None)
+    exp_level = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
@@ -113,11 +118,13 @@ class TestAttemptSession(TenantAwareModel):
     report_doc_id = models.TextField(
         null=True, blank=True, default=None)
     skills_rating = models.JSONField(null=True, blank=True, default=None)
+    skills_explanation = models.JSONField(null=True, blank=True, default=None)
     test_score = models.FloatField(null=True, blank=True, default=None)
     avg_score = models.FloatField(null=True, blank=True, default=None)
     speech_score = models.JSONField(null=True, blank=True, default=None)
     culture_skills_rating = models.JSONField(
         null=True, blank=True, default=None)
+    culture_skills_explanation = models.JSONField(null=True, blank=True, default=None)
 
     meeting_summary = models.TextField(null=True, blank=True, default=None)
     areas_of_improvement = models.TextField(
@@ -134,6 +141,10 @@ class TestAttemptSession(TenantAwareModel):
         null=True, blank=True, default=None)
 
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
+    feedback_summary = models.TextField(null=True,blank=True, default=None)
+    culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
+
+    
 
     class Meta:
         db_table = "test_attempt_session"
@@ -162,6 +173,7 @@ class TestQuestionResponse(TenantAwareModel):
     speech_metrics = models.JSONField(null=True, blank=True, default=None)
     metadata = models.JSONField(null=True, blank=True, default=None)
     relevance = models.BooleanField(null=True, blank=True, default=True )
+    kls_klp = models.JSONField(null=True, blank=True, default=None)
     class Meta:
         db_table = "test_question_response"
 

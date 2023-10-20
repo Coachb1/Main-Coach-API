@@ -31,7 +31,8 @@ from settings import BACKEND
 from settings import FRONTEND_BASE_URL
 from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
-    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill
+    evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy, \
+          calulate_summary_for_culture_and_normal_skill, feedback_summary
 from skills.models import SkillsRating
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
@@ -55,6 +56,9 @@ nltk.download('punkt')
 import pytz
 import datetime
 from test_bulk_upload.constants import updated_skills
+import re
+from commons.google_apis import speech_to_text, text_bison_compeletion
+from pdf_generator.helpers import update_skill_name
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +125,12 @@ def create_test(tenant: Tenant,
                 image_url: str,
                 rating : str,
                 source : str,
-                questions: list) -> tuple[Test, list[TestQuestion]]:
+                client_name : str,
+                questions: list,
+                goals: str,
+                course: str,
+                industry: str,
+                exp_level: str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -159,11 +168,16 @@ def create_test(tenant: Tenant,
             rating=rating,
             image_url=image_url,
             source=source,
+            client_name=client_name,
+            goals=goals,
+            course=course,
+            industry=industry,
+            exp_level=exp_level
         )
 
         test_questions = []
         for inx, question in enumerate(questions, start=1):
-            if test.test_type == TestTypeChoices.orchestrated_conversation:
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 klp = ''
                 kls = ''
             else:
@@ -326,27 +340,31 @@ def create_test_question_answer(tenant: Tenant,
     if question.question_for == QuestionForChoices.user and not response_file and not response_text:
         raise serializers.ValidationError(
             "either response_file or response_text should be present")
-
-    test_question_response = TestQuestionResponse.objects.create(
-        tenant_id=tenant.uid,
-        test_attempt_session_id=test_attempt_session_id,
-        question_id=question_id,
-        responder_type=question.question_for,
-        responder_display_name=question.question_for,
-        response_text=response_text,
-        response_file=response_file
-    )
+    
+    
+    try:
+        test_question_response = TestQuestionResponse.objects.create(
+            tenant_id=tenant.uid,
+            test_attempt_session_id=test_attempt_session_id,
+            question_id=question_id,
+            responder_type=question.question_for,
+            responder_display_name=question.question_for,
+            response_text=response_text,
+            response_file=response_file
+        )
+    except:
+        test_question_response = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,question_id=question_id).first()
 
     logger.info("created test_question_response for tenant %s", tenant.uid)
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
     # handle orchestrated conversation in a different manner
-    if test.test_type == TestTypeChoices.orchestrated_conversation:
+    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
         if question.question_for == QuestionForChoices.user:
             return process_orchestrated_test_response_by_user(test_question_response)
         else:
-            return process_orchestrated_test_response_by_bot_llm(test_question_response)
+            return process_orchestrated_test_response_by_bot_llm(test_question_response,is_whatsapp=is_whatsapp)
 
     return process_test_response(
         test_question_response, is_whatsapp
@@ -409,6 +427,8 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
             ).count()
 
             if not_evaluated_test_responses_count == 0:
+                end = time.time()
+                logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
                 break
 
     # if this was the last question; mark the session as completed
@@ -475,6 +495,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
@@ -483,12 +504,25 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            end = time.time()
+            logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -496,6 +530,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met
+
+                        end = time.time()
+                        logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                         break
                     except Exception as e:
                         logger.exception(e)
@@ -503,6 +540,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
                             break
 
                     
@@ -515,6 +553,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
+            start = time.time()
             transcript_length = 0
             try:
                 logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
@@ -523,12 +562,24 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!!!!!Error while generating transcription":e}, exc_info=True)
-                transcript = "Transcription couldn't be generated"
-                test_question_response.response_text = transcript
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                    end = time.time()
+                    logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
 
             if transcript_length > 10:
+                start = time.time()
                 max_tries = 2
                 retry = 0
                 while True:
@@ -536,6 +587,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         speech_met_video = coach_metric_api.get_speech_metrics_from_video(
                             test_question_response.response_file,transcript)
                         test_question_response.speech_metrics = speech_met_video
+                        end = time.time()
+                        logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                         break
 
                     except Exception as e:
@@ -543,6 +596,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         if retry >= max_tries:
                             # HACK sane default values
                             test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
                             break
 
             else:
@@ -552,197 +606,229 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         test_question_response.save(update_fields=update_fields)
 
-    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
-    difficulty_level = user_info.difficulty_level
-    user_feedback_prompt = ''
-    if difficulty_level == 'easy':
-        user_feedback_prompt = user_info.easy_feedback_prompt
-    elif difficulty_level == 'critical':
-        user_feedback_prompt == user_info.critical_feedback_prompt
+    updated_fields = ["evaluation_status", "updated"]
+    if test.scenario_case != "feedback_role_play":
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+        difficulty_level = user_info.difficulty_level
+        user_feedback_prompt = ''
+        if difficulty_level == 'easy':
+            user_feedback_prompt = user_info.easy_feedback_prompt
+        elif difficulty_level == 'critical':
+            user_feedback_prompt == user_info.critical_feedback_prompt
 
-    if user_info.custom_feedback_prompt_1:
-        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
-    if user_info.custom_feedback_prompt_2:
-        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
+        if user_info.custom_feedback_prompt_1:
+            user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
+        if user_info.custom_feedback_prompt_2:
+            user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
 
-    if test.is_email_type:
-        prompt = get_email_type_prompt(
-            test_title=test.title,
-            test_description=test.description,
-            question=question.question,
-            candidate_reply=test_question_response.response_text,
-            user_feedback_prompt=user_feedback_prompt)
-
-    else:
-        if question.gpt_prompt_override or test.gpt_prompt_override:
-            prompt = get_overridden_prompt(
-                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+        if test.is_email_type:
+            prompt = get_email_type_prompt(
                 test_title=test.title,
                 test_description=test.description,
                 question=question.question,
-                question_context=question.subjective_answer,
-                candidate_reply=test_question_response.response_text,
-                user_feedback_prompt=user_feedback_prompt
-            )
-        else:
-            prompt = get_chat_conversation_prompt_v3(
-                test_title=test.title,
-                test_description=test.description,
-                question=question.question,
-                question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text,
                 user_feedback_prompt=user_feedback_prompt)
 
-
-    feedback_text = ''
-    raw_text = ''
-    response_text = test_question_response.response_text
-    go_for_feedback = True
-
-    words = word_tokenize(test_question_response.response_text)
-
-    if len(words) <= 10 :
-        feedback_text = "No feedback can be generated because of too low response length"
-        go_for_feedback = False
-    
-    if go_for_feedback:
-        anthropic_feedback = anthropic_completion(prompt, 400)
-
-        if not anthropic_feedback:
-
-            max_retry = 3
-
-            while max_retry > 0:
-                num_tokens = num_tokens_for_prompt(response_text)
-                sentences = sent_tokenize(response_text)
-                if num_tokens < 1500:
-                    break
-                else:
-                    response_text = " ".join(sentences[:-1])
-                    if test.is_email_type:
-                        prompt = get_email_type_prompt(
-                            test_title=test.title,
-                            test_description=test.description,
-                            question=question.question,
-                            candidate_reply=test_question_response.response_text,
-                            user_feedback_prompt=user_feedback_prompt)
-
-                    else:
-                        if question.gpt_prompt_override or test.gpt_prompt_override:
-                            prompt = get_overridden_prompt(
-                                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question.question,
-                                question_context=question.subjective_answer,
-                                candidate_reply=response_text,
-                                user_feedback_prompt=user_feedback_prompt
-                            )
-                        else:
-                            prompt = get_chat_conversation_prompt_v3(
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question.question,
-                                question_context=question.subjective_answer,
-                                candidate_reply=response_text,
-                                user_feedback_prompt=user_feedback_prompt)
-
-                max_retry -= 1
-
-            gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-            if not gpt_feedback.text:
-                feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
-            else:
-                feedback_text = gpt_feedback.text
-                raw_text = gpt_feedback.raw
-
         else:
-            feedback_text = anthropic_feedback
+            if question.gpt_prompt_override or test.gpt_prompt_override:
+                prompt = get_overridden_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    question_context=question.subjective_answer,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt
+                )
+            else:
+                prompt = get_chat_conversation_prompt_v3(
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    question_context=question.subjective_answer,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt)
 
-    test_question_response.metadata = {
-        "gpt": {
-            "prompt": prompt,
-            "response": {
-                "raw": raw_text,
-                "text": feedback_text,
+
+        feedback_text = ''
+        raw_text = ''
+        response_text = test_question_response.response_text
+        go_for_feedback = True
+
+        words = word_tokenize(test_question_response.response_text)
+
+        if len(words) <= 10 :
+            feedback_text = "No feedback can be generated because of too low response length"
+            go_for_feedback = False
+        
+        if go_for_feedback:
+            start = time.time()
+            for i  in range(3):
+                anthropic_feedback = anthropic_completion(prompt, 1200)
+
+                if not anthropic_feedback:
+
+                    max_retry = 3
+
+                    while max_retry > 0:
+                        num_tokens = num_tokens_for_prompt(response_text)
+                        sentences = sent_tokenize(response_text)
+                        if num_tokens < 1500:
+                            break
+                        else:
+                            response_text = " ".join(sentences[:-1])
+                            if test.is_email_type:
+                                prompt = get_email_type_prompt(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt=user_feedback_prompt)
+
+                            else:
+                                if question.gpt_prompt_override or test.gpt_prompt_override:
+                                    prompt = get_overridden_prompt(
+                                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                        test_title=test.title,
+                                        test_description=test.description,
+                                        question=question.question,
+                                        question_context=question.subjective_answer,
+                                        candidate_reply=response_text,
+                                        user_feedback_prompt=user_feedback_prompt
+                                    )
+                                else:
+                                    prompt = get_chat_conversation_prompt_v3(
+                                        test_title=test.title,
+                                        test_description=test.description,
+                                        question=question.question,
+                                        question_context=question.subjective_answer,
+                                        candidate_reply=response_text,
+                                        user_feedback_prompt=user_feedback_prompt)
+
+                        max_retry -= 1
+
+                    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                    if not gpt_feedback.text:
+                        try:
+                            gpt_feedback = text_bison_compeletion(prompt)
+                        except Exception as e:
+                            logger.exception(e)
+                            feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                    else:
+                        feedback_text = gpt_feedback.text
+                        raw_text = gpt_feedback.raw
+
+                else:
+                    feedback_text = anthropic_feedback
+
+                if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+                    continue
+
+                end = time.time()
+                logger.info(f"######################## _process_response: fetching FEEDBACK  took {end - start:.2f} ########################")
+                break
+            
+
+        test_question_response.metadata = {
+            "gpt": {
+                "prompt": prompt,
+                "response": {
+                    "raw": raw_text,
+                    "text": feedback_text,
+                }
             }
         }
-    }
 
-    test_question_response.feedback_text = feedback_text
+        feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+        test_question_response.feedback_text = feedback_text
+        updated_fields.append("feedback_text")
+        updated_fields.append("metadata")
+
+
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
-        update_fields=["metadata", "feedback_text", "evaluation_status", "updated"])
+        update_fields=updated_fields)
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
-    required_skills = question.key_learning_skills.split(",")
-    required_skills = [skill.strip() for skill in required_skills if skill]
-    required_skills = [skill.lower() for skill in required_skills if skill]
+    # required_skills = question.key_learning_skills.split(",")
+    # required_skills = [skill.strip() for skill in required_skills if skill]
+    # required_skills = [skill.lower() for skill in required_skills if skill]
 
-    skills_rating = {}
+    # skills_rating = {}
 
-    skills_rating, is_evaluated = evaluate_response(
-        test_question_response,
-        question.question,
-        test_question_response.response_text,
-        required_skills,
-        test.description,
-        test.title,
-        test.test_code,
-        test_attempt_session.uid
-    )
-    
+    # skills_rating, is_evaluated = evaluate_response(
+    #     test_question_response,
+    #     question.question,
+    #     test_question_response.response_text,
+    #     required_skills,
+    #     test.description,
+    #     test.title,
+    #     test.test_code,
+    #     test_attempt_session.uid
+    # )
+
+
+    # instead of calculating relevace from skill we are now getting it 
+    # from another prompt and skill for individual qustion is deprecated
+    # because now we are cal skill_ratings at the end of conversation
+
+    relevancy_score = {}
+    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                        question.question,
+                                        test_question_response.response_text,
+                                        test.description,
+                                        test.title,
+                                        )
 
     if not is_evaluated:
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
         # delete this response
         delete_test_response(test_question_response)
-        logger.error("failed to get skills_rating json, got %s", skills_rating)
-        raise ValueError("failed to get skills_rating json for %s",
+        logger.error("failed to get relevancy_score, got %s", relevancy_score)
+        raise ValueError("failed to get relevancy_score json for %s",
                          test_question_response.uid)
 
     relevance = 1
-    if "relevance" in skills_rating:
-        relevance = int(skills_rating['relevance'])  # taking relevance and deleting it form json
-        del skills_rating['relevance']
+    if "relevance" in relevancy_score:
+        relevance = int(relevancy_score['relevance'])  # taking relevance and deleting it form json
  
 
-    # Removing the skills which are not required in the question
-    _to_be_deleted = []
-    for key in skills_rating.keys():
-        if key not in required_skills:
-            _to_be_deleted.append(key)
+    # # Removing the skills which are not required in the question
+    # _to_be_deleted = []
+    # for key in skills_rating.keys():
+    #     if key not in required_skills:
+    #         _to_be_deleted.append(key)
 
-    for key in _to_be_deleted:
-        del skills_rating[key]
+    # for key in _to_be_deleted:
+    #     del skills_rating[key]
 
-    # If skill rating score is greater than 8.5 then we are setting it to 8.5
-    for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
-        elif skills_rating[skill] < 1.5:
-            skills_rating[skill] = 1.5
+    # # If skill rating score is greater than 8.5 then we are setting it to 8.5
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 8.5:
+    #         skills_rating[skill] = 8.5
+    #     elif skills_rating[skill] < 1.5:
+    #         skills_rating[skill] = 1.5
 
-    # Calculating the average score of the response
-    response_avg_score = 0
-    skills_count = 0
-    for skill in skills_rating:
-        if isinstance(skills_rating[skill], str):
-            continue
+    # # Calculating the average score of the response
+    # response_avg_score = 0
+    # skills_count = 0
+    # for skill in skills_rating:
+    #     if isinstance(skills_rating[skill], str):
+    #         continue
 
-        response_avg_score += skills_rating[skill] or random.randint(3, 7)
-        skills_count += 1
+    #     response_avg_score += skills_rating[skill] or random.randint(3, 7)
+    #     skills_count += 1
 
-    if skills_count == 0:
-        response_avg_score = 0
-    else:
-        response_avg_score = response_avg_score / skills_count
+    # if skills_count == 0:
+    #     response_avg_score = 0
+    # else:
+    #     response_avg_score = response_avg_score / skills_count
 
-    # Save skills rating and average score in TestQuestionResponse
-    test_question_response.skills_rating = skills_rating
-    test_question_response.avg_score = response_avg_score
+    # # Save skills rating and average score in TestQuestionResponse
+    # test_question_response.skills_rating = skills_rating
+    # test_question_response.avg_score = response_avg_score
     test_question_response.relevance = relevance
-    test_question_response.save(update_fields=["skills_rating", "avg_score","relevance"])
+    test_question_response.save(update_fields=["relevance"])
 
     # def __calc_score_in_different_thread():
     #     # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -763,13 +849,13 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         calc_score(test_attempt_session, test)
         report_url = generate_session_report_link(test_attempt_session, test)
 
-        if test.email_address_list:
-            send_report_link_to_email(
-                test, test_attempt_session, report_url, is_whatsapp)
+        # if test.email_address_list:
+        #     send_report_link_to_email(
+        #         test, test_attempt_session, report_url, is_whatsapp)
 
-        if is_whatsapp and test.test_type != TestTypeChoices.interview:
-            send_report_link_to_whatsapp(
-                test, test_attempt_session, report_url)
+        # if is_whatsapp and test.test_type != TestTypeChoices.interview:
+        #     send_report_link_to_whatsapp(
+        #         test, test_attempt_session, report_url)
 
     return test_question_response
 
@@ -795,19 +881,180 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
     update_fields = []
+    print("########################## process_orchestrated_test_response_by_user: test.interaction_mode",test.interaction_mode)
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            # test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
-            #     test_question_response.response_file)
-            test_question_response.response_text = gpt_wishper_api(
-                test_question_response.response_file)
+            # try:
+            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #         test_question_response.response_file)
+            # except:
+            start = time.time()
+            transcript_length = 0
+            try:
+                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+                transcript_length = len(transcript.split())
+                logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            if transcript_length > 10:
+                start = time.time()
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met
+                        end = time.time()
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                        break
+                    except Exception as e:
+                        logger.exception(e)
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                            break
+
+                    
+            else:
+                # HACK sane default values
+                    test_question_response.speech_metrics = default_metrics
+
+            update_fields.append("speech_metrics")
+
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            test_question_response.response_text = gpt_wishper_api(
-                test_question_response.response_file)
+            start = time.time()
+            transcript_length = 0
+            try:
+                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+                transcript_length = len(transcript.split())
+                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            if transcript_length > 10:
+                start = time.time()
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met_video
+                        end = time.time()
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
+                        break
+
+                    except Exception as e:
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
+                            break
+
+            else:
+                test_question_response.speech_metrics = default_metrics
+                
+            update_fields.append("speech_metrics")
+
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        start = time.time()
+        logger.info(f"***************question number is {question.question_number}**************")
+        start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+        if question.question_number == 1 and start_with_user_message is not None:
+            question_text = test.description
+        elif question.question_number == 1:
+            question_text = test.orchestrated_conversation_details.get('initial_messages')[0]
+        else:
+            question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
+        logger.info(f"***************question text is {question_text}**************")
+
+        if start_with_user_message is not None:
+            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question_text,
+                                question_context=question.subjective_answer,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt="")
+        
+        anthropic_feedback = anthropic_completion(prompt, 1000)
+        test_question_response.feedback_text = anthropic_feedback
+        update_fields.append("feedback_text")
+        logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
+
+        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                            question_text,
+                                            test_question_response.response_text,
+                                            test.description,
+                                            test.title,
+                                            )
+
+        relevance = 1
+        if "relevance" in relevancy_score:
+            relevance = int(relevancy_score['relevance'])
+
+        test_question_response.relevance = relevance
+        update_fields.append("relevance")
+
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+        kls = anthropic_completion(kls_prompt, 50)
+
+        klp_prompt = f"""
+            TestTitle: {test.title}
+            Question: {question_text}
+
+            For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+            """
+
+        logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+        klp = anthropic_completion(klp_prompt, 50)
+        
+        test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+        update_fields.append("kls_klp")
+        logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        end = time.time()
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
 
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -820,19 +1067,26 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                                           deleted=0).count()
 
     if total_questions == total_responses:
+        start = time.time()
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
-        report_url = generate_meeting_report_link(test_attempt_session)
-        if test.email_address_list:
-            send_report_link_to_email_orch(test,test_attempt_session,report_url)
+
+        if test.test_type == TestTypeChoices.dynamic_discussion:
+            report_url = generate_dynamic_discussion_report_link(test_attempt_session)
+        else:
+            report_url = generate_meeting_report_link(test_attempt_session)
+        # if test.email_address_list:
+        #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
+        end = time.time()
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for 'total_questions == total_responses:' took {end - start:.2f} #######################")
 
     return test_question_response
 
 
 @timeit
-def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse):
+def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
     """
        bot_llm response is always a text;; ignore test mode or question response type
    """
@@ -863,11 +1117,19 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     test_attempt_session.save(
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
+    start = time.time()
     prompt = get_orchestrated_test_conversation_prompt(test=test,
                                                        test_attempt_session=test_attempt_session,
                                                        question=question)
+    logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
-    bot_llm_response_text = anthropic_completion(prompt, 300)
+    if is_whatsapp:
+        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=500).text
+    else:
+        bot_llm_response_text = anthropic_completion(prompt, 300)
+
+    end = time.time()
+    logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
 
     if not bot_llm_response_text:
         # delete this response
@@ -890,6 +1152,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     return test_question_response
 
 
+@timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
@@ -912,6 +1175,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
+
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
         if skills_rating[skill] > 8.5:
@@ -931,16 +1195,81 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     avg_score = test_score / len(skills_rating.keys())
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
+    
     updated_fields = ["culture_skills_rating",
                       "meeting_summary", "areas_of_improvement","test_score","avg_score","finished_at","updated"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
 
+    # if skills_explanation:
+    #     test_attempt_session.skills_explanation = skills_explanation
+    #     updated_fields.append("skills_explanation")
+
+    # if culture_skills_explanation:
+    #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
+    #     updated_fields.append("culture_skills_explanation")
+
+    responses = TestQuestionResponse.objects.filter(
+        test_attempt_session_id=test_attempt_session.uid,
+        responder_type='user',
+        deleted=0
+    )
+    feedbacks = ''
+    speech_score = {}
+    has_speech_metric = False
+    for response in responses:
+        if response.feedback_text:
+            feedbacks += response.feedback_text + '\n'
+
+        if response.speech_metrics:
+            has_speech_metric = True
+            # get speech metrics from this response
+            response_speech_metrics = response.speech_metrics
+            # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
+            # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+
+            try:
+                for key,value in response_speech_metrics.items():
+                    if isinstance(value, str) and "%" in value:
+                        try: 
+                            value = float(value.replace("%", ""))
+                        except:
+                            pass
+                            
+                    if key in speech_score:
+                        speech_score[key] += value or random.randint(3, 7)
+                    else:
+                        speech_score[key] = value or random.randint(3, 7)
+
+            except Exception as e :
+                has_speech_metric = False
+                logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
+
+    # calculating feedback_summary and skill summary
+    # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
+    # if len(skills_summary) > 0:
+    #     test_attempt_session.culture_and_skill_summary = skills_summary
+    #     updated_fields.append("culture_and_skill_summary")
+    
+
+    # feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    # if len(feedbacks_summary) > 0:
+    #     test_attempt_session.feedback_summary = feedbacks_summary
+    #     updated_fields.append("feedback_summary")
+
+
+    start = time.time()
     meeting_summary = get_group_discussion_summary(
         objective, chat_conversation)
     areas_of_improvement = get_areas_of_improvement(
         objective, chat_conversation, user_persona)
+    end = time.time()
+    logger.info(f"####################### calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f} #######################")
+    
+    if has_speech_metric:
+        test_attempt_session.speech_score = speech_score
+        updated_fields.append("speech_score")
 
     test_attempt_session.meeting_summary = meeting_summary
     test_attempt_session.areas_of_improvement = areas_of_improvement
@@ -953,6 +1282,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     return test_attempt_session
 
 
+@timeit
 def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
     test_attempt_session_id = test_attempt_session.uid
 
@@ -976,20 +1306,110 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         test_attempt_session, user_persona, is_report=True)
 
     chat_conversation_with_details = []
+    flashcards = []
+    start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    speech_metrics_avg = {}
+    response_relevance = True
 
-    for message in chat_conversation:
-        user_name, message = message.split(":", 1)
-        is_bot = False
 
-        if user_name.strip().lower() != user_persona.strip().lower():
-            is_bot = True
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        start = time.time()
+        all_speech_metrics = []
+        data = {}
+        mindmap_data = {}
+        mindmap_contents = []
+        count = 1
+        test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                deleted=0).order_by('id')
+        for participant_response in test_responses:
+            relevance = participant_response.relevance
+            if not relevance :
+                response_relevance = False
+                break
 
-        chat_conversation_with_details.append(
-            {"user_name": user_name, "message": message, "is_bot": is_bot})
+
+        test_data = []
+        for test_response in test_responses:
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
+        logger.info({"************test_responses":test_data})
+        for test_response in test_responses:
+            if test_response.responder_type == QuestionForChoices.user:
+                if count == 1:
+                    if start_with_user_message is not None:
+                        data[f"question"] = test.description
+                    else:
+                        data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
+                data["response"] = test_response.response_text.strip('" \'')
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
+                key_learning_point = test_response.kls_klp.get('klp')
+                flashcards.append({'text':key_learning_point})
+                chat_conversation_with_details.append(data)
+                count += 1
+                mindmap_contents.append(
+                    {
+                        "question":data["question"],
+                        "ideal_answer": key_learning_point,
+                        "learnings": test_response.kls_klp.get('kls').strip().split(','),
+                    }
+                )
+                data = {}
+                
+            else:
+                data[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
+
+            
+            if test_response.speech_metrics:
+                speech_metrics = test_response.speech_metrics
+
+                # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
+                speech_metrics = {k: v for k, v in speech_metrics.items(
+                ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+
+                # Convert the Keys to human readable format
+                speech_metrics = {k.replace("_", " ").title(
+                ): v for k, v in speech_metrics.items()}
+
+                # Add the speech_metrics to the list of all_speech_metrics
+                all_speech_metrics.append(speech_metrics)
+
+        # Get the averaged speech metrics for the test attempt session
+        for metric in all_speech_metrics:
+            for k, v in metric.items():
+                if isinstance(v, str) and "%" in v:
+                    try:
+                        v = float(v.replace("%", ""))
+                    except:
+                        pass
+
+                if k in speech_metrics_avg:
+                    speech_metrics_avg[k] += v
+                else:
+                    speech_metrics_avg[k] = v
+
+        if test_responses[0].speech_metrics:
+            for k, v in speech_metrics_avg.items():
+                speech_metrics_avg[k] = v / len(test_responses)
+
+        end = time.time()
+        logger.info(f"####################### get_meeting_report_from_test_attempt_session: LOGIC for dynamic discussion REPORT took {end - start:.2f} #######################")
+
+
+    else:
+        for message in chat_conversation:
+            user_name, message = message.split(":", 1)
+            is_bot = False
+
+            if user_name.strip().lower() != user_persona.strip().lower():
+                is_bot = True
+
+            chat_conversation_with_details.append(
+                {"user_name": user_name, "message": message, "is_bot": is_bot})
 
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
+    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()}  # to strip extra qoutes from key
 
     data = {
         "participant_name": participant_name,
@@ -999,38 +1419,77 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "chat_conversation": chat_conversation_with_details,
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
-        "culture_skills": culture_skills
+        "culture_skills": culture_skills,
+        # "skills_explanation": update_skill_name(test_attempt_session.skills_explanation),
+        # "culture_skills_explanation":test_attempt_session.culture_skills_explanation,
+        "feedback_summary" : test_attempt_session.feedback_summary,
+        "skill_summary" : test_attempt_session.culture_and_skill_summary,
+        "start_with_user": False if start_with_user_message is None else True,
+        "speech_metrics_avg" : speech_metrics_avg,
+        "response_relevance" : response_relevance
     }
 
+    if data["start_with_user"]:
+        data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
+        data["candidate_type"] = test.candidate_type
+
+    # skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    skill_exp = test_attempt_session.skills_explanation
+
+    if skill_exp:
+        if len(test_attempt_session.skills_rating) == len(skill_exp):
+            data['skills_explanation'] = skill_exp
+        else:
+            data['skills_explanation'] = None
+
+    culture_skill_exp = test_attempt_session.culture_skills_explanation
+    if culture_skill_exp:
+        if len(test_attempt_session.culture_skills_rating) == len(culture_skill_exp):
+            data['culture_skills_explanation'] = culture_skill_exp
+        else:
+            data['culture_skills_explanation'] = None
+
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        data['flashcards'] = flashcards
+        data['mindmap_data'] = {
+            "test_name": test.title,
+            "content": mindmap_contents
+        }
+        
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
+        skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
 
-        updated_skills_ratings = {}
-        existing_skills = []
-        for skill, values in skills_rating.items():
-            for old , new in updated_skills.items():
-                if skill.strip().capitalize() == old.strip().capitalize():
-                    updated_skills_ratings[new.strip()] = values
-                    existing_skills.append(skill)
-                else:
-                    updated_skills_ratings[skill] = values
+        # updated_skills_ratings = {}
+        # existing_skills = []
+        # for skill, values in skills_rating.items():
+        #     for old , new in updated_skills.items():
+        #         if skill.strip().capitalize() == old.strip().capitalize():
+        #             updated_skills_ratings[new.strip()] = values
+        #             existing_skills.append(skill)
+        #         else:
+        #             updated_skills_ratings[skill] = values
 
-        for i  in existing_skills:
-            del updated_skills_ratings[i]
+        # for i  in existing_skills:
+        #     del updated_skills_ratings[i]
         
-        data["skills_rating"] = updated_skills_ratings
+        # data["skills_rating"] = update_skill_name(skills_rating)
+        data["skills_rating"] = skills_rating
 
     return data
 
 
+@timeit
 def get_group_discussion_summary(objective: str, chat_conversation: str):
     prompt = f"""
+    \n\nHuman:
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
     Please provide a summary of the meeting in 100 words.
     NOTE: Please do NOT provide any introductions, conclusion or text like "Here is your summary". 
     NOTE: Please only provide the summary of the meeting.
+    \n\nAssistant:
     """
 
     cnt = 0
@@ -1050,11 +1509,13 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
     return summary
 
 
+@timeit
 def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
     areas_of_improvement = ["Sticking to Agenda",
                             "Driving to decision", "Sticking to Positive behavior"]
 
     prompt = f"""
+    \n\nHuman:
     [Objective of Discussion]: {objective};
     [Conversation]: {chat_conversation};
 
@@ -1072,6 +1533,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 
     Sticking to Positive behavior
     <paragraph>
+    \n\nAssistant:
     """
 
     cnt = 0
@@ -1093,6 +1555,7 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     return res
 
 
+@timeit
 def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str,
                                            is_report: bool = False):
     current_conversation = ''
@@ -1121,6 +1584,7 @@ def calc_score(test_attempt_session: TestAttemptSession, test: Test):
         return _calc_score(test_attempt_session, test)
 
 
+@timeit
 def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     """
     This function calculates the score for the test attempt session and update the skills_rating field in this object
@@ -1141,14 +1605,15 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     skills_count = {}
     attempted_count = 0
     has_speech_metric = False
+    feedbacks = ''
 
     # For calculating average score of the test
     avg_score = 0
     response_count = 0
 
     for response in responses:
-        if response.skills_rating is None:
-            continue
+        # if response.skills_rating is None:
+        #     continue
 
         # # get skills rating from this response
         # response_skills_rating = response.skills_rating
@@ -1181,6 +1646,15 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
             except Exception as e :
                 has_speech_metric = False
                 logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
+
+
+        # joining every feedback for summary
+
+        if response.feedback_text:
+            feedbacks += response.feedback_text + "\n"
+
+
+
 
         # for skill in response_skills_rating:
         #     if skill in skills_rating:
@@ -1249,6 +1723,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     else:
         avg_score = avg_score / response_count
 
+    logger.info({"***************************skills_rating_score":skills_rating_score})
 
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
@@ -1256,10 +1731,14 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score, avg_score, participant_id, test_attempt_session)
     culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
 
+    logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
+
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
 
     # update skills_rating field in test_attempt_session
+    skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
+    
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
     test_attempt_session.avg_score = avg_score
@@ -1274,11 +1753,36 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if has_speech_metric:
         updated_fields.append("speech_score")
 
+    # if skills_explanation is not None:
+    #     test_attempt_session.skills_explanation = skills_explanation
+    #     updated_fields.append("skills_explanation")
+
     if culture_skills_rating is not None:
+        culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+        
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
 
+    # if culture_skills_explanation is not None:
+    #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
+    #     updated_fields.append("culture_skills_explanation")
+
+
+
+    # calculating feedback_summary and skill summary
+    # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating_score)
+    # if len(skills_summary) > 0:
+    #     test_attempt_session.culture_and_skill_summary = skills_summary
+    #     updated_fields.append("culture_and_skill_summary")
+    
+
+    # feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    # if len(feedbacks_summary) > 0:
+    #     test_attempt_session.feedback_summary = feedbacks_summary
+    #     updated_fields.append("feedback_summary")
+
     test_attempt_session.save(update_fields=updated_fields)
+
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
     skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
@@ -1320,6 +1824,7 @@ def round_off_rating(number):
     return round(number * 2) / 2
 
 
+@timeit
 def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
     # Get number of interactions for that candidate which are completed but are not the current one
     total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
@@ -1370,6 +1875,7 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     return skills_rating, avg_score
 
 
+@timeit
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -1391,6 +1897,7 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
     return report_url
 
+@timeit
 def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
@@ -1412,6 +1919,29 @@ def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
     return report_url
 
 
+@timeit
+def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSession):
+    if test_attempt_session.report_url:
+        return test_attempt_session.report_url
+
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.DYNAMIC_DISCUSSOIN_REPORT}/{refresh_token}/?test_attempt_session_id={test_attempt_session_id}&backend={BACKEND}"
+
+    test_attempt_session.report_url = report_url
+    test_attempt_session.save(update_fields=["report_url"])
+
+    return report_url
+
+
+@timeit
 def update_skills_rating_if_same_scores(skills_rating):
     total_skills = len(skills_rating)
     scores_frequency = {}
@@ -1456,6 +1986,8 @@ def update_skills_rating_if_same_scores(skills_rating):
     return skills_rating
 
 
+
+@timeit
 def update_culture_skills_if_same_scores(culture_skills_rating):
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -1498,6 +2030,7 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
     return culture_skills_rating
 
 
+@timeit
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
@@ -1555,6 +2088,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
 
 
+@timeit
 def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
     if test_attempt_session.is_report_sent_to_email:
@@ -1612,6 +2146,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
 
 
+@timeit
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
     if test_attempt_session.is_report_sent_to_whatsapp:
         return
@@ -1651,6 +2186,8 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     test_attempt_session.save(update_fields=["is_report_sent_to_whatsapp"])
 
 
+
+@timeit
 def calc_culture_skills_rating(test_attempt_session, responses, test):
     culture_skills_rating = {}
 
@@ -1687,6 +2224,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     return culture_skills_rating
 
+
+@timeit
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
     skills_rating = {}
 
@@ -1716,7 +2255,8 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     return skills_rating
 
-    
+
+@timeit
 def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description: str,
                                     question: str,
@@ -1726,6 +2266,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
     if question_context:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -1733,19 +2274,25 @@ def get_chat_conversation_prompt_v3(test_title: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            1) Key insights to improve the response - 50 words.                                    
-            2) What went well ? - 50 words minimum
-            3) What did not work ? - 50 words minimum 
-            4) A sample candidate answer - 50 words minimum
-            5) A counter intuitive insight - 10 words minimum
+            - Key insights to improve the response
 
-            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            - What went well ?
+
+            - What did not work ?
+
+            - A sample candidate answer
+
+            - A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -1757,27 +2304,35 @@ def get_chat_conversation_prompt_v3(test_title: str,
     else:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
             Candidate answer:  ${candidate_reply}
             
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            1) Key insights to improve the response - 50 words.                                    
-            2) What went well ? - 50 words minimum
-            3) What did not work ? - 50 words minimum 
-            4) A sample candidate answer - 50 words minimum
-            5) A counter intuitive insight - 10 words minimum
+            - Key insights to improve the response
 
-            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            - What went well ?
+
+            - What did not work ?
+
+            - A sample candidate answer
+
+            - A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
+        # log template for debugging
         return template.substitute(test_title=test_title,
                                    test_description=test_description,
                                    question=question,
@@ -1785,6 +2340,530 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                    user_feedback_prompt=user_feedback_prompt)
 
 
+@timeit
+def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
+    match scenareo:
+        case 'manager-team':
+            if question_number == 1:
+                template = Template(
+                """
+                    \n\nHuman:
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Manager Comment: ${manager_context}
+
+                    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
+
+                    "Feedback for the manager comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Manager Comment" not on the "Test Description."
+
+                    NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Manager comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            manager_context=comment)
+
+            template = Template(
+            '''
+            \n\nHuman:
+            Title: ${title}.
+
+            Test Description: ${description}
+
+            Bot response : ${bot_response}
+
+            Manager Comment : ${manager_context}
+
+            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
+
+            "Feedback for the manager comments/responses : "
+
+            Key insights to improve the response
+
+            What went well ?
+
+            What did not work ?
+
+            A sample candidate answer
+
+            A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+            NOTE: Only provide feedback on the "Manager Comment". 
+
+            NOTE : NEVER give any feedback on the "Bot response"
+
+            NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
+
+            NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
+
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+
+            NOTE : If the "Manager Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Check if the response provided by the Manager is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+            NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+            NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+            \n\nAssistant:
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        manager_context=comment, bot_response=bot_response)
+            
+        case 'team-manager':
+            if question_number == 1:
+                template = Template(
+                """
+                    \n\nHuman:
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Team Member Comment: ${team_comment}
+
+                    Please provide communication and subject matter feedback for a team member who has provided a "Team Member Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+
+                    "Feedback for the team member's comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Team Member Comment" not on the "Test Description."
+
+                    NOTE : If the Team Member Comment is a question provide feedback on how the team member can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team members answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            team_comment=comment)
+
+            template = Template(
+            '''
+                \n\nHuman:
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response : ${bot_response}
+
+                Team Member Comment : ${team_comment}
+
+                Please provide communication and subject matter feedback for a team member who has provided a "Team Member". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+
+                "Feedback for the team member comments/responses : "
+
+                Key insights to improve the response
+
+                What went well ?
+
+                What did not work ?
+
+                A sample candidate answer
+
+                A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Team Member". 
+
+                NOTE : NEVER give any feedback on the "Bot response"
+
+                NOTE : If the Team Member Comment is a question, provide feedback on how the team member can ask better questions.
+
+                NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
+
+                NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
+
+                NOTE : If the "Team Member Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE : Check if the response provided by the team member is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                \n\nAssistant:
+
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        team_comment=comment, bot_response=bot_response)
+        case 'sales-customer':
+            if question_number == 1:
+                template = Template(
+                """
+                    \n\nHuman:
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Sales rep Comment: ${sales_comment}
+
+                    Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+
+                    "Feedback for the Sales rep comments/responses : "
+
+                    Key insights to improve the response
+
+                    What went well ?
+
+                    What did not work ?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Sales rep Comment" not on the "Test Description."
+
+                    NOTE : If the Sales rep Comment is a question provide feedback on how the Sales rep can ask better questions.
+
+                    NOTE : A sample candidate answer is a sample Sales rep comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep’s answer in "Key insights to improve the response."
+
+                    NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE : Never start with any kind of introductory sentence.
+
+                    NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            sales_comment=comment)
+
+            template = Template(
+            '''
+                \n\nHuman:
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response : ${bot_response}
+
+                Sales rep Comment : ${sales_comment}
+
+                Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+
+                "Feedback for the Sales rep comments/responses : "
+
+                Key insights to improve the response
+
+                What went well ?
+
+                What did not work ?
+
+                A sample candidate answer
+
+                A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Sales rep".
+
+                NOTE : NEVER give any feedback on the "Bot response"
+
+                NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
+
+                NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
+
+                NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
+
+                NOTE : If the "Sales rep Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE : Check if the response provided by the Sales rep is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                \n\nAssistant:
+
+            ''')
+
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        sales_comment=comment, bot_response=bot_response)
+        case 'customer-sales':
+            return "something"
+        case default:
+            logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
+            return "nothing"
+
+@timeit
+def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,current_conversation, question_number):
+    match scenareo:
+        case 'manager-team':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+                current_conversation: ${current_conversation}
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'team-manager':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                \n\nHuman:
+                 main_context: ${test_main_context}
+
+                current_conversation: ${current_conversation}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'sales-customer':
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                current_conversation: ${current_conversation}
+
+                comment: ${user_comment}
+
+                Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
+        case 'customer-sales':
+            return "something"
+        case default:
+            logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
+            return "nothing"
+
+
+@timeit
 def get_orchestrated_test_conversation_prompt(test: Test,
                                               test_attempt_session: TestAttemptSession,
                                               question: TestQuestion):
@@ -1794,12 +2873,18 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         "test_user_persona")
     initial_messages = test.orchestrated_conversation_details.get(
         "initial_messages")
+    start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
 
     current_conversation = ''
 
-    for message in initial_messages:
-        conv_text = message
-        current_conversation = current_conversation + "\n" + conv_text
+    if start_with_user_message is None:
+        for message in initial_messages:
+            conv_text = message
+            current_conversation = current_conversation + "\n" + conv_text
+    # else:
+    #     current_conversation += f"{test.candidate_type}:" + TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+    #                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+    #                                                             deleted=0).order_by('id').first().response_text
 
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                              evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
@@ -1812,25 +2897,120 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         current_conversation = current_conversation + "\n" + conv_text
 
     question_text = question.question
+    
+    logger.info({"******************************conversation":current_conversation, "question number is": question.question_number,
+                "question_text": question_text})
 
-    template = Template(
-        """
-        ${test_main_context}
+    if test.test_type == TestTypeChoices.dynamic_discussion and start_with_user_message is not None:
+        return get_user_first_question_promt(start_with_user_message, test, test_attempt_session.uid, current_conversation, question.question_number)
         
-        ${current_conversation}
-        
-        ${question_text}
+        # logger.info("******************************************************************************* and now we are good")
+        # # template = Template(
+        # #         '''
+        # #         main_context: ${test_main_context}
+        # #         comment: ${user_comment}
 
-        NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
-        NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
-        """
-    )
+        # #         NOTE: Based on the candidate comment and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+        # #         NOTE: The question should not be more than 30 words.
+
+        # #         NOTE: Do not show the word count.
+
+        # #         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+        # #         '''
+        # #     )
+
+        # # return template.substitute(test_main_context=test_main_context,
+        # #                             user_comment=user_comment.response_text)
+
+        # if question.question_number == 2:
+        #     user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+        #                                                     responder_type=QuestionForChoices.user,
+        #                                                     deleted=0).first()
+        #     template = Template(
+        #     '''
+        #     main_context: ${test_main_context}
+
+        #     comment: ${user_comment}
+
+        #     Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+        #     NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+        #     NOTE: The response should not be more than 25 words.
+
+        #     NOTE: Do not show the word count.
+
+        #     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+        #     '''
+        #     )
+
+        #     return template.substitute(test_main_context=test.description,
+        #                             user_comment=user_comment.response_text)
+        # else:
+        #     user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+        #                                                         evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+        #                                                         deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+        #     template = Template(
+        #     '''
+        #     main_context: ${test_main_context}
+        #     current_conversation: ${current_conversation}
+        #     comment: ${user_comment}
+
+        #     Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+
+        #     NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+        #     NOTE: The response should not be more than 25 words.
+
+        #     NOTE: Do not show the word count.
+
+        #     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+        #     '''
+        #     )
+
+        #     return template.substitute(test_main_context=test.description,
+        #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
+    
+    if test.test_type == TestTypeChoices.dynamic_discussion:
+        template = Template(
+                '''
+                \n\nHuman:
+                ${test_main_context}
+                ${current_conversation}
+                ${question_text}
+
+                NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+                NOTE: The question should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                \n\nAssistant:
+                '''
+            )
+    else:
+        template = Template(
+            """
+            \n\nHuman:
+            ${test_main_context}
+            
+            ${current_conversation}
+            
+            ${question_text}
+
+            NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
+            NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
+            \n\nAssistant:
+            """
+        )
     return template.substitute(test_main_context=test_main_context,
                                current_conversation=current_conversation,
                                question_text=question_text,
                                question_for=question.question_for)
 
-
+@timeit
 def get_email_type_prompt(test_title,
                           test_description,
                           question,
@@ -1838,6 +3018,7 @@ def get_email_type_prompt(test_title,
                           user_feedback_prompt):
     template = Template(
         """
+        \n\nHuman:
         Title: ${test_title}. 
         Test Description: ${test_description}
         Customer question:  ${question} 
@@ -1846,19 +3027,21 @@ def get_email_type_prompt(test_title,
         Please provide feedback on this email. Please do not add any introductory sentence and come to the point directly. Do not include any response to the email. The feedback should be directed to the writer of the email. Please add a sample re-written email.
 
         Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-        1) What went well ? - 50 words minimum
-        2) What could be improved ? - 50 words minimum 
-        3) Some new ideas to reframe the context - 50 words minimum
-        3) A sample re-written email. - 80 words minimum
-        4) A counter intuitive insight - 10 words minimum
+        - What went well ?
+        - What could be improved ?
+        - Some new ideas to reframe the context 
+        - A sample re-written email.
+        - A counter intuitive insight 
 
-        NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+        NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
         NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
         NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
+        NOTE : Minimum response length is 300 words. Always adhere to the same.
         NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
         ${user_feedback_prompt}
+        \n\nAssistant:
         """
     )
 
@@ -1868,7 +3051,7 @@ def get_email_type_prompt(test_title,
                                candidate_reply=candidate_reply,
                                user_feedback_prompt=user_feedback_prompt)
 
-
+@timeit
 def get_overridden_prompt(prompt_template: str,
                           test_title: str,
                           test_description: str,
@@ -1879,6 +3062,7 @@ def get_overridden_prompt(prompt_template: str,
     if question_context:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -1888,19 +3072,25 @@ def get_overridden_prompt(prompt_template: str,
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             The feedback should be structured in the following format: 
-            1) Key insights to improve the response - 50 words.                                    
-            2) What went well ? - 50 words minimum
-            3) What did not work ? - 50 words minimum 
-            4) A sample candidate answer - 50 words minimum
-            5) A counter intuitive insight - 10 words minimum
+            - Key insights to improve the response
 
-            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            - What went well ?
+
+            - What did not work ?
+
+            - A sample candidate answer
+
+            - A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -1913,6 +3103,7 @@ def get_overridden_prompt(prompt_template: str,
     else:
         template = Template(
             """
+            \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
@@ -1920,19 +3111,25 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            1) Key insights to improve the response - 50 words.                                    
-            2) What went well ? - 50 words minimum
-            3) What did not work ? - 50 words minimum 
-            4) A sample candidate answer - 50 words minimum
-            5) A counter intuitive insight - 10 words minimum
+            - Key insights to improve the response
 
-            NOTE: The total number of words should not be more than 300 words. Provide the feedback exactly in the format given above.
+            - What went well ?
+
+            - What did not work ?
+
+            - A sample candidate answer
+
+            - A counter intuitive insight
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
             NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
+            \n\nAssistant:
             """
         )
         return template.substitute(test_title=test_title,
@@ -1948,13 +3145,15 @@ def get_question_key_learning_point(test_title,
                                     test_question):
     prompt = Template(
         """
-TestTitle: ${test_title}
-Question: ${question_text}
+        \n\nHuman:
+        TestTitle: ${test_title}
+        Question: ${question_text}
 
-For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
+        For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
 
-Output:
-"""
+        Output:
+        \n\nAssistant:
+        """
     ).safe_substitute(
         test_title=test_title,
         question_text=test_question
@@ -1981,6 +3180,7 @@ def get_question_key_learning_skills(test_title,
     skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
+        \n\nHuman:
 TestTitle: ${test_title}
 Question: ${question_text}
 
@@ -1989,6 +3189,7 @@ Choose skills from this list only: ${skills_name_list}
 NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
 NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
 Output:
+\n\nAssistant:
 """
     ).safe_substitute(
         test_title=test_title,
@@ -2021,6 +3222,7 @@ Output:
     # return gpt_feedback.text
 
 
+@timeit
 def get_test_report(test: Test, only_data=False):
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
@@ -2096,10 +3298,12 @@ def get_test_report(test: Test, only_data=False):
     return get_document_url(doc)
 
 
+@timeit
 def generate_test_from_objective_anthropic(objective: str):
     skills_name_list = [skill['name'] for skill in skills]
 
     prompt = f"""
+    \n\nHuman:
     Develop a a set of six questions asked by a employee to his manager where the questions must be related to this objective: [{objective}]. Add a initial paragraph titled
     "introduction" to explain the context of the questions in 100 to 200 words that includes any reference
     to any Youtube video links or other article links. Add a title to the session of 5 to 10 words which tells us about the context. Do not add any conclusion. With each question, add a
@@ -2156,6 +3360,7 @@ def generate_test_from_objective_anthropic(objective: str):
     {"}"}
 
     Generate the data in the above format only. Do not output anything else.
+    \n\nAssistant:
     """
 
     cnt = 0
@@ -2180,6 +3385,7 @@ def generate_test_from_objective_anthropic(objective: str):
 
 # Skills Tracker REport:
 
+@timeit
 def categorize_skills(skill_dict, skills_object):
     categorized_skills = []
     skill_list = [skill.capitalize() for skill in skills_object.keys()]
@@ -2198,6 +3404,7 @@ def categorize_skills(skill_dict, skills_object):
     return categorized_skills
 
 
+@timeit
 def get_skills_tracker_data(participant_id):
     # Filter the test_attempt_session with the given participant_id and ordered by created
     test_attempt_sessions = TestAttemptSession.objects.filter(
@@ -2267,3 +3474,241 @@ def get_skills_tracker_data(participant_id):
     }
 
     return data
+
+
+@timeit
+def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,tenant_id,test_codes,user_id,test_type,scenario_case,test_code,interaction_mode):
+
+    tenant_query = Tenant.objects.get(uid=tenant_id)
+    updated_fields = []
+
+    # updates related to worksapce/user level control
+
+    if interaction_per_month:
+        tenant_query.test_per_month = int(interaction_per_month)
+        updated_fields.append('test_per_month')
+    
+    if interaction_repeatation:
+        tenant_query.is_repeat = interaction_repeatation
+        updated_fields.append('is_repeat')
+
+    if logo_url:
+        tenant_query.logo = logo_url
+        updated_fields.append('logo')
+
+    if len(updated_fields) > 0 :
+        tenant_query.save(update_fields=updated_fields)
+
+
+    # test_privilage control 
+
+    if user_id and test_codes:
+        user = UserAttribute.objects.get(user_id=user_id)
+
+        user.test_previlage = test_codes
+        user.save(update_fields=['test_previlage'])
+
+    # TEst related updates
+
+    if test_code:
+        test = Test.objects.get(test_code=test_code,deleted=0)
+        test_update_field = []
+
+        if test:
+            if test_type:
+                test.test_type = test_type
+                test_update_field.append("test_type")
+
+            if scenario_case:
+                test.scenario_case = scenario_case
+                test_update_field.append("scenario_case")
+
+            if interaction_mode:
+                test.interaction_mode = interaction_mode
+                test_update_field.append("interaction_mode")
+
+            if len(test_update_field)> 0:
+                test.save(update_fields=test_update_field)
+
+@timeit
+def update_prompt_user_attributes(user_id, var_dict):
+    # Retrieve the UserAttribute object for the given user_id
+    user_att = UserAttribute.objects.filter(user_id=user_id).first()
+
+    # Initialize a list to track updated fields
+    update_fields = []
+
+    if user_att:
+        # Iterate through the keys in var_dict
+        for var in var_dict:
+            # Check if the key exists in UserAttribute model
+            if hasattr(user_att, var):
+                # Update the attribute in the UserAttribute model
+                setattr(user_att, var, var_dict[var])
+                update_fields.append(var)
+
+        # Save the changes to the UserAttribute object
+        user_att.save(update_fields=update_fields)
+
+@timeit
+def submit_feedback(
+        session_id,
+        tenant_id,
+        question_id,
+        response_file,
+):
+    test_attempt_session = TestAttemptSession.objects.filter(tenant_id=tenant_id,uid=session_id,deleted=0).first()
+    question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
+    test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
+
+    test_question_response = TestQuestionResponse.objects.get_or_create(
+                                tenant_id=tenant_id,
+                                test_attempt_session_id=session_id,
+                                question_id=question_id,
+                                responder_type=question.question_for,
+                                responder_display_name=question.question_for,
+                                response_text="",
+                                response_file = response_file
+                            )[0]
+    
+    transcript = gpt_wishper_api(
+                    response_file)
+    
+    test_question_response.response_text = transcript
+    test_question_response.save(update_fields=['response_text'])
+
+    user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+    difficulty_level = user_info.difficulty_level
+    user_feedback_prompt = ''
+    if difficulty_level == 'easy':
+        user_feedback_prompt = user_info.easy_feedback_prompt
+    elif difficulty_level == 'critical':
+        user_feedback_prompt == user_info.critical_feedback_prompt
+
+    if user_info.custom_feedback_prompt_1:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_1
+    if user_info.custom_feedback_prompt_2:
+        user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
+
+    if test.is_email_type:
+        prompt = get_email_type_prompt(
+            test_title=test.title,
+            test_description=test.description,
+            question=question.question,
+            candidate_reply=test_question_response.response_text,
+            user_feedback_prompt=user_feedback_prompt)
+
+    else:
+        if question.gpt_prompt_override or test.gpt_prompt_override:
+            prompt = get_overridden_prompt(
+                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt
+            )
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                question_context=question.subjective_answer,
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt)
+
+
+    feedback_text = ''
+    raw_text = ''
+    response_text = test_question_response.response_text
+    go_for_feedback = True
+
+    words = word_tokenize(test_question_response.response_text)
+
+    if len(words) <= 10 :
+        feedback_text = "No feedback can be generated because of too low response length"
+        go_for_feedback = False
+    
+    if go_for_feedback:
+        for i  in range(3):
+            anthropic_feedback = anthropic_completion(prompt, 1200)
+
+            if not anthropic_feedback:
+
+                max_retry = 3
+
+                while max_retry > 0:
+                    num_tokens = num_tokens_for_prompt(response_text)
+                    sentences = sent_tokenize(response_text)
+                    if num_tokens < 1500:
+                        break
+                    else:
+                        response_text = " ".join(sentences[:-1])
+                        if test.is_email_type:
+                            prompt = get_email_type_prompt(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt=user_feedback_prompt)
+
+                        else:
+                            if question.gpt_prompt_override or test.gpt_prompt_override:
+                                prompt = get_overridden_prompt(
+                                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=response_text,
+                                    user_feedback_prompt=user_feedback_prompt
+                                )
+                            else:
+                                prompt = get_chat_conversation_prompt_v3(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=response_text,
+                                    user_feedback_prompt=user_feedback_prompt)
+
+                    max_retry -= 1
+
+                gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                if not gpt_feedback.text:
+                    try:
+                        gpt_feedback = text_bison_compeletion(prompt)
+                    except Exception as e:
+                        logger.exception(e)
+                        feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                else:
+                    feedback_text = gpt_feedback.text
+                    raw_text = gpt_feedback.raw
+
+            else:
+                feedback_text = anthropic_feedback
+
+            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+                continue
+
+            break
+            
+
+    test_question_response.metadata = {
+        "gpt": {
+            "prompt": prompt,
+            "response": {
+                "raw": raw_text,
+                "text": feedback_text,
+            }
+        }
+    }
+
+    feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+    test_question_response.feedback_text = feedback_text
+    
+    test_question_response.save(update_fields=['metadata','feedback_text'])
+    logger.info("######################## Feedback is ready ######################")
+
+    return test_question_response.feedback_text
