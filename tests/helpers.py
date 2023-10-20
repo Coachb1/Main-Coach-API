@@ -364,7 +364,7 @@ def create_test_question_answer(tenant: Tenant,
         if question.question_for == QuestionForChoices.user:
             return process_orchestrated_test_response_by_user(test_question_response)
         else:
-            return process_orchestrated_test_response_by_bot_llm(test_question_response)
+            return process_orchestrated_test_response_by_bot_llm(test_question_response,is_whatsapp=is_whatsapp)
 
     return process_test_response(
         test_question_response, is_whatsapp
@@ -1086,7 +1086,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
 
 @timeit
-def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse):
+def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
     """
        bot_llm response is always a text;; ignore test mode or question response type
    """
@@ -1123,7 +1123,11 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                                                        question=question)
     logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
-    bot_llm_response_text = anthropic_completion(prompt, 300)
+    if is_whatsapp:
+        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=500).text
+    else:
+        bot_llm_response_text = anthropic_completion(prompt, 300)
+
     end = time.time()
     logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
 
