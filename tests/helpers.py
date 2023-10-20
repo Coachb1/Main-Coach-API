@@ -2278,7 +2278,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             - A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -2315,7 +2315,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
             - A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -2362,7 +2362,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     A counter intuitive insight
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -2418,7 +2418,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -2475,7 +2475,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     A counter intuitive insight
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -2532,7 +2532,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 A counter intuitive insight
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -2589,7 +2589,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     A counter intuitive insight
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -2646,7 +2646,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 A counter intuitive insight
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -3027,7 +3027,7 @@ def get_email_type_prompt(test_title,
         - A sample re-written email.
         - A counter intuitive insight 
 
-        NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+        NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
         NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -3076,7 +3076,7 @@ def get_overridden_prompt(prompt_template: str,
 
             - A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -3115,7 +3115,7 @@ def get_overridden_prompt(prompt_template: str,
 
             - A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words Provide the feedback exactly in the format and sections above. Each section must have 100 words minimum.
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
