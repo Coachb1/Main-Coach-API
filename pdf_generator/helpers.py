@@ -208,7 +208,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     if only_data:
 
         test_title = test.title
-        skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+        skill_exp = test_attempt_session.skills_explanation
         if skill_exp:
             if len(test_attempt_session.skills_rating) == len(skill_exp):
                 skill_exp = skill_exp
@@ -505,10 +505,11 @@ def get_test_attempt_session_skills_graph(test_attempt_session: TestAttemptSessi
 
         # for i  in existing_skills:
         #     del updated_skills_ratings[i]
-        updated_skills_ratings = update_skill_name(skills_rating)
+
+        # updated_skills_ratings = update_skill_name(skills_rating)
 
 
-        return {'skills_rating': updated_skills_ratings, 'custom_rating': custom_rating}
+        return {'skills_rating': skills_rating, 'custom_rating': custom_rating}
 
     # skills_rating looks like: {'skill_name': skill_score}
     # skill_score is a float value between 0 and 5

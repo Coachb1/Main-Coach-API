@@ -1433,7 +1433,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
         data["candidate_type"] = test.candidate_type
 
-    skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    # skill_exp = update_skill_name(test_attempt_session.skills_explanation)
+    skill_exp = test_attempt_session.skills_explanation
 
     if skill_exp:
         if len(test_attempt_session.skills_rating) == len(skill_exp):
@@ -1472,7 +1473,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         # for i  in existing_skills:
         #     del updated_skills_ratings[i]
         
-        data["skills_rating"] = update_skill_name(skills_rating)
+        # data["skills_rating"] = update_skill_name(skills_rating)
+        data["skills_rating"] = skills_rating
 
     return data
 
