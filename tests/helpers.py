@@ -59,6 +59,7 @@ from test_bulk_upload.constants import updated_skills
 import re
 from commons.google_apis import speech_to_text, text_bison_compeletion
 from pdf_generator.helpers import update_skill_name
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ def create_test(tenant: Tenant,
 
         test_questions = []
         for inx, question in enumerate(questions, start=1):
-            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread:
                 klp = ''
                 kls = ''
             else:
@@ -360,9 +361,12 @@ def create_test_question_answer(tenant: Tenant,
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
     # handle orchestrated conversation in a different manner
-    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread:
         if question.question_for == QuestionForChoices.user:
-            return process_orchestrated_test_response_by_user(test_question_response)
+            if test.test_type == TestTypeChoices.orchestrated_conversation:
+                return process_dynamic_threads_response_by_user(test_question_response)
+            else:
+                return process_orchestrated_test_response_by_user(test_question_response)
         else:
             return process_orchestrated_test_response_by_bot_llm(test_question_response,is_whatsapp=is_whatsapp)
 
@@ -1083,6 +1087,231 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
     return test_question_response
 
+
+##########################* Dynamic Thread ############################
+
+
+
+@timeit
+def get_transcript(test_question_response):
+    transcript_length = 0
+    transcript = ""
+    try:
+        logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+        transcript = gpt_wishper_api(
+            test_question_response.response_file)
+        transcript_length = len(transcript.split())
+        logger.info({"message":"************ transcript generated ******","transcript":transcript})
+    except Exception as e:
+        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+        try: 
+            logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+            transcript = speech_to_text(test_question_response.response_file)
+        
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+            transcript = "Transcription couldn't be generated"
+
+    return transcript, transcript_length
+
+
+@timeit
+def get_speech_metrics(test_question_response,transcript):
+    max_tries = 2
+    retry = 0
+    while True:
+        try:
+            speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                test_question_response.response_file,transcript)
+            test_question_response.speech_metrics = speech_met
+            break
+        except Exception as e:
+            logger.exception(e)
+            retry += 1
+            if retry >= max_tries:
+                # HACK sane default values
+                test_question_response.speech_metrics = default_metrics
+                logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                break
+    test_question_response.save(update_fields=["speech_metrics"])
+
+
+@timeit
+def get_feedback(question, test_question_response,question_text,test):
+    start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    if start_with_user_message is not None:
+            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+
+    else:
+        prompt = get_chat_conversation_prompt_v3(
+                            test_title=test.title,
+                            test_description=test.description,
+                            question=question_text,
+                            question_context=question.subjective_answer,
+                            candidate_reply=test_question_response.response_text,
+                            user_feedback_prompt="")
+        
+    anthropic_feedback = anthropic_completion(prompt, 1000)
+    test_question_response.feedback_text = anthropic_feedback
+    logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
+    test_question_response.save(update_fields=["feedback_text"])
+
+
+@timeit
+def get_relevency_kls_klp(test_question_response, question_text, test):
+    update_fields = []
+    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                            question_text,
+                                            test_question_response.response_text,
+                                            test.description,
+                                            test.title,
+                                            )
+
+    relevance = 1
+    if "relevance" in relevancy_score:
+        relevance = int(relevancy_score['relevance'])
+
+    test_question_response.relevance = relevance
+    update_fields.append("relevance")
+
+    kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+    logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+    kls = anthropic_completion(kls_prompt, 50)
+
+    klp_prompt = f"""
+        TestTitle: {test.title}
+        Question: {question_text}
+
+        For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+        """
+
+    logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+    klp = anthropic_completion(klp_prompt, 50)
+    
+    test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+    update_fields.append("kls_klp")
+    logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+
+    test_question_response.save(update_fields=update_fields)
+
+@timeit
+def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=test_question_response.test_attempt_session_id, deleted=0)
+    test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+
+    # Updating test attempt session current/next question status
+    test_attempt_session.current_question_idx = question.question_number
+    last_question_number = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).order_by("-question_number").first().question_number
+
+    if question.question_number == last_question_number:
+        test_attempt_session.next_question_idx = -1
+    else:
+        test_attempt_session.next_question_idx = question.question_number + 1
+
+    test_attempt_session.save(
+        update_fields=["current_question_idx", "next_question_idx", "updated"])
+
+    logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic thred $$$$$$$$$$$")
+    update_fields = []
+    if test.interaction_mode != InteractionModeChoices.text:
+        update_fields.extend(["response_text"])
+
+        if test.interaction_mode == InteractionModeChoices.audio:
+            
+            transcript, transcript_length = get_transcript(test_question_response)
+            test_question_response.response_text = transcript
+
+            if transcript_length > 10:
+                threading.Thread(target=get_speech_metrics,
+                                kwargs={
+                                        "test_question_response":test_question_response,
+                                        "transcript":transcript
+                                }).start()
+            else:
+                test_question_response.speech_metrics = default_metrics
+
+            update_fields.append("speech_metrics")
+
+        elif test.interaction_mode == InteractionModeChoices.video:
+            
+            transcript, transcript_length = get_transcript(test_question_response)
+            test_question_response.response_text = transcript
+            
+            if transcript_length > 10:
+                threading.Thread(target=get_speech_metrics,
+                                kwargs={
+                                        "test_question_response":test_question_response,
+                                        "transcript":transcript
+                                }).start()
+            else:
+                test_question_response.speech_metrics = default_metrics
+                
+            update_fields.append("speech_metrics")
+
+    if test.test_type == TestTypeChoices.dynamic_discussion_thread:
+        start = time.time()
+        logger.info(f"***************question number is {question.question_number}**************")
+        start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+        if question.question_number == 1 and start_with_user_message is not None:
+            question_text = test.description
+        elif question.question_number == 1:
+            question_text = test.orchestrated_conversation_details.get('initial_messages')[0]
+        else:
+            question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
+        logger.info(f"***************question text is {question_text}**************")
+
+        threading.Thread(target=get_feedback,
+                            kwargs={
+                                    "question":question,
+                                    "test_question_response":test_question_response,
+                                    "question_text":question_text,
+                                    "test":test
+                            }).start()
+        
+
+        threading.Thread(target=get_relevency_kls_klp, kwargs={
+                            "test_question_response":test_question_response,
+                            "question_text":question_text,
+                            "test":test
+                        }).start()
+        
+        end = time.time()
+        logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
+
+    update_fields.extend(["evaluation_status", "updated"])
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    test_question_response.save(update_fields=update_fields)
+
+    total_questions = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).count()
+
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                          deleted=0).count()
+
+    if total_questions == total_responses:
+        start = time.time()
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.save()
+        calc_group_discussion_report_metrics(test_attempt_session, test)
+
+        if test.test_type == TestTypeChoices.dynamic_discussion_thread:
+            report_url = generate_dynamic_discussion_report_link(test_attempt_session)
+        else:
+            report_url = generate_meeting_report_link(test_attempt_session)
+        # if test.email_address_list:
+        #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
+        # Evaluate skills rating for the test attempt session and update skills table in that.
+        end = time.time()
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for 'total_questions == total_responses:' took {end - start:.2f} #######################")
+
+    return test_question_response
+
+
+##########################* Dynamic Thread End ############################
 
 @timeit
 def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
