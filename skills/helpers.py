@@ -752,15 +752,13 @@ def feedback_summary(test_attempt_session,feedbacks):
     prompt= """
     \n\nHuman:
     {feedback} : %s
-    Summarize the entire feedback in 100 words in a single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
+    Summarize the entire feedback in a short single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
     NOTE : Do not mention "feedback" or "summary" in the summary provided.
 
     NOTE : Never start with any kind of introductory sentence.
 
     NOTE :  Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
-
-    NOTE : NEVER include sentences like (Here is a 100 word summary of the feedback in a single paragraph:) in the output.
     \n\nAssistant:
     """%(feedbacks)
 
