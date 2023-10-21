@@ -363,10 +363,10 @@ def create_test_question_answer(tenant: Tenant,
     # handle orchestrated conversation in a different manner
     if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread:
         if question.question_for == QuestionForChoices.user:
-            if test.test_type == TestTypeChoices.orchestrated_conversation:
-                return process_dynamic_threads_response_by_user(test_question_response)
-            else:
+            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 return process_orchestrated_test_response_by_user(test_question_response)
+            else:
+                return process_dynamic_threads_response_by_user(test_question_response)
         else:
             return process_orchestrated_test_response_by_bot_llm(test_question_response)
 
@@ -1537,7 +1537,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     response_relevance = True
 
 
-    if test.test_type == TestTypeChoices.dynamic_discussion:
+    if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
         start = time.time()
         all_speech_metrics = []
         data = {}
@@ -1673,7 +1673,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         else:
             data['culture_skills_explanation'] = None
 
-    if test.test_type == TestTypeChoices.dynamic_discussion:
+    if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
         data['flashcards'] = flashcards
         data['mindmap_data'] = {
             "test_name": test.title,
