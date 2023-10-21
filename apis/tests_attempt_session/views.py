@@ -224,14 +224,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
             
 
+            if is_whatsapp or report_url is None or report_url == "":
+                report_url = test_attempt_session.report_url
+
             if is_whatsapp and test.test_type != TestTypeChoices.interview:
                 send_report_link_to_whatsapp(
                     test, test_attempt_session, report_url)
 
             #################* summary  start #################
             updated_fields = []
-            if is_whatsapp or report_url is None or report_url == "":
-                report_url = test_attempt_session.report_url
+            
             
             skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
                                                                             test_attempt_session.culture_skills_rating,
