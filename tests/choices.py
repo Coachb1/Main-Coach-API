@@ -13,6 +13,7 @@ class TestTypeChoices(DjangoChoices):
     case = ChoiceItem("case")
     group = ChoiceItem("group")
     dynamic_discussion = ChoiceItem("dynamic_discussion")
+    dynamic_discussion_thread = ChoiceItem("dynamic_discussion_thread")
     lesson = ChoiceItem('lesson')
     test_thread = ChoiceItem('test_thread')
 

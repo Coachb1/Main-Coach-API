@@ -59,7 +59,7 @@ def speech_to_text(url):
         logger.error({"Google speech to text failed with error": e})
         raise e
     
-
+@timeit
 def text_bison_compeletion(prompt):
 
     max_retry = 3
