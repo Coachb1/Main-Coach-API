@@ -3124,7 +3124,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     logger.info({"******************************conversation":current_conversation, "question number is": question.question_number,
                 "question_text": question_text})
 
-    if test.test_type == TestTypeChoices.dynamic_discussion and start_with_user_message is not None:
+    if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ] and start_with_user_message is not None:
         return get_user_first_question_promt(start_with_user_message, test, test_attempt_session.uid, current_conversation, question.question_number)
         
         # logger.info("******************************************************************************* and now we are good")
