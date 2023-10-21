@@ -10,7 +10,7 @@ from commons.timeit import timeit
 class WhatsappApi(object):
 
     @timeit
-    def send_whatsapp_report(self, phone_number, report_url):
+    def send_whatsapp_report(self, phone_number, report_url,title):
         url = settings.WHATSAPP_API_BASE_URL
         api_key = settings.WHATSAPP_API_KEY
 
@@ -18,10 +18,11 @@ class WhatsappApi(object):
 
         data = {
             "apiKey": api_key,
-            "campaignName": "Whatsappdemo",
+            "campaignName": "titledwhatsappreport",
             "destination": phone_number,
             "userName": "Samarth",
             "templateParams": [
+                title,
                 report_url
             ]
         }
