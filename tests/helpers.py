@@ -2176,7 +2176,7 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
     participant_phone = participant_attributes.get("mobile_number")
 
     try:
-        whatsapp_api.send_whatsapp_report(participant_phone, report_url)
+        whatsapp_api.send_whatsapp_report(participant_phone, report_url,test_name)
     except Exception as e:
         logger.exception("failed to send whatsapp message to participant %s with phone %s, err: %s",
                          participant_id, participant_phone, e)
