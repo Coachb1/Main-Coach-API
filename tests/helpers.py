@@ -1123,7 +1123,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
     if is_whatsapp:
-        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=500).text
+        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
     else:
         bot_llm_response_text = anthropic_completion(prompt, 300)
 
