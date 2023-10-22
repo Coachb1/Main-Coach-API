@@ -2991,7 +2991,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
@@ -3044,7 +3044,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
@@ -3099,7 +3099,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
