@@ -16,6 +16,7 @@ class TestTypeChoices(DjangoChoices):
     dynamic_discussion_thread = ChoiceItem("dynamic_discussion_thread")
     lesson = ChoiceItem('lesson')
     test_thread = ChoiceItem('test_thread')
+    trainer_thread = ChoiceItem('trainer_thread')
 
 
 class ScenarioCaseChoices(DjangoChoices):

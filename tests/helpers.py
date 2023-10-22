@@ -467,6 +467,39 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
     return test_question_response
 
+@timeit
+def evaluate_relevence_thread(question, test_question_response, test, test_attempt_session):
+    relevancy_score = {}
+    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                        question.question,
+                                        test_question_response.response_text,
+                                        test.description,
+                                        test.title,
+                                        )
+
+    if not is_evaluated:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
+        # delete this response
+        delete_test_response(test_question_response)
+        logger.error("failed to get relevancy_score, got %s", relevancy_score)
+        raise ValueError("failed to get relevancy_score json for %s",
+                         test_question_response.uid)
+
+    relevance = 1
+    if "relevance" in relevancy_score:
+        relevance = int(relevancy_score['relevance'])  # taking relevance and deleting it form json
+
+    test_question_response.relevance = relevance
+    test_question_response.save(update_fields=["relevance"])
+
+
+@timeit
+def speech_metrics_in_thread(test_question_response, transcript):
+    speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                            test_question_response.response_file,transcript)
+    test_question_response.speech_metrics = speech_met
+    test_question_response.save(update_fields=["speech_metrics"])
+
 
 def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession,
                             test_question_response: TestQuestionResponse, is_whatsapp: bool = False,
@@ -526,26 +559,29 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
             if transcript_length > 10:
-                start = time.time()
-                max_tries = 2
-                retry = 0
-                while True:
-                    try:
-                        speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                            test_question_response.response_file,transcript)
-                        test_question_response.speech_metrics = speech_met
+                if test.test_type == TestTypeChoices.trainer_thread:
+                    threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                else:
+                    start = time.time()
+                    max_tries = 2
+                    retry = 0
+                    while True:
+                        try:
+                            speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                test_question_response.response_file,transcript)
+                            test_question_response.speech_metrics = speech_met
 
-                        end = time.time()
-                        logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
-                        break
-                    except Exception as e:
-                        logger.exception(e)
-                        retry += 1
-                        if retry >= max_tries:
-                            # HACK sane default values
-                            test_question_response.speech_metrics = default_metrics
-                            logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                            end = time.time()
+                            logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                             break
+                        except Exception as e:
+                            logger.exception(e)
+                            retry += 1
+                            if retry >= max_tries:
+                                # HACK sane default values
+                                test_question_response.speech_metrics = default_metrics
+                                logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                break
 
                     
             else:
@@ -583,25 +619,28 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_text = transcript
 
             if transcript_length > 10:
-                start = time.time()
-                max_tries = 2
-                retry = 0
-                while True:
-                    try:
-                        speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                            test_question_response.response_file,transcript)
-                        test_question_response.speech_metrics = speech_met_video
-                        end = time.time()
-                        logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                        break
-
-                    except Exception as e:
-                        retry += 1
-                        if retry >= max_tries:
-                            # HACK sane default values
-                            test_question_response.speech_metrics = default_metrics
-                            logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                if test.test_type == TestTypeChoices.trainer_thread:
+                    threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                else:
+                    start = time.time()
+                    max_tries = 2
+                    retry = 0
+                    while True:
+                        try:
+                            speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                test_question_response.response_file,transcript)
+                            test_question_response.speech_metrics = speech_met_video
+                            end = time.time()
+                            logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                             break
+
+                        except Exception as e:
+                            retry += 1
+                            if retry >= max_tries:
+                                # HACK sane default values
+                                test_question_response.speech_metrics = default_metrics
+                                logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                break
 
             else:
                 test_question_response.speech_metrics = default_metrics
@@ -774,64 +813,66 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # instead of calculating relevace from skill we are now getting it 
     # from another prompt and skill for individual qustion is deprecated
     # because now we are cal skill_ratings at the end of conversation
+    if test.test_type == TestTypeChoices.trainer_thread:
+        threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
+    else:
+        relevancy_score = {}
+        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                            question.question,
+                                            test_question_response.response_text,
+                                            test.description,
+                                            test.title,
+                                            )
 
-    relevancy_score = {}
-    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                        question.question,
-                                        test_question_response.response_text,
-                                        test.description,
-                                        test.title,
-                                        )
+        if not is_evaluated:
+            test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
+            # delete this response
+            delete_test_response(test_question_response)
+            logger.error("failed to get relevancy_score, got %s", relevancy_score)
+            raise ValueError("failed to get relevancy_score json for %s",
+                            test_question_response.uid)
 
-    if not is_evaluated:
-        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
-        # delete this response
-        delete_test_response(test_question_response)
-        logger.error("failed to get relevancy_score, got %s", relevancy_score)
-        raise ValueError("failed to get relevancy_score json for %s",
-                         test_question_response.uid)
+        relevance = 1
+        if "relevance" in relevancy_score:
+            relevance = int(relevancy_score['relevance'])  # taking relevance and deleting it form json
+    
 
-    relevance = 1
-    if "relevance" in relevancy_score:
-        relevance = int(relevancy_score['relevance'])  # taking relevance and deleting it form json
- 
+        # # Removing the skills which are not required in the question
+        # _to_be_deleted = []
+        # for key in skills_rating.keys():
+        #     if key not in required_skills:
+        #         _to_be_deleted.append(key)
 
-    # # Removing the skills which are not required in the question
-    # _to_be_deleted = []
-    # for key in skills_rating.keys():
-    #     if key not in required_skills:
-    #         _to_be_deleted.append(key)
+        # for key in _to_be_deleted:
+        #     del skills_rating[key]
 
-    # for key in _to_be_deleted:
-    #     del skills_rating[key]
+        # # If skill rating score is greater than 8.5 then we are setting it to 8.5
+        # for skill in skills_rating:
+        #     if skills_rating[skill] > 8.5:
+        #         skills_rating[skill] = 8.5
+        #     elif skills_rating[skill] < 1.5:
+        #         skills_rating[skill] = 1.5
 
-    # # If skill rating score is greater than 8.5 then we are setting it to 8.5
-    # for skill in skills_rating:
-    #     if skills_rating[skill] > 8.5:
-    #         skills_rating[skill] = 8.5
-    #     elif skills_rating[skill] < 1.5:
-    #         skills_rating[skill] = 1.5
+        # # Calculating the average score of the response
+        # response_avg_score = 0
+        # skills_count = 0
+        # for skill in skills_rating:
+        #     if isinstance(skills_rating[skill], str):
+        #         continue
 
-    # # Calculating the average score of the response
-    # response_avg_score = 0
-    # skills_count = 0
-    # for skill in skills_rating:
-    #     if isinstance(skills_rating[skill], str):
-    #         continue
+        #     response_avg_score += skills_rating[skill] or random.randint(3, 7)
+        #     skills_count += 1
 
-    #     response_avg_score += skills_rating[skill] or random.randint(3, 7)
-    #     skills_count += 1
+        # if skills_count == 0:
+        #     response_avg_score = 0
+        # else:
+        #     response_avg_score = response_avg_score / skills_count
 
-    # if skills_count == 0:
-    #     response_avg_score = 0
-    # else:
-    #     response_avg_score = response_avg_score / skills_count
-
-    # # Save skills rating and average score in TestQuestionResponse
-    # test_question_response.skills_rating = skills_rating
-    # test_question_response.avg_score = response_avg_score
-    test_question_response.relevance = relevance
-    test_question_response.save(update_fields=["relevance"])
+        # # Save skills rating and average score in TestQuestionResponse
+        # test_question_response.skills_rating = skills_rating
+        # test_question_response.avg_score = response_avg_score
+        test_question_response.relevance = relevance
+        test_question_response.save(update_fields=["relevance"])
 
     # def __calc_score_in_different_thread():
     #     # Evaluate skills rating for the test attempt session and update skills table in that.
