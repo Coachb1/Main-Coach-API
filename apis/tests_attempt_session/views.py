@@ -328,7 +328,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
-                    send_report_link_to_email_orch(test,test_attempt_session,report_url)
+                    send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
             else:
                 if test.email_address_list:
                     send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
