@@ -3241,7 +3241,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         #     return template.substitute(test_main_context=test.description,
         #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
     
-    if test.test_type == TestTypeChoices.dynamic_discussion:
+    if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
         template = Template(
                 '''
                 \n\nHuman:
