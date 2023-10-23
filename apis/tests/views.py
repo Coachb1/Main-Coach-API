@@ -239,7 +239,7 @@ class TestViewSet(ApiViewSet,
             "course": list(all_courses),
             "industry": list(all_industry),
             "exp_level": list(all_exp_level),
-            "format": list(all_format)
+            # "format": list(all_format)
         }
 
         return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
@@ -316,9 +316,10 @@ class TestViewSet(ApiViewSet,
 
             if page is not None and page != '':
                 page = int(page)
+                has_more_pages = (page*10) < len(data)
                 data = data[(page-1)*10:page*10]
 
-            return Response({"data": data, 'status': "ok"},status=status.HTTP_200_OK)
+            return Response({"data": {"data": data, "has_more_pages": has_more_pages}, 'status': "ok"},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception({"!!!!!!!!!!!Error!!!!!!!!!!!!": e})
             return Response({"data": [], 'status': "error"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
