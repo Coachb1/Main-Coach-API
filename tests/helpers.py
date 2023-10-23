@@ -3156,7 +3156,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     #                                                             deleted=0).order_by('id').first().response_text
 
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                            #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
