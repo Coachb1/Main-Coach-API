@@ -253,7 +253,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     "ANSWER:" {response_text};
 
-    "REQUIRED FROM ANTHROPIC:" Evaluate the given conversation and check whether the answers provided are relevant to the questions asked and the description provided. If the answers are relevant to the questions put the relevance value as 1, if the answers are irrelevant put the relevance value as 0.
+    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. If the answer is even slightly related to the question and description put the relevance value as 1. Only if the answers are completely random and unrelated to the question and description put the relevance value as 0.
 
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
@@ -754,11 +754,18 @@ def feedback_summary(test_attempt_session,feedbacks):
     {feedback} : %s
     Summarize the entire feedback in a short single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
-    NOTE : Do not mention "feedback" or "summary" in the summary provided.
+    NOTE : NEVER mention "feedback" or "summary" in the summary provided.
 
-    NOTE : Never start with any kind of introductory sentence.
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
 
-    NOTE :  Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : NEVER include sentences like (Here is a 100 word summary of the feedback in a single paragraph:) in the output.
+
+    NOTE : NEVER include any kind of introduction statement in the output.
+
+    NOTE : Do not provide the context of the output, just give the summary.
+
+    NOTE : NEVER use the words like summary, feedback, concise etc. in the output in anyway.
+
     \n\nAssistant:
     """%(feedbacks)
 

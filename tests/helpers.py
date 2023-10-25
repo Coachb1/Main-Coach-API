@@ -2557,9 +2557,10 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+            NOTE : Do not print the response alignment score in the output.
+
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -2594,9 +2595,9 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+            NOTE : Do not print the response alignment score in the output.
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -3306,9 +3307,12 @@ def get_email_type_prompt(test_title,
         NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-        NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback." 
-        NOTE : Minimum response length is 300 words. Always adhere to the same.
-        NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is irrelevant, start with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback. 
+        NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+
+        NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+
+        NOTE : Do not print the response alignment score in the output.
+
         ${user_feedback_prompt}
         \n\nAssistant:
         """
@@ -3355,9 +3359,9 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+            NOTE : Do not print the response alignment score in the output.
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -3394,9 +3398,9 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY,  SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+            NOTE : Do not print the response alignment score in the output.
             ${user_feedback_prompt}
             \n\nAssistant:
             """
