@@ -1152,7 +1152,7 @@ def get_feedback(question, test_question_response,question_text,test):
                             candidate_reply=test_question_response.response_text,
                             user_feedback_prompt="")
         
-    anthropic_feedback = anthropic_completion(prompt, 1000)
+    anthropic_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
     test_question_response.feedback_text = anthropic_feedback
     logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
     test_question_response.save(update_fields=["feedback_text"])
@@ -1215,6 +1215,15 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
     test_attempt_session.save(
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
+    total_questions = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).count()
+
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                            deleted=0).count()
+    is_last_response = total_questions == total_responses
+
+    logger.info(f"$$$$$$$$$$$$$$$$$$$$$$ is last respons is {is_last_response} $$$$$$$$$$$$$$")
+
     logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic thred $$$$$$$$$$$")
     update_fields = []
     if test.interaction_mode != InteractionModeChoices.text:
@@ -1226,11 +1235,14 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             test_question_response.response_text = transcript
 
             if transcript_length > 10:
-                threading.Thread(target=get_speech_metrics,
-                                kwargs={
-                                        "test_question_response":test_question_response,
-                                        "transcript":transcript
-                                }).start()
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
+                else:
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
             else:
                 test_question_response.speech_metrics = default_metrics
 
@@ -1242,11 +1254,14 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             test_question_response.response_text = transcript
             
             if transcript_length > 10:
-                threading.Thread(target=get_speech_metrics,
-                                kwargs={
-                                        "test_question_response":test_question_response,
-                                        "transcript":transcript
-                                }).start()
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
+                else:
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
             else:
                 test_question_response.speech_metrics = default_metrics
                 
@@ -1264,20 +1279,24 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
         logger.info(f"***************question text is {question_text}**************")
 
-        threading.Thread(target=get_feedback,
-                            kwargs={
-                                    "question":question,
-                                    "test_question_response":test_question_response,
-                                    "question_text":question_text,
-                                    "test":test
-                            }).start()
-        
+        if is_last_response:
+            get_feedback(question, test_question_response,question_text,test)
+            get_relevency_kls_klp(test_question_response, question_text, test)
+        else:
+            threading.Thread(target=get_feedback,
+                                kwargs={
+                                        "question":question,
+                                        "test_question_response":test_question_response,
+                                        "question_text":question_text,
+                                        "test":test
+                                }).start()
+            
 
-        threading.Thread(target=get_relevency_kls_klp, kwargs={
-                            "test_question_response":test_question_response,
-                            "question_text":question_text,
-                            "test":test
-                        }).start()
+            threading.Thread(target=get_relevency_kls_klp, kwargs={
+                                "test_question_response":test_question_response,
+                                "question_text":question_text,
+                                "test":test
+                            }).start()
         
         end = time.time()
         logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
@@ -1285,12 +1304,6 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
-
-    total_questions = TestQuestion.objects.filter(
-        test_id=test.uid, deleted=0).count()
-
-    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                          deleted=0).count()
 
     if total_questions == total_responses:
         start = time.time()
