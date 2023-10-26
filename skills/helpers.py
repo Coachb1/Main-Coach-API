@@ -754,17 +754,7 @@ def feedback_summary(test_attempt_session,feedbacks):
     {feedback} : %s
     Summarize the entire feedback in a short single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
-    NOTE : NEVER mention "feedback" or "summary" in the summary provided.
-
-    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
-
-    NOTE : NEVER include sentences like (Here is a 100 word summary of the feedback in a single paragraph:) in the output.
-
-    NOTE : NEVER include any kind of introduction statement in the output.
-
-    NOTE : Do not provide the context of the output, just give the summary.
-
-    NOTE : NEVER use the words like summary, feedback, concise etc. in the output in anyway.
+    NOTE : ALWAYS BEGIN WITH "Here is your summary feedback:"
 
     \n\nAssistant:
     """%(feedbacks)
