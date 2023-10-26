@@ -422,13 +422,11 @@ class TestViewSet(ApiViewSet,
         num_questions = request.query_params.get('num_questions',None)
         candidate_type = request.query_params.get('candidate_type',None)
 
-        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id)
+        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
         test_list = []
 
         if candidate_type:
             tests.filter(candidate_type=candidate_type)
-        if test_type:
-            tests.filter(test_type=test_type)
         if interaction_mode:
             tests.filter(interaction_mode=interaction_mode)
         if scenario_case:
@@ -471,6 +469,108 @@ class TestViewSet(ApiViewSet,
                 test_list.append(temp)
 
                 
+                cnt += 1
+                
+
+        return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
+    
+
+    @action(methods=['GET'],detail=False,url_path="get_group_discussion_test_csv")
+    def get_group_discussion_test_csv(self,request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        test_type = request.query_params.get('test_type',None)
+        interaction_mode = request.query_params.get('interaction_mode',None)
+        scenario_case = request.query_params.get('scenario_case',None)
+        num_questions = request.query_params.get('num_questions',None)
+        candidate_type = request.query_params.get('candidate_type',None)
+        bots = request.query_params.get('bots',None)
+        is_start_with_user = request.query_params.get('is_start_with_user',None)
+
+        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
+        test_list = []
+
+        if candidate_type:
+            tests.filter(candidate_type=candidate_type)
+        
+        if interaction_mode:
+            tests.filter(interaction_mode=interaction_mode)
+        if scenario_case:
+            tests.filter(scenario_case=scenario_case)
+        
+
+        cnt = 1
+        csv_heading = "Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        for test in tests:
+            
+            temp={}
+            
+            questions = TestQuestion.objects.filter(test_id=test.uid)
+
+
+            num_questions = int(num_questions)
+            if questions.count() == num_questions :
+                
+                temp["Title"] = test.title
+                temp["Context"] = test.description
+                temp["Description Media"] = test.description_media
+                temp["Ted talks and HBR Case"] = test.tedtalk_and_hbr_case
+                temp["is checkin type"] = test.is_checkin_type
+                temp["Candidate Type"] = test.candidate_type
+                temp["Email Address List"] = test.email_address_list
+                temp["Interaction Mode"] = test.interaction_mode
+                temp["Test Type"] = test.test_type
+                temp["Scenario Case"] = test.scenario_case
+
+
+                orch_details = test.orchestrated_conversation_details
+
+                if 'start_with_user' in orch_details:
+                    if is_start_with_user == 'false':
+                        continue
+                elif 'start_with_user' not in orch_details:
+                    if is_start_with_user == 'true':
+                        continue
+
+
+                if len(orch_details['initial_messages']) == int(bots):
+                    for index,msg in enumerate(orch_details['initial_messages']):
+                        if cnt == 1:
+                            csv_heading += f",Pesron {index}"
+                        temp[f'Person {index}'] = msg
+                else:
+                    continue
+
+
+
+                if test_type in ['dynamic_discussion',"dynamic_discussion_thread"]:
+                    if test_type == 'dynamic_discussion':
+                        if cnt == 1:
+                            csv_heading += ',is_dynamic_discussion'
+                        temp['is_dynamic_discussion'] = True
+                    elif test_type == 'dynamic_discussion_thread':
+                        if cnt == 1:
+                            csv_heading += ',is_dynamic_discussion_thread'
+                        temp['is_dynamic_discussion_thread'] = True
+
+                    if is_start_with_user == 'true':
+                        if cnt == 1:
+                            csv_heading += f',start with user'
+                        temp[',start with user'] = orch_details['start_with_user']
+
+                
+                    
+
+
+                for question in questions:
+                    question_no = question.question_number
+
+                    if cnt == 1:
+                        csv_heading += f",{question_no-1}"
+
+                    temp[f'{question_no-1}'] = question.question
+
+                test_list.append(temp)
+
                 cnt += 1
                 
 
