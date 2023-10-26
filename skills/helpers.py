@@ -752,9 +752,18 @@ def feedback_summary(test_attempt_session,feedbacks):
     prompt= """
     \n\nHuman:
     {feedback} : %s
-    Summarize the entire feedback in a short single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
-    NOTE : ALWAYS BEGIN WITH "Here is your summary feedback:"
+    {Summary} : Summarize the entire feedback in a small single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
+
+    Output format :
+
+    "Here is your summary feedback:
+
+    {Summary}"
+
+    Always follow this output format in this exact manner. DO NOT add words or any other sentence on your own.
+
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
 
     \n\nAssistant:
     """%(feedbacks)
