@@ -256,9 +256,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
             feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
             logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
             if len(feedbacks_summary) > 0:
-                temp = feedback_summary.split(':')
-                if len(temp) > 1 :
-                    feedback_summary = "".join(temp[1:])
                 test_attempt_session.feedback_summary = feedbacks_summary
                 updated_fields.append("feedback_summary")
 
