@@ -59,6 +59,7 @@ from test_bulk_upload.constants import updated_skills
 import re
 from commons.google_apis import speech_to_text, text_bison_compeletion
 from pdf_generator.helpers import update_skill_name
+from commons.utils import generic_completion
 import threading
 
 logger = logging.getLogger(__name__)
@@ -1061,10 +1062,11 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                 candidate_reply=test_question_response.response_text,
                                 user_feedback_prompt="")
         
-        anthropic_feedback = anthropic_completion(prompt, 1000)
-        test_question_response.feedback_text = anthropic_feedback
+        feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
+            
+        test_question_response.feedback_text = feedback_text
         update_fields.append("feedback_text")
-        logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
+        logger.info(f"************dynamic discussion feedback : {feedback_text}")
 
         relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                             question_text,
@@ -1082,7 +1084,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
         kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-        kls = anthropic_completion(kls_prompt, 50)
+        kls = generic_completion(kls_prompt, 50,'no kls' )
 
         klp_prompt = f"""
             TestTitle: {test.title}
@@ -1092,7 +1094,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             """
 
         logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-        klp = anthropic_completion(klp_prompt, 50)
+        klp = generic_completion(klp_prompt, 50, 'no klp')
         
         test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
         update_fields.append("kls_klp")
@@ -1193,9 +1195,8 @@ def get_feedback(question, test_question_response,question_text,test):
                             candidate_reply=test_question_response.response_text,
                             user_feedback_prompt="")
         
-    anthropic_feedback = anthropic_completion(prompt, 1000)
-    test_question_response.feedback_text = anthropic_feedback
-    logger.info(f"************dynamic discussion feedback : {anthropic_feedback}")
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
+    logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
 
@@ -1218,7 +1219,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
 
     kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
     logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-    kls = anthropic_completion(kls_prompt, 50)
+    kls = generic_completion(kls_prompt, 50, 'no kls')
 
     klp_prompt = f"""
         TestTitle: {test.title}
@@ -1228,7 +1229,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         """
 
     logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-    klp = anthropic_completion(klp_prompt, 50)
+    klp = generic_completion(klp_prompt, 50, 'no klp')
     
     test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
     update_fields.append("kls_klp")
@@ -1256,6 +1257,15 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
     test_attempt_session.save(
         update_fields=["current_question_idx", "next_question_idx", "updated"])
 
+    total_questions = TestQuestion.objects.filter(
+        test_id=test.uid, deleted=0).count()
+
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                            deleted=0).count()
+    is_last_response = total_questions == total_responses
+
+    logger.info(f"$$$$$$$$$$$$$$$$$$$$$$ is last respons is {is_last_response} $$$$$$$$$$$$$$")
+
     logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic thred $$$$$$$$$$$")
     update_fields = []
     if test.interaction_mode != InteractionModeChoices.text:
@@ -1267,11 +1277,14 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             test_question_response.response_text = transcript
 
             if transcript_length > 10:
-                threading.Thread(target=get_speech_metrics,
-                                kwargs={
-                                        "test_question_response":test_question_response,
-                                        "transcript":transcript
-                                }).start()
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
+                else:
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
             else:
                 test_question_response.speech_metrics = default_metrics
 
@@ -1283,11 +1296,14 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             test_question_response.response_text = transcript
             
             if transcript_length > 10:
-                threading.Thread(target=get_speech_metrics,
-                                kwargs={
-                                        "test_question_response":test_question_response,
-                                        "transcript":transcript
-                                }).start()
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
+                else:
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
             else:
                 test_question_response.speech_metrics = default_metrics
                 
@@ -1305,20 +1321,24 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
         logger.info(f"***************question text is {question_text}**************")
 
-        threading.Thread(target=get_feedback,
-                            kwargs={
-                                    "question":question,
-                                    "test_question_response":test_question_response,
-                                    "question_text":question_text,
-                                    "test":test
-                            }).start()
-        
+        if is_last_response:
+            get_feedback(question, test_question_response,question_text,test)
+            get_relevency_kls_klp(test_question_response, question_text, test)
+        else:
+            threading.Thread(target=get_feedback,
+                                kwargs={
+                                        "question":question,
+                                        "test_question_response":test_question_response,
+                                        "question_text":question_text,
+                                        "test":test
+                                }).start()
+            
 
-        threading.Thread(target=get_relevency_kls_klp, kwargs={
-                            "test_question_response":test_question_response,
-                            "question_text":question_text,
-                            "test":test
-                        }).start()
+            threading.Thread(target=get_relevency_kls_klp, kwargs={
+                                "test_question_response":test_question_response,
+                                "question_text":question_text,
+                                "test":test
+                            }).start()
         
         end = time.time()
         logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
@@ -1326,12 +1346,6 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
-
-    total_questions = TestQuestion.objects.filter(
-        test_id=test.uid, deleted=0).count()
-
-    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                          deleted=0).count()
 
     if total_questions == total_responses:
         start = time.time()
@@ -1395,7 +1409,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
     if is_whatsapp:
         bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
     else:
-        bot_llm_response_text = anthropic_completion(prompt, 300)
+        bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
 
     end = time.time()
     logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
@@ -1766,7 +1780,7 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
 
     while cnt < 1:
         try:
-            summary = anthropic_completion(prompt, 200)
+            summary = generic_completion(prompt, 200, "Could not generate")
             break
         except Exception as e:
             logger.exception(e)
@@ -3439,7 +3453,7 @@ def get_question_key_learning_point(test_title,
 
     # return gpt_feedback.text
 
-    anthropic_response = anthropic_completion(prompt, 1000)
+    anthropic_response = generic_completion(prompt, 1000)
 
     if not anthropic_response:
         anthropic_response = "Communication"
@@ -3470,7 +3484,7 @@ Output:
         skills_name_list=skills_name_list
     )
 
-    anthropic_response = anthropic_completion(prompt, 1000)
+    anthropic_response = generic_completion(prompt, 1000)
 
     if not anthropic_response:
         anthropic_response = "Communication"

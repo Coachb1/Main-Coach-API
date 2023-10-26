@@ -410,3 +410,68 @@ class TestViewSet(ApiViewSet,
         update_prompt_user_attributes(user_id,dict(var_list))
 
         return Response({"status": "updated"}, status=status.HTTP_200_OK)
+    
+
+    @action(methods=['GET'],detail=False,url_path="get_normal_test_csv")
+    def get_normal_test_csv(self,request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        title = request.query_params.get('title',None)
+        test_type = request.query_params.get('test_type',None)
+        interaction_mode = request.query_params.get('interaction_mode',None)
+        scenario_case = request.query_params.get('scenario_case',None)
+        num_questions = request.query_params.get('num_questions',None)
+        candidate_type = request.query_params.get('candidate_type',None)
+
+        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id)
+        test_list = []
+
+        if candidate_type:
+            tests.filter(candidate_type=candidate_type)
+        if test_type:
+            tests.filter(test_type=test_type)
+        if interaction_mode:
+            tests.filter(interaction_mode=interaction_mode)
+        if scenario_case:
+            tests.filter(scenario_case=scenario_case)
+        if title :
+            tests.filter(title=title)
+
+        cnt = 1
+        csv_heading = "Title,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        for test in tests:
+            temp={}
+            questions = TestQuestion.objects.filter(test_id=test.uid)
+
+            num_questions = int(num_questions)
+            if questions.count() == num_questions :
+                
+                temp["Title"] = test.title
+                temp["Test description"] = test.description
+                temp["Description Media"] = test.description_media
+                temp["Ted talks and HBR Case"] = test.tedtalk_and_hbr_case
+                temp["is checkin type"] = test.is_checkin_type
+                temp["is_email_type"] = test.is_email_type
+                temp["Candidate Type"] = test.candidate_type
+                temp["Email Address List"] = test.email_address_list
+                temp["Interaction Mode"] = test.interaction_mode
+                temp["Test Type"] = test.test_type
+                temp["Scenario Case"] = test.scenario_case
+
+                for question in questions:
+                    if cnt == 1:
+                        csv_heading += f",Question {question.question_number},Custom Prompt {question.question_number},KLP {question.question_number},KLS {question.question_number}"
+                    
+                    temp[f"Question {question.question_number}"] = question.question
+                    temp[f"Custom Prompt {question.question_number}"] = question.gpt_prompt_override
+                    temp[f"KLP {question.question_number}"] = question.key_learning_point
+                    temp[f"KLS {question.question_number}"] = question.key_learning_skills
+
+                    
+
+                test_list.append(temp)
+
+                
+                cnt += 1
+                
+
+        return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
