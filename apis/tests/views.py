@@ -435,7 +435,7 @@ class TestViewSet(ApiViewSet,
             tests.filter(title=title)
 
         cnt = 1
-        csv_heading = "Title,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
         for test in tests:
             temp={}
             questions = TestQuestion.objects.filter(test_id=test.uid)
@@ -443,6 +443,7 @@ class TestViewSet(ApiViewSet,
             num_questions = int(num_questions)
             if questions.count() == num_questions :
                 
+                temp["Test code"] = test.test_code
                 temp["Title"] = test.title
                 temp["Test description"] = test.description
                 temp["Description Media"] = test.description_media
@@ -499,7 +500,7 @@ class TestViewSet(ApiViewSet,
         
 
         cnt = 1
-        csv_heading = "Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
         for test in tests:
             
             temp={}
@@ -510,6 +511,7 @@ class TestViewSet(ApiViewSet,
             num_questions = int(num_questions)
             if questions.count() == num_questions :
                 
+                temp["Test Code"] = test.test_code
                 temp["Title"] = test.title
                 temp["Context"] = test.description
                 temp["Description Media"] = test.description_media
