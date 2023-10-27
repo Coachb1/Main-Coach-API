@@ -435,7 +435,7 @@ class TestViewSet(ApiViewSet,
             tests.filter(title=title)
 
         cnt = 1
-        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        csv_heading = "Test code,Title,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
         for test in tests:
             temp={}
             questions = TestQuestion.objects.filter(test_id=test.uid)
