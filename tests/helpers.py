@@ -3006,7 +3006,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
@@ -3059,7 +3059,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
@@ -3114,7 +3114,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
-                                                                    # evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                     deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
                 template = Template(
                 '''
@@ -3173,6 +3173,13 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
+
+        while test_response.response_text is None :
+            # Check if response_text is populated
+            if test_response.response_text is not None :
+                logger.info('response_text populated')
+                break 
+        
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
         else:
