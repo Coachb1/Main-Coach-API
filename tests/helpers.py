@@ -2412,6 +2412,13 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     participant_email = participant_attributes.get(
         "profile", {}).get("email")
 
+    
+
+    for to_email in email_address_list:
+        send_email(to_email, email_subject, data=data)
+
+    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
+
     if test.email_candidate:
         try:
             send_email(participant_email, email_subject, data=data)
@@ -2419,11 +2426,6 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
             logger.exception("failed to send email to participant %s email %s, err: %s",
                              participant_id, participant_email, e)
             raise e
-
-    for to_email in email_address_list:
-        send_email(to_email, email_subject, data=data)
-
-    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     test_attempt_session.is_report_sent_to_email = True
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
@@ -3174,11 +3176,13 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
 
-        while test_response.response_text is None :
+        while True :
             # Check if response_text is populated
             if test_response.response_text is not None :
                 logger.info('response_text populated')
                 break 
+            logger.info('waiting for response text')
+            time.sleep(0.3)
         
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
