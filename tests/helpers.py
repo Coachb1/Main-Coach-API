@@ -3174,7 +3174,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
 
-        while test_response.response_text is None :
+        while True :
             # Check if response_text is populated
             if test_response.response_text is not None :
                 logger.info('response_text populated')
