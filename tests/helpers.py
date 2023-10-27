@@ -3179,6 +3179,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             if test_response.response_text is not None :
                 logger.info('response_text populated')
                 break 
+            logger.info('waiting for response text')
+            time.sleep(0.5)
         
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
