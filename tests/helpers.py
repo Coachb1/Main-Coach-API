@@ -927,6 +927,24 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
     update_fields = []
     print("########################## process_orchestrated_test_response_by_user: test.interaction_mode",test.interaction_mode)
+    # for whatsapp only
+    if test.interaction_mode == InteractionModeChoices.text:
+        response = test_question_response.response_text
+        if response.startswith('https://whatsapp') == True:
+            transcript = ''
+            try:
+                transcript = gpt_wishper_api(response)
+            except Exception as e:
+                logger.error(e)
+                try:
+                    transcript = speech_to_text(test_question_response.response_file)
+                except Exception as e:
+                    logger.error(e)
+                    transcript = "Transcript Couldn't be generated."
+
+            test_question_response.response_text = transcript
+            update_fields.append('response_text')
+
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields.extend(["response_text"])
 
@@ -3182,7 +3200,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 logger.info('response_text populated')
                 break 
             logger.info('waiting for response text')
-            time.sleep(0.3)
+            time.sleep(0.5)
         
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
