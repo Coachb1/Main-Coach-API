@@ -929,8 +929,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     print("########################## process_orchestrated_test_response_by_user: test.interaction_mode",test.interaction_mode)
     # for whatsapp only
     if test.interaction_mode == InteractionModeChoices.text:
-        response = test_question_response.response_text
-        if response.startswith('https://whatsapp') == True:
+        response = test_question_response.response_file
+        if response:
             transcript = ''
             try:
                 transcript = gpt_wishper_api(response)
