@@ -3218,7 +3218,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {response_text}"
         else:
-            conv_text = f"{question.question_for}: {response_text}"
+            conv_text = f"{test_response.responder_type}: {response_text}"
 
         current_conversation = current_conversation + "\n" + conv_text
 
