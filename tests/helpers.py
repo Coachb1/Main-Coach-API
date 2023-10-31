@@ -3193,14 +3193,25 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
+        logger.info(f"test_response: {test_response.response_text}")
 
-        while True :
-            # Check if response_text is populated
-            if test_response.response_text is not None :
-                logger.info('response_text populated')
-                break 
-            logger.info('waiting for response text')
-            time.sleep(0.5)
+
+        if test_response.response_text is None:
+            start_time = time.time()
+            while True :
+                end_time = time.time()
+                if end_time - start_time > 30:
+                    logger.error(
+                        f"[Time Limit] Unable to evaluate response text: {test_response.uid}")
+                    raise ValueError("unable to evaluate response text: %s",
+                                 test_response.uid)
+                # Check if response_text is populated
+                respo_text = TestQuestionResponse.objects.get(uid = test_response.uid,deleted=0).response_text
+                if respo_text is not None :
+                    logger.info('response_text populated')
+                    break 
+                logger.info('waiting for response text')
+                time.sleep(1)
         
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {test_response.response_text}"
