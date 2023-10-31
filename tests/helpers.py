@@ -3209,7 +3209,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 # Check if response_text is populated
                 respo_text = TestQuestionResponse.objects.get(uid = response_uid,deleted=0).response_text
                 if respo_text is not None :
-                    response_text = response_text
+                    response_text = respo_text
                     logger.info(f'response_text populated : {respo_text}')
                     break 
                 logger.info('waiting for response text')
