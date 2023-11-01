@@ -39,6 +39,15 @@ class AccountsViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a user account.
+
+        Args:
+            request (object): The HTTP request object containing the user and identity data.
+
+        Returns:
+            object: The HTTP response object containing the serialized user account data.
+        """
         serializer = SetupAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -75,6 +84,14 @@ class AccountsViewSet(ApiViewSet,
             detail=False,
             url_path=r"identities/(?P<identity_type>[^\s]+)/(?P<identity_value>[^\s]+)")
     def get_account_via_identity(self, request, identity_type, identity_value, *args, **kwargs):
+        """
+        Retrieves a user account based on the provided identity type and identity value.
+
+        :param request: The HTTP request object.
+        :param identity_type: The type of identity to search for.
+        :param identity_value: The value of the identity to search for.
+        :return: The HTTP response object containing the serialized user account data.
+        """
         user = get_user_via_identity(
             tenant=request.tenant,
             identity_type=identity_type,
@@ -84,6 +101,18 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=True, url_path="upsert-attributes")
     def upsert_user_attributes_view(self, request, *args, **kwargs):
+        """
+        Update or insert user attributes in the database.
+
+        :param request: The HTTP request object.
+        :type request: HttpRequest
+        :param args: Additional positional arguments.
+        :type args: tuple
+        :param kwargs: Additional keyword arguments.
+        :type kwargs: dict
+        :return: The HTTP response object containing the serialized user account data.
+        :rtype: HttpResponse
+        """
         serializer = UserAttributesUserContextSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -117,6 +146,16 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="get-workspace-users")
     def get_workspace_users(self, request, *args, **kwargs):
+        """
+        Retrieves a list of workspace users who have attempted tests.
+
+        Args:
+            request (object): The HTTP request object.
+
+        Returns:
+            dict: A dictionary containing the names and IDs of workspace users who have attempted tests.
+
+        """
         try:
             included_users = self.get_queryset().filter(is_excluded=0).values('uid')
             users = UserAttribute.objects.filter(user_id__in=Subquery(included_users))
@@ -136,7 +175,18 @@ class AccountsViewSet(ApiViewSet,
 
 
     @action(methods=['GET'], detail=False, url_path="get_is_repeat_status")
-    def get_is_repeat_status(self,request,*args, **kwargs):
+    def get_is_repeat_status(self, request, *args, **kwargs):
+        """
+        Retrieves the repeat status of a participant for a given tenant.
+
+        This method calculates the number of tests the participant has attempted in the current month and compares it to the maximum number of tests allowed per month.
+        It returns the repeat status and the remaining number of tests for the month.
+
+        :param request: The HTTP request object.
+        :param participant_id: The ID of the participant for whom the repeat status is being checked.
+        :return: A dictionary containing the tenant ID, repeat status, and the remaining number of tests for the month.
+        """
+
         tenant = self.request.tenant
         participant_id = request.query_params.get("participant_id")
 
@@ -151,13 +201,17 @@ class AccountsViewSet(ApiViewSet,
                     this_month_sessions.append(session)
             total_test_attempted = len(this_month_sessions)
         except Exception as e:
-            logger.error({"!!!!!!!!!! Error":e},exc_info=True)
+            logger.error({"!!!!!!!!!! Error": e}, exc_info=True)
             total_test_attempted = 0
-        data = {"tenant_id": tenant.uid,"is_repeat" : tenant.is_repeat,"monthly_remaining_tests": test_per_month - total_test_attempted}
+
+        data = {"tenant_id": tenant.uid, "is_repeat": tenant.is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted}
         return Response(data, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-user-type")
     def get_user_type(self,request,*args, **kwargs):
+        """
+            Retrieves the role of a user based on their user ID.
+        """
         user_id = request.query_params.get('user_id')
 
         user = User.objects.get(uid=user_id)
@@ -168,6 +222,10 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
     def get_mobile_number_res_list_whatsapp(self,request,*args, **kwargs):
+        """
+        Only for Whatsapp use.
+        Retrive restricted mobile numbers from db
+        """
         tenant = self.request.tenant
         number_list = []
 
