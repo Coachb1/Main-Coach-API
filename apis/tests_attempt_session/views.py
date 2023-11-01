@@ -17,7 +17,7 @@ from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.helpers import send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation, send_report_link_to_whatsapp
-from tests.choices import TestTypeChoices
+from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
 from email_sender.helpers import send_feedbackd_email
 from users.models import UserAttribute
@@ -227,7 +227,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
 
-            if is_whatsapp and test.test_type != TestTypeChoices.interview:
+            if is_whatsapp and test.test_type != TestTypeChoices.interview and test.scenario_case != ScenarioCaseChoices.employee_feedback:
                 send_report_link_to_whatsapp(
                     test, test_attempt_session, report_url)
 
