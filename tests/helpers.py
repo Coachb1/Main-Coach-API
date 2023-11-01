@@ -61,6 +61,7 @@ from commons.google_apis import speech_to_text, text_bison_compeletion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
+from tests.choices import ScenarioCaseChoices
 
 logger = logging.getLogger(__name__)
 
@@ -672,6 +673,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 question=question.question,
                 candidate_reply=test_question_response.response_text,
                 user_feedback_prompt=user_feedback_prompt)
+            
+        elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
+            prompt = emplyee_feedback_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt
+            )
 
         else:
             if question.gpt_prompt_override or test.gpt_prompt_override:
@@ -727,6 +738,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 question=question.question,
                                 candidate_reply=test_question_response.response_text,
                                 user_feedback_prompt=user_feedback_prompt)
+                            
+                        elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
+                            prompt = emplyee_feedback_prompt(
+                                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt=user_feedback_prompt
+                            )
 
                         else:
                             if question.gpt_prompt_override or test.gpt_prompt_override:
@@ -3426,6 +3447,7 @@ def get_overridden_prompt(prompt_template: str,
                                    test_description=test_description,
                                    question=question,
                                    question_context=question_context,
+                                   prompt_template=prompt_template,
                                    candidate_reply=candidate_reply,
                                    user_feedback_prompt=user_feedback_prompt)
 
@@ -3467,7 +3489,46 @@ def get_overridden_prompt(prompt_template: str,
                                    prompt_template=prompt_template,
                                    candidate_reply=candidate_reply,
                                    user_feedback_prompt=user_feedback_prompt)
+@timeit
+def emplyee_feedback_prompt(prompt_template: str,
+                          test_title: str,
+                          test_description: str,
+                          question: str,
+                          candidate_reply: str,
+                          user_feedback_prompt:str):
+    template = Template(
+        """
+        \n\nHuman:
+        Title: ${test_title}.
+        Test Description: ${test_description}
+        Question: ${question}
+        Evaluation Criteria: ${prompt_template}
+        employee_performance: ${candidate_reply}
+        An employee's performance is given in "employee_performance". As their manager provides comments on the employee's performance based on the employee's performance. The comments should be structured in the following format:
+        - Key insights to improve the performance
+        - What went well ?
+        - What did not work ?
+        NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+        NOTE: Do not include any mentions of word count requirements or limits in your response.
+        NOTE : This comments should only be provided for the employee's performance. DO NOT provide feedback on the response,
+        NOTE : In cases where the "employee_performance" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
+        NOTE : Minimum response length is 300 words. Always adhere to the same.
+        NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+        NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+        NOTE : NEVER print the response alignment score in the output.
+        ${user_feedback_prompt}
+        \n\nAssistant:
+        """
+    )
+    return template.substitute(test_title=test_title,
+                                test_description=test_description,
+                                question=question,
+                                prompt_template=prompt_template,
+                                candidate_reply=candidate_reply,
+                                user_feedback_prompt=user_feedback_prompt)
+
+    
 
 @timeit
 def get_question_key_learning_point(test_title,
@@ -3926,6 +3987,16 @@ def submit_feedback(
             question=question.question,
             candidate_reply=test_question_response.response_text,
             user_feedback_prompt=user_feedback_prompt)
+        
+    elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
+        prompt = emplyee_feedback_prompt(
+                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                test_title=test.title,
+                test_description=test.description,
+                question=question.question,
+                candidate_reply=test_question_response.response_text,
+                user_feedback_prompt=user_feedback_prompt
+            )
 
     else:
         if question.gpt_prompt_override or test.gpt_prompt_override:
@@ -3981,6 +4052,16 @@ def submit_feedback(
                             question=question.question,
                             candidate_reply=test_question_response.response_text,
                             user_feedback_prompt=user_feedback_prompt)
+                        
+                    elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
+                        prompt = emplyee_feedback_prompt(
+                                prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question.question,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt=user_feedback_prompt
+                        )
 
                     else:
                         if question.gpt_prompt_override or test.gpt_prompt_override:
