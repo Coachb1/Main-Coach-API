@@ -61,6 +61,8 @@ from commons.google_apis import speech_to_text, text_bison_compeletion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
+from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
+                            evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
 logger = logging.getLogger(__name__)
 
@@ -4043,3 +4045,29 @@ def submit_feedback(
     logger.info("######################## Feedback is ready ######################")
 
     return test_question_response.feedback_text
+
+
+
+
+def set_orchestrated_skills_explanation(objective, chat_conversation, user_persona, skills_rating, test_attempt_session):
+    skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, skills_rating, test_attempt_session)
+    logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(skills_rating.keys())})
+    if skills_explanation:
+        test_attempt_session.skills_explanation = skills_explanation
+        test_attempt_session.save(update_fields=['skills_explanation'])
+
+
+def set_skills_explanation(test, conversation, test_attempt_session):
+    skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+    logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+    if skills_explanation:
+        test_attempt_session.skills_explanation = skills_explanation
+        test_attempt_session.save(update_fields=['skills_explanation'])
+
+
+def set_feedback_summary(test_attempt_session,feedbacks):
+    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+    logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+    if len(feedbacks_summary) > 0:
+        test_attempt_session.feedback_summary = feedbacks_summary
+        test_attempt_session.save(update_fields=['feedback_summary'])
