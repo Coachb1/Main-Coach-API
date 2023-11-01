@@ -31,6 +31,7 @@ class ScenarioCaseChoices(DjangoChoices):
     presentation  = ChoiceItem("presentation")
     dynamic_discussion  = ChoiceItem("dynamic_discussion")
     feedback_role_play = ChoiceItem("feedback_role_play")
+    employee_feedback = ChoiceItem('employee_feedback')
 
 
 class InteractionModeChoices(DjangoChoices):
