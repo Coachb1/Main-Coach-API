@@ -173,7 +173,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             })
 
         
-        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test_title,'candidate_type': candidate_type, 'test_description': test_description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary}
+        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary}
 
 
     qa = []
