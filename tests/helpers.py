@@ -125,6 +125,7 @@ def create_test(tenant: Tenant,
                 is_email_type: bool,
                 scenario_case: str,
                 is_game_type: bool,
+                is_free: bool,
                 image_url: str,
                 rating : str,
                 source : str,
@@ -168,6 +169,7 @@ def create_test(tenant: Tenant,
             max_test_allowed=max_test_allowed,
             scenario_case=scenario_case,
             is_game_type=is_game_type,
+            is_free=is_free,
             rating=rating,
             image_url=image_url,
             source=source,
@@ -560,37 +562,38 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             end = time.time()
             logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
-            if transcript_length > 10:
-                if test.test_type == TestTypeChoices.trainer_thread:
-                    threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
-                else:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met
+            if not test.is_free:
+                if transcript_length > 10:
+                    if test.test_type == TestTypeChoices.trainer_thread:
+                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                    else:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
 
-                            end = time.time()
-                            logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
-                            break
-                        except Exception as e:
-                            logger.exception(e)
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                end = time.time()
+                                logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                                 break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    break
 
-                    
-            else:
-                # HACK sane default values
-                    test_question_response.speech_metrics = default_metrics
+                        
+                else:
+                    # HACK sane default values
+                        test_question_response.speech_metrics = default_metrics
 
-            update_fields.append("speech_metrics")
+                update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
@@ -620,34 +623,35 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     transcript = "Transcription couldn't be generated"
                     test_question_response.response_text = transcript
 
-            if transcript_length > 10:
-                if test.test_type == TestTypeChoices.trainer_thread:
-                    threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
-                else:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met_video
-                            end = time.time()
-                            logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                            break
-
-                        except Exception as e:
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+            if not test.is_free:
+                if transcript_length > 10:
+                    if test.test_type == TestTypeChoices.trainer_thread:
+                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                    else:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met_video
+                                end = time.time()
+                                logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                                 break
 
-            else:
-                test_question_response.speech_metrics = default_metrics
-                
-            update_fields.append("speech_metrics")
+                            except Exception as e:
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                    break
+
+                else:
+                    test_question_response.speech_metrics = default_metrics
+                    
+                update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
 
@@ -771,18 +775,28 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
                     max_retry -= 1
 
-                gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-                if not gpt_feedback.text:
-                    try:
-                        feedback_text = text_bison_compeletion(prompt)
-                    except Exception as e:
-                        logger.exception(e)
-                        anthropic_feedback = anthropic_completion(prompt, 1200)
-                        # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+
+                if test.is_free:
+                    anthropic_feedback = anthropic_completion(prompt, 1200)
+                    if anthropic_feedback:
                         feedback_text = anthropic_feedback
+                    else:
+                        feedback_text = 'Feedback could not be generated'
+                
                 else:
-                    feedback_text = gpt_feedback.text
-                    raw_text = gpt_feedback.raw
+
+                    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                    if not gpt_feedback.text:
+                        try:
+                            feedback_text = text_bison_compeletion(prompt)
+                        except Exception as e:
+                            logger.exception(e)
+                            anthropic_feedback = anthropic_completion(prompt, 1200)
+                            # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                            feedback_text = anthropic_feedback
+                    else:
+                        feedback_text = gpt_feedback.text
+                        raw_text = gpt_feedback.raw
 
 
                 if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
@@ -791,7 +805,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 end = time.time()
                 logger.info(f"######################## _process_response: fetching FEEDBACK  took {end - start:.2f} ########################")
                 break
-            
+
 
         test_question_response.metadata = {
             "gpt": {
@@ -839,12 +853,21 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
     else:
         relevancy_score = {}
-        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                            question.question,
-                                            test_question_response.response_text,
-                                            test.description,
-                                            test.title,
-                                            )
+        if test.is_free:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                question.question,
+                                                test_question_response.response_text,
+                                                test.description,
+                                                test.title,
+                                                True
+                                                )
+        else:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                question.question,
+                                                test_question_response.response_text,
+                                                test.description,
+                                                test.title,
+                                                )
 
         if not is_evaluated:
             test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
@@ -913,7 +936,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
         calc_score(test_attempt_session, test)
-        report_url = generate_session_report_link(test_attempt_session, test)
+
+        if test.is_free:
+            report_url = generate_summary_feedback_session_report_link(test_attempt_session, test)
+        else:
+            report_url = generate_session_report_link(test_attempt_session, test)
 
         # if test.email_address_list:
         #     send_report_link_to_email(
@@ -1944,47 +1971,47 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         # if response_avg_score:
         #     avg_score += response_avg_score
         #     response_count += 1
+        if not test.is_free:
+            if response.speech_metrics:
+                has_speech_metric = True
+                # get speech metrics from this response
+                response_speech_metrics = response.speech_metrics
+                # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
+                # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
 
-        if response.speech_metrics:
-            has_speech_metric = True
-            # get speech metrics from this response
-            response_speech_metrics = response.speech_metrics
-            # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
-            # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+                try:
+                    for key,value in response_speech_metrics.items():
+                        if isinstance(value, str) and "%" in value:
+                            try: 
+                                value = float(value.replace("%", ""))
+                            except:
+                                pass
+                                
+                        if key in speech_score:
+                            speech_score[key] += value or random.randint(3, 7)
+                        else:
+                            speech_score[key] = value or random.randint(3, 7)
 
-            try:
-                for key,value in response_speech_metrics.items():
-                    if isinstance(value, str) and "%" in value:
-                        try: 
-                            value = float(value.replace("%", ""))
-                        except:
-                            pass
-                            
-                    if key in speech_score:
-                        speech_score[key] += value or random.randint(3, 7)
-                    else:
-                        speech_score[key] = value or random.randint(3, 7)
-
-            except Exception as e :
-                has_speech_metric = False
-                logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
-
-
-        # joining every feedback for summary
-
-        if response.feedback_text:
-            feedbacks += response.feedback_text + "\n"
+                except Exception as e :
+                    has_speech_metric = False
+                    logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
 
 
+            # joining every feedback for summary
+
+            if response.feedback_text:
+                feedbacks += response.feedback_text + "\n"
 
 
-        # for skill in response_skills_rating:
-        #     if skill in skills_rating:
-        #         skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
-        #         skills_count[skill] += 1
-        #     else:
-        #         skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
-        #         skills_count[skill] = 1
+
+
+            # for skill in response_skills_rating:
+            #     if skill in skills_rating:
+            #         skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
+            #         skills_count[skill] += 1
+            #     else:
+            #         skills_rating[skill] = response_skills_rating[skill] or random.randint(3, 7)
+            #         skills_count[skill] = 1
 
         attempted_count += 1
     # skill_ = []
@@ -2217,6 +2244,28 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     test_attempt_session.report_url = report_url
     test_attempt_session.save(update_fields=["report_url"])
 
+    return report_url
+
+
+@timeit
+def generate_summary_feedback_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    if test_attempt_session.report_url:
+        return test_attempt_session.report_url
+
+    test_id = test_attempt_session.test_id
+    test_attempt_session_id = test_attempt_session.uid
+    participant_id = test_attempt_session.participant_id
+
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.SUMMARY_FEEDBACK_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
+
+    test_attempt_session.report_url = report_url
+    test_attempt_session.save(update_fields=["report_url"])
     return report_url
 
 @timeit
@@ -2533,8 +2582,12 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         count += 1
 
     # Evaluate conversation
-    culture_skills_rating, is_evaluated = evaluate_conversation(
-        test_attempt_session, conversation, test.title, test.description, test.test_code)
+    if test.is_free:
+        culture_skills_rating, is_evaluated = evaluate_conversation(
+            test_attempt_session, conversation, test.title, test.description, test.test_code,True)
+    else:
+        culture_skills_rating, is_evaluated = evaluate_conversation(
+            test_attempt_session, conversation, test.title, test.description, test.test_code)
 
     if not is_evaluated:
         return None
@@ -2571,8 +2624,12 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
         count += 1
 
     # Evaluate conversation
-    skills_rating, is_evaluated = evaluate_response_skill(
-        test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
+    if test.is_free:
+        skills_rating, is_evaluated = evaluate_response_skill(
+            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt,True)
+    else:
+        skills_rating, is_evaluated = evaluate_response_skill(
+            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
 
     if not is_evaluated:
         return None

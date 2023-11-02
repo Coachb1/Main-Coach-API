@@ -241,7 +241,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
 
 @timeit
-def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title):
+def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title,is_free=False):
     
     prompt = f'''
     \n\nHuman:
@@ -264,127 +264,163 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
     NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above.
     \n\nAssistant:
     '''
-    ##################* gpt ###################
-    is_evaluated = True
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
 
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_relevacy ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            response = json.loads(response)
-            
-            for skill in response:
-                response[skill] = float(response[skill])
 
-            break
+    if is_free:
+         ##################* anthropic ###################
+        is_evaluated = True
+        response = None
 
-        except Exception as e:
-            logger.error({"****evaluate_relevacy ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_relevacy ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                for skill in response:
+                    response[skill] = float(response[skill])
+                break
+            except Exception as e:
+                logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+        else:
+            return {"relevance": 1}, True
+        
+    else:
+        
+        ##################* gpt ###################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_relevacy ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                for skill in response:
+                    response[skill] = float(response[skill])
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****evaluate_relevacy ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return response, is_evaluated
+        if is_evaluated:
+            return response, is_evaluated
 
-    ##################* gpt ###################
-    
-    logger.info({"****evaluate_relevacy ":f"failed gpt, so trying text_bison_compeletion"})
+        ##################* gpt ###################
+        
+        logger.info({"****evaluate_relevacy ":f"failed gpt, so trying text_bison_compeletion"})
 
 
-    ##################* text_bison_compeletion ###################
+        ##################* text_bison_compeletion ###################
 
-    is_evaluated = True
-    response = None
-    max_tries = 3
+        is_evaluated = True
+        response = None
+        max_tries = 3
 
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_relevacy ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_relevacy ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            response = json.loads(response)
-            
-            for skill in response:
-                response[skill] = float(response[skill])
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_relevacy ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****evaluate_relevacy ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                for skill in response:
+                    response[skill] = float(response[skill])
 
-            break
-
-        except Exception as e:
-            logger.error({"****evaluate_relevacy ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****evaluate_relevacy ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return response, is_evaluated
+        if is_evaluated:
+            return response, is_evaluated
 
 
-    ##################* text_bison_compeletion ###################
-    logger.info({"****evaluate_relevacy ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+        ##################* text_bison_compeletion ###################
+        logger.info({"****evaluate_relevacy ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
 
-    ##################* anthropic ###################
-    is_evaluated = True
-    response = None
+        ##################* anthropic ###################
+        is_evaluated = True
+        response = None
 
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_relevacy ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, 100)
-            logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-            response = json_extraction(response)
-            response = json.loads(response)
-            for skill in response:
-                response[skill] = float(response[skill])
-            break
-        except Exception as e:
-            logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_relevacy ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                for skill in response:
+                    response[skill] = float(response[skill])
                 break
+            except Exception as e:
+                logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
 
-            time.sleep(1)
-            continue
+                time.sleep(1)
+                continue
 
-    if is_evaluated:
-        return response, is_evaluated
+        if is_evaluated:
+            return response, is_evaluated
 
-    ##################* anthropic ###################
+        ##################* anthropic ###################
 
 
-    # HACK in case everything fails; just evaluate as a random number
-    logger.info({"****evaluate_relevacy ":f"failed everything, so assigning default values"})
-    response = {"relevance": 1}
-    
+        # HACK in case everything fails; just evaluate as a random number
+        logger.info({"****evaluate_relevacy ":f"failed everything, so assigning default values"})
+        response = {"relevance": 1}
+        
 
-    # send error on slack to debug this
-    send_slack_message({"process": "evaluate_relevacy",
-                        "test_question_response": test_question_response.uid,
-                        "error": "failed to evaluate; putting random value"})
+        # send error on slack to debug this
+        send_slack_message({"process": "evaluate_relevacy",
+                            "test_question_response": test_question_response.uid,
+                            "error": "failed to evaluate; putting random value"})
 
-    return response, True
+        return response, True
 
 
 @timeit
-def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt):
+def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt,is_free=False):
     skills_rating =skills
 
     # prompt = f'''
@@ -476,157 +512,212 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         NOTE : Do not provide any kind of heading or introduction text in the output.
 
         NOTE: Do not add any English language sentence in the output.
+        {user_skill_prompt}
         \n\nAssistant:
         '''
+    if is_free:
+        ##################* anthropic ###################
+        is_evaluated = True
 
-    ################################* gpt ################################
-    responses = []
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
+        responses = []
+        response = {}
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-            skills_rating_str = json_extraction(response)
-
-            skills_rating = json.loads(skills_rating_str)
-            for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(skills_rating) * 100)
+                logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
-            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            # responses.append(skills_explanation)
+                skills_rating_str = json_extraction(response)
 
-            break
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
 
-        except Exception as e:
-            logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****evaluate_response_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return *responses, is_evaluated
-
-    ################################* gpt end ################################
-    logger.info({"****evaluate_response_skill ":f"failed gpt, so trying text_bison_compeletion"})
-
-
-    ################################* text_bison_compeletion ################################
-    responses = []
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_response_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_response_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
-
-
-            skills_rating_str = json_extraction(response)
-
-            skills_rating = json.loads(skills_rating_str)
+        if is_evaluated:
+            return *responses, is_evaluated
+        else:
+             # HACK in case everything fails; just evaluate as a random number
+            response = {}
             for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+                response[skill] = random.randint(3, 7)
+
+            # send error on slack to debug this
+            send_slack_message({"process": "evaluate_response_skills",
+                                "test_attempt_session": test_attempt_session.uid,
+                                "error": "failed to evaluate; putting random value"})
+
+            return response, {}, True
+    else:
+
+        ################################* gpt ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            # skills_explanation = to_dict(skills_explanation_str)
-            # responses.append(skills_explanation)
+                skills_rating_str = json_extraction(response)
 
-            break
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
 
-        except Exception as e:
-            logger.error({"****evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return *responses, is_evaluated
+        if is_evaluated:
+            return *responses, is_evaluated
 
-    ################################* text_bison_compeletion end ################################
-    logger.info({"****evaluate_response_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
-
-    ##################* anthropic ###################
-    is_evaluated = True
-
-    responses = []
-    response = {}
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(skills_rating) * 100)
-            logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+        ################################* gpt end ################################
+        logger.info({"****evaluate_response_skill ":f"failed gpt, so trying text_bison_compeletion"})
 
 
-            skills_rating_str = json_extraction(response)
+        ################################* text_bison_compeletion ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
 
-            skills_rating = json.loads(skills_rating_str)
-            for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_response_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****evaluate_response_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
 
-            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            # responses.append(skills_explanation)
+                skills_rating_str = json_extraction(response)
 
-            break
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
 
-        except Exception as e:
-            logger.error({"****evaluate_response_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+
+                # skills_explanation = to_dict(skills_explanation_str)
+                # responses.append(skills_explanation)
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return *responses, is_evaluated
+        if is_evaluated:
+            return *responses, is_evaluated
 
-    ##################* anthropic end ###################
+        ################################* text_bison_compeletion end ################################
+        logger.info({"****evaluate_response_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+
+        ##################* anthropic ###################
+        is_evaluated = True
+
+        responses = []
+        response = {}
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(skills_rating) * 100)
+                logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
-    logger.info({"****evaluate_response_skill ":f"failed everything, so assigning default values"})
+                skills_rating_str = json_extraction(response)
 
-    # HACK in case everything fails; just evaluate as a random number
-    response = {}
-    for skill in skills_rating:
-        response[skill] = random.randint(3, 7)
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
 
-    # send error on slack to debug this
-    send_slack_message({"process": "evaluate_response_skills",
-                        "test_attempt_session": test_attempt_session.uid,
-                        "error": "failed to evaluate; putting random value"})
 
-    return response, {}, True
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_response_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return *responses, is_evaluated
+
+        ##################* anthropic end ###################
+
+
+        logger.info({"****evaluate_response_skill ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = {}
+        for skill in skills_rating:
+            response[skill] = random.randint(3, 7)
+
+        # send error on slack to debug this
+        send_slack_message({"process": "evaluate_response_skills",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
+        return response, {}, True
 
 
 @timeit
-def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_skill, skill_rating):
+def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_skill, skill_rating,is_free=False):
     prompt= """
     \n\nHuman:
     cultural_list: %s
@@ -666,115 +757,160 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     """%(cultural_skill,skill_rating)
 
 
-    #################################* gpt #################################
-    is_evaluated = True
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    if is_free:
+        #################################* anthropic #################################
+        is_evaluated = True
 
-    while max_tries > 0:
-        try:
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+        response = ""
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-            break
+        while max_tries > 0:
+            try:
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 300)
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
-        except Exception as e:
-            logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
+        if is_evaluated:
+            return response
+
+        #################################* anthropic end #################################
+
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = ""
+
+        # send error on slack to debug this
+        send_slack_message({"process": "calulate_summary_for_culture_and_normal_skill",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
         return response
 
-    #################################* gpt end #################################
-    
-    logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed gpt, so trying text_bison_compeletion"})
 
-    #################################* text_bison_compeletion #################################
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
+    else:
+        #################################* gpt #################################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
 
-    while max_tries > 0:
-        try:
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+        while max_tries > 0:
+            try:
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
-
-            break
-
-        except Exception as e:
-            logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return response
+        if is_evaluated:
+            return response
 
-    #################################* text_bison_compeletion end #################################
+        #################################* gpt end #################################
+        
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed gpt, so trying text_bison_compeletion"})
 
-    logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
-    
-    #################################* anthropic #################################
-    is_evaluated = True
+        #################################* text_bison_compeletion #################################
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
 
-    response = ""
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+        while max_tries > 0:
+            try:
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
-    while max_tries > 0:
-        try:
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, 300)
-            logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
-            break
-
-        except Exception as e:
-            logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
+        if is_evaluated:
+            return response
+
+        #################################* text_bison_compeletion end #################################
+
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        
+        #################################* anthropic #################################
+        is_evaluated = True
+
+        response = ""
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 300)
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+
+                break
+
+            except Exception as e:
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response
+
+        #################################* anthropic end #################################
+
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = ""
+
+        # send error on slack to debug this
+        send_slack_message({"process": "calulate_summary_for_culture_and_normal_skill",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
         return response
-
-    #################################* anthropic end #################################
-
-    logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed everything, so assigning default values"})
-
-    # HACK in case everything fails; just evaluate as a random number
-    response = ""
-
-    # send error on slack to debug this
-    send_slack_message({"process": "calulate_summary_for_culture_and_normal_skill",
-                        "test_attempt_session": test_attempt_session.uid,
-                        "error": "failed to evaluate; putting random value"})
-
-    return response
 
 
 
 @timeit
-def feedback_summary(test_attempt_session,feedbacks):
+def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     prompt= """
     \n\nHuman:
     {feedback} : %s
@@ -794,117 +930,164 @@ def feedback_summary(test_attempt_session,feedbacks):
     \n\nAssistant:
     """%(feedbacks)
 
-    #################################* gpt #################################
-    is_evaluated = True
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    if is_free:
+        #################################* anthropic #################################
+        is_evaluated = True
 
-    while max_tries > 0:
-        try:
-            logger.info({"****feedback_summary ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****feedback_summary ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+        response = ""
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-            break
+        while max_tries > 0:
+            try:
+                logger.info({"****feedback_summary ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(feedbacks.split()) + 200)
+                logger.info({"****feedback_summary ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
-        except Exception as e:
-            logger.error({"****feedback_summary ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****feedback_summary ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
+        if is_evaluated:
+            return response
+
+        #################################* anthropic end #################################
+
+
+        logger.info({"****feedback_summary ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = ""
+
+        # send error on slack to debug this
+        send_slack_message({"process": "feedback_summary",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
         return response
 
-    #################################* gpt end #################################
-    
-    logger.info({"****feedback_summary ":f"failed gpt, so trying text_bison_compeletion"})
 
-    #################################* text_bison_compeletion #################################
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
+    else:
 
-    while max_tries > 0:
-        try:
-            logger.info({"****feedback_summary ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****feedback_summary ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+        #################################* gpt #################################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
 
+        while max_tries > 0:
+            try:
+                logger.info({"****feedback_summary ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****feedback_summary ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
-            break
-
-        except Exception as e:
-            logger.error({"****feedback_summary ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****feedback_summary ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return response
+        if is_evaluated:
+            return response
 
-    #################################* text_bison_compeletion end #################################
+        #################################* gpt end #################################
+        
+        logger.info({"****feedback_summary ":f"failed gpt, so trying text_bison_compeletion"})
 
-    logger.info({"****feedback_summary ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        #################################* text_bison_compeletion #################################
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
 
-    #################################* anthropic #################################
-    is_evaluated = True
+        while max_tries > 0:
+            try:
+                logger.info({"****feedback_summary ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****feedback_summary ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
-    response = ""
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-    while max_tries > 0:
-        try:
-            logger.info({"****feedback_summary ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(feedbacks.split()) + 200)
-            logger.info({"****feedback_summary ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-            break
-
-        except Exception as e:
-            logger.error({"****feedback_summary ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"****feedback_summary ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
+        if is_evaluated:
+            return response
+
+        #################################* text_bison_compeletion end #################################
+
+        logger.info({"****feedback_summary ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+
+        #################################* anthropic #################################
+        is_evaluated = True
+
+        response = ""
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****feedback_summary ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(feedbacks.split()) + 200)
+                logger.info({"****feedback_summary ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+
+                break
+
+            except Exception as e:
+                logger.error({"****feedback_summary ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response
+
+        #################################* anthropic end #################################
+
+
+        logger.info({"****feedback_summary ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = ""
+
+        # send error on slack to debug this
+        send_slack_message({"process": "feedback_summary",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
         return response
-
-    #################################* anthropic end #################################
-
-
-    logger.info({"****feedback_summary ":f"failed everything, so assigning default values"})
-
-    # HACK in case everything fails; just evaluate as a random number
-    response = ""
-
-    # send error on slack to debug this
-    send_slack_message({"process": "feedback_summary",
-                        "test_attempt_session": test_attempt_session.uid,
-                        "error": "failed to evaluate; putting random value"})
-
-    return response
 
 
     
 
 @timeit
-def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code):
+def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code,is_free=False):
 
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
@@ -960,11 +1143,11 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
     # '''
 
-    prompt = '''
+    prompt = f'''
         \n\nHuman:
-        "TITLE:" {title};
+        "TITLE:" {test_title};
 
-        "DESCRIPTION:" {description};
+        "DESCRIPTION:" {test_description};
 
         "CONVERSATION:" {conversation};
 
@@ -999,151 +1182,207 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         NOTE: Do not add any English language sentence in the output.
         \n\nAssistant:
         '''
-
-    ################################* gpt ################################
-    responses = []
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-            skills_rating_str = json_extraction(response)
-
-            skills_rating = json.loads(skills_rating_str)
-            for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
-
-
-            # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-            # responses.append(skills_explanation)
-
-            break
-
-        except Exception as e:
-            logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e },exc_info=True)
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
-                break
-
-            time.sleep(1)
-            continue
-
-
-    if is_evaluated:
-        return *responses, is_evaluated
-
-    ################################* gpt end ################################
     
-    logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
+    if is_free:
+        ################################* anthropic ################################
+        is_evaluated = True
+        responses = []
+        response = {}
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
 
-    ################################* text_bison_compeletion ################################
-    responses = []
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
-
-
-            skills_rating_str = json_extraction(response)
-
-            skills_rating = json.loads(skills_rating_str)
-            for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(cultural_skills) * 100)
+                logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
 
 
-            # skills_explanation = to_dict(skills_explanation_str)
-            # responses.append(skills_explanation)
 
-            break
+                skills_rating_str= json_extraction(response)
 
-        except Exception as e:
-            logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e },exc_info=True)
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
+
+
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!evaluate_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e},exc_info=True)
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return *responses, is_evaluated
+        if is_evaluated:
+            return *responses, is_evaluated
+        else:
+            # HACK in case everything fails; just evaluate as a random number
+            response = {}
+            for skill in cultural_skills:
+                response[skill] = random.randint(3, 7)
 
-    ################################* text_bison_compeletion end ################################
+            # send error on slack to debug this
+            send_slack_message({"process": "evaluate_conversation",
+                                "test_attempt_session": test_attempt_session.uid,
+                                "error": "failed to evaluate; putting random value"})
 
-    logger.info({"****evaluate_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+            return response,{}, True
 
-    ################################* anthropic ################################
-    is_evaluated = True
-    responses = []
-    response = {}
-    max_tries = 3  # because anthropic_completion function itself retries 3 times
+    else:     
 
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-            response = anthropic_completion(prompt, len(cultural_skills) * 100)
-            logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+        ################################* gpt ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
 
-
-
-            skills_rating_str= json_extraction(response)
-
-            skills_rating = json.loads(skills_rating_str)
-            for skill in skills_rating:
-                skills_rating[skill] = float(skills_rating[skill])
-            responses.append(skills_rating)
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
 
 
-            # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-            # responses.append(skills_explanation)
+                skills_rating_str = json_extraction(response)
 
-            break
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
 
-        except Exception as e:
-            logger.error({"!!!!!!!!!!!!evaluate_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e},exc_info=True)
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
+
+                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+                # responses.append(skills_explanation)
+
                 break
 
-            time.sleep(1)
-            continue
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e },exc_info=True)
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
 
 
-    if is_evaluated:
-        return *responses, is_evaluated
+        if is_evaluated:
+            return *responses, is_evaluated
 
-    ################################* anthropic end ################################
+        ################################* gpt end ################################
+        
+        logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
 
-    logger.info({"****evaluate_conversation ":f"failed everything, so assigning default values"})
+        ################################* text_bison_compeletion ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
 
-    # HACK in case everything fails; just evaluate as a random number
-    response = {}
-    for skill in cultural_skills:
-        response[skill] = random.randint(3, 7)
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****evaluate_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
 
-    # send error on slack to debug this
-    send_slack_message({"process": "evaluate_conversation",
-                        "test_attempt_session": test_attempt_session.uid,
-                        "error": "failed to evaluate; putting random value"})
 
-    return response,{}, True
+                skills_rating_str = json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
+
+
+                # skills_explanation = to_dict(skills_explanation_str)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e },exc_info=True)
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return *responses, is_evaluated
+
+        ################################* text_bison_compeletion end ################################
+
+        logger.info({"****evaluate_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+
+        ################################* anthropic ################################
+        is_evaluated = True
+        responses = []
+        response = {}
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, len(cultural_skills) * 100)
+                logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+
+
+
+                skills_rating_str= json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
+
+
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!evaluate_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e},exc_info=True)
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return *responses, is_evaluated
+
+        ################################* anthropic end ################################
+
+        logger.info({"****evaluate_conversation ":f"failed everything, so assigning default values"})
+
+        # HACK in case everything fails; just evaluate as a random number
+        response = {}
+        for skill in cultural_skills:
+            response[skill] = random.randint(3, 7)
+
+        # send error on slack to debug this
+        send_slack_message({"process": "evaluate_conversation",
+                            "test_attempt_session": test_attempt_session.uid,
+                            "error": "failed to evaluate; putting random value"})
+
+        return response,{}, True
 
 
 

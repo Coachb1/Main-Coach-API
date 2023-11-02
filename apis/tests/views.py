@@ -426,13 +426,13 @@ class TestViewSet(ApiViewSet,
         test_list = []
 
         if candidate_type:
-            tests.filter(candidate_type=candidate_type)
+            tests = tests.filter(candidate_type=candidate_type)
         if interaction_mode:
-            tests.filter(interaction_mode=interaction_mode)
+            tests = tests.filter(interaction_mode=interaction_mode)
         if scenario_case:
-            tests.filter(scenario_case=scenario_case)
+            tests = tests.filter(scenario_case=scenario_case)
         if title :
-            tests.filter(title=title)
+            tests = tests.filter(title=title)
 
         cnt = 1
         csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
@@ -491,12 +491,12 @@ class TestViewSet(ApiViewSet,
         test_list = []
 
         if candidate_type:
-            tests.filter(candidate_type=candidate_type)
+            tests = tests.filter(candidate_type=candidate_type)
         
         if interaction_mode:
-            tests.filter(interaction_mode=interaction_mode)
+            tests = tests.filter(interaction_mode=interaction_mode)
         if scenario_case:
-            tests.filter(scenario_case=scenario_case)
+            tests = tests.filter(scenario_case=scenario_case)
         
 
         cnt = 1
@@ -577,3 +577,27 @@ class TestViewSet(ApiViewSet,
                 
 
         return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
+
+    @action(methods=['GET'],detail=False,url_path="get-free-type-test")
+    def get_free_type_test(self,request, *args, **kwargs):
+
+        tenant_id = self.request.tenant.uid
+        sub_tenant_id = request.query_params.get('sub_tenant_id',None)
+        skill_name = request.query_params.get('skill')
+
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,is_free=1)
+
+        if sub_tenant_id:
+            tests = tests.filter(sub_tenant_id=sub_tenant_id)
+
+        tests = tests.filter(skills_to_evaluate__icontains=skill_name.capitalize())
+
+        test_details = []
+        for test in tests:
+            test_details.append({
+                "test_title": test.title,
+                "test_code": test.test_code
+            })
+
+        return Response(data=test_details,status=status.HTTP_200_OK)
+
