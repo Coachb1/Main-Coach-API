@@ -57,6 +57,7 @@ COURSE = "Course"
 INDUSTRY = "Industry"
 EXP_LEVEL = "Experience Level"
 START_WITH_USER = "start with user"
+IS_FREE = 'is_free'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -107,6 +108,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_FREE in input_dict:
+            if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
+                is_free = input_dict[IS_FREE].strip().lower()
+
+                if is_free == "true":
+                    output_dict['is_free'] = True
+                elif is_free == "false":
+                    output_dict['is_free'] = False
+                else:
+                    output_dict['is_free'] = False
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
@@ -366,6 +378,17 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_FREE in input_dict:
+            if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
+                is_free = input_dict[IS_FREE].strip().lower()
+
+                if is_free == "true":
+                    output_dict['is_free'] = True
+                elif is_free == "false":
+                    output_dict['is_free'] = False
+                else:
+                    output_dict['is_free'] = False
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
