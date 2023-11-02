@@ -210,6 +210,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             report_url = request.query_params.get("report_url")
             is_whatsapp = request.query_params.get("is_whatsapp")
             is_whatsapp = True if is_whatsapp in ["true", "True"] else False
+            is_free = False
             
             logger.info({"message":"##################################### Request Received for sending email #####################################",
                             "test_attempt_session_id":test_attempt_session_id, "report_url":report_url, "is_whatsapp":is_whatsapp})
@@ -223,6 +224,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
             
+            if test.is_free:
+                is_free = True
 
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
@@ -237,7 +240,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             
             skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
                                                                             test_attempt_session.culture_skills_rating,
-                                                                            test_attempt_session.skills_rating)
+                                                                            test_attempt_session.skills_rating,is_free)
             logger.info({"************************skills_summary in submit email ********************":skills_summary})
             if len(skills_summary) > 0:
                 test_attempt_session.culture_and_skill_summary = skills_summary
@@ -253,7 +256,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if response.feedback_text:
                     feedbacks += response.feedback_text + '\n'
 
-            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks)
+            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
             logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
             if len(feedbacks_summary) > 0:
                 test_attempt_session.feedback_summary = feedbacks_summary
@@ -262,67 +265,68 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             #####################* summary end #################
 
+            if not test.is_free:
+                #####################* explanation start #################
+                if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+                    user_persona = test.orchestrated_conversation_details.get("test_user_persona")
+                    objective = test.orchestrated_conversation_details.get("objective")
 
-            #####################* explanation start #################
-            if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
-                user_persona = test.orchestrated_conversation_details.get("test_user_persona")
-                objective = test.orchestrated_conversation_details.get("objective")
+                    chat_conversation = get_group_discussion_chat_conversation(
+                        test_attempt_session, user_persona)
 
-                chat_conversation = get_group_discussion_chat_conversation(
-                    test_attempt_session, user_persona)
+                    skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
+                    logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
 
-                skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
-                logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                    culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                    logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
 
-                culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
-                logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+                    if skills_explanation:
+                        test_attempt_session.skills_explanation = skills_explanation
+                        updated_fields.append("skills_explanation")
 
-                if skills_explanation:
-                    test_attempt_session.skills_explanation = skills_explanation
-                    updated_fields.append("skills_explanation")
+                    if culture_skills_explanation:
+                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                        updated_fields.append("culture_skills_explanation")
 
-                if culture_skills_explanation:
-                    test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                    updated_fields.append("culture_skills_explanation")
+                else:
+                
+                    responses = TestQuestionResponse.objects.filter(
+                        test_attempt_session_id=test_attempt_session.uid,
+                        deleted=0
+                    )
+                    conversation = ""
+                    count = 1
 
-            else:
-            
-                responses = TestQuestionResponse.objects.filter(
-                    test_attempt_session_id=test_attempt_session.uid,
-                    deleted=0
-                )
-                conversation = ""
-                count = 1
+                    for response in responses:
 
-                for response in responses:
+                        question = TestQuestion.objects.get(
+                            uid=response.question_id)
 
-                    question = TestQuestion.objects.get(
-                        uid=response.question_id)
+                        question_text = question.question
+                        response_text = response.response_text
 
-                    question_text = question.question
-                    response_text = response.response_text
+                        conversation += f"{count}. [Question:] {question_text}\n"
+                        if not question.is_view_only:
+                            conversation += f"[Answer:] {response_text}\n\n"
 
-                    conversation += f"{count}. [Question:] {question_text}\n"
-                    if not question.is_view_only:
-                        conversation += f"[Answer:] {response_text}\n\n"
+                        count += 1
 
-                    count += 1
-
-                skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
-                logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-                if skills_explanation:
-                    test_attempt_session.skills_explanation = skills_explanation
-                    updated_fields.append("skills_explanation")
+                    skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+                    logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                    if skills_explanation:
+                        test_attempt_session.skills_explanation = skills_explanation
+                        updated_fields.append("skills_explanation")
 
 
-                culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
-                logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
-                if culture_skills_explanation:
-                    test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                    updated_fields.append("culture_skills_explanation")
-            
+                    culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                    logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
+                    if culture_skills_explanation:
+                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                        updated_fields.append("culture_skills_explanation")
+                
 
-            #####################* explanation end #################
+                #####################* explanation end #################
+
             test_attempt_session.save(update_fields=updated_fields)
             
 

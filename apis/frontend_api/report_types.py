@@ -10,5 +10,6 @@ class ReportType:
     SKILLS_DISCOVERY_REPORT = 'skillsDiscoveryReport'
     SUMMARY_LEADERBOARD_REPORT = "summaryPLBReport"
     DYNAMIC_DISCUSSOIN_REPORT = "dynamicDiscussionReport"
+    SUMMARY_FEEDBACK_REPORT = "summaryFeedbackReport"
 
 
