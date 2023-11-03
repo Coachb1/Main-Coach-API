@@ -55,13 +55,16 @@ import nltk
 nltk.download('punkt')
 import pytz
 import datetime
-from test_bulk_upload.constants import updated_skills
+from skills.constants import skills as all_presented_skills
 import re
 from commons.google_apis import speech_to_text, text_bison_compeletion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
 from tests.choices import ScenarioCaseChoices
+from bs4 import BeautifulSoup
+import requests
+from test_bulk_upload.scripts import API_ENDPOINT_SLACK
 
 logger = logging.getLogger(__name__)
 
@@ -4181,3 +4184,224 @@ def submit_feedback(
     logger.info("######################## Feedback is ready ######################")
 
     return test_question_response.feedback_text
+
+def scrape_meta_info(url):
+    try:
+        # Send an HTTP GET request to the URL
+        response = requests.get(url)
+
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            # Parse the HTML content of the page
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Find the meta title and description tags
+            title_tag = soup.find('meta', attrs={'name': 'title'}) or soup.find('meta', attrs={'property': 'og:title'})
+            description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+
+            # Extract content from the meta tags
+            title = title_tag['content'] if title_tag else None
+            description = description_tag['content'] if description_tag else None
+
+            return title, description
+
+        else:
+            return "Error: Unable to fetch the URL. Status code: " + str(response.status_code), ""
+
+    except Exception as e:
+        return "Error: " + str(e), ""
+
+
+
+def create_scenario_from_site_context(url,access_token):
+    """
+    This function generates a scenario based on the meta information of a given URL.
+
+    Parameters:
+    - url (str): The URL of the webpage to scrape meta information from.
+    - access_token (str): The access token for authentication.
+
+    Returns:
+    - response (dict): The response from the API endpoint where the generated scenario is sent.
+
+    Example Usage:
+    create_scenario_from_site_context("https://example.com", "access_token")
+
+    Flow:
+    1. Scrapes the meta information (title and description) from the given URL using web scraping techniques.
+    2. Constructs a prompt string using the scraped information and a predefined template.
+    3. Calls the 'generic_completion' function with the prompt to generate a scenario.
+    4. Checks the generated scenario for a rating and if it meets the criteria, returns it as the output.
+    5. If the generated scenario does not meet the criteria, repeats the process up to three times.
+    6. If a suitable scenario is not generated within three attempts, returns a failure message.
+
+    Note:
+    - The generated scenario is evaluated based on a rating and certain criteria.
+    - The simulation created is expected to be advanced and tough.
+
+    """
+
+
+    title, des = scrape_meta_info(url)
+    
+    site_information = f"Title: {title} \n Description: {des}"
+
+    prompt = """
+            {Information} - %s
+
+        Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+
+        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+        Title - Give a specific and relevant title for this description in less than 10 words.
+        Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+        The Question, Custom Prompt, KLP, KLS should be numbered.
+
+        Here the format looks like :
+
+        "Title",
+
+        "Description",
+
+        "Question 1",
+
+        "Prompt 1",
+
+        "Takeaway 1" ,
+
+        "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
+
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+        
+        NOTE : Make sure the simulation is very advanced and tough.
+        
+
+    """%(site_information)
+
+    response = {}
+    scenario = ''
+    for i in range(3):
+        logger.info(f'trying scenario creation for {i +1} time')
+        scenario = generic_completion(prompt,2000,'failed to generate scenario')
+        print(scenario)
+        rating_match = re.search(r"Rating: (\d+)", scenario)
+        rating = int(rating_match.group(1)) if rating_match else 0
+        if scenario == 'failed to generate scenario' or rating <= 6:
+            continue
+        break
+
+
+
+    # Extract title
+    title_match = re.search(r"Title: (.+)", scenario)
+    title = title_match.group(1) if title_match else None
+
+    # Extract description
+    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
+    description = description_match.group(1).strip() if description_match else None
+
+    if description is None:
+        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
+        description = description_match.group(1).strip() if description_match else None
+
+    question_info = []
+
+    # Extract questions, prompts, takeaways, and skills
+    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+    if len(question_matches) == 0:
+        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+    skills_to_eva = set()
+    for match in question_matches:
+        num, question, prompt, takeaway, skills = match
+        question_info.append({
+            "question": question,
+            "question_type": "subjective",
+            "gpt_prompt_override": prompt,
+            "subjective_answer": "",
+            "key_learning_point": takeaway,
+            "key_learning_skills": skills
+        })
+        for skill in skills.split(','):
+            skills_to_eva.add(skill.capitalize())
+    
+    skill_to_evalaute =''
+
+    for skill in skills_to_eva:
+        skill_to_evalaute += skill +", "
+
+
+    json_data = json.dumps({
+        "creator_id": None,
+        "title": title,
+        "description": description,
+        "email_address_list":'mail@coachbots.com',
+        "questions": question_info,
+        "scenario_case": 'simulation',
+        "interaction_mode":'audio',
+        "test_type":'test',
+        "email_candidate":True,
+        "gpt_prompt_override":"",
+        "skills_to_evaluate": skill_to_evalaute
+
+
+    })
+    headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+    
+    try:
+        response = requests.post(
+                                API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+        response = response.json()
+        return {'title': response['title'],'test_code': response['test_code']}
+        
+    except Exception as e:
+        logger.error(e,exc_info=True)
+        return {'message':"failed to generate the scenario"}
+
+
+
+
+
+def fetch_test_codes_by_site_context(url,tenant_id):
+
+    title, des = scrape_meta_info(url)
+    site_information = f"Title: {title} \n Description: {des}"
+
+
+    all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
+    all_skills = set()
+    up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_presented_skills]]
+
+    for skills in all_skills_qs:
+        if skills[0]:
+            skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
+            all_skills.update(skill_name_list)
+
+    prompt = """
+    {information} - %s
+    {AllSkills} - %s
+
+    According to the {information}, extract suitable skill from it skill must be from {AllSkills}.
+    NOTE: ONly return skill nothing else
+    """%(site_information,list(all_skills))
+
+    skills = generic_completion(prompt,1000,'Failed to extract skills')
+    print(skills)
+
+    tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
+    test_list = []
+    for test in tests:
+        test_list.append({
+            "title": test.title,
+            "test_code": test.test_code
+        })
+
+    return test_list
+
+    

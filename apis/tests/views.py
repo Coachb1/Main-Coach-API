@@ -28,6 +28,7 @@ from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from commons.google_apis import text_bison_compeletion
 import time
+from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context
 
 import logging
 
@@ -600,4 +601,32 @@ class TestViewSet(ApiViewSet,
             })
 
         return Response(data=test_details,status=status.HTTP_200_OK)
+    
+
+    @action(methods=['POST'], detail=False, url_path="get_or_create_test_scenarios_by_site")
+    def get_or_create_test_scenarios_by_site(self, request, *args, **kwargs):
+        """
+        Get or create test scenarios based on a given site URL and mode.
+
+        :param request: the HTTP request object
+        :param url: a string representing the URL of the site
+        :param mode: a string representing the mode ('A' or 'B')
+        :param access_token: a string representing the access token for the site
+        :return: the created scenario as a response
+        """
+        tenant_id = self.request.tenant.uid
+        url = request.query_params.get('url')
+        mode = request.query_params.get('mode')
+        access_token = request.query_params.get('access_token')
+
+        if mode == 'A':
+            scenario = create_scenario_from_site_context(url, access_token)
+            return Response(data=[scenario], status=status.HTTP_200_OK)
+        else:
+            scenario = fetch_test_codes_by_site_context(url,tenant_id )
+            return Response(data=scenario, status=status.HTTP_200_OK)
+
+
+
+
 
