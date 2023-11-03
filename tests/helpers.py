@@ -3383,9 +3383,9 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         template = Template(
                 '''
                 \n\nHuman:
-                ${test_main_context}
-                ${current_conversation}
-                ${question_text}
+                Main context : ${test_main_context}
+                Current conversation : ${current_conversation}
+                Candidate response : ${question_text}
 
                 NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
 
