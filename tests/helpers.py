@@ -4351,7 +4351,7 @@ def create_scenario_from_site_context(url,access_token):
     })
     headers = {
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': access_token
             }
     
     try:
@@ -4392,8 +4392,10 @@ def fetch_test_codes_by_site_context(url,tenant_id):
     """%(site_information,list(all_skills))
 
     skills = generic_completion(prompt,1000,'Failed to extract skills')
+    skills = skills.split(':')[-1].strip()
     print(skills)
-
+        
+ 
     tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
     test_list = []
     for test in tests:
