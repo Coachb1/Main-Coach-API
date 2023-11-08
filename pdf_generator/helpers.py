@@ -19,8 +19,6 @@ from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionRes
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
-from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
-import re
 
 import matplotlib
 matplotlib.use('Agg')
@@ -135,7 +133,6 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     skill_summary = test_attempt_session.culture_and_skill_summary
 
     if test.is_free and only_data:
-        # for feedbackSummaryReport ( which is a demo reprot for free trial users)
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
                 tenant_id=test_attempt_session.tenant_id).custom_rating
@@ -149,108 +146,34 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             }
 
         qa = []
-        start_with_user = False
-        bot_name = ''
-        user_persona = ''
-        chat_conversation = ''
-        if test.test_type in [TestTypeChoices.orchestrated_conversation,TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread]:
-            user_persona = test.orchestrated_conversation_details.get(
-                "test_user_persona")
+        for question in questions:
+            question_id = question.uid
+            question_text = question.question
 
-            chat_conversation = test.orchestrated_conversation_details.get(
-                "initial_messages")
+            participant_response = None
+
+            # get the response of the participant
+            for response in participant_responses:
+                if response.question_id == question_id:
+                    participant_response = response
+                    break
+
+            if participant_response is None:
+                continue
+
+            response_text = participant_response.response_text
+            feedback_text = participant_response.feedback_text
+
+            # Check if participant response object has speech_metrics or not
             
-            conversation_list = []
+            qa.append({
+                "question_text": question_text,
+                "response_text": response_text,
+                "feedback_text": feedback_text,
+            })
 
-            for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
-                                                                    deleted=0).order_by('id'):
-
-                if test_response.responder_type == QuestionForChoices.user:
-                    conv_text = f"{user_persona}: {test_response.response_text}"
-                else:
-                    conv_text = f"{test_response.responder_display_name}: {test_response.response_text}"
-
-                # current_conversation = current_conversation + "\n" + conv_text
-                conversation_list.append(conv_text)
-
-           
-            chat_conversation += conversation_list
-
-        if test.test_type == TestTypeChoices.orchestrated_conversation:
-            
-            for message in chat_conversation:
-                user_name, message = message.split(":", 1)
-                is_bot = False
-
-                if user_name.strip().lower() != user_persona.strip().lower():
-                    is_bot = True
-
-                qa.append(
-                    {"user_name": user_name, "message": message, "is_bot": is_bot})
         
-        elif test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
-            data_q = {}
-
-            start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
-
-            test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
-                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
-                                                                deleted=0).order_by('id')
-            count = 1
-            for test_response in test_responses:
-                if test_response.responder_type == QuestionForChoices.user:
-                    if count == 1:
-                        if start_with_user_message is not None:
-                            data_q[f"question"] = test.description
-                        else:
-                            data_q[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
-                    data_q["response"] = test_response.response_text.strip('" \'')
-                    data_q["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
-                    qa.append(data_q)
-                    count += 1
-                    data_q = {}
-                
-                else:
-                    data_q[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
-
-            start_with_user = False if start_with_user_message is None else True
-
-            if start_with_user:
-                bot_name = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
-
-
-        else:
-            for question in questions:
-                question_id = question.uid
-                question_text = question.question
-
-                participant_response = None
-
-                # get the response of the participant
-                for response in participant_responses:
-                    if response.question_id == question_id:
-                        participant_response = response
-                        break
-
-                if participant_response is None:
-                    continue
-
-                response_text = participant_response.response_text
-                feedback_text = participant_response.feedback_text
-
-                # Check if participant response object has speech_metrics or not
-                
-                qa.append({
-                    "question_text": question_text,
-                    "response_text": response_text,
-                    "feedback_text": feedback_text,
-                })
-
-        print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
-        
-        
-        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
+        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary}
 
 
     qa = []
