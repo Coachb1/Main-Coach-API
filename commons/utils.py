@@ -8,20 +8,16 @@ from commons.google_apis import text_bison_compeletion
 logger = logging.getLogger(__name__)
 
 @timeit
-def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
+def generic_completion(prompt, tokens=1200, fallback_text=None):
     response_text = fallback_text
-    if is_free:
-        response_text = anthropic_completion(prompt, tokens)
-
+    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    if not gpt_feedback.text:
+        try:
+            response_text = text_bison_compeletion(prompt)
+        except Exception as e:
+            logger.exception(e)
+            response_text = anthropic_completion(prompt, tokens)
     else:
-        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-        if not gpt_feedback.text:
-            try:
-                response_text = text_bison_compeletion(prompt)
-            except Exception as e:
-                logger.exception(e)
-                response_text = anthropic_completion(prompt, tokens)
-        else:
-            response_text = gpt_feedback.text
+        response_text = gpt_feedback.text
 
     return response_text
