@@ -1026,34 +1026,34 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                     logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
                     transcript = "Transcription couldn't be generated"
                     test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+
+            if transcript_length > 10:
+                start = time.time()
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met
+                        end = time.time()
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                        break
+                    except Exception as e:
+                        logger.exception(e)
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
                             break
-                        except Exception as e:
-                            logger.exception(e)
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
-                                break
 
-                        
-                else:
-                    # HACK sane default values
-                        test_question_response.speech_metrics = default_metrics
+                    
+            else:
+                # HACK sane default values
+                    test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+            update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
@@ -1080,32 +1080,32 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                     logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
                     transcript = "Transcription couldn't be generated"
                     test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met_video
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
+
+            if transcript_length > 10:
+                start = time.time()
+                max_tries = 2
+                retry = 0
+                while True:
+                    try:
+                        speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                            test_question_response.response_file,transcript)
+                        test_question_response.speech_metrics = speech_met_video
+                        end = time.time()
+                        logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
+                        break
+
+                    except Exception as e:
+                        retry += 1
+                        if retry >= max_tries:
+                            # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+                            logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
                             break
 
-                        except Exception as e:
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
-                                break
-
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+            else:
+                test_question_response.speech_metrics = default_metrics
+                
+            update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         start = time.time()
@@ -1131,7 +1131,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                 candidate_reply=test_question_response.response_text,
                                 user_feedback_prompt="")
         
-        feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+        feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
             
         test_question_response.feedback_text = feedback_text
         update_fields.append("feedback_text")
@@ -1142,7 +1142,6 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                             test_question_response.response_text,
                                             test.description,
                                             test.title,
-                                            test.is_free
                                             )
 
         relevance = 1
@@ -1152,27 +1151,25 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_question_response.relevance = relevance
         update_fields.append("relevance")
 
-        if not test.is_free:
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+        kls = generic_completion(kls_prompt, 50,'no kls' )
 
-            kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
-            logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-            kls = generic_completion(kls_prompt, 50,'no kls' )
+        klp_prompt = f"""
+            TestTitle: {test.title}
+            Question: {question_text}
 
-            klp_prompt = f"""
-                TestTitle: {test.title}
-                Question: {question_text}
+            For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+            """
 
-                For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
-                """
-
-            logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-            klp = generic_completion(klp_prompt, 50, 'no klp')
-            
-            test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
-            update_fields.append("kls_klp")
-            logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
-            end = time.time()
-            logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
+        logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+        klp = generic_completion(klp_prompt, 50, 'no klp')
+        
+        test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+        update_fields.append("kls_klp")
+        logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        end = time.time()
+        logger.info(f"####################### process_orchestrated_test_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
 
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1190,13 +1187,10 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
 
-        if test.is_free:
-            report_url = generate_summary_feedback_session_report_link(test_attempt_session,test)
+        if test.test_type == TestTypeChoices.dynamic_discussion:
+            report_url = generate_dynamic_discussion_report_link(test_attempt_session)
         else:
-            if test.test_type == TestTypeChoices.dynamic_discussion:
-                report_url = generate_dynamic_discussion_report_link(test_attempt_session)
-            else:
-                report_url = generate_meeting_report_link(test_attempt_session)
+            report_url = generate_meeting_report_link(test_attempt_session)
         # if test.email_address_list:
         #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -1270,7 +1264,7 @@ def get_feedback(question, test_question_response,question_text,test):
                             candidate_reply=test_question_response.response_text,
                             user_feedback_prompt="")
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -1294,7 +1288,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
 
     kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
     logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-    kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
+    kls = generic_completion(kls_prompt, 50, 'no kls')
 
     klp_prompt = f"""
         TestTitle: {test.title}
@@ -1350,40 +1344,39 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             
             transcript, transcript_length = get_transcript(test_question_response)
             test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
-                    else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
-                else:
-                    test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+            if transcript_length > 10:
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
+                else:
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
+            else:
+                test_question_response.speech_metrics = default_metrics
+
+            update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             
             transcript, transcript_length = get_transcript(test_question_response)
             test_question_response.response_text = transcript
-
-            if test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
-                    else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
+            
+            if transcript_length > 10:
+                if is_last_response:
+                    get_speech_metrics(test_question_response,transcript)
                 else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                    threading.Thread(target=get_speech_metrics,
+                                    kwargs={
+                                            "test_question_response":test_question_response,
+                                            "transcript":transcript
+                                    }).start()
+            else:
+                test_question_response.speech_metrics = default_metrics
+                
+            update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion_thread:
         start = time.time()
@@ -1399,8 +1392,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
 
         if is_last_response:
             get_feedback(question, test_question_response,question_text,test)
-            if not test.is_free:
-                get_relevency_kls_klp(test_question_response, question_text, test)
+            get_relevency_kls_klp(test_question_response, question_text, test)
         else:
             threading.Thread(target=get_feedback,
                                 kwargs={
@@ -1410,12 +1402,12 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
                                         "test":test
                                 }).start()
             
-            if not test.is_free:
-                threading.Thread(target=get_relevency_kls_klp, kwargs={
-                                    "test_question_response":test_question_response,
-                                    "question_text":question_text,
-                                    "test":test
-                                }).start()
+
+            threading.Thread(target=get_relevency_kls_klp, kwargs={
+                                "test_question_response":test_question_response,
+                                "question_text":question_text,
+                                "test":test
+                            }).start()
         
         end = time.time()
         logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
@@ -1430,14 +1422,10 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
 
-        if test.is_free:
-            report_url = generate_summary_feedback_session_report_link(test_attempt_session.test)
-
+        if test.test_type == TestTypeChoices.dynamic_discussion_thread:
+            report_url = generate_dynamic_discussion_report_link(test_attempt_session)
         else:
-            if test.test_type == TestTypeChoices.dynamic_discussion_thread:
-                report_url = generate_dynamic_discussion_report_link(test_attempt_session)
-            else:
-                report_url = generate_meeting_report_link(test_attempt_session)
+            report_url = generate_meeting_report_link(test_attempt_session)
         # if test.email_address_list:
         #     send_report_link_to_email_orch(test,test_attempt_session,report_url)
         # Evaluate skills rating for the test attempt session and update skills table in that.
@@ -1526,7 +1514,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code)
 
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
@@ -1537,7 +1525,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
             culture_skills_rating[skill] = 1.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate)
 
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
@@ -1560,8 +1548,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
     
-    updated_fields = ["culture_skills_rating"
-                      ,"test_score","avg_score","finished_at","updated"]
+    updated_fields = ["culture_skills_rating",
+                      "meeting_summary", "areas_of_improvement","test_score","avg_score","finished_at","updated"]
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -1586,31 +1574,29 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         if response.feedback_text:
             feedbacks += response.feedback_text + '\n'
 
-        if not test.is_free:
+        if response.speech_metrics:
+            has_speech_metric = True
+            # get speech metrics from this response
+            response_speech_metrics = response.speech_metrics
+            # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
+            # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
 
-            if response.speech_metrics:
-                has_speech_metric = True
-                # get speech metrics from this response
-                response_speech_metrics = response.speech_metrics
-                # response_speech_metrics = {k: v for k, v in response_speech_metrics.items(
-                # ) if k in ['fluency_percentage', 'pace','power_word_percentage','filler_word_percentage', 'silence_number']}
+            try:
+                for key,value in response_speech_metrics.items():
+                    if isinstance(value, str) and "%" in value:
+                        try: 
+                            value = float(value.replace("%", ""))
+                        except:
+                            pass
+                            
+                    if key in speech_score:
+                        speech_score[key] += value or random.randint(3, 7)
+                    else:
+                        speech_score[key] = value or random.randint(3, 7)
 
-                try:
-                    for key,value in response_speech_metrics.items():
-                        if isinstance(value, str) and "%" in value:
-                            try: 
-                                value = float(value.replace("%", ""))
-                            except:
-                                pass
-                                
-                        if key in speech_score:
-                            speech_score[key] += value or random.randint(3, 7)
-                        else:
-                            speech_score[key] = value or random.randint(3, 7)
-
-                except Exception as e :
-                    has_speech_metric = False
-                    logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
+            except Exception as e :
+                has_speech_metric = False
+                logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
 
     # calculating feedback_summary and skill summary
     # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
@@ -1625,24 +1611,20 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     #     updated_fields.append("feedback_summary")
 
 
-    if not test.is_free:
-        start = time.time()
-        meeting_summary = get_group_discussion_summary(
-            objective, chat_conversation)
-        updated_fields.append("meeting_summary")
-        areas_of_improvement = get_areas_of_improvement(
-            objective, chat_conversation, user_persona)
-        updated_fields.append("areas_of_improvement")
-        test_attempt_session.meeting_summary = meeting_summary
-        test_attempt_session.areas_of_improvement = areas_of_improvement
-        end = time.time()
-        logger.info(f"####################### calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f} #######################")
+    start = time.time()
+    meeting_summary = get_group_discussion_summary(
+        objective, chat_conversation)
+    areas_of_improvement = get_areas_of_improvement(
+        objective, chat_conversation, user_persona)
+    end = time.time()
+    logger.info(f"####################### calc_group_discussion_report_metrics: LOGIC for get meeting_summary and areas_of_improvement took {end - start:.2f} #######################")
     
     if has_speech_metric:
         test_attempt_session.speech_score = speech_score
         updated_fields.append("speech_score")
 
-    
+    test_attempt_session.meeting_summary = meeting_summary
+    test_attempt_session.areas_of_improvement = areas_of_improvement
     test_attempt_session.finished_at = timezone.now()
     test_attempt_session.test_score = test_score
     test_attempt_session.avg_score = avg_score
