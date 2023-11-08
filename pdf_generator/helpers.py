@@ -151,9 +151,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         qa = []
         start_with_user = False
         bot_name = ''
-
-        
-        if test.test_type == TestTypeChoices.orchestrated_conversation:
+        user_persona = ''
+        chat_conversation = ''
+        if test.test_type in [TestTypeChoices.orchestrated_conversation,TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread]:
             user_persona = test.orchestrated_conversation_details.get(
                 "test_user_persona")
 
@@ -176,6 +176,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
            
             chat_conversation += conversation_list
+
+        if test.test_type == TestTypeChoices.orchestrated_conversation:
             
             for message in chat_conversation:
                 user_name, message = message.split(":", 1)
@@ -208,8 +210,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     count += 1
                     data_q = {}
                 
-            else:
-                data_q[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
+                else:
+                    data_q[f"question"] = test_response.response_text.split(':')[-1].strip('" \'')
 
             start_with_user = False if start_with_user_message is None else True
 
@@ -243,6 +245,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     "response_text": response_text,
                     "feedback_text": feedback_text,
                 })
+
+        print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
         
         
         return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
