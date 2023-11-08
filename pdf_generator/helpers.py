@@ -171,7 +171,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 else:
                     conv_text = f"{test_response.responder_display_name}: {test_response.response_text}"
 
-                current_conversation = current_conversation + "\n" + conv_text
+                # current_conversation = current_conversation + "\n" + conv_text
                 conversation_list.append(conv_text)
 
            
@@ -197,6 +197,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                                 evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                 deleted=0).order_by('id')
+            count = 1
             for test_response in test_responses:
                 if test_response.responder_type == QuestionForChoices.user:
                     if count == 1:
