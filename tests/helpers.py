@@ -787,22 +787,38 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         feedback_text = 'Feedback could not be generated'
                 
                 else:
+                    try:
+                        feedback_text = text_bison_compeletion(prompt)
+                    except Exception as e:
+                        logger.exception(e)
+                        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                        if not gpt_feedback.text:
+                            try:
+                                anthropic_feedback = anthropic_completion(prompt, 1200)
+                                feedback_text = anthropic_feedback
+                            except Exception as e:
+                                logger.exception(e)
+                                feedback_text = "Feedback could not be generated"
 
-                    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-                    if not gpt_feedback.text:
-                        try:
-                            feedback_text = text_bison_compeletion(prompt)
-                        except Exception as e:
-                            logger.exception(e)
-                            anthropic_feedback = anthropic_completion(prompt, 1200)
-                            # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
-                            feedback_text = anthropic_feedback
-                    else:
-                        feedback_text = gpt_feedback.text
-                        raw_text = gpt_feedback.raw
+                        else:
+                            feedback_text = gpt_feedback.text
+                            raw_text = gpt_feedback.raw
+
+                    # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+                    # if not gpt_feedback.text:
+                    #     try:
+                    #         feedback_text = text_bison_compeletion(prompt)
+                    #     except Exception as e:
+                    #         logger.exception(e)
+                    #         anthropic_feedback = anthropic_completion(prompt, 1200)
+                    #         # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
+                    #         feedback_text = anthropic_feedback
+                    # else:
+                    #     feedback_text = gpt_feedback.text
+                    #     raw_text = gpt_feedback.raw
 
 
-                if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+                if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 250:
                     continue
 
                 end = time.time()
