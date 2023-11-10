@@ -342,3 +342,42 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+    @action(methods=["POST"], detail=False, url_path="set-name-and-email")
+    def set_name_email(self, request, *args, **kwargs):
+        try:
+            participant_id = request.query_params.get("participant_id")
+            name = request.query_params.get("name")
+            email = request.query_params.get("email")
+
+            logger.info({"message":"##################################### Request Received for setting name and email #####################################"
+                            ,"participant_id":participant_id, "name":name, "email":email})
+
+            try:
+                user = get_user_by_id(participant_id)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                return Response({"status": "error","message":"invalid participant id"}, status=status.HTTP_400_BAD_REQUEST)
+            user_attribute = UserAttribute.objects.get(
+                                    user_id=participant_id)
+
+            user.name = name
+            user.save(update_fields=['name'])
+
+            if 'profile' not in user_attribute.attributes:
+                user_attribute.attributes['profile'] = {}
+            user_attribute.attributes['profile']['real_name'] = name
+            user_attribute.attributes['profile']['email'] = email
+            if 'username' not in user_attribute.attributes['profile']:
+                user_attribute.attributes['profile']['username'] = email
+
+            user_attribute.attributes['real_name'] = name
+            user_attribute.attributes['name'] = email.split('@')[0]
+            user_attribute.attributes['email'] = email
+            
+            user_attribute.save(update_fields=['attributes'])
+
+            return Response({"status": "updated"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
