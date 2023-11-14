@@ -427,6 +427,16 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
 
 def get_participant_report(user, only_data=False):
+    """
+    Generates a participant report.
+
+    Args:
+        user (User): The user object representing the participant for whom the report is generated.
+        only_data (bool, optional): A flag indicating whether to return only the data for the report or the complete PDF document. Defaults to False.
+
+    Returns:
+        dict or str: If only_data is True, a dictionary containing the participant's name, participant information, and custom rating. If only_data is False, the URL of the saved participant report PDF document.
+    """
     participant_info = get_participant_info(user)
 
     participant_name = participant_info['name']
