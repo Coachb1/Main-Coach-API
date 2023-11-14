@@ -9,6 +9,18 @@ from pathlib import Path
 
 @timeit
 def get_url(region_name, bucket, key):
+    """
+    Generates a signed URL for accessing a file in a Google Cloud Storage bucket.
+
+    Args:
+        region_name (str): A string representing the region where the bucket is located.
+        bucket (str): A string representing the name of the Google Cloud Storage bucket.
+        key (str): A string representing the path to the file in the bucket.
+
+    Returns:
+        str: A signed URL that can be used to access the file in the Google Cloud Storage bucket.
+    """
+
     # s3 = boto3.client('s3', region_name=region_name, config=Config(signature_version='s3v4'))
 
     # return s3.generate_presigned_url(
@@ -21,7 +33,6 @@ def get_url(region_name, bucket, key):
     # )
     os.chdir(f"{Path(__file__).resolve().parent}")
     client = storage.Client.from_service_account_json(r'bucketaccess.json')
-    # client = storage.Client()
     bucket = client.get_bucket(bucket)
     blob = bucket.blob(key)
 

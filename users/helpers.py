@@ -15,6 +15,9 @@ def create_user(tenant: Tenant,
                 name: str,
                 role: str,
                 password: str) -> User:
+    """This code defines a function called create_user that creates a new user object and associates it with a specific tenant. 
+    The function takes in the tenant object, user name, role, and password as inputs and returns the created user object.
+    """
     user = User.objects.create(
         tenant_id=tenant.uid,
         name=name,
@@ -31,6 +34,14 @@ def login_user(tenant: Tenant,
                identity_type: str,
                identity_value: str,
                password: str) -> dict:
+    """
+    This code defines a function named `login_user` that takes in a `tenant`, `identity_type`, `identity_value`, and `password` as inputs. 
+    It uses the `get_user_via_identity` function to retrieve a user based on the provided identity information. 
+    If the user is found, it checks if the user is allowed to login and verifies the password. 
+    If the user is valid, it calls the `create_new_tokens` function to generate new tokens for the user. 
+    The function then returns the generated tokens.
+    
+    """
     try:
         user = get_user_via_identity(
             tenant=tenant,
@@ -64,6 +75,17 @@ def logout_user(user: User):
 
 
 def upsert_user_attributes(user: User, tag: str, attributes: dict) -> UserAttribute:
+    """
+    Update or insert user attributes in the database.
+
+    Args:
+        user (User): The User object representing the user for whom the attributes need to be updated or inserted.
+        tag (str): The tag of the attributes.
+        attributes (dict): A dictionary containing the attributes to be updated or inserted.
+
+    Returns:
+        UserAttribute: The updated or newly created UserAttribute object.
+    """
     if not attributes:
         return
 
