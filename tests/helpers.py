@@ -1127,6 +1127,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         start = time.time()
         logger.info(f"***************question number is {question.question_number}**************")
         start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+        background = test.orchestrated_conversation_details.get('background')
         if question.question_number == 1 and start_with_user_message is not None:
             question_text = test.description
         elif question.question_number == 1:
@@ -1139,13 +1140,16 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
         else:
-            prompt = get_chat_conversation_prompt_v3(
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question_text,
-                                question_context=question.subjective_answer,
-                                candidate_reply=test_question_response.response_text,
-                                user_feedback_prompt="")
+            if background is not None:
+                prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
+            else:
+                prompt = get_chat_conversation_prompt_v3(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question_text,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt="")
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
@@ -1274,19 +1278,25 @@ def get_speech_metrics(test_question_response,transcript):
 @timeit
 def get_feedback(question, test_question_response,question_text,test):
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    background = test.orchestrated_conversation_details.get('background')
+
+    
     if start_with_user_message is not None:
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
     else:
-        prompt = get_chat_conversation_prompt_v3(
-                            test_title=test.title,
-                            test_description=test.description,
-                            question=question_text,
-                            question_context=question.subjective_answer,
-                            candidate_reply=test_question_response.response_text,
-                            user_feedback_prompt="")
+        if background is not None:
+            prompt = get_interview_feedback(test.title, test.description, background, question_text, test_question_response.response_text)
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question_text,
+                                question_context=question.subjective_answer,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt="")
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -2673,6 +2683,69 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     return skills_rating
 
+@timeit
+def get_interview_feedback(title,description,background, question_text,candidate_comment):
+    prompt = Template("""
+            \n\nHuman:
+
+            Title: ${title}.
+
+            Test Description: ${description}
+
+            background: ${background}
+
+            Question : ${question_text}
+
+            Candidate Comment : ${candidate_comment}
+
+            Please provide an executive interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an executive interview. The feedback should be structured in the following format:
+
+            "Feedback for the candidate's responses : "
+
+            Key insights to improve
+
+            What went well ?
+
+            What did not work ?
+
+            A sample candidate answer
+
+            Pro Interview Insights
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+            NOTE : Always consider the information provided in the "background" when generating the feedback
+
+            NOTE : Pro interview insights should provide the value of industry contacts, strategic thinking and using outside-in perspective.
+
+            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+            NOTE: Only provide feedback on the "Candidate Comment" not on the "Test Description."
+
+            NOTE : A sample candidate answer is a sample Candidate comment based on the context provided.
+
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the candidate’s answer in "Key insights to improve the response."
+
+            NOTE : In cases where the "Candidate Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Minimum response length is 250 words. Always adhere to the same.
+
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+
+            NOTE : NEVER print the response alignment score in the output.
+            \n\nAssistant
+                """).substitute(
+                    title=title,
+                    description=description,
+                    question_text=question_text,
+                    candidate_comment= candidate_comment,
+                    background=background
+                )
+    return prompt
 
 @timeit
 def get_chat_conversation_prompt_v3(test_title: str,
@@ -3293,6 +3366,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     initial_messages = test.orchestrated_conversation_details.get(
         "initial_messages")
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    background = test.orchestrated_conversation_details.get('background')
 
     current_conversation = ''
 
@@ -3414,23 +3488,63 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
     
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
-        template = Template(
-                '''
-                \n\nHuman:
-                Main context : ${test_main_context}
-                Current conversation : ${current_conversation}
-                Candidate response : ${question_text}
 
-                NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+        if background is not None: # for interview type test
+            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).order_by('id').last()
+            
+            template = Template(
+                """
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                background: ${background}
+
+                candidate_comment: ${user_comment}
+
+                Based on the candidate's comment, main context and background, ask the candidate another question as the interviewer. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
+
+
+                NOTE : Always consider the information provided in the "background" when giving the next question.
+
 
                 NOTE: The question should not be more than 25 words.
 
                 NOTE: Do not show the word count.
 
-                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
-                \n\nAssistant:
-                '''
-            )
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant
+
+                """
+            ).substitute(test_main_context=test_main_context,
+                         background=background,
+                         user_comment=user_comment.response_text)
+
+        else:
+
+            template = Template(
+                    '''
+                    \n\nHuman:
+                    Main context : ${test_main_context}
+                    Current conversation : ${current_conversation}
+                    Candidate response : ${question_text}
+
+                    NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+                    NOTE: The question should not be more than 25 words.
+
+                    NOTE: Do not show the word count.
+
+                    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                    \n\nAssistant:
+                    '''
+                ).substitute(test_main_context=test_main_context,
+                                current_conversation=current_conversation,
+                                question_text=question_text
+                                )
     else:
         template = Template(
             """
@@ -3445,11 +3559,15 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
             \n\nAssistant:
             """
-        )
-    return template.substitute(test_main_context=test_main_context,
+        ).substitute(test_main_context=test_main_context,
                                current_conversation=current_conversation,
                                question_text=question_text,
                                question_for=question.question_for)
+    # return template.substitute(test_main_context=test_main_context,
+    #                            current_conversation=current_conversation,
+    #                            question_text=question_text,
+    #                            question_for=question.question_for)
+    return template
 
 @timeit
 def get_email_type_prompt(test_title,
