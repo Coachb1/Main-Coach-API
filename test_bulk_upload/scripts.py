@@ -58,6 +58,7 @@ INDUSTRY = "Industry"
 EXP_LEVEL = "Experience Level"
 START_WITH_USER = "start with user"
 IS_FREE = 'is_free'
+BACKGROUND = 'Background'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -245,7 +246,11 @@ def format_test_orchestrated_conversation(raw_data):
                 start_with_user = input_dict[START_WITH_USER].strip().lower()
                 orchestrated_conversation_details["start_with_user"] = start_with_user
 
-        
+        if BACKGROUND in input_dict:
+            if input_dict[BACKGROUND] and len(input_dict[BACKGROUND].strip()) > 0:
+                background = input_dict[BACKGROUND].strip().lower()
+                orchestrated_conversation_details["background"] = background
+                
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
 
         for key in input_dict:
