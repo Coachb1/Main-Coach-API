@@ -7,6 +7,7 @@ import tempfile
 import time
 from datetime import date
 from string import Template
+import base64
 
 from django.db import transaction
 from django.template.loader import render_to_string
@@ -50,6 +51,7 @@ from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
+from clients.models import Client
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
@@ -4365,7 +4367,7 @@ def scrape_meta_info(url):
 
 
 
-def create_scenario_from_site_context(url,access_token):
+def create_scenario_from_site_context(url,access_token, tenant_id):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -4392,6 +4394,14 @@ def create_scenario_from_site_context(url,access_token):
     - The simulation created is expected to be advanced and tough.
 
     """
+    def decode_basic_auth_token(token: str) -> str:
+            decoded_token = base64.b64decode(token).decode("utf-8")
+            key_and_secret = decoded_token.split(":")
+
+            key = key_and_secret[0]
+            secret = key_and_secret[1]
+
+            return key, secret
 
 
     title, des = scrape_meta_info(url)
@@ -4485,9 +4495,13 @@ def create_scenario_from_site_context(url,access_token):
     for skill in skills_to_eva:
         skill_to_evalaute += skill +", "
 
+    key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
+    # client = Client.objects.get(key=key)
+    # creator = User.objects.get(uid=client.owner_id)
+    admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
     json_data = json.dumps({
-        "creator_id": None,
+        "creator_id": admin_user.uid,
         "title": title,
         "description": description,
         "email_address_list":'mail@coachbots.com',
@@ -4510,6 +4524,7 @@ def create_scenario_from_site_context(url,access_token):
         response = requests.post(
                                 API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
         response = response.json()
+        print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
         return {'title': response['title'],'test_code': response['test_code']}
         
     except Exception as e:
