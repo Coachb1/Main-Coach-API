@@ -38,6 +38,7 @@ class InteractionModeChoices(DjangoChoices):
     text = ChoiceItem("text")
     audio = ChoiceItem("audio")
     video = ChoiceItem("video")
+    any   = ChoiceItem("any")
 
 
 class TestAttemptSessionStatusChoices(DjangoChoices):
