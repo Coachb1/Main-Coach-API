@@ -534,6 +534,72 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             update_fields=["evaluation_status", "updated"])
         return test_question_response
 
+
+    if test.interaction_mode == InteractionModeChoices.any:
+        update_fields = ["response_text", "updated"]
+        if test_question_response.response_file:
+
+            start = time.time()
+            transcript_length = 0
+            try:
+                logger.info("*************** generating transcription for(any: audio) using gpt_wishper_api *****")
+                transcript = gpt_wishper_api(
+                    test_question_response.response_file)
+                test_question_response.response_text = transcript
+                transcript_length = len(transcript.split())
+                logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                end = time.time()
+                logger.info(f"####################### __process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                try: 
+                    logger.info("*************** generating transcription for(any: audio) using speech_to_text *****")
+                    transcript = speech_to_text(test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                    transcript = "Transcription couldn't be generated"
+                    test_question_response.response_text = transcript
+
+            end = time.time()
+            logger.info(f"####################### _process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
+
+            if not test.is_free:
+                if transcript_length > 10:
+                    if test.test_type == TestTypeChoices.trainer_thread:
+                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                    else:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
+
+                                end = time.time()
+                                logger.info(f"####################### _process_test_response: SPEECH METRICS For ANY: AUDIO took {end - start:.2f} #######################")
+                                break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for ANY: AUDIO. so assigned default values")
+                                    break
+
+                        
+                else:
+                    # HACK sane default values
+                        test_question_response.speech_metrics = default_metrics
+
+                update_fields.append("speech_metrics")
+
+        test_question_response.save(update_fields=update_fields)
+
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
         if test.interaction_mode == InteractionModeChoices.audio:
