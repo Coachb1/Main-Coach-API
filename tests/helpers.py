@@ -2766,7 +2766,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             Candidate Comment : ${candidate_comment}
 
-            Please provide an executive interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an executive interview. The feedback should be structured in the following format:
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. The feedback should be structured in the following format:
 
             "Feedback for the candidate's responses : "
 
@@ -2783,8 +2783,6 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
             NOTE : Always consider the information provided in the "background" when generating the feedback
-
-            NOTE : Pro interview insights should provide the value of industry contacts, strategic thinking and using outside-in perspective.
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
