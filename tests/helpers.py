@@ -1731,6 +1731,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     feedbacks = ''
     speech_score = {}
     has_speech_metric = False
+    speech_count = 0
     for response in responses:
         if response.feedback_text:
             feedbacks += response.feedback_text + '\n'
@@ -1738,6 +1739,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         if not test.is_free:
 
             if response.speech_metrics:
+                speech_count += 1
                 has_speech_metric = True
                 # get speech metrics from this response
                 response_speech_metrics = response.speech_metrics
@@ -1772,7 +1774,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     # if len(feedbacks_summary) > 0:
     #     test_attempt_session.feedback_summary = feedbacks_summary
     #     updated_fields.append("feedback_summary")
-
+    if speech_count != int(responses.count()):
+        has_speech_metric = False
 
     if not test.is_free:
         start = time.time()
@@ -2129,6 +2132,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # For calculating average score of the test
     avg_score = 0
     response_count = 0
+    speech_count = 0
 
     for response in responses:
         # if response.skills_rating is None:
@@ -2143,6 +2147,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         #     response_count += 1
         if not test.is_free:
             if response.speech_metrics:
+                speech_count += 1
                 has_speech_metric = True
                 # get speech metrics from this response
                 response_speech_metrics = response.speech_metrics
@@ -2187,6 +2192,9 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # skill_ = []
     # for skill in skills:
     #     skill_.append(skill['name'])
+
+    if speech_count != int(responses.count()):
+        has_speech_metric = False
 
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     skills_=[]
