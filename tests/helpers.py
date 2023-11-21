@@ -1191,6 +1191,61 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                     
                 update_fields.append("speech_metrics")
 
+        elif test.interaction_mode == InteractionModeChoices.any:
+            
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(any interaction mode) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                    try: 
+                        logger.info("*************** generating transcription for(any interaction mode) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                                break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    break
+
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+
+                    update_fields.append("speech_metrics")
+
+
     if test.test_type == TestTypeChoices.dynamic_discussion:
         start = time.time()
         logger.info(f"***************question number is {question.question_number}**************")
@@ -2766,7 +2821,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             Candidate Comment : ${candidate_comment}
 
-            Please provide an executive interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an executive interview. The feedback should be structured in the following format:
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. The feedback should be structured in the following format:
 
             "Feedback for the candidate's responses : "
 
@@ -2783,8 +2838,6 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
 
             NOTE : Always consider the information provided in the "background" when generating the feedback
-
-            NOTE : Pro interview insights should provide the value of industry contacts, strategic thinking and using outside-in perspective.
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
