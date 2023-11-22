@@ -1519,7 +1519,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             transcript, transcript_length = get_transcript(test_question_response)
             test_question_response.response_text = transcript
 
-            if test.is_free:
+            if not test.is_free:
                 if transcript_length > 10:
                     if is_last_response:
                         get_speech_metrics(test_question_response,transcript)
@@ -1533,6 +1533,27 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
                     test_question_response.speech_metrics = default_metrics
                     
                 update_fields.append("speech_metrics")
+
+        elif test.interaction_mode == InteractionModeChoices.any:
+            if test_question_response.response_file:
+            
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion_thread:
         start = time.time()
