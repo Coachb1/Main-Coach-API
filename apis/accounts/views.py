@@ -243,6 +243,8 @@ class AccountsViewSet(ApiViewSet,
         '''
 
         tenant = self.request.tenant
+        logger.info({'tenant': tenant,"test_code_json":tenant.web_test_code_json})
+
 
         test_code_json = tenant.web_test_code_json
 
