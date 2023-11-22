@@ -234,3 +234,22 @@ class AccountsViewSet(ApiViewSet,
             number_list = [number.strip() for number in number_list]
 
         return Response({"mobile_numbers": number_list,'active': tenant.mobile_number_restriction_whatsapp},status=status.HTTP_200_OK)
+
+
+    @action(methods=['GET'], detail=False, url_path="get-test-codes-for-web")
+    def get_test_codes_for_web(self,request,*args, **kwargs):
+        '''
+            Retrives all testcode json for web environment(deepchat)
+        '''
+
+        tenant = self.request.tenant
+
+        test_code_json = tenant.web_test_code_json
+
+        return Response({"data":test_code_json},status=status.HTTP_200_OK)
+
+
+
+
+
+
