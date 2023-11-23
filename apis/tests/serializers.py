@@ -26,6 +26,8 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     key_learning_skills = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+    mcq_path = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
 
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -47,6 +49,8 @@ class CreateTestSerializer(serializers.Serializer):
     email_address_list = serializers.CharField(
         required=False, default=None, allow_null=True, allow_blank=True)
     max_test_allowed = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
+    total_question = serializers.IntegerField(
         required=False, allow_null=True, default=None)
     send_only_to_email = serializers.BooleanField(
         required=False, default=False)
@@ -104,6 +108,7 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "key_learning_skills",
                   "gpt_prompt_override",
                   "mcq_options",
+                  "mcq_path",
                   "created",
                   "updated"]
 
@@ -143,7 +148,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "image_url",
                   "source",
                   "rating",
-                  "is_repeat"
+                  "is_repeat",
+                  "total_question"
                   ]
 
     def get_questions(self, instance):

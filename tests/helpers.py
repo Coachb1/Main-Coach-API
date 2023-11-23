@@ -139,7 +139,8 @@ def create_test(tenant: Tenant,
                 goals: str,
                 course: str,
                 industry: str,
-                exp_level: str) -> tuple[Test, list[TestQuestion]]:
+                exp_level: str,
+                total_question:int) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -182,7 +183,8 @@ def create_test(tenant: Tenant,
             goals=goals,
             course=course,
             industry=industry,
-            exp_level=exp_level
+            exp_level=exp_level,
+            total_question=total_question
         )
 
         test_questions = []
@@ -217,6 +219,7 @@ def create_test(tenant: Tenant,
                 objective_answer=question.get("objective_answer"),
                 mcq_options=question.get("mcq_options"),
                 mcq_answer=question.get("mcq_answer"),
+                mcq_path= question.get('mcq_path'),
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=klp,
                 key_learning_skills=kls
