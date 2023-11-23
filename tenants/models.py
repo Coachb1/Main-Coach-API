@@ -14,6 +14,7 @@ class Tenant(MyModel):
     test_per_month = models.IntegerField(default=10, null=True, blank=True)
     mobile_number_restriction_whatsapp = models.BooleanField(default=False, null=True, blank=True)
     mobile_number_list = models.TextField(null=True,blank=True,default=None)
+    web_test_code_json = models.JSONField(null=True,blank=True,default=None)
 
 
     class Meta:
