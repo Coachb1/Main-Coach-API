@@ -8,6 +8,7 @@ import time
 from datetime import date
 from string import Template
 import base64
+import math
 
 from django.db import transaction
 from django.template.loader import render_to_string
@@ -389,6 +390,89 @@ def delete_test_response(test_response):
     test_response.save()
 
 
+
+#*********************** Process MCQ response start *******************************
+
+def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=test_question_response.test_attempt_session_id
+    )
+
+    logger.info(
+        f"[process_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(
+            f"Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+
+    
+    #* get comment for user decision
+    prompt = f"""
+        \n\nHuman:
+        Situation: {question.question}
+        Decision: {test_question_response.response_text}
+
+        Based on the given situation this is the decision a candidate made. Analyze the pros and cons of the decision, considering its short-term and long-term effects. Evaluate the decision-making process, focusing on the strategic aspects. Discuss how well the decision aligns with the overall situation. Keep it less than 150 words.
+        \n\nAssistant:
+    """
+
+    comment = generic_completion(prompt, 300)
+    test_question_response.feedback_text = comment
+
+
+    option_name = [key for key, value in question.mcq_options.items() if 'opt' in value and value['opt'] == test_question_response.response_text]
+    selected_skill = question.mcq_options[option_name]['Skill '+option_name]
+    test_question_response.mcq_skill = selected_skill
+
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+
+    test_question_response.save(update_fields=["feedback_text","mcq_skill","status","updated"])
+
+    #* mark session completed if this is the last question
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = math.log2(total_responses+1) == total_responses.count()
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.save(update_fields=["status", "updated"])
+
+        decision_data = []
+        for response in total_responses:
+            question = TestQuestion.objects.get(uid=response.question_id)
+            decision_data.append({
+                "situation": question.question,
+                "decision": response.response_text
+            })
+
+        decision_map = ""
+
+        for decision in decision_data:
+            decision_map += f"situation: {decision['situation']}\ndecision: {decision['decision']}\n\n"
+
+        #* get summary of user decisions
+        
+        prompt = f"""
+            \n\nHuman:
+            Scenario: {test.description}
+            
+            {decision_map}
+
+            Summarize the entire interaction, highlighting key decisions and their implications. Provide insights into the consistency, adaptability, and effectiveness of the candidate's decision-making throughout the scenario. Additionally, discuss any patterns or trends observed in the candidate's decision-making approach and offer suggestions for improvement or areas to be mindful of in future decision-making situations. Keep it less than 200 words.
+            \n\nAssistant:
+        """
+
+        session_summary = generic_completion(prompt, 500)
+        test_attempt_session.mcq_summary = session_summary
+        test_attempt_session.save(update_fields=["mcq_summary"])
+        report_url = generate_session_report_link(test_attempt_session, test)
+        
+
+#*********************** Process MCQ response end *******************************
+
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
@@ -517,6 +601,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
 
     test_attempt_session.refresh_from_db()
+
+    if test.test_type == TestTypeChoices.mcq:
+        return process_mcq_response(test_question_response)
 
     test_attempt_session.current_question_idx = question.question_number
 
@@ -2417,7 +2504,11 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
                 refresh_token[:6], participant_id)
 
-    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
+    report_type = ReportType.INTERACTION_SESSION_REPORT
+    if test.test_type == TestTypeChoices.mcq:
+        report_type = ReportType.DecisionAnalysisReport
+
+    report_url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
     test_attempt_session.report_url = report_url
     test_attempt_session.save(update_fields=["report_url"])
