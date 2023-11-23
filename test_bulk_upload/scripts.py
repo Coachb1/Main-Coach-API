@@ -419,6 +419,10 @@ def format_test_data_slack(raw_data):
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
                     skills_list.add(skill.strip().capitalize())
+            elif key.startswith('Skill'):    # for mcq type of test
+                temp_skills = input_dict[key].split(',')
+                for skill in temp_skills:
+                    skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
 
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
@@ -428,7 +432,7 @@ def format_test_data_slack(raw_data):
             if skills not in defined_skills_list:
                 unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0:
+        if len(unmatched_skills) > 0 and test_type != TestTypeChoices.mcq:
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
@@ -538,8 +542,49 @@ def format_test_data_slack(raw_data):
 
                 output_dict["questions"].append(question)
 
+            elif key.startswith('Story'):
+                if test_type == TestTypeChoices.mcq:
+                    keys = list(input_dict.keys())
+                    question_keys = []  # to store needed field for a question
+                    for i in range(len(keys)):
+                        if key.strip() == keys[i]:
+                            question_keys = (keys[i:i + 5])
+
+                    question_text = input_dict[question_keys[0]]
+                    option1_text = input_dict[question_keys[1]]
+                    option2_text = input_dict[question_keys[3]]
+                    skill1 = input_dict[question_keys[2]].strip()
+                    skill2 = input_dict[question_keys[4]].strip()
+
+                    path = question_keys[0]
+                    option1_name = question_keys[1]
+                    option2_name = question_keys[3]
+                    skill1_name = question_keys[2]
+                    skill2_name = question_keys[4]
+
+                    question = {
+                        "question": question_text,
+                        "question_type": "mcq",
+                        "mcq_options" : {
+                            f"{option1_name}" : {'opt': option1_text, 
+                                                f'{skill1_name}': skill1
+                                                },
+                            f"{option2_name}" : {'opt': option2_text,
+                                                f'{skill2_name}': skill2}
+
+                        },
+                        'mcq_path' : path,
+                        "key_learning_point": "No key learning point for this question",
+                        "key_learning_skills": f'{skill1},{skill2}'
+
+                    }
+                    output_dict["questions"].append(question)
+                    
+
         if test_type == 'single' and len(output_dict["questions"]) > 1:
             output_dict["questions"][-1]["is_view_only"] = False
+
+        output_dict['total_question'] = int(len(output_dict['questions']))
 
         output_json = json.dumps(output_dict)
 
