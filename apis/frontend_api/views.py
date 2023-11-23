@@ -189,6 +189,16 @@ class FrontendAuthViewSet(ApiViewSet):
             interaction_id = serializer.validated_data['interaction_id']
 
             url = f"{url}?test_attempt_session_id={test_attempt_session_id}&interaction_id={interaction_id}&backend={BACKEND}"
+
+        elif report_type == ReportType.DecisionAnalysisReport:
+            session_serializer = FrontendInteractionSessionReportSerializer(
+                data=request.data)
+
+            session_serializer.is_valid(raise_exception=True)
+
+            test_attempt_session_id = session_serializer.validated_data["test_attempt_session_id"]
+
+            url = f"{url}?test_attempt_session_id={test_attempt_session_id}&backend={BACKEND}"
         
 
 

@@ -11,5 +11,6 @@ class ReportType:
     SUMMARY_LEADERBOARD_REPORT = "summaryPLBReport"
     DYNAMIC_DISCUSSOIN_REPORT = "dynamicDiscussionReport"
     SUMMARY_FEEDBACK_REPORT = "summaryFeedbackReport"
+    DecisionAnalysisReport = "decisionAnalysisReport"
 
 

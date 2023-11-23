@@ -252,6 +252,33 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         
         return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
 
+    if test.test_type == TestTypeChoices.mcq and only_data:
+        if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
+            custom_rating = CustomRating.objects.get(
+                tenant_id=test_attempt_session.tenant_id).custom_rating
+        else:
+            custom_rating = {
+                "1": "Starting Point",
+                "2": "Learning Phase",
+                "3": "Growth Stage",
+                "4": "Proficient",
+                "5": "High Achiever"
+            }
+
+        qa = []
+        test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                deleted=0).order_by('id')
+        for response in test_responses:
+            qa.append({
+                "question": questions.get(uid=response.question_id).question,
+                'response': response.response_text,
+                'comment': response.feedback_text,
+                'skills': response.mcq_skill
+            })
+        
+        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary}
+
 
     qa = []
     all_speech_metrics = []
