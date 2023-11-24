@@ -58,6 +58,7 @@ class Test(TenantAwareModel):
     course = models.CharField(max_length=255, null=True, blank=True, default=None)
     industry = models.CharField(max_length=255, null=True, blank=True, default=None)
     exp_level = models.CharField(max_length=255, null=True, blank=True, default=None)
+    total_question = models.IntegerField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
@@ -88,6 +89,7 @@ class TestQuestion(TenantAwareModel):
     key_learning_skills = models.TextField(null=True, blank=True, default=None)
     flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
     loader_wait_text = models.TextField(null=True, blank=True, default=None)
+    mcq_path = models.TextField(null=True, blank=True,default=None)
 
     class Meta:
         db_table = "test_question"
@@ -144,6 +146,7 @@ class TestAttemptSession(TenantAwareModel):
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
     feedback_summary = models.TextField(null=True,blank=True, default=None)
     culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
+    mcq_summary = models.TextField(null=True,blank=True, default=None)
 
     
 
@@ -175,6 +178,7 @@ class TestQuestionResponse(TenantAwareModel):
     metadata = models.JSONField(null=True, blank=True, default=None)
     relevance = models.BooleanField(null=True, blank=True, default=True )
     kls_klp = models.JSONField(null=True, blank=True, default=None)
+    mcq_skill = models.JSONField(null=True, blank=True, default=None)
     class Meta:
         db_table = "test_question_response"
 
