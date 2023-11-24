@@ -276,7 +276,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "question": questions.get(uid=response.question_id).question,
                 'response': response.response_text,
                 'comment': response.feedback_text,
-                'skills': response.mcq_skill
+                'skills': response.mcq_skill,
+                'mcq_opitons': questions.get(uid=response.question_id).mcq_options
             })
         
         return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary}
