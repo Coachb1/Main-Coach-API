@@ -272,11 +272,17 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                                                                 evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                 deleted=0).order_by('id')
         for response in test_responses:
+            mcq_options = questions.get(uid=response.question_id).mcq_options
+            question_text = questions.get(uid=response.question_id).question
+            mcq_skill = ''
+            for key, value in mcq_options.items():
+                if 'opt' in value and value['opt'] == question_text:
+                    mcq_skill = value.get(f'Skill {key}', None)
             qa.append({
-                "question": questions.get(uid=response.question_id).question,
+                "question": question_text,
                 'response': response.response_text,
                 'comment': response.feedback_text,
-                'skills': response.mcq_skill,
+                'skills': mcq_skill,
                 'mcq_opitons': questions.get(uid=response.question_id).mcq_options
             })
         
