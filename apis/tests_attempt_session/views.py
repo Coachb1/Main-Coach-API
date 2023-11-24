@@ -233,102 +233,104 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp and test.test_type != TestTypeChoices.interview and test.scenario_case != ScenarioCaseChoices.employee_feedback:
                 send_report_link_to_whatsapp(
                     test, test_attempt_session, report_url)
+                
 
             #################* summary  start #################
-            updated_fields = []
-            
-            
-            skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
-                                                                            test_attempt_session.culture_skills_rating,
-                                                                            test_attempt_session.skills_rating,is_free)
-            logger.info({"************************skills_summary in submit email ********************":skills_summary})
-            if len(skills_summary) > 0:
-                test_attempt_session.culture_and_skill_summary = skills_summary
-                updated_fields.append("culture_and_skill_summary")
-
-            responses = TestQuestionResponse.objects.filter(
-                test_attempt_session_id=test_attempt_session.uid,
-                responder_type='user',
-                deleted=0
-            )
-            feedbacks = ''
-            for response in responses:
-                if response.feedback_text:
-                    feedbacks += response.feedback_text + '\n'
-
-            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
-            logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
-            if len(feedbacks_summary) > 0:
-                test_attempt_session.feedback_summary = feedbacks_summary
-                updated_fields.append("feedback_summary")
-
-
-            #####################* summary end #################
-
-            if not test.is_free:
-                #####################* explanation start #################
-                if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
-                    user_persona = test.orchestrated_conversation_details.get("test_user_persona")
-                    objective = test.orchestrated_conversation_details.get("objective")
-
-                    chat_conversation = get_group_discussion_chat_conversation(
-                        test_attempt_session, user_persona)
-
-                    skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
-                    logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-
-                    culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
-                    logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
-
-                    if skills_explanation:
-                        test_attempt_session.skills_explanation = skills_explanation
-                        updated_fields.append("skills_explanation")
-
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
-
-                else:
+            if test.test_type != TestTypeChoices.mcq:
+                updated_fields = []
                 
-                    responses = TestQuestionResponse.objects.filter(
-                        test_attempt_session_id=test_attempt_session.uid,
-                        deleted=0
-                    )
-                    conversation = ""
-                    count = 1
-
-                    for response in responses:
-
-                        question = TestQuestion.objects.get(
-                            uid=response.question_id)
-
-                        question_text = question.question
-                        response_text = response.response_text
-
-                        conversation += f"{count}. [Question:] {question_text}\n"
-                        if not question.is_view_only:
-                            conversation += f"[Answer:] {response_text}\n\n"
-
-                        count += 1
-
-                    skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
-                    logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-                    if skills_explanation:
-                        test_attempt_session.skills_explanation = skills_explanation
-                        updated_fields.append("skills_explanation")
-
-
-                    culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
-                    logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
                 
+                skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
+                                                                                test_attempt_session.culture_skills_rating,
+                                                                                test_attempt_session.skills_rating,is_free)
+                logger.info({"************************skills_summary in submit email ********************":skills_summary})
+                if len(skills_summary) > 0:
+                    test_attempt_session.culture_and_skill_summary = skills_summary
+                    updated_fields.append("culture_and_skill_summary")
 
-                #####################* explanation end #################
+                responses = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=test_attempt_session.uid,
+                    responder_type='user',
+                    deleted=0
+                )
+                feedbacks = ''
+                for response in responses:
+                    if response.feedback_text:
+                        feedbacks += response.feedback_text + '\n'
 
-            test_attempt_session.save(update_fields=updated_fields)
-            
+                feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
+                logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+                if len(feedbacks_summary) > 0:
+                    test_attempt_session.feedback_summary = feedbacks_summary
+                    updated_fields.append("feedback_summary")
+
+
+                #####################* summary end #################
+
+                if not test.is_free :
+                    #####################* explanation start #################
+                    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+                        user_persona = test.orchestrated_conversation_details.get("test_user_persona")
+                        objective = test.orchestrated_conversation_details.get("objective")
+
+                        chat_conversation = get_group_discussion_chat_conversation(
+                            test_attempt_session, user_persona)
+
+                        skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
+                        logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+
+                        culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                        logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+
+                        if skills_explanation:
+                            test_attempt_session.skills_explanation = skills_explanation
+                            updated_fields.append("skills_explanation")
+
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
+
+                    else:
+                    
+                        responses = TestQuestionResponse.objects.filter(
+                            test_attempt_session_id=test_attempt_session.uid,
+                            deleted=0
+                        )
+                        conversation = ""
+                        count = 1
+
+                        for response in responses:
+
+                            question = TestQuestion.objects.get(
+                                uid=response.question_id)
+
+                            question_text = question.question
+                            response_text = response.response_text
+
+                            conversation += f"{count}. [Question:] {question_text}\n"
+                            if not question.is_view_only:
+                                conversation += f"[Answer:] {response_text}\n\n"
+
+                            count += 1
+
+                        skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+                        logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                        if skills_explanation:
+                            test_attempt_session.skills_explanation = skills_explanation
+                            updated_fields.append("skills_explanation")
+
+
+                        culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                        logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
+                    
+
+                    #####################* explanation end #################
+
+                test_attempt_session.save(update_fields=updated_fields)
+                
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
