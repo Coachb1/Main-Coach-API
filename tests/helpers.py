@@ -412,7 +412,7 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
 
-    
+    updated_fields = []
     #* get comment for user decision
     prompt = f"""
         \n\nHuman:
@@ -425,19 +425,32 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
     comment = generic_completion(prompt, 300)
     test_question_response.feedback_text = comment
+    updated_fields.append("feedback_text")
+    logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%comment: {comment} \n\n mcq_options: {question.mcq_options}")
 
 
-    option_name = [key for key, value in question.mcq_options.items() if 'opt' in value and value['opt'] == test_question_response.response_text]
-    selected_skill = question.mcq_options[option_name]['Skill '+option_name]
-    test_question_response.mcq_skill = selected_skill
+    # option_name = [key for key, value in question.mcq_options.items() if 'opt' in value and value['opt'] == test_question_response.response_text]
+    try:
+        selected_key = [key for key in question.mcq_options if question.mcq_options[key]['opt'] == test_question_response.response_text][0]
+        
+        selected_skill = question.mcq_options[selected_key][f"Skill {selected_key}"]
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%% selected_skill: {selected_skill}, selected_key: {selected_key}")
+        test_question_response.mcq_skill = selected_skill
+        updated_fields.append("mcq_skill")
+        
+    except Exception as e:
+        logger.exception(e)
+
 
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    updated_fields.append("evaluation_status")
+    updated_fields.append("updated")
 
-    test_question_response.save(update_fields=["feedback_text","mcq_skill","status","updated"])
+    test_question_response.save(update_fields=updated_fields)
 
     #* mark session completed if this is the last question
     total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
-    is_last_question = math.log2(total_responses+1) == total_responses.count()
+    is_last_question = math.log2(test.total_question + 1) == total_responses.count()
 
     if is_last_question:
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
@@ -467,6 +480,8 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
             Summarize the entire interaction, highlighting key decisions and their implications. Provide insights into the consistency, adaptability, and effectiveness of the candidate's decision-making throughout the scenario. Additionally, discuss any patterns or trends observed in the candidate's decision-making approach and offer suggestions for improvement or areas to be mindful of in future decision-making situations. Keep it less than 200 words.
             \n\nAssistant:
         """
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%decision_map: {decision_map}")
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%prompt: {prompt}")
 
         session_summary = generic_completion(prompt, 500)
         test_attempt_session.mcq_summary = session_summary
