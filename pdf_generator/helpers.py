@@ -252,7 +252,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         
         return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
 
+    print(f"{'&'*50} test_type : {test.test_type}, condition: {test.test_type == TestTypeChoices.mcq}, only_data: {only_data}")
     if test.test_type == TestTypeChoices.mcq and only_data:
+        print("HURRayyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
                 tenant_id=test_attempt_session.tenant_id).custom_rating
