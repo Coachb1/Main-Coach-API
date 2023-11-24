@@ -454,7 +454,8 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
     if is_last_question:
         test_attempt_session.status = TestAttemptSessionStatusChoices.completed
-        test_attempt_session.save(update_fields=["status", "updated"])
+        test_attempt_session.finished_at = timezone.now()
+        test_attempt_session.save(update_fields=["status","finished_at", "updated"])
 
         decision_data = []
         for response in total_responses:
