@@ -4765,7 +4765,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
         "email_address_list":'mail@coachbots.com',
         "questions": question_info,
         "scenario_case": 'simulation',
-        "interaction_mode":'audio',
+        "interaction_mode":'any',
         "test_type":'test',
         "email_candidate":True,
         "gpt_prompt_override":"",
