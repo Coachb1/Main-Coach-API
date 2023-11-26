@@ -713,122 +713,124 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"************ transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:            
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
-            end = time.time()
-            logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
+                    try: 
+                        logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
 
-            if not test.is_free:
-                if transcript_length > 10:
-                    if test.test_type == TestTypeChoices.trainer_thread:
-                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
-                    else:
-                        start = time.time()
-                        max_tries = 2
-                        retry = 0
-                        while True:
-                            try:
-                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                                    test_question_response.response_file,transcript)
-                                test_question_response.speech_metrics = speech_met
+                end = time.time()
+                logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
-                                end = time.time()
-                                logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
-                                break
-                            except Exception as e:
-                                logger.exception(e)
-                                retry += 1
-                                if retry >= max_tries:
-                                    # HACK sane default values
-                                    test_question_response.speech_metrics = default_metrics
-                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if test.test_type == TestTypeChoices.trainer_thread:
+                            threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                        else:
+                            start = time.time()
+                            max_tries = 2
+                            retry = 0
+                            while True:
+                                try:
+                                    speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                        test_question_response.response_file,transcript)
+                                    test_question_response.speech_metrics = speech_met
+
+                                    end = time.time()
+                                    logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                                     break
+                                except Exception as e:
+                                    logger.exception(e)
+                                    retry += 1
+                                    if retry >= max_tries:
+                                        # HACK sane default values
+                                        test_question_response.speech_metrics = default_metrics
+                                        logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                        break
 
-                        
-                else:
-                    # HACK sane default values
-                        test_question_response.speech_metrics = default_metrics
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"**************** transcript generated ******","transcript":transcript})
                     end = time.time()
                     logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
-            if not test.is_free:
-                if transcript_length > 10:
-                    if test.test_type == TestTypeChoices.trainer_thread:
-                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
-                    else:
-                        start = time.time()
-                        max_tries = 2
-                        retry = 0
-                        while True:
-                            try:
-                                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                    test_question_response.response_file,transcript)
-                                test_question_response.speech_metrics = speech_met_video
-                                end = time.time()
-                                logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                                break
+                    try: 
+                        logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                        end = time.time()
+                        logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
 
-                            except Exception as e:
-                                retry += 1
-                                if retry >= max_tries:
-                                    # HACK sane default values
-                                    test_question_response.speech_metrics = default_metrics
-                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if test.test_type == TestTypeChoices.trainer_thread:
+                            threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                        else:
+                            start = time.time()
+                            max_tries = 2
+                            retry = 0
+                            while True:
+                                try:
+                                    speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                        test_question_response.response_file,transcript)
+                                    test_question_response.speech_metrics = speech_met_video
+                                    end = time.time()
+                                    logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                                     break
 
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                                except Exception as e:
+                                    retry += 1
+                                    if retry >= max_tries:
+                                        # HACK sane default values
+                                        test_question_response.speech_metrics = default_metrics
+                                        logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                        break
+
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
 
@@ -1194,108 +1196,110 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"************ transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
-                            break
-                        except Exception as e:
-                            logger.exception(e)
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                    try: 
+                        logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                                 break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    break
 
-                        
-                else:
-                    # HACK sane default values
-                        test_question_response.speech_metrics = default_metrics
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met_video
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                            break
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
-                        except Exception as e:
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
+                    try: 
+                        logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met_video
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                                 break
 
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                            except Exception as e:
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                    break
+
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.any:
             
@@ -1602,43 +1606,43 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            
-            transcript, transcript_length = get_transcript(test_question_response)
-            test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
                     else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
-                else:
-                    test_question_response.speech_metrics = default_metrics
+                        test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
-            
-            transcript, transcript_length = get_transcript(test_question_response)
-            test_question_response.response_text = transcript
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
 
-            if not test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
                     else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.any:
             if test_question_response.response_file:
