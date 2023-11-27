@@ -964,21 +964,21 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
+                        3/0
                         feedback_text = text_bison_compeletion(prompt)
                     except Exception as e:
                         logger.exception(e)
-                        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-                        if not gpt_feedback.text:
+                        anthropic_feedback = anthropic_completion(prompt, 1200) 
+                        if not anthropic_feedback:
                             try:
-                                anthropic_feedback = anthropic_completion(prompt, 1200)
-                                feedback_text = anthropic_feedback
+                                feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                             except Exception as e:
                                 logger.exception(e)
                                 feedback_text = "Feedback could not be generated"
 
                         else:
-                            feedback_text = gpt_feedback.text
-                            raw_text = gpt_feedback.raw
+                            feedback_text = anthropic_feedback
+                            raw_text = anthropic_feedback
 
                     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                     # if not gpt_feedback.text:
