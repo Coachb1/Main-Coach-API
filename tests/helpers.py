@@ -964,7 +964,6 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
-                        3/0
                         feedback_text = text_bison_compeletion(prompt)
                     except Exception as e:
                         logger.exception(e)
