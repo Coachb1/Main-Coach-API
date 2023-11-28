@@ -4,12 +4,13 @@ import anthropic
 from django.conf import settings
 import time
 import random
+from commons.timeit import timeit
 
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
-
+@timeit
 def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(ANTHROPIC_KEY)
 
