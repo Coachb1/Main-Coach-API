@@ -4709,7 +4709,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
     scenario = ''
     for i in range(3):
         logger.info(f'trying scenario creation for {i +1} time')
-        scenario = generic_completion(prompt,2000,'failed to generate scenario')
+        scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
         print(scenario)
         rating_match = re.search(r"Rating: (\d+)", scenario)
         rating = int(rating_match.group(1)) if rating_match else 0
@@ -4737,6 +4737,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
     question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
     if len(question_matches) == 0:
         question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+
+    logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
     skills_to_eva = set()
     for match in question_matches:
         num, question, prompt, takeaway, skills = match
@@ -4760,6 +4762,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
     # client = Client.objects.get(key=key)
     # creator = User.objects.get(uid=client.owner_id)
     admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
+
+    logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} {skill_to_evalaute}  {'#'*100} ")
 
     json_data = json.dumps({
         "creator_id": admin_user.uid,
