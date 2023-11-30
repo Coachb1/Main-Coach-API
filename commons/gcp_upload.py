@@ -26,4 +26,4 @@ def gcp_upload(bucket_name, source_file_name, destination_blob_name):
             f"File {source_file_name} uploaded to {destination_blob_name}."
         )
     except Exception as error: 
-        logger.info(f"Error uploading file {source_file_name} due to {str(error)}")
+        logger.error(f"Error uploading file {source_file_name} due to {str(error)}")
