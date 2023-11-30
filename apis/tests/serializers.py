@@ -40,6 +40,10 @@ class OrchestratedConversationDetails(serializers.Serializer):
     start_with_user = serializers.CharField(required=False)
     background = serializers.CharField(required=False)
 
+class testCertificateDetails(serializers.Serializer):
+    title = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -93,6 +97,7 @@ class CreateTestSerializer(serializers.Serializer):
     course = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -149,7 +154,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "source",
                   "rating",
                   "is_repeat",
-                  "total_question"
+                  "total_question",
+                  "certificate_details"
                   ]
 
     def get_questions(self, instance):
