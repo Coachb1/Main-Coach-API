@@ -59,6 +59,8 @@ EXP_LEVEL = "Experience Level"
 START_WITH_USER = "start with user"
 IS_FREE = 'is_free'
 BACKGROUND = 'Background'
+CERTIFICATE_TITLE = "Certificate Title"
+CERTIFICATE_DESCRIPTION = "Certificate Description"
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -77,7 +79,18 @@ def format_test_orchestrated_conversation(raw_data):
             "gpt_prompt_override": "",
             "questions": [],
         }
+        
+        if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
+            output_dict['certificate_details'] = {}
 
+            if CERTIFICATE_TITLE in input_dict:
+                if input_dict[CERTIFICATE_TITLE] and len(input_dict[CERTIFICATE_TITLE].strip()) > 0:
+                    output_dict["certificate_details"]['title'] = input_dict[CERTIFICATE_TITLE]
+
+            if CERTIFICATE_DESCRIPTION in input_dict:
+                if input_dict[CERTIFICATE_DESCRIPTION] and len(input_dict[CERTIFICATE_DESCRIPTION].strip()) > 0:
+                    output_dict['certificate_details']['description'] = input_dict[CERTIFICATE_DESCRIPTION]
+        
         if IS_DYNAMIC in input_dict:
             if input_dict[IS_DYNAMIC] and len(input_dict[IS_DYNAMIC].strip()) > 0:
                 is_dynamic = input_dict[IS_DYNAMIC].strip().lower()
@@ -370,9 +383,20 @@ def format_test_data_slack(raw_data):
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": []
+            "questions": [],
         }
 
+        if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
+            output_dict['certificate_details'] = {}
+
+            if CERTIFICATE_TITLE in input_dict:
+                if input_dict[CERTIFICATE_TITLE] and len(input_dict[CERTIFICATE_TITLE].strip()) > 0:
+                    output_dict["certificate_details"]['title'] = input_dict[CERTIFICATE_TITLE]
+
+            if CERTIFICATE_DESCRIPTION in input_dict:
+                if input_dict[CERTIFICATE_DESCRIPTION] and len(input_dict[CERTIFICATE_DESCRIPTION].strip()) > 0:
+                    output_dict['certificate_details']['description'] = input_dict[CERTIFICATE_DESCRIPTION]
+        
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
                 is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
