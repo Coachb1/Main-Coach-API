@@ -3,6 +3,8 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+import pytz
+import datetime
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
@@ -153,9 +155,17 @@ class TestAttemptSessionViewSet(ApiViewSet,
         try:
             session_id = request.query_params.get('session_id')
             logger.info({"SESSION_ID":session_id})
-            session_status = TestAttemptSession.objects.get(uid=session_id).status
+            session = TestAttemptSession.objects.get(uid=session_id)
+            session_status = session.status
 
-            return Response(data={"status":session_status}, status=status.HTTP_200_OK)
+            
+            timezone = pytz.timezone("Asia/Kolkata")
+            expires_at = session.expires_at
+            now = datetime.datetime.now(timezone)
+
+            
+
+            return Response(data={"status":session_status, "is_expired": expires_at < now}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             
