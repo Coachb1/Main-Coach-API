@@ -2129,6 +2129,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
         # data["skills_rating"] = update_skill_name(skills_rating)
         data["skills_rating"] = skills_rating
+        
+    data["certificate_details"] = test.certificate_details
 
     return data
 
