@@ -623,5 +623,41 @@ skills = [
         "name": "Leadership Commitment",
         "display": "Leadership Commitment",
         "description": "A skilled manager is committed to modeling leadership behaviors aligned with their organization's values. They lead by example, setting the tone for inclusivity, fairness, and accountability. Their unwavering dedication to these principles encourages their team to follow suit, creating a harmonious and effective work environment."
+    },
+    {
+        "name": "API skills",
+        "display": "API skills",
+        "description": "API skills encompass the knowledge and expertise required to design, develop, and manage application programming interfaces (APIs)."
+    },
+    {
+        "name": "API data",
+        "display": "API data",
+        "description": "API data refers to the information that is exchanged between applications and services through APIs. This data can take various forms, including structured data (e.g., JSON, XML), unstructured data (e.g., text, images), and real-time data (e.g., streaming data from sensors)."
+    },
+    {
+        "name": "Backend Dev",
+        "display": "Backend Dev",
+        "description": "Backend development involves building the server-side logic of applications, including designing and developing APIs, managing databases, and ensuring application security and performance."
+    },
+    {
+        "name": "API Testing",
+        "display": "API Testing",
+        "description": "API testing is the process of validating that APIs meet their requirements and function as expected. This includes testing functionality, performance, security, and usability."
+    },
+    {
+        "name": "Application Migration",
+        "display": "Application Migration",
+        "description": "Application migration is the process of moving applications from one environment to another, such as from on-premises to cloud or from one cloud provider to another. This requires careful planning, execution, and testing to ensure seamless transitions."
+    },
+    {
+        "name": "AWS Skills",
+        "display": "AWS Skills",
+        "description": "AWS (Amazon Web Services) skills refer to the knowledge and expertise required to work with AWS cloud services, including compute, storage, networking, database, and application services. These skills are in high demand as organizations increasingly adopt cloud computing."
+    },
+    {
+        "name": "Application Performance",
+        "display": "Application Performance",
+        "description": "Application performance optimization (APO) involves identifying and addressing performance bottlenecks in applications to improve their responsiveness, speed, and scalability. APO techniques include code profiling, resource optimization, and caching strategies."
     }
+
 ]
