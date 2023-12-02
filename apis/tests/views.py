@@ -619,13 +619,14 @@ class TestViewSet(ApiViewSet,
         url = request.query_params.get('url')
         mode = request.query_params.get('mode')
         access_token = request.query_params.get('access_token')
+        context = request.query_params.get('information',None)
 
         # print("%"*100,f"              {mode}  {url}   {key} : {secret}             ","%"*100)
         if mode == 'A':
-            scenario = create_scenario_from_site_context(url, access_token, tenant_id)
+            scenario = create_scenario_from_site_context(url, access_token, tenant_id, context)
             return Response(data=[scenario], status=status.HTTP_200_OK)
         else:
-            scenario = fetch_test_codes_by_site_context(url,tenant_id )
+            scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
             return Response(data=scenario, status=status.HTTP_200_OK)
 
 
