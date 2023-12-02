@@ -4632,7 +4632,7 @@ def scrape_meta_info(url):
 
 
 
-def create_scenario_from_site_context(url,access_token, tenant_id):
+def create_scenario_from_site_context(url,access_token, tenant_id, context):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -4668,12 +4668,17 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
 
             return key, secret
 
-
-    title, des = scrape_meta_info(url)
+    if context:
+        context = json.loads(context)
+        title, des = context['title'], context['data']['information']
+        logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
+    else:
+        title, des = scrape_meta_info(url)
     
     site_information = f"Title: {title} \n Description: {des}"
 
     prompt = """
+        \n\nHuman:
             {Information} - %s
 
         Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
@@ -4706,7 +4711,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
         
         NOTE : Make sure the simulation is very advanced and tough.
         
-
+        \n\nAssistant:
     """%(site_information)
 
     response = {}
@@ -4767,7 +4772,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
     # creator = User.objects.get(uid=client.owner_id)
     admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
-    logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} {skill_to_evalaute}  {'#'*100} ")
+    logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
 
     json_data = json.dumps({
         "creator_id": admin_user.uid,
@@ -4804,7 +4809,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id):
 
 
 
-def fetch_test_codes_by_site_context(url,tenant_id):
+def fetch_test_codes_by_site_context(url,tenant_id, context):
 
     title, des = scrape_meta_info(url)
     site_information = f"Title: {title} \n Description: {des}"
