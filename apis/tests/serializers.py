@@ -98,6 +98,7 @@ class CreateTestSerializer(serializers.Serializer):
     industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
+    ui_information = serializers.JSONField(default=None, required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -155,7 +156,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "rating",
                   "is_repeat",
                   "total_question",
-                  "certificate_details"
+                  "certificate_details",
+                  "ui_information"
                   ]
 
     def get_questions(self, instance):
