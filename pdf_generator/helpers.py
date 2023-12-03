@@ -511,7 +511,7 @@ def get_participant_report(user, only_data=False):
         for test_attempt_session in test_attempt_sessions:
             test = Test.objects.get(uid=test_attempt_session.test_id)
             if participant_info['skills_info']:
-                if test.test_type != TestTypeChoices.mcq and test.is_free == False:
+                if test.test_type != TestTypeChoices.mcq:
                     try:
                         session_info = {
                             "slno" : cnt,
