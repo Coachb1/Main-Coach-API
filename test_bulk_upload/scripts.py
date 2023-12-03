@@ -61,6 +61,9 @@ IS_FREE = 'is_free'
 BACKGROUND = 'Background'
 CERTIFICATE_TITLE = "Certificate Title"
 CERTIFICATE_DESCRIPTION = "Certificate Description"
+TITLEUI = 'Title UI'
+DESCRIPTIONUI = 'Description UI'
+QUESTIONUI = 'Que UI'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -396,6 +399,21 @@ def format_test_data_slack(raw_data):
             if CERTIFICATE_DESCRIPTION in input_dict:
                 if input_dict[CERTIFICATE_DESCRIPTION] and len(input_dict[CERTIFICATE_DESCRIPTION].strip()) > 0:
                     output_dict['certificate_details']['description'] = input_dict[CERTIFICATE_DESCRIPTION]
+
+        if any(key in input_dict for key in [TITLEUI, DESCRIPTIONUI]):
+            output_dict['ui_information'] = {}
+
+            if TITLEUI in input_dict:
+                if input_dict[TITLEUI] and len(input_dict[TITLEUI].strip()) > 0:
+                    output_dict["ui_information"]['title'] = input_dict[TITLEUI]
+                    
+            if DESCRIPTIONUI in input_dict:
+                if input_dict[DESCRIPTIONUI] and len(input_dict[DESCRIPTIONUI].strip()) > 0:
+                    output_dict["ui_information"]['title'] = input_dict[DESCRIPTIONUI]
+
+            for key in input_dict:
+                if key.startswith(QUESTIONUI):
+                    output_dict['ui_information'][f"Question {key[len(QUESTIONUI) + 1:]}"] = input_dict.get(f"{QUESTIONUI} {key[len(QUESTIONUI) + 1:]}",None)
         
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
