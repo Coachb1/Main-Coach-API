@@ -2417,6 +2417,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
     response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating = {key.capitalize() : value for key, value in response_skills_rating.items()}
     for skill in response_skills_rating:
         if skill in skills_rating:
             skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
