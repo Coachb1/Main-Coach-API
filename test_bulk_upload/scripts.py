@@ -409,7 +409,7 @@ def format_test_data_slack(raw_data):
                     
             if DESCRIPTIONUI in input_dict:
                 if input_dict[DESCRIPTIONUI] and len(input_dict[DESCRIPTIONUI].strip()) > 0:
-                    output_dict["ui_information"]['title'] = input_dict[DESCRIPTIONUI]
+                    output_dict["ui_information"]['description'] = input_dict[DESCRIPTIONUI]
 
             for key in input_dict:
                 if key.startswith(QUESTIONUI):
