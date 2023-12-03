@@ -1799,6 +1799,10 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
 @timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
+
+    temp_rating = {}
+    skills_count = {}
+
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
     objective = test.orchestrated_conversation_details.get("objective")
@@ -1819,16 +1823,30 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test.is_free)
+    
+    for skill in skills_rating:
+        if skill in temp_rating:
+            temp_rating[skill] += skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] += 1
+        else:
+            temp_rating[skill] = skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] = 1
 
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
-    for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
-        elif skills_rating[skill] < 1.5:
-            skills_rating[skill] = 1.5
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 8.5:
+    #         skills_rating[skill] = 8.5
+    #     elif skills_rating[skill] < 1.5:
+    #         skills_rating[skill] = 1.5
 
-    skills_rating = update_skills_rating_if_same_scores(skills_rating)
+
+    skills_rating_score = {}
+    # calculate average skills rating
+    for skill in skills_rating:
+        skills_rating_score[skill] = temp_rating[skill] / skills_count[skill]
+
+    skills_rating = update_skills_rating_if_same_scores(skills_rating_score)
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
@@ -1838,11 +1856,14 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_score += skills_rating[skill]
 
     avg_score = test_score / len(skills_rating.keys())
+    culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
     
     updated_fields = ["culture_skills_rating"
                       ,"test_score","avg_score","finished_at","updated"]
+
+    skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -1863,6 +1884,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     feedbacks = ''
     speech_score = {}
     has_speech_metric = False
+    attempted_count = 0
     speech_count = 0
     for response in responses:
         if response.feedback_text:
@@ -1894,6 +1916,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
                 except Exception as e :
                     has_speech_metric = False
                     logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
+
+        attempted_count += 1
 
     # calculating feedback_summary and skill summary
     # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
@@ -1932,6 +1956,43 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     test_attempt_session.avg_score = avg_score
 
     test_attempt_session.save(update_fields=updated_fields)
+
+    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                          tenant_id=test_attempt_session.tenant_id)
+
+    updated_fields = []
+
+    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+
+    for skill, rating in skills_rating.items():
+
+        if skill in skills_rating_object.skills_info:
+            skills_rating_object.skills_info[skill]['score'] += rating
+            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+        else:
+            skills_rating_object.skills_info[skill] = {
+                'score': rating,
+                'question_count': skills_count[skill]
+            }
+
+        if skills_count[skill] == 0:
+            skills_rating_object.skills_info[skill]['average_score'] = 0
+        else:
+            required_average_score = rating / skills_count[skill]
+            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+
+    skills_rating_object.total_questions_attempted += attempted_count
+    skills_rating_object.total_tests_attempted += 1
+
+    updated_fields.append("skills_info")
+    updated_fields.append("total_questions_attempted")
+    updated_fields.append("total_tests_attempted")
+    updated_fields.append("updated")
+    print(skills_rating,avg_score,test_score,skills_rating_object.uid )
+
+    skills_rating_object.save(update_fields=updated_fields)
+
 
     return test_attempt_session
 
@@ -2390,6 +2451,11 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score)
     skills_rating_score, avg_score = increment_avg_score_in_percentages(
         skills_rating_score, avg_score, participant_id, test_attempt_session)
+    test_score = 0
+    for skill in skills_rating_score:
+        test_score += skills_rating_score[skill]
+
+
     culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
 
     logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
@@ -2399,6 +2465,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     # update skills_rating field in test_attempt_session
     skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
+    skills_rating_score = {key.capitalize() : value for key, value in skills_rating_score.items()}
     
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
@@ -2420,7 +2487,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     if culture_skills_rating is not None:
         culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
-        
+        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
 
@@ -2453,7 +2520,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     skills_rating_object.skills_info = skills_rating_object.skills_info or {}
 
-    for skill, rating in skills_rating.items():
+    for skill, rating in skills_rating_score.items():
 
         if skill in skills_rating_object.skills_info:
             skills_rating_object.skills_info[skill]['score'] += rating
