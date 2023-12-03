@@ -142,7 +142,8 @@ def create_test(tenant: Tenant,
                 industry: str,
                 exp_level: str,
                 total_question:int,
-                certificate_details:dict) -> tuple[Test, list[TestQuestion]]:
+                certificate_details:dict,
+                ui_information:dict) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -188,6 +189,7 @@ def create_test(tenant: Tenant,
             exp_level=exp_level,
             total_question=total_question,
             certificate_details=certificate_details,
+            ui_information=ui_information,
         )
 
         test_questions = []
@@ -2192,6 +2194,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         data["skills_rating"] = skills_rating
         
     data["certificate_details"] = test.certificate_details
+    data['ui_information'] = test.ui_information
 
     return data
 
