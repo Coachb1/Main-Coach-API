@@ -53,6 +53,8 @@ class Test(TenantAwareModel):
         null=True, blank=True, default=None)
     certificate_details = models.JSONField(
         null=True, blank=True, default=None)
+    ui_information = models.JSONField(
+        null=True, blank=True, default=None)
     description_media = models.TextField(
         null=True, blank=True, default=None)
     client_name = models.CharField(max_length=255,default='Demo',null=True,blank=True)
