@@ -2500,14 +2500,22 @@ def get_participant_info(participant: User):
         'total_questions_attempted',
         'total_tests_attempted'
     )
-
-    participant_info = {
-        "name": get_user_display_name(participant),
-        "role": participant.role,
-        "skills_info": participant_skill_rating_object[0]['skills_info'],
-        "total_questions_attempted": participant_skill_rating_object[0]['total_questions_attempted'],
-        "total_tests_attempted": participant_skill_rating_object[0]['total_tests_attempted']
-    }
+    try:
+        participant_info = {
+            "name": get_user_display_name(participant),
+            "role": participant.role,
+            "skills_info": participant_skill_rating_object[0]['skills_info'],
+            "total_questions_attempted": participant_skill_rating_object[0]['total_questions_attempted'],
+            "total_tests_attempted": participant_skill_rating_object[0]['total_tests_attempted']
+        }
+    except:
+        participant_info = {
+            "name": get_user_display_name(participant),
+            "role": participant.role,
+            "skills_info": {},
+            "total_questions_attempted": 0,
+            "total_tests_attempted": 0
+        }
 
     return participant_info
 
