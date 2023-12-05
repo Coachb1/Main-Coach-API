@@ -492,6 +492,21 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
         test_attempt_session.mcq_summary = session_summary
         test_attempt_session.save(update_fields=["mcq_summary"])
         report_url = generate_session_report_link(test_attempt_session, test)
+
+        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                            tenant_id=test_attempt_session.tenant_id)
+
+        updated_fields = []
+        skills_rating_object.total_questions_attempted += int(total_responses.count())
+        skills_rating_object.total_tests_attempted += 1
+
+        updated_fields.append("total_questions_attempted")
+        updated_fields.append("total_tests_attempted")
+        updated_fields.append("updated")
+
+        skills_rating_object.save(update_fields=updated_fields)
+
         
 
 #*********************** Process MCQ response end *******************************
