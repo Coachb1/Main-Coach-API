@@ -143,7 +143,8 @@ def create_test(tenant: Tenant,
                 exp_level: str,
                 total_question:int,
                 certificate_details:dict,
-                ui_information:dict) -> tuple[Test, list[TestQuestion]]:
+                ui_information:dict,
+                is_self_created:bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -190,6 +191,7 @@ def create_test(tenant: Tenant,
             total_question=total_question,
             certificate_details=certificate_details,
             ui_information=ui_information,
+            is_self_created=is_self_created
         )
 
         test_questions = []
@@ -2529,41 +2531,41 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     test_attempt_session.save(update_fields=updated_fields)
 
+    if not test.is_self_created:
+        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+                                                                            tenant_id=test_attempt_session.tenant_id)
 
-    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
-                                                                          tenant_id=test_attempt_session.tenant_id)
+        updated_fields = []
 
-    updated_fields = []
+        skills_rating_object.skills_info = skills_rating_object.skills_info or {}
 
-    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+        for skill, rating in skills_rating_score.items():
 
-    for skill, rating in skills_rating_score.items():
+            if skill in skills_rating_object.skills_info:
+                skills_rating_object.skills_info[skill]['score'] += rating
+                skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+            else:
+                skills_rating_object.skills_info[skill] = {
+                    'score': rating,
+                    'question_count': skills_count[skill]
+                }
 
-        if skill in skills_rating_object.skills_info:
-            skills_rating_object.skills_info[skill]['score'] += rating
-            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
-        else:
-            skills_rating_object.skills_info[skill] = {
-                'score': rating,
-                'question_count': skills_count[skill]
-            }
+            if skills_count[skill] == 0:
+                skills_rating_object.skills_info[skill]['average_score'] = 0
+            else:
+                required_average_score = rating / skills_count[skill]
+                skills_rating_object.skills_info[skill]['average_score'] = required_average_score
 
-        if skills_count[skill] == 0:
-            skills_rating_object.skills_info[skill]['average_score'] = 0
-        else:
-            required_average_score = rating / skills_count[skill]
-            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+        skills_rating_object.total_questions_attempted += attempted_count
+        skills_rating_object.total_tests_attempted += 1
 
-    skills_rating_object.total_questions_attempted += attempted_count
-    skills_rating_object.total_tests_attempted += 1
+        updated_fields.append("skills_info")
+        updated_fields.append("total_questions_attempted")
+        updated_fields.append("total_tests_attempted")
+        updated_fields.append("updated")
 
-    updated_fields.append("skills_info")
-    updated_fields.append("total_questions_attempted")
-    updated_fields.append("total_tests_attempted")
-    updated_fields.append("updated")
-
-    skills_rating_object.save(update_fields=updated_fields)
+        skills_rating_object.save(update_fields=updated_fields)
 
 
 def round_off_rating(number):
@@ -4870,7 +4872,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
         "test_type":'test',
         "email_candidate":True,
         "gpt_prompt_override":"",
-        "skills_to_evaluate": skill_to_evalaute
+        "skills_to_evaluate": skill_to_evalaute,
+        "is_self_created": True,
 
 
     })
@@ -4884,7 +4887,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                                 API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
         response = response.json()
         print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
-        return {'title': response['title'],'test_code': response['test_code']}
+        return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
         
     except Exception as e:
         logger.error(e,exc_info=True)
@@ -4927,7 +4930,8 @@ def fetch_test_codes_by_site_context(url,tenant_id, context):
     for test in tests:
         test_list.append({
             "title": test.title,
-            "test_code": test.test_code
+            "test_code": test.test_code,
+            "description": test.description,
         })
 
     return test_list

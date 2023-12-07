@@ -511,18 +511,19 @@ def get_participant_report(user, only_data=False):
         for test_attempt_session in test_attempt_sessions:
             test = Test.objects.get(uid=test_attempt_session.test_id)
             
-            try:
-                session_info = {
-                    "slno" : cnt,
-                    "title": test.title,
-                    "link" : test_attempt_session.report_url,
-                    "date" : test_attempt_session.created.date()
-                }
-                test_attempt_session_list.append(session_info)
-                cnt += 1
+            if not test.is_self_created:
+                try:
+                    session_info = {
+                        "slno" : cnt,
+                        "title": test.title,
+                        "link" : test_attempt_session.report_url,
+                        "date" : test_attempt_session.created.date()
+                    }
+                    test_attempt_session_list.append(session_info)
+                    cnt += 1
 
-            except Exception as e:
-                pass
+                except Exception as e:
+                    pass
 
         participant_info['test_attempt_session_list'] = test_attempt_session_list
         
