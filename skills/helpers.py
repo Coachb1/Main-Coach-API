@@ -253,8 +253,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     "ANSWER:" {response_text};
 
-    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. If the answer is even slightly related to the question and description put the relevance value as 1. Only if the answers are completely random and unrelated to the question and description put the relevance value as 0.
-
+    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
     NOTE: Don't put any other text in the reply other than the JSON.
@@ -281,7 +280,11 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json_extraction(response)
                 response = json.loads(response)
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
+
                 break
             except Exception as e:
                 logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
@@ -316,7 +319,10 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json.loads(response)
                 
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
 
                 break
 
@@ -353,7 +359,10 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json_extraction(response)
                 response = json.loads(response)
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
                 break
             except Exception as e:
                 logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
@@ -386,7 +395,10 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json.loads(response)
                 
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
 
                 break
 
