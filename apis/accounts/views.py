@@ -12,7 +12,7 @@ from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
 from apis.accounts.serializers import SetupAccountSerializer
 from clients.permissions import IsAuthenticatedClient
-from tests.models import TestAttemptSession
+from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
@@ -249,8 +249,28 @@ class AccountsViewSet(ApiViewSet,
         test_code_json = tenant.web_test_code_json
 
         return Response({"data":test_code_json},status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False, url_path="get-my-lib-data")
+    def get_my_lib_data(self,request,*args, **kwargs):
+        test_codes = request.query_params.get('test_codes').split(',')
 
+        tests = Test.objects.filter(test_code__in=test_codes)
+        data = []
+        for item in tests:
+            title_parts = item.title.split(':')
+            key = title_parts[0].strip().capitalize()
+        
+            data.append({"title": item.title,"description": item.description, "domain": key, "test_code": item.test_code, "interaction_mode": item.interaction_mode})
 
+        group_data = {}
+        for item in data:
+            domain = item['domain']
+            if domain in group_data:
+                group_data[domain].append(item)
+            else:
+                group_data[domain] = [item]
+
+        return Response({"data":group_data},status=status.HTTP_200_OK)
 
 
 
