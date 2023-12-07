@@ -418,14 +418,14 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
     updated_fields = []
     #* get comment for user decision
-    prompt = f"""
+    prompt = """
         \n\nHuman:
-        Situation: {question.question}
-        Decision: {test_question_response.response_text}
+        {Situation}: %s
+        {Decision}: %s
 
-        Based on the given situation this is the decision a candidate made. Analyze the pros and cons of the decision, considering its short-term and long-term effects. Evaluate the decision-making process, focusing on the strategic aspects. Discuss how well the decision aligns with the overall situation. Keep it less than 150 words.
+        Based on the given situation {Situation} this is the decision {Decision} a candidate made. Analyze the decision critically and comment on the pros and cons of the decision, focusing on its short-term and long-term effects. Always comment on any potential downsides or risks of the decision in this situation. Always evaluate and comment on what worked well and what could be improved in the decision. Evaluate the decision-making process, focusing on the strategic aspects. Discuss how well the decision aligns with the overall situation. Keep it less than 150 words.
         \n\nAssistant:
-    """
+        """%(question.question,test_question_response.response_text)
 
     comment = generic_completion(prompt, 300)
     test_question_response.feedback_text = comment
@@ -493,7 +493,7 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
         test_attempt_session.save(update_fields=["mcq_summary"])
         report_url = generate_session_report_link(test_attempt_session, test)
 
-        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+         # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
         skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
                                                                             tenant_id=test_attempt_session.tenant_id)
 
@@ -506,7 +506,6 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
         updated_fields.append("updated")
 
         skills_rating_object.save(update_fields=updated_fields)
-
         
 
 #*********************** Process MCQ response end *******************************
