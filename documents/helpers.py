@@ -12,6 +12,7 @@ from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
 from commons.openai_gpt import gpt_wishper_api
 from commons.gcp_upload import gcp_upload
+from commons.ovh_s3 import upload_to_ovh_s3, get_ovh_url
 
 
 def create_document(tenant: Tenant,
@@ -54,11 +55,12 @@ def create_document(tenant: Tenant,
 
     # uploading file to gcp bucket
 
-    gcp_upload(
-        bucket_name,
-        file,
-        object_id
-    )
+    # gcp_upload(
+    #     bucket_name,
+    #     file,
+    #     object_id
+    # )
+    upload_to_ovh_s3(file, object_id)
 
     # creating document objects in db
 
@@ -92,7 +94,8 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 
 def get_document_url(doc: Document) -> str:
-    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    # return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    return get_ovh_url(doc.object_id)
 
 
 @timeit
