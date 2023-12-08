@@ -60,6 +60,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_single_bot = serializers.BooleanField(
         required=False, default=False)
+    is_self_created = serializers.BooleanField(
+        required=False, default=False)
     is_checkin_type = serializers.BooleanField(
         required=False, default=False)
     is_learner_path = serializers.BooleanField(
@@ -157,7 +159,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_repeat",
                   "total_question",
                   "certificate_details",
-                  "ui_information"
+                  "ui_information",
+                  "is_self_created",
                   ]
 
     def get_questions(self, instance):
