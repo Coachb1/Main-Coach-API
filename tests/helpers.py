@@ -4754,144 +4754,157 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
             secret = key_and_secret[1]
 
             return key, secret
-
-    if context:
-        context = json.loads(context)
-        title, des = context['title'], context['data']['information']
-        logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
-    else:
-        title, des = scrape_meta_info(url)
     
-    site_information = f"Title: {title} \n Description: {des}"
-
-    prompt = """
-        \n\nHuman:
-            {Information} - %s
-
-        Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
-
-        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
-        Title - Give a specific and relevant title for this description in less than 10 words.
-        Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
-        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
-        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
-        The Question, Custom Prompt, KLP, KLS should be numbered.
-
-        Here the format looks like :
-
-        "Title",
-
-        "Description",
-
-        "Question 1",
-
-        "Prompt 1",
-
-        "Takeaway 1" ,
-
-        "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
-
-        'The Question, Prompt, Takeaway, Skills should be numbered.'
-
-        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
-        
-        NOTE : Make sure the simulation is very advanced and tough.
-        
-        \n\nAssistant:
-    """%(site_information)
-
-    response = {}
-    scenario = ''
     for i in range(3):
-        logger.info(f'trying scenario creation for {i +1} time')
-        scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-        print(scenario)
-        rating_match = re.search(r"Rating: (\d+)", scenario)
-        rating = int(rating_match.group(1)) if rating_match else 0
-        if scenario == 'failed to generate scenario' or rating <= 6:
+        logger.info(f"trying outer test generation for {i+1} time")
+        try:
+            if context:
+                context = json.loads(context)
+                title, des = context['title'], context['data']['information']
+                logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
+            else:
+                title, des = scrape_meta_info(url)
+            
+            site_information = f"Title: {title} \n Description: {des}"
+
+            prompt = """
+                \n\nHuman:
+                    {Information} - %s
+
+                Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+
+                Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description in less than 10 words.
+                Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+
+                Here the format looks like :
+
+                "Title",
+
+                "Description",
+
+                "Question 1",
+
+                "Prompt 1",
+
+                "Takeaway 1" ,
+
+                "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
+
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+                
+                NOTE : Make sure the simulation is very advanced and tough.
+                
+                \n\nAssistant:
+            """%(site_information)
+
+            response = {}
+            scenario = ''
+            for i in range(3):
+                logger.info(f'trying scenario creation for {i +1} time')
+                scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                print(scenario)
+                rating_match = re.search(r"Rating: (\d+)", scenario)
+                rating = int(rating_match.group(1)) if rating_match else 0
+                if scenario == 'failed to generate scenario' or rating <= 6:
+                    continue
+                break
+
+
+
+            # Extract title
+            title_match = re.search(r"Title: (.+)", scenario)
+            title = title_match.group(1) if title_match else None
+
+            # Extract description
+            description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
+            description = description_match.group(1).strip() if description_match else None
+
+            if description is None:
+                description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
+                description = description_match.group(1).strip() if description_match else None
+
+            question_info = []
+
+            # Extract questions, prompts, takeaways, and skills
+            question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+            if len(question_matches) == 0:
+                question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+
+            logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
+            skills_to_eva = set()
+            for match in question_matches:
+                num, question, prompt, takeaway, skills = match
+                question_info.append({
+                    "question": question,
+                    "question_type": "subjective",
+                    "gpt_prompt_override": prompt,
+                    "subjective_answer": "",
+                    "key_learning_point": takeaway,
+                    "key_learning_skills": skills
+                })
+                for skill in skills.split(','):
+                    skills_to_eva.add(skill.capitalize())
+            
+            skill_to_evalaute =''
+
+            for skill in skills_to_eva:
+                skill_to_evalaute += skill +", "
+
+            key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
+            # client = Client.objects.get(key=key)
+            # creator = User.objects.get(uid=client.owner_id)
+            admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
+
+            logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
+
+            json_data = json.dumps({
+                "creator_id": admin_user.uid,
+                "title": title,
+                "description": description,
+                "email_address_list":'mail@coachbots.com',
+                "questions": question_info,
+                "scenario_case": 'simulation',
+                "interaction_mode":'any',
+                "test_type":'test',
+                "email_candidate":True,
+                "gpt_prompt_override":"",
+                "skills_to_evaluate": skill_to_evalaute,
+                "is_self_created": True,
+
+
+            })
+            headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': access_token
+                    }
+            
+            try:
+                response = requests.post(
+                                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+                response = response.json()
+                print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
+                
+            except Exception as e:
+                logger.error(e,exc_info=True)
+                
+                raise e
+
+        except Exception as e:
+            logger.error(e,exc_info=True)
+            if i+1 == 3:
+                    return {'message':"failed to generate the scenario"}
             continue
-        break
 
-
-
-    # Extract title
-    title_match = re.search(r"Title: (.+)", scenario)
-    title = title_match.group(1) if title_match else None
-
-    # Extract description
-    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
-    description = description_match.group(1).strip() if description_match else None
-
-    if description is None:
-        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
-        description = description_match.group(1).strip() if description_match else None
-
-    question_info = []
-
-    # Extract questions, prompts, takeaways, and skills
-    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-    if len(question_matches) == 0:
-        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-
-    logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
-    skills_to_eva = set()
-    for match in question_matches:
-        num, question, prompt, takeaway, skills = match
-        question_info.append({
-            "question": question,
-            "question_type": "subjective",
-            "gpt_prompt_override": prompt,
-            "subjective_answer": "",
-            "key_learning_point": takeaway,
-            "key_learning_skills": skills
-        })
-        for skill in skills.split(','):
-            skills_to_eva.add(skill.capitalize())
-    
-    skill_to_evalaute =''
-
-    for skill in skills_to_eva:
-        skill_to_evalaute += skill +", "
-
-    key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
-    # client = Client.objects.get(key=key)
-    # creator = User.objects.get(uid=client.owner_id)
-    admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
-
-    logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
-
-    json_data = json.dumps({
-        "creator_id": admin_user.uid,
-        "title": title,
-        "description": description,
-        "email_address_list":'mail@coachbots.com',
-        "questions": question_info,
-        "scenario_case": 'simulation',
-        "interaction_mode":'any',
-        "test_type":'test',
-        "email_candidate":True,
-        "gpt_prompt_override":"",
-        "skills_to_evaluate": skill_to_evalaute,
-        "is_self_created": True,
-
-
-    })
-    headers = {
-                'Content-Type': 'application/json',
-                'Authorization': access_token
-            }
-    
-    try:
-        response = requests.post(
-                                API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
-        response = response.json()
-        print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
-        return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
+            
         
-    except Exception as e:
-        logger.error(e,exc_info=True)
-        return {'message':"failed to generate the scenario"}
 
 
 
