@@ -2781,14 +2781,31 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) > len(cultural_skills) / 2:
+        # if len(scores_frequency[score]) > len(cultural_skills) / 2:
+        #     # Increment half the skills by 0.5 and other half decrement by 0.5
+        #     for i in range(0, len(scores_frequency[score])):
+        #         skill = scores_frequency[score][i]
+        #         if i < len(scores_frequency[score]) / 2:
+        #             culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
+        #         else:
+        #             culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
+        if len(scores_frequency[score]) > 1:
+            random.shuffle(scores_frequency[score])  # Randomly shuffle skills with same score
             # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
-                else:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
+                    if i < i/2:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] + 0.75   # changed 1 to 0.75 aug
+                    else:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] - 0.75   
+
+                elif i > len(scores_frequency[score]) / 2:
+                    if i > i/2:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] + 0.25   # changed 1 to 0.25 aug
+                    else:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] - 0.25   
+
 
                 if culture_skills_rating[skill] < 0:
                     culture_skills_rating[skill] = 0
@@ -4718,6 +4735,126 @@ def scrape_meta_info(url):
         return "Error: " + str(e), ""
 
 
+def extract_information(text):
+    # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
+    text = text.replace("KLS", "Skills")
+
+    # Replace KLP with Takeaway
+    text = text.replace("KLP", "Takeaway")
+    title_pattern = re.compile(r'Title: (.+)')
+    description_pattern = re.compile(r'Description: (.+)')
+    question_pattern = re.compile(r'Question (\d+): (.+)')
+    prompt_pattern = re.compile(r'Prompt (\d+): (.+)')
+    takeaway_pattern = re.compile(r'Takeaway (\d+): (.+)')
+    skills_pattern = re.compile(r'Skills (\d+): (.+)')
+    rating_pattern = re.compile(r'Rating : (\d+)')
+
+    # Extracting information using regular expressions
+    title_match = title_pattern.search(text)
+    description_match = description_pattern.search(text)
+    rating_match = rating_pattern.search(text)
+
+    if not (title_match and description_match and rating_match):
+        print("Invalid format. Unable to extract necessary information.")
+        return None
+
+    title = title_match.group(1)
+    description = description_match.group(1)
+    rating = int(rating_match.group(1))
+
+    questions = []
+    for match in question_pattern.finditer(text):
+        question_number = int(match.group(1))
+        question_text = match.group(2)
+        prompt_match = prompt_pattern.search(text, match.end())
+        takeaway_match = takeaway_pattern.search(text, prompt_match.end())
+        skills_match = skills_pattern.search(text, takeaway_match.end())
+
+        prompt_text = prompt_match.group(2)
+        takeaway_text = takeaway_match.group(2)
+        skills_text = skills_match.group(2)
+
+        questions.append({
+            'number': question_number,
+            'text': question_text,
+            'prompt': prompt_text,
+            'takeaway': takeaway_text,
+            'skills': skills_text
+        })
+
+    informations =  {
+        'title': title,
+        'description': description,
+        'rating': rating,
+        'questions': questions
+    }
+    
+    title = informations['title']
+    description = informations['description']
+
+    question_info = []
+    skill_to_evalaute = ''
+    for que in informations['questions']:
+        question_info.append({
+            "question": que["text"],
+            "question_type": "subjective",
+            "gpt_prompt_override": que["prompt"],
+            "subjective_answer": "",
+            "key_learning_point": que['takeaway'],
+            "key_learning_skills": que['skills']
+        })
+        skills_to_eva = set()
+        for skill in que['skills'].split(','):
+            skills_to_eva.add(skill.capitalize())
+
+        for skill in skills_to_eva:
+            skill_to_evalaute += skill +", "
+
+    return title, description, question_info, skill_to_evalaute
+
+def extract_info_gpt(scenario):
+    # Extract title
+    title_match = re.search(r"Title: (.+)", scenario)
+    title = title_match.group(1) if title_match else None
+
+    # Extract description
+    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
+    description = description_match.group(1).strip() if description_match else None
+
+    if description is None:
+        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
+        description = description_match.group(1).strip() if description_match else None
+
+    question_info = []
+
+    # Extract questions, prompts, takeaways, and skills
+    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+    print(question_matches)
+    if len(question_matches) == 0:
+        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+
+    logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
+    skills_to_eva = set()
+    for match in question_matches:
+        num, question, prompt, takeaway, skills = match
+        question_info.append({
+            "question": question,
+            "question_type": "subjective",
+            "gpt_prompt_override": prompt,
+            "subjective_answer": "",
+            "key_learning_point": takeaway,
+            "key_learning_skills": skills
+        })
+        for skill in skills.split(','):
+            skills_to_eva.add(skill.capitalize())
+    
+    skill_to_evalaute =''
+
+    for skill in skills_to_eva:
+        skill_to_evalaute += skill +", "
+
+    return title,description, question_info, skill_to_evalaute
+
 
 def create_scenario_from_site_context(url,access_token, tenant_id, context):
     """
@@ -4806,63 +4943,55 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
 
             response = {}
             scenario = ''
+            title, description, question_info, skill_to_evalaute = "","","",""
             for i in range(3):
-                logger.info(f'trying scenario creation for {i +1} time')
-                scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                print(scenario)
+                logger.info(f'trying scenario creation palm for {i +1} time')
+                
+
+                scenario = text_bison_compeletion(prompt)
+                title, description, question_info, skill_to_evalaute = extract_information(scenario)
+
+                print("palm",scenario)
+                print("#"*100)
+
+                # scenario = anthropic_completion(prompt,max_tokens=1000)
+                # print("palm",scenario)
+
                 rating_match = re.search(r"Rating: (\d+)", scenario)
+                if not rating_match:
+                    rating_match = re.search(r"Rating : (\d+)", scenario)
                 rating = int(rating_match.group(1)) if rating_match else 0
+
+
                 if scenario == 'failed to generate scenario' or rating <= 6:
-                    continue
+                    print(rating,"failed")
+                    if i+1 == 3:
+                        for i in range(3):
+                            logger.info(f'trying gpt for {i+1} time')
+                            scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                            print("gpt",scenario)
+                            print("#"*100)
+                            title,description, question_info, skill_to_evalaute = extract_info_gpt(scenario)
+
+                            rating_match = re.search(r"Rating: (\d+)", scenario)
+                            if not rating_match:
+                                rating_match = re.search(r"Rating : (\d+)", scenario)
+                            rating = int(rating_match.group(1)) if rating_match else 0
+
+                            if scenario == 'failed to generate scenario' or rating <= 6:
+                                continue
+
+                            break
+                    else:
+                        continue
                 break
-
-
-
-            # Extract title
-            title_match = re.search(r"Title: (.+)", scenario)
-            title = title_match.group(1) if title_match else None
-
-            # Extract description
-            description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
-            description = description_match.group(1).strip() if description_match else None
-
-            if description is None:
-                description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
-                description = description_match.group(1).strip() if description_match else None
-
-            question_info = []
-
-            # Extract questions, prompts, takeaways, and skills
-            question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-            if len(question_matches) == 0:
-                question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-
-            logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
-            skills_to_eva = set()
-            for match in question_matches:
-                num, question, prompt, takeaway, skills = match
-                question_info.append({
-                    "question": question,
-                    "question_type": "subjective",
-                    "gpt_prompt_override": prompt,
-                    "subjective_answer": "",
-                    "key_learning_point": takeaway,
-                    "key_learning_skills": skills
-                })
-                for skill in skills.split(','):
-                    skills_to_eva.add(skill.capitalize())
-            
-            skill_to_evalaute =''
-
-            for skill in skills_to_eva:
-                skill_to_evalaute += skill +", "
 
             key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
             # client = Client.objects.get(key=key)
             # creator = User.objects.get(uid=client.owner_id)
             admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
-            logger.info(f"{'#'*100}  skills to evaluate: {skills_to_eva} <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
+            logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
 
             json_data = json.dumps({
                 "creator_id": admin_user.uid,
@@ -4877,6 +5006,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                 "gpt_prompt_override":"",
                 "skills_to_evaluate": skill_to_evalaute,
                 "is_self_created": True,
+                "certificate_details": {"title": title},
 
 
             })
@@ -4902,11 +5032,6 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
             if i+1 == 3:
                     return {'message':"failed to generate the scenario"}
             continue
-
-            
-        
-
-
 
 
 
