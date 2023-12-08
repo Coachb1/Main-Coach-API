@@ -114,6 +114,10 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
 
+        if TED_TALK_AND_HBR_CASE in input_dict:
+            if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
+                output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
+
 
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
