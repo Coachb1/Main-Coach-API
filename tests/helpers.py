@@ -2135,6 +2135,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
             if user_name.strip().lower() != user_persona.strip().lower():
                 is_bot = True
+            else:
+                user_name = 'User'
 
             chat_conversation_with_details.append(
                 {"user_name": user_name, "message": message, "is_bot": is_bot})
