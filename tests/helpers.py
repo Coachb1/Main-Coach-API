@@ -2717,8 +2717,40 @@ def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSes
     return report_url
 
 
+
+@timeit
+def modify_skills_rating_if_same(skills):
+    logger.info(f"skills before: {skills}")
+    modified_skills = {}
+    value_counts = {}
+
+    for skill, value in sorted(skills.items(), key=lambda x: x[1]):
+        # Modify the value to be unique and a multiple of 0.25
+        while True:
+            # Randomly decide whether to increase or decrease the value
+            increment = 0.25 if random.choice([True, False]) else -0.25
+
+            # Apply the increment until uniqueness is achieved
+            while round(value, 2) in value_counts and value_counts[round(value, 2)] >= 2:
+                value += increment
+
+            # Break out of the loop if the value is unique and less than 10
+            if (round(value, 2) not in value_counts or value_counts[round(value, 2)] < 2) and round(value, 2) <= 9 and round(value, 2) >= 0:
+                break
+
+        # Add the modified value to the count of occurrences
+        value_counts[round(value, 2)] = value_counts.get(round(value, 2), 0) + 1
+
+        # Round the final value to 2 decimal places and store in the result dictionary
+        modified_skills[skill] = round(value, 2)
+
+    logger.info(f"skills after: {modified_skills}")
+    return modified_skills
+
+
 @timeit
 def update_skills_rating_if_same_scores(skills_rating):
+    return modify_skills_rating_if_same(skills_rating)
     total_skills = len(skills_rating)
     scores_frequency = {}
     for skill in skills_rating:
@@ -2727,6 +2759,10 @@ def update_skills_rating_if_same_scores(skills_rating):
             scores_frequency[score].append(skill)
         else:
             scores_frequency[score] = [skill]
+
+    # # modify skills if any three skills have same score
+    # if any(len(scores_frequency[score]) >= 3 for score in scores_frequency):
+    #     return modify_skills_rating_if_same(skills_rating)
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > 1:
