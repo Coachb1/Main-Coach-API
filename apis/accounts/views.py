@@ -252,9 +252,10 @@ class AccountsViewSet(ApiViewSet,
     
     @action(methods=['GET'],detail=False, url_path="get-my-lib-data")
     def get_my_lib_data(self,request,*args, **kwargs):
-        test_codes = request.query_params.get('test_codes').split(',')
+        # test_codes = request.query_params.get('test_codes').split(',')
+        group_name = request.query_params.get('group')
 
-        tests = Test.objects.filter(test_code__in=test_codes)
+        tests = Test.objects.filter(deleted=0,client_name=group_name)
         data = []
         for item in tests:
             title_parts = item.title.split(':')

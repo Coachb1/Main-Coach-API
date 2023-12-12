@@ -145,7 +145,8 @@ def create_test(tenant: Tenant,
                 total_question:int,
                 certificate_details:dict,
                 ui_information:dict,
-                is_self_created:bool) -> tuple[Test, list[TestQuestion]]:
+                is_self_created:bool,
+                is_logged_in:bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -193,7 +194,8 @@ def create_test(tenant: Tenant,
             total_question=total_question,
             certificate_details=certificate_details,
             ui_information=ui_information,
-            is_self_created=is_self_created
+            is_self_created=is_self_created,
+            is_logged_in=is_logged_in,
         )
 
         test_questions = []
