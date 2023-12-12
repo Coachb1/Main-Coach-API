@@ -72,6 +72,7 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_free = serializers.BooleanField(
         required=False, default=False)
+    is_micro = serializers.BooleanField(default=False, required=False)
     skills_to_evaluate = serializers.CharField(required=False, default=None)
     image_url = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
     rating = serializers.CharField(required=False, default="Not Rated", allow_null=True, allow_blank=True)
