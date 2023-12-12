@@ -12,6 +12,7 @@ from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
 from commons.openai_gpt import gpt_wishper_api
 from commons.gcp_upload import gcp_upload
+from commons.ovh_s3 import upload_to_ovh_s3, get_ovh_url
 
 
 def create_document(tenant: Tenant,
@@ -21,6 +22,21 @@ def create_document(tenant: Tenant,
                     doc_type: str,
                     file,
                     actions_pipeline: list = None) -> Document:
+    """
+    Creates a new document object in the database.
+
+    Args:
+        tenant (Tenant): The tenant object for which the document is being created.
+        owner_type (str): The type of the document owner (e.g., "user", "organization").
+        owner_id (str): The ID of the document owner.
+        display_name (str): The display name of the document.
+        doc_type (str): The type of the document (e.g., "pdf", "image").
+        file (file object): The file to be uploaded.
+        actions_pipeline (list, optional): A list of actions to be performed on the document.
+
+    Returns:
+        Document: The created document object in the database.
+    """
     file.seek(0)
 
     file_extension = display_name.rsplit(".", 1)[-1]
@@ -37,11 +53,16 @@ def create_document(tenant: Tenant,
     #     region_name=region_name
     # )
 
-    gcp_upload(
-        bucket_name,
-        file,
-        object_id
-    )
+    # uploading file to gcp bucket
+
+    # gcp_upload(
+    #     bucket_name,
+    #     file,
+    #     object_id
+    # )
+    upload_to_ovh_s3(file, object_id)
+
+    # creating document objects in db
 
     with transaction.atomic():
         doc = Document.objects.create(
@@ -73,11 +94,28 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 
 def get_document_url(doc: Document) -> str:
-    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    # return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    return get_ovh_url(doc.object_id)
 
 
 @timeit
 def execute_actions_pipline(doc: Document):
+    """
+    Executes a pipeline of actions on a document object.
+
+    Args:
+        doc (Document): The document object on which the actions pipeline needs to be executed.
+
+    Returns:
+        None
+
+    Summary:
+    This function executes a pipeline of actions on a document object. 
+    It checks if the document has an actions pipeline defined, and if so, it iterates through each action in the pipeline. 
+    For each action, it updates the status of the action in the executed actions pipeline and performs the corresponding action based on the document type. 
+    If the document type is an audio or video answer, it calls the `gpt_wishper_api` function to transcribe the audio or video and updates the transcript details of the document. 
+    Finally, it saves the updated actions pipeline and document object in the database.
+    """
     if not doc.actions_pipeline:
         return
 
@@ -115,7 +153,7 @@ def execute_actions_pipline(doc: Document):
 
             doc.transcript_details = {
                 "text": transcribed_text,
-                "source": "inhouse_whisper"
+                "source": "gpt_wishper_api"
             }
 
         doc.actions_pipeline = executed_actions_pipeline

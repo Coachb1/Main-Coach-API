@@ -65,6 +65,19 @@ NOTE: Do not show word count.(Eg: 50 words)
 @timeit
 def initialize_coaching_conversation(tenant: Tenant,
                                      test_attempt_session_id: str) -> CoachingConversation:
+    """
+    Initializes a coaching conversation based on a test attempt session.
+
+    Args:
+        tenant (Tenant): The tenant object representing the organization.
+        test_attempt_session_id (str): The ID of the test attempt session.
+
+    Returns:
+        CoachingConversation: The newly created coaching conversation object.
+
+    Raises:
+        serializers.ValidationError: If the test ID is invalid or the test type is not supported.
+    """
     test_attempt_session = TestAttemptSession.objects.get(
         tenant_id=tenant.uid,
         uid=test_attempt_session_id,
@@ -101,6 +114,17 @@ def continue_coaching_conversation(tenant: Tenant,
                                    reply_to_conversation: CoachingConversation,
                                    participant_message_text: str,
                                    participant_message_url: str) -> CoachingConversation:
+    """
+    Continues a coaching conversation by saving the participant's message, retrieving the test and session information,
+    processing the participant's message based on the interaction mode, generating a response using OpenAI GPT-3.5,
+    and creating a new coaching conversation with the generated response.
+
+    :param tenant: The tenant object representing the current tenant.
+    :param reply_to_conversation: The coaching conversation object to which the participant's message will be replied.
+    :param participant_message_text: The text of the participant's message.
+    :param participant_message_url: The URL of the participant's message audio or video file.
+    :return: The newly created coaching conversation object with the generated response.
+    """
 
     reply_to_conversation.participant_message_text = participant_message_text
     reply_to_conversation.participant_message_url = participant_message_url
