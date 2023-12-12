@@ -260,7 +260,8 @@ class AccountsViewSet(ApiViewSet,
             title_parts = item.title.split(':')
             key = title_parts[0].strip().capitalize()
         
-            data.append({"title": item.title,"description": item.description, "domain": key, "test_code": item.test_code, "interaction_mode": item.interaction_mode})
+            data.append({"title": item.title,"description": item.description, "domain": key,
+                            "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
 
         group_data = {}
         for item in data:
