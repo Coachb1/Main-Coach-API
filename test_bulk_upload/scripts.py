@@ -65,6 +65,7 @@ TITLEUI = 'Title UI'
 DESCRIPTIONUI = 'Description UI'
 QUESTIONUI = 'Que UI'
 IS_MICRO = 'is_micro'
+IS_LOGGEDiN = 'is_logged_in'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -150,6 +151,15 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_micro'] = True
                 else:
                     output_dict['is_micro'] = False
+
+        if IS_LOGGEDiN in input_dict:
+            if input_dict[IS_LOGGEDiN] and len(input_dict[IS_LOGGEDiN].strip()) > 0:
+                is_logged_in= input_dict[IS_LOGGEDiN].strip().lower()
+
+                if is_logged_in == "true":
+                    output_dict['is_logged_in'] = True
+                else:
+                    output_dict['is_logged_in'] = False
         
         
         if IMAGE_URL in input_dict:
@@ -461,6 +471,16 @@ def format_test_data_slack(raw_data):
                     output_dict['is_micro'] = True
                 else:
                     output_dict['is_micro'] = False
+
+        if IS_LOGGEDiN in input_dict:
+            if input_dict[IS_LOGGEDiN] and len(input_dict[IS_LOGGEDiN].strip()) > 0:
+                is_logged_in= input_dict[IS_LOGGEDiN].strip().lower()
+
+                if is_logged_in == "true":
+                    output_dict['is_logged_in'] = True
+                else:
+                    output_dict['is_logged_in'] = False
+
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :

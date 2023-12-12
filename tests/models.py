@@ -65,6 +65,7 @@ class Test(TenantAwareModel):
     exp_level = models.CharField(max_length=255, null=True, blank=True, default=None)
     total_question = models.IntegerField(null=True, blank=True, default=None)
     is_micro = models.BooleanField(default=False, null=True, blank=True)
+    is_logged_in = models.BooleanField(default=False, null=True, blank=True)
 
     class Meta:
         db_table = "test"
