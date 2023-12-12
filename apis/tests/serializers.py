@@ -165,6 +165,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_self_created",
                   "is_logged_in",
                   "is_micro",
+                  "client_name"
                   ]
 
     def get_questions(self, instance):
