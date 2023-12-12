@@ -163,6 +163,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "certificate_details",
                   "ui_information",
                   "is_self_created",
+                  "is_logged_in",
+                  "is_micro",
                   ]
 
     def get_questions(self, instance):
