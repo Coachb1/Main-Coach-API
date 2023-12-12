@@ -64,6 +64,7 @@ CERTIFICATE_DESCRIPTION = "Certificate Description"
 TITLEUI = 'Title UI'
 DESCRIPTIONUI = 'Description UI'
 QUESTIONUI = 'Que UI'
+IS_MICRO = 'is_micro'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -140,6 +141,16 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_free'] = False
                 else:
                     output_dict['is_free'] = False
+
+        if IS_MICRO in input_dict:
+            if input_dict[IS_MICRO] and len(input_dict[IS_MICRO].strip()) > 0:
+                is_micro = input_dict[IS_MICRO].strip().lower()
+
+                if is_micro == "true":
+                    output_dict['is_micro'] = True
+                else:
+                    output_dict['is_micro'] = False
+        
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
@@ -440,6 +451,16 @@ def format_test_data_slack(raw_data):
                     output_dict['is_free'] = False
                 else:
                     output_dict['is_free'] = False
+
+
+        if IS_MICRO in input_dict:
+            if input_dict[IS_MICRO] and len(input_dict[IS_MICRO].strip()) > 0:
+                is_micro = input_dict[IS_MICRO].strip().lower()
+
+                if is_micro == "true":
+                    output_dict['is_micro'] = True
+                else:
+                    output_dict['is_micro'] = False
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
