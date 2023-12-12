@@ -26,6 +26,8 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     key_learning_skills = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+    mcq_path = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
 
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -36,6 +38,11 @@ class OrchestratedConversationDetails(serializers.Serializer):
         child=serializers.CharField()
     )
     start_with_user = serializers.CharField(required=False)
+    background = serializers.CharField(required=False)
+
+class testCertificateDetails(serializers.Serializer):
+    title = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
 
 
 class CreateTestSerializer(serializers.Serializer):
@@ -47,9 +54,13 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=None, allow_null=True, allow_blank=True)
     max_test_allowed = serializers.IntegerField(
         required=False, allow_null=True, default=None)
+    total_question = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
     send_only_to_email = serializers.BooleanField(
         required=False, default=False)
     is_single_bot = serializers.BooleanField(
+        required=False, default=False)
+    is_self_created = serializers.BooleanField(
         required=False, default=False)
     is_checkin_type = serializers.BooleanField(
         required=False, default=False)
@@ -61,6 +72,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_free = serializers.BooleanField(
         required=False, default=False)
+    is_micro = serializers.BooleanField(default=False, required=False)
+    is_logged_in = serializers.BooleanField(default=False, required=False)
     skills_to_evaluate = serializers.CharField(required=False, default=None)
     image_url = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
     rating = serializers.CharField(required=False, default="Not Rated", allow_null=True, allow_blank=True)
@@ -88,6 +101,8 @@ class CreateTestSerializer(serializers.Serializer):
     course = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
+    ui_information = serializers.JSONField(default=None, required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -103,6 +118,7 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "key_learning_skills",
                   "gpt_prompt_override",
                   "mcq_options",
+                  "mcq_path",
                   "created",
                   "updated"]
 
@@ -142,7 +158,11 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "image_url",
                   "source",
                   "rating",
-                  "is_repeat"
+                  "is_repeat",
+                  "total_question",
+                  "certificate_details",
+                  "ui_information",
+                  "is_self_created",
                   ]
 
     def get_questions(self, instance):

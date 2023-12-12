@@ -14,14 +14,14 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
         response_text = anthropic_completion(prompt, tokens)
 
     else:
-        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-        if not gpt_feedback.text:
+        bison_feedback = text_bison_compeletion(prompt)
+        if not bison_feedback:
             try:
-                response_text = text_bison_compeletion(prompt)
+                response_text = anthropic_completion(prompt, tokens)
             except Exception as e:
                 logger.exception(e)
-                response_text = anthropic_completion(prompt, tokens)
+                response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
         else:
-            response_text = gpt_feedback.text
+            response_text = bison_feedback
 
     return response_text

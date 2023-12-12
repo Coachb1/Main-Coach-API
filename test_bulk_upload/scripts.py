@@ -58,6 +58,14 @@ INDUSTRY = "Industry"
 EXP_LEVEL = "Experience Level"
 START_WITH_USER = "start with user"
 IS_FREE = 'is_free'
+BACKGROUND = 'Background'
+CERTIFICATE_TITLE = "Certificate Title"
+CERTIFICATE_DESCRIPTION = "Certificate Description"
+TITLEUI = 'Title UI'
+DESCRIPTIONUI = 'Description UI'
+QUESTIONUI = 'Que UI'
+IS_MICRO = 'is_micro'
+IS_LOGGEDiN = 'is_logged_in'
 
 
 def format_test_orchestrated_conversation(raw_data):
@@ -76,7 +84,18 @@ def format_test_orchestrated_conversation(raw_data):
             "gpt_prompt_override": "",
             "questions": [],
         }
+        
+        if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
+            output_dict['certificate_details'] = {}
 
+            if CERTIFICATE_TITLE in input_dict:
+                if input_dict[CERTIFICATE_TITLE] and len(input_dict[CERTIFICATE_TITLE].strip()) > 0:
+                    output_dict["certificate_details"]['title'] = input_dict[CERTIFICATE_TITLE]
+
+            if CERTIFICATE_DESCRIPTION in input_dict:
+                if input_dict[CERTIFICATE_DESCRIPTION] and len(input_dict[CERTIFICATE_DESCRIPTION].strip()) > 0:
+                    output_dict['certificate_details']['description'] = input_dict[CERTIFICATE_DESCRIPTION]
+        
         if IS_DYNAMIC in input_dict:
             if input_dict[IS_DYNAMIC] and len(input_dict[IS_DYNAMIC].strip()) > 0:
                 is_dynamic = input_dict[IS_DYNAMIC].strip().lower()
@@ -96,6 +115,10 @@ def format_test_orchestrated_conversation(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+
+        if TED_TALK_AND_HBR_CASE in input_dict:
+            if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
+                output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
 
         if IS_GAME_TYPE in input_dict:
@@ -119,6 +142,25 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_free'] = False
                 else:
                     output_dict['is_free'] = False
+
+        if IS_MICRO in input_dict:
+            if input_dict[IS_MICRO] and len(input_dict[IS_MICRO].strip()) > 0:
+                is_micro = input_dict[IS_MICRO].strip().lower()
+
+                if is_micro == "true":
+                    output_dict['is_micro'] = True
+                else:
+                    output_dict['is_micro'] = False
+
+        if IS_LOGGEDiN in input_dict:
+            if input_dict[IS_LOGGEDiN] and len(input_dict[IS_LOGGEDiN].strip()) > 0:
+                is_logged_in= input_dict[IS_LOGGEDiN].strip().lower()
+
+                if is_logged_in == "true":
+                    output_dict['is_logged_in'] = True
+                else:
+                    output_dict['is_logged_in'] = False
+        
         
         if IMAGE_URL in input_dict:
             output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
@@ -245,7 +287,11 @@ def format_test_orchestrated_conversation(raw_data):
                 start_with_user = input_dict[START_WITH_USER].strip().lower()
                 orchestrated_conversation_details["start_with_user"] = start_with_user
 
-        
+        if BACKGROUND in input_dict:
+            if input_dict[BACKGROUND] and len(input_dict[BACKGROUND].strip()) > 0:
+                background = input_dict[BACKGROUND].strip().lower()
+                orchestrated_conversation_details["background"] = background
+                
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
 
         for key in input_dict:
@@ -365,9 +411,35 @@ def format_test_data_slack(raw_data):
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
             "gpt_prompt_override": "",
-            "questions": []
+            "questions": [],
         }
 
+        if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
+            output_dict['certificate_details'] = {}
+
+            if CERTIFICATE_TITLE in input_dict:
+                if input_dict[CERTIFICATE_TITLE] and len(input_dict[CERTIFICATE_TITLE].strip()) > 0:
+                    output_dict["certificate_details"]['title'] = input_dict[CERTIFICATE_TITLE]
+
+            if CERTIFICATE_DESCRIPTION in input_dict:
+                if input_dict[CERTIFICATE_DESCRIPTION] and len(input_dict[CERTIFICATE_DESCRIPTION].strip()) > 0:
+                    output_dict['certificate_details']['description'] = input_dict[CERTIFICATE_DESCRIPTION]
+
+        if any(key in input_dict for key in [TITLEUI, DESCRIPTIONUI]):
+            output_dict['ui_information'] = {}
+
+            if TITLEUI in input_dict:
+                if input_dict[TITLEUI] and len(input_dict[TITLEUI].strip()) > 0:
+                    output_dict["ui_information"]['title'] = input_dict[TITLEUI]
+                    
+            if DESCRIPTIONUI in input_dict:
+                if input_dict[DESCRIPTIONUI] and len(input_dict[DESCRIPTIONUI].strip()) > 0:
+                    output_dict["ui_information"]['description'] = input_dict[DESCRIPTIONUI]
+
+            for key in input_dict:
+                if key.startswith(QUESTIONUI):
+                    output_dict['ui_information'][f"Question {key[len(QUESTIONUI) + 1:]}"] = input_dict.get(f"{QUESTIONUI} {key[len(QUESTIONUI) + 1:]}",None)
+        
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
                 is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
@@ -389,6 +461,26 @@ def format_test_data_slack(raw_data):
                     output_dict['is_free'] = False
                 else:
                     output_dict['is_free'] = False
+
+
+        if IS_MICRO in input_dict:
+            if input_dict[IS_MICRO] and len(input_dict[IS_MICRO].strip()) > 0:
+                is_micro = input_dict[IS_MICRO].strip().lower()
+
+                if is_micro == "true":
+                    output_dict['is_micro'] = True
+                else:
+                    output_dict['is_micro'] = False
+
+        if IS_LOGGEDiN in input_dict:
+            if input_dict[IS_LOGGEDiN] and len(input_dict[IS_LOGGEDiN].strip()) > 0:
+                is_logged_in= input_dict[IS_LOGGEDiN].strip().lower()
+
+                if is_logged_in == "true":
+                    output_dict['is_logged_in'] = True
+                else:
+                    output_dict['is_logged_in'] = False
+
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
@@ -414,6 +506,10 @@ def format_test_data_slack(raw_data):
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
                     skills_list.add(skill.strip().capitalize())
+            elif key.startswith('Skill'):    # for mcq type of test
+                temp_skills = input_dict[key].split(',')
+                for skill in temp_skills:
+                    skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
 
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
@@ -423,7 +519,7 @@ def format_test_data_slack(raw_data):
             if skills not in defined_skills_list:
                 unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0:
+        if len(unmatched_skills) > 0 and test_type != TestTypeChoices.mcq:
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
@@ -533,8 +629,49 @@ def format_test_data_slack(raw_data):
 
                 output_dict["questions"].append(question)
 
+            elif key.startswith('Story'):
+                if test_type == TestTypeChoices.mcq:
+                    keys = list(input_dict.keys())
+                    question_keys = []  # to store needed field for a question
+                    for i in range(len(keys)):
+                        if key.strip() == keys[i]:
+                            question_keys = (keys[i:i + 5])
+
+                    question_text = input_dict[question_keys[0]]
+                    option1_text = input_dict[question_keys[1]]
+                    option2_text = input_dict[question_keys[3]]
+                    skill1 = input_dict[question_keys[2]].strip()
+                    skill2 = input_dict[question_keys[4]].strip()
+
+                    path = question_keys[0]
+                    option1_name = question_keys[1]
+                    option2_name = question_keys[3]
+                    skill1_name = question_keys[2]
+                    skill2_name = question_keys[4]
+
+                    question = {
+                        "question": question_text,
+                        "question_type": "mcq",
+                        "mcq_options" : {
+                            f"{option1_name}" : {'opt': option1_text, 
+                                                f'{skill1_name}': skill1
+                                                },
+                            f"{option2_name}" : {'opt': option2_text,
+                                                f'{skill2_name}': skill2}
+
+                        },
+                        'mcq_path' : path,
+                        "key_learning_point": "No key learning point for this question",
+                        "key_learning_skills": f'{skill1},{skill2}'
+
+                    }
+                    output_dict["questions"].append(question)
+                    
+
         if test_type == 'single' and len(output_dict["questions"]) > 1:
             output_dict["questions"][-1]["is_view_only"] = False
+
+        output_dict['total_question'] = int(len(output_dict['questions']))
 
         output_json = json.dumps(output_dict)
 

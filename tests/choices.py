@@ -17,6 +17,7 @@ class TestTypeChoices(DjangoChoices):
     lesson = ChoiceItem('lesson')
     test_thread = ChoiceItem('test_thread')
     trainer_thread = ChoiceItem('trainer_thread')
+    mcq = ChoiceItem('mcq')
 
 
 class ScenarioCaseChoices(DjangoChoices):
@@ -32,12 +33,14 @@ class ScenarioCaseChoices(DjangoChoices):
     dynamic_discussion  = ChoiceItem("dynamic_discussion")
     feedback_role_play = ChoiceItem("feedback_role_play")
     employee_feedback = ChoiceItem('employee_feedback')
+    mcq = ChoiceItem('mcq')
 
 
 class InteractionModeChoices(DjangoChoices):
     text = ChoiceItem("text")
     audio = ChoiceItem("audio")
     video = ChoiceItem("video")
+    any   = ChoiceItem("any")
 
 
 class TestAttemptSessionStatusChoices(DjangoChoices):

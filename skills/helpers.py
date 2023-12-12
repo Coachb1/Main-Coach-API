@@ -253,8 +253,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     "ANSWER:" {response_text};
 
-    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. If the answer is even slightly related to the question and description put the relevance value as 1. Only if the answers are completely random and unrelated to the question and description put the relevance value as 0.
-
+    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
     NOTE: Don't put any other text in the reply other than the JSON.
@@ -281,7 +280,11 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json_extraction(response)
                 response = json.loads(response)
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
+
                 break
             except Exception as e:
                 logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
@@ -300,42 +303,6 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
         
     else:
         
-        ##################* gpt ###################
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_relevacy ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-                response = json_extraction(response)
-                response = json.loads(response)
-                
-                for skill in response:
-                    response[skill] = float(response[skill])
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_relevacy ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return response, is_evaluated
-
-        ##################* gpt ###################
-        
-        logger.info({"****evaluate_relevacy ":f"failed gpt, so trying text_bison_compeletion"})
-
 
         ##################* text_bison_compeletion ###################
 
@@ -352,7 +319,10 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json.loads(response)
                 
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
 
                 break
 
@@ -372,6 +342,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
 
         ##################* text_bison_compeletion ###################
+        
         logger.info({"****evaluate_relevacy ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
 
         ##################* anthropic ###################
@@ -388,7 +359,10 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = json_extraction(response)
                 response = json.loads(response)
                 for skill in response:
-                    response[skill] = float(response[skill])
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
                 break
             except Exception as e:
                 logger.error({"****evaluate_relevacy ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
@@ -404,6 +378,44 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
             return response, is_evaluated
 
         ##################* anthropic ###################
+
+        logger.info({"****evaluate_relevacy ":f"failed anthropic, so trying gpt_compeletion"})
+
+        ##################* gpt ###################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_relevacy ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                for skill in response:
+                    if int(response[skill]) == 0:
+                        response[skill] = 0
+                    else:
+                        response[skill] = 1
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_relevacy ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+
+        ##################* gpt ###################
 
 
         # HACK in case everything fails; just evaluate as a random number
@@ -570,48 +582,6 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             return response, {}, True
     else:
 
-        ################################* gpt ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ################################* gpt end ################################
-        logger.info({"****evaluate_response_skill ":f"failed gpt, so trying text_bison_compeletion"})
 
 
         ################################* text_bison_compeletion ################################
@@ -699,6 +669,50 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
             return *responses, is_evaluated
 
         ##################* anthropic end ###################
+
+        logger.info({"****evaluate_response_skill ":f"failed anthropic, so trying gpt_compeletion"})
+
+        ################################* gpt ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+
+
+                skills_rating_str = json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
+
+
+                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return *responses, is_evaluated
+
+        ################################* gpt end ################################
 
 
         logger.info({"****evaluate_response_skill ":f"failed everything, so assigning default values"})
@@ -802,36 +816,6 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
 
     else:
-        #################################* gpt #################################
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-                break
-
-            except Exception as e:
-                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return response
-
-        #################################* gpt end #################################
-        
-        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed gpt, so trying text_bison_compeletion"})
 
         #################################* text_bison_compeletion #################################
         response = None
@@ -894,6 +878,38 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
             return response
 
         #################################* anthropic end #################################
+
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed anthropic, so trying gpt_compeletion"})
+
+        #################################* gpt #################################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+
+                break
+
+            except Exception as e:
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response
+
+        #################################* gpt end #################################
+        
 
         logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed everything, so assigning default values"})
 
@@ -977,37 +993,6 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
 
     else:
 
-        #################################* gpt #################################
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****feedback_summary ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****feedback_summary ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-                break
-
-            except Exception as e:
-                logger.error({"****feedback_summary ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return response
-
-        #################################* gpt end #################################
-        
-        logger.info({"****feedback_summary ":f"failed gpt, so trying text_bison_compeletion"})
-
         #################################* text_bison_compeletion #################################
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -1069,6 +1054,38 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
             return response
 
         #################################* anthropic end #################################
+
+        logger.info({"****feedback_summary ":f"failed anthropic, so trying gpt_compeletion"})
+
+        #################################* gpt #################################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****feedback_summary ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****feedback_summary ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+
+                break
+
+            except Exception as e:
+                logger.error({"****feedback_summary ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response
+
+        #################################* gpt end #################################
+
 
 
         logger.info({"****feedback_summary ":f"failed everything, so assigning default values"})
@@ -1239,49 +1256,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
     else:     
 
-        ################################* gpt ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e },exc_info=True)
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ################################* gpt end ################################
         
-        logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
 
         ################################* text_bison_compeletion ################################
         responses = []
@@ -1369,6 +1344,51 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
             return *responses, is_evaluated
 
         ################################* anthropic end ################################
+        
+        logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
+
+        ################################* gpt ################################
+        responses = []
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+
+
+                skills_rating_str = json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                responses.append(skills_rating)
+
+
+                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e },exc_info=True)
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return *responses, is_evaluated
+
+        ################################* gpt end ################################
+
 
         logger.info({"****evaluate_conversation ":f"failed everything, so assigning default values"})
 
@@ -1496,47 +1516,6 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     else:
 
-        ################################* gpt ################################
-        skills_rating = None
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-                
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* gpt end ################################
-        
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed gpt, so trying text_bison_compeletion "})
 
         ################################* text_bison_compeletion ################################
         skills_rating = None
@@ -1620,6 +1599,49 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             return skills_rating
 
         ################################* anthropic end ################################
+        
+        logger.info({"****evaluate_group_discussion_conversation ":f"failed anthropic, so trying gpt_compeletion "})
+
+        ################################* gpt ################################
+        skills_rating = None
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                
+                skills_rating_str = json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+                
+
+
+                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
+                # responses.append(skills_explanation)
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return skills_rating
+
+        ################################* gpt end ################################
+
 
         logger.info({"****evaluate_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
@@ -1747,43 +1769,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         return response
 
     else:
-        ################################* gpt ################################
-        skills_rating = None
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-                
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* gpt end ################################
-
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed gpt, so trying text-bison"})
+        
 
         ################################* text_bison_compeletion ################################
         skills_rating = None
@@ -1865,6 +1851,45 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
         ################################* anthropic end ################################
 
+        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
+
+        ################################* gpt ################################
+        skills_rating = None
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+        is_evaluated = True
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                
+                skills_rating_str = json_extraction(response)
+
+                skills_rating = json.loads(skills_rating_str)
+                for skill in skills_rating:
+                    skills_rating[skill] = float(skills_rating[skill])
+
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return skills_rating
+
+        ################################* gpt end ################################
+
+
         logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed everything, so assigning default values"})
 
         # HACK in case everything fails; just evaluate as a random number
@@ -1908,41 +1933,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
         \n\nAssistant:
     '''
 
-    ################################* gpt ################################
-    skills_explanation = None
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            
-            skills_explanation = json_extractor_for_explaination(response)
-            # skills_explanation = json.loads(skills_explanation)
-            if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
-
-            break
-
-        except Exception as e:
-            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
-                break
-
-            time.sleep(1)
-            continue
-
-    if is_evaluated:
-        return skills_explanation
-
-    ################################* gpt end ################################
-
-    logger.info({"****evaluate_skills_explanation ":f"failed gpt, so trying text-bison"})
+    
 
     ################################* text_bison_compeletion ################################
     skills_explanation = None
@@ -2015,6 +2006,43 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
     ################################* anthropic end ################################
 
+    logger.info({"****evaluate_skills_explanation ":f"failed anthropic, so trying gpt"})
+
+    ################################* gpt ################################
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    ################################* gpt end ################################
+
+
 
     return {}
 
@@ -2046,41 +2074,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
         \n\nAssistant:
         '''
 
-    ################################* gpt ################################
-    skills_explanation = None
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            
-            skills_explanation = json_extractor_for_explaination(response)
-            # skills_explanation = json.loads(skills_explanation)
-            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
-
-            break
-
-        except Exception as e:
-            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
-                break
-
-            time.sleep(1)
-            continue
-
-    if is_evaluated:
-        return skills_explanation
-
-    ################################* gpt end ################################
-
-    logger.info({"****evaluate_culture_skills_explanation ":f"failed gpt, so trying text-bison"})
+    
 
     ################################* text_bison_compeletion ################################
     skills_explanation = None
@@ -2153,6 +2147,43 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
 
     ################################* anthropic end ################################
 
+    logger.info({"****evaluate_culture_skills_explanation ":f"failed anthropic, so trying gpt"})
+
+    ################################* gpt ################################
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    ################################* gpt end ################################
+
+
     return {}
 
 
@@ -2173,41 +2204,6 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
         \n\nAssistant:
     '''
 
-    ################################* gpt ################################
-    skills_explanation = None
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            
-            skills_explanation = json_extractor_for_explaination(response)
-            # skills_explanation = json.loads(skills_explanation)
-            if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
-
-            break
-
-        except Exception as e:
-            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
-                break
-
-            time.sleep(1)
-            continue
-
-    if is_evaluated:
-        return skills_explanation
-
-    ################################* gpt end ################################
-
-    logger.info({"****evaluate_skills_explanation_conversation ":f"failed gpt, so trying text-bison"})
 
     ################################* text_bison_compeletion ################################
     skills_explanation = None
@@ -2280,6 +2276,43 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
     ################################* anthropic end ################################
 
+    logger.info({"****evaluate_skills_explanation_conversation ":f"failed anthropic, so trying gpt"})
+
+    ################################* gpt ################################
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(skills_rating.keys()):
+                raise
+
+            break
+
+        except Exception as e:
+            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    ################################* gpt end ################################
+
+
     return {}
 
 
@@ -2309,41 +2342,6 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
         \n\nAssistant:
     '''
 
-    ######################################* gpt *######################################
-    skills_explanation = None
-    response = None
-    max_tries = 3  # because gpt3_completion function itself retries 3 times
-    is_evaluated = True
-
-    while max_tries > 0:
-        try:
-            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-            
-            skills_explanation = json_extractor_for_explaination(response)
-            # skills_explanation = json.loads(skills_explanation)
-            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
-
-            break
-
-        except Exception as e:
-            logger.error({"****  evaluate_culture_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-            max_tries -= 1
-            if max_tries == 0:
-                is_evaluated = False
-                break
-
-            time.sleep(1)
-            continue
-
-    if is_evaluated:
-        return skills_explanation
-
-    ######################################* gpt end *######################################
-
-    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed gpt, so trying text-bison"})
 
     ######################################* text_bison_compeletion *######################################
     skills_explanation = None
@@ -2416,6 +2414,43 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
     ######################################* anthropic end *######################################
 
+    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed gpt, so trying text-bison"})
+
+    ######################################* gpt *######################################
+    skills_explanation = None
+    response = None
+    max_tries = 3  # because gpt3_completion function itself retries 3 times
+    is_evaluated = True
+
+    while max_tries > 0:
+        try:
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+            response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+            
+            skills_explanation = json_extractor_for_explaination(response)
+            # skills_explanation = json.loads(skills_explanation)
+            if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
+                raise
+
+            break
+
+        except Exception as e:
+            logger.error({"****  evaluate_culture_skills_explanation_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+            max_tries -= 1
+            if max_tries == 0:
+                is_evaluated = False
+                break
+
+            time.sleep(1)
+            continue
+
+    if is_evaluated:
+        return skills_explanation
+
+    ######################################* gpt end *######################################
+
+
     return {}
 
 
@@ -2478,12 +2513,13 @@ def get_participant_info(participant: User):
         'total_tests_attempted'
     )
 
+
     participant_info = {
         "name": get_user_display_name(participant),
         "role": participant.role,
-        "skills_info": participant_skill_rating_object[0]['skills_info'],
-        "total_questions_attempted": participant_skill_rating_object[0]['total_questions_attempted'],
-        "total_tests_attempted": participant_skill_rating_object[0]['total_tests_attempted']
+        "skills_info": participant_skill_rating_object[0].get('skills_info', {}),
+        "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0),
+        "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0)
     }
 
     return participant_info

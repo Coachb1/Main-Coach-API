@@ -7,6 +7,8 @@ import tempfile
 import time
 from datetime import date
 from string import Template
+import base64
+import math
 
 from django.db import transaction
 from django.template.loader import render_to_string
@@ -50,6 +52,7 @@ from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
+from clients.models import Client
 from nltk.tokenize import word_tokenize
 import nltk
 nltk.download('punkt')
@@ -129,6 +132,7 @@ def create_test(tenant: Tenant,
                 scenario_case: str,
                 is_game_type: bool,
                 is_free: bool,
+                is_micro:bool,
                 image_url: str,
                 rating : str,
                 source : str,
@@ -137,7 +141,12 @@ def create_test(tenant: Tenant,
                 goals: str,
                 course: str,
                 industry: str,
-                exp_level: str) -> tuple[Test, list[TestQuestion]]:
+                exp_level: str,
+                total_question:int,
+                certificate_details:dict,
+                ui_information:dict,
+                is_self_created:bool,
+                is_logged_in:bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -173,6 +182,7 @@ def create_test(tenant: Tenant,
             scenario_case=scenario_case,
             is_game_type=is_game_type,
             is_free=is_free,
+            is_micro=is_micro,
             rating=rating,
             image_url=image_url,
             source=source,
@@ -180,7 +190,12 @@ def create_test(tenant: Tenant,
             goals=goals,
             course=course,
             industry=industry,
-            exp_level=exp_level
+            exp_level=exp_level,
+            total_question=total_question,
+            certificate_details=certificate_details,
+            ui_information=ui_information,
+            is_self_created=is_self_created,
+            is_logged_in=is_logged_in,
         )
 
         test_questions = []
@@ -215,6 +230,7 @@ def create_test(tenant: Tenant,
                 objective_answer=question.get("objective_answer"),
                 mcq_options=question.get("mcq_options"),
                 mcq_answer=question.get("mcq_answer"),
+                mcq_path= question.get('mcq_path'),
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=klp,
                 key_learning_skills=kls
@@ -387,6 +403,119 @@ def delete_test_response(test_response):
     test_response.save()
 
 
+
+#*********************** Process MCQ response start *******************************
+
+def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=test_question_response.test_attempt_session_id
+    )
+
+    logger.info(
+        f"[process_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(
+            f"Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+
+    updated_fields = []
+    #* get comment for user decision
+    prompt = """
+        \n\nHuman:
+        {Situation}: %s
+        {Decision}: %s
+
+        Based on the given situation {Situation} this is the decision {Decision} a candidate made. Analyze the decision critically and comment on the pros and cons of the decision, focusing on its short-term and long-term effects. Always comment on any potential downsides or risks of the decision in this situation. Always evaluate and comment on what worked well and what could be improved in the decision. Evaluate the decision-making process, focusing on the strategic aspects. Discuss how well the decision aligns with the overall situation. Keep it less than 150 words.
+        \n\nAssistant:
+        """%(question.question,test_question_response.response_text)
+
+    comment = generic_completion(prompt, 300)
+    test_question_response.feedback_text = comment
+    updated_fields.append("feedback_text")
+    logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%comment: {comment} \n\n mcq_options: {question.mcq_options}")
+
+
+    # option_name = [key for key, value in question.mcq_options.items() if 'opt' in value and value['opt'] == test_question_response.response_text]
+    try:
+        selected_key = [key for key in question.mcq_options if question.mcq_options[key]['opt'] == test_question_response.response_text][0]
+        
+        selected_skill = question.mcq_options[selected_key][f"Skill {selected_key}"]
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%% selected_skill: {selected_skill}, selected_key: {selected_key}")
+        test_question_response.mcq_skill = selected_skill
+        updated_fields.append("mcq_skill")
+        
+    except Exception as e:
+        logger.exception(e)
+
+
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    updated_fields.append("evaluation_status")
+    updated_fields.append("updated")
+
+    test_question_response.save(update_fields=updated_fields)
+
+    #* mark session completed if this is the last question
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = math.log2(test.total_question + 1) == total_responses.count()
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.finished_at = timezone.now()
+        test_attempt_session.save(update_fields=["status","finished_at", "updated"])
+
+        decision_data = []
+        for response in total_responses:
+            question = TestQuestion.objects.get(uid=response.question_id)
+            decision_data.append({
+                "situation": question.question,
+                "decision": response.response_text
+            })
+
+        decision_map = ""
+
+        for decision in decision_data:
+            decision_map += f"situation: {decision['situation']}\ndecision: {decision['decision']}\n\n"
+
+        #* get summary of user decisions
+        
+        prompt = f"""
+            \n\nHuman:
+            Scenario: {test.description}
+            
+            {decision_map}
+
+            Summarize the entire interaction, highlighting key decisions and their implications. Provide insights into the consistency, adaptability, and effectiveness of the candidate's decision-making throughout the scenario. Additionally, discuss any patterns or trends observed in the candidate's decision-making approach and offer suggestions for improvement or areas to be mindful of in future decision-making situations. Keep it less than 200 words.
+            \n\nAssistant:
+        """
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%decision_map: {decision_map}")
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%prompt: {prompt}")
+
+        session_summary = generic_completion(prompt, 500)
+        test_attempt_session.mcq_summary = session_summary
+        test_attempt_session.save(update_fields=["mcq_summary"])
+        report_url = generate_session_report_link(test_attempt_session, test)
+
+         # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                            tenant_id=test_attempt_session.tenant_id)
+
+        updated_fields = []
+        skills_rating_object.total_questions_attempted += int(total_responses.count())
+        skills_rating_object.total_tests_attempted += 1
+
+        updated_fields.append("total_questions_attempted")
+        updated_fields.append("total_tests_attempted")
+        updated_fields.append("updated")
+
+        skills_rating_object.save(update_fields=updated_fields)
+        
+
+#*********************** Process MCQ response end *******************************
+
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
@@ -516,6 +645,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     test_attempt_session.refresh_from_db()
 
+    if test.test_type == TestTypeChoices.mcq:
+        return process_mcq_response(test_question_response)
+
     test_attempt_session.current_question_idx = question.question_number
 
     if question.question_number == last_question_number:
@@ -532,29 +664,27 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             update_fields=["evaluation_status", "updated"])
         return test_question_response
 
-    if test.interaction_mode != InteractionModeChoices.text:
+
+    if test.interaction_mode == InteractionModeChoices.any:
         update_fields = ["response_text", "updated"]
-        if test.interaction_mode == InteractionModeChoices.audio:
-            # try:
-            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
-            #         test_question_response.response_file)
-            # except:
+        if test_question_response.response_file:
+
             start = time.time()
             transcript_length = 0
             try:
-                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                logger.info("*************** generating transcription for(any: audio) using gpt_wishper_api *****")
                 transcript = gpt_wishper_api(
                     test_question_response.response_file)
                 test_question_response.response_text = transcript
                 transcript_length = len(transcript.split())
                 logger.info({"message":"************ transcript generated ******","transcript":transcript})
                 end = time.time()
-                logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
+                logger.info(f"####################### __process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
                 try: 
-                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                    logger.info("*************** generating transcription for(any: audio) using speech_to_text *****")
                     transcript = speech_to_text(test_question_response.response_file)
                     test_question_response.response_text = transcript
                 except Exception as e:
@@ -563,7 +693,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_question_response.response_text = transcript
 
             end = time.time()
-            logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
+            logger.info(f"####################### _process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
 
             if not test.is_free:
                 if transcript_length > 10:
@@ -580,7 +710,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 test_question_response.speech_metrics = speech_met
 
                                 end = time.time()
-                                logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                                logger.info(f"####################### _process_test_response: SPEECH METRICS For ANY: AUDIO took {end - start:.2f} #######################")
                                 break
                             except Exception as e:
                                 logger.exception(e)
@@ -588,7 +718,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 if retry >= max_tries:
                                     # HACK sane default values
                                     test_question_response.speech_metrics = default_metrics
-                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for ANY: AUDIO. so assigned default values")
                                     break
 
                         
@@ -598,63 +728,133 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
                 update_fields.append("speech_metrics")
 
+        test_question_response.save(update_fields=update_fields)
+
+    if test.interaction_mode != InteractionModeChoices.text:
+        update_fields = ["response_text", "updated"]
+        if test.interaction_mode == InteractionModeChoices.audio:
+            # try:
+            #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
+            #         test_question_response.response_file)
+            # except:
+            if test_question_response.response_file:            
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### __process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                    try: 
+                        logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+
+                end = time.time()
+                logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
+
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if test.test_type == TestTypeChoices.trainer_thread:
+                            threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                        else:
+                            start = time.time()
+                            max_tries = 2
+                            retry = 0
+                            while True:
+                                try:
+                                    speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                        test_question_response.response_file,transcript)
+                                    test_question_response.speech_metrics = speech_met
+
+                                    end = time.time()
+                                    logger.info(f"####################### _process_test_response: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                                    break
+                                except Exception as e:
+                                    logger.exception(e)
+                                    retry += 1
+                                    if retry >= max_tries:
+                                        # HACK sane default values
+                                        test_question_response.speech_metrics = default_metrics
+                                        logger.info("************************** _process_test_response: SPEECH METRICS failed for AUDIO. so assgned default values")
+                                        break
+
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+
+                    update_fields.append("speech_metrics")
+
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"**************** transcript generated ******","transcript":transcript})
                     end = time.time()
                     logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
-            if not test.is_free:
-                if transcript_length > 10:
-                    if test.test_type == TestTypeChoices.trainer_thread:
-                        threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
-                    else:
-                        start = time.time()
-                        max_tries = 2
-                        retry = 0
-                        while True:
-                            try:
-                                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                    test_question_response.response_file,transcript)
-                                test_question_response.speech_metrics = speech_met_video
-                                end = time.time()
-                                logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                                break
+                    try: 
+                        logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                        end = time.time()
+                        logger.info(f"####################### _process_test_response: transcript generation for VIDEO took {end - start:.2f} #######################")
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
 
-                            except Exception as e:
-                                retry += 1
-                                if retry >= max_tries:
-                                    # HACK sane default values
-                                    test_question_response.speech_metrics = default_metrics
-                                    logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if test.test_type == TestTypeChoices.trainer_thread:
+                            threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
+                        else:
+                            start = time.time()
+                            max_tries = 2
+                            retry = 0
+                            while True:
+                                try:
+                                    speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                        test_question_response.response_file,transcript)
+                                    test_question_response.speech_metrics = speech_met_video
+                                    end = time.time()
+                                    logger.info(f"####################### _process_test_response: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                                     break
 
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                                except Exception as e:
+                                    retry += 1
+                                    if retry >= max_tries:
+                                        # HACK sane default values
+                                        test_question_response.speech_metrics = default_metrics
+                                        logger.info("************************** _process_test_response: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                        break
+
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
 
@@ -791,18 +991,17 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         feedback_text = text_bison_compeletion(prompt)
                     except Exception as e:
                         logger.exception(e)
-                        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-                        if not gpt_feedback.text:
+                        anthropic_feedback = anthropic_completion(prompt, 1200) 
+                        if not anthropic_feedback:
                             try:
-                                anthropic_feedback = anthropic_completion(prompt, 1200)
-                                feedback_text = anthropic_feedback
+                                feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                             except Exception as e:
                                 logger.exception(e)
                                 feedback_text = "Feedback could not be generated"
 
                         else:
-                            feedback_text = gpt_feedback.text
-                            raw_text = gpt_feedback.raw
+                            feedback_text = anthropic_feedback
+                            raw_text = anthropic_feedback
 
                     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                     # if not gpt_feedback.text:
@@ -1020,113 +1219,171 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             #     test_question_response.response_text = coach_whisper_api.get_transcribe_from_audio(
             #         test_question_response.response_file)
             # except:
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"************ transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(audio) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(audio) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met = coach_metric_api.get_speech_metrics_from_audio(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
-                            break
-                        except Exception as e:
-                            logger.exception(e)
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                    try: 
+                        logger.info("*************** generating transcription for(audio) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
                                 break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    break
 
-                        
-                else:
-                    # HACK sane default values
-                        test_question_response.speech_metrics = default_metrics
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
             # test_question_response.response_text = coach_whisper_api.get_transcribe_from_video(
             #     test_question_response.response_file)
-            start = time.time()
-            transcript_length = 0
-            try:
-                logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
-                transcript = gpt_wishper_api(
-                    test_question_response.response_file)
-                test_question_response.response_text = transcript
-                transcript_length = len(transcript.split())
-                logger.info({"message":"**************** transcript generated ******","transcript":transcript})
-                end = time.time()
-                logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
-
-                try: 
-                    logger.info("*************** generating transcription for(video) using speech_to_text *****")
-                    transcript = speech_to_text(test_question_response.response_file)
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("****************** generating transcription for(video) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
                     test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"**************** transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for VIDEO took {end - start:.2f} #######################")
                 except Exception as e:
-                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
-                    transcript = "Transcription couldn't be generated"
-                    test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    start = time.time()
-                    max_tries = 2
-                    retry = 0
-                    while True:
-                        try:
-                            speech_met_video = coach_metric_api.get_speech_metrics_from_video(
-                                test_question_response.response_file,transcript)
-                            test_question_response.speech_metrics = speech_met_video
-                            end = time.time()
-                            logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
-                            break
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
 
-                        except Exception as e:
-                            retry += 1
-                            if retry >= max_tries:
-                                # HACK sane default values
-                                test_question_response.speech_metrics = default_metrics
-                                logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
+                    try: 
+                        logger.info("*************** generating transcription for(video) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met_video = coach_metric_api.get_speech_metrics_from_video(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met_video
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For VIDEO took {end - start:.2f} #######################")
                                 break
 
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                            except Exception as e:
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user: SPEECH METRICS failed for VIDIO. so assgned default values")
+                                    break
+
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
+
+        elif test.interaction_mode == InteractionModeChoices.any:
+            
+            if test_question_response.response_file:
+                start = time.time()
+                transcript_length = 0
+                try:
+                    logger.info("*************** generating transcription for(any interaction mode) using gpt_wishper_api *****")
+                    transcript = gpt_wishper_api(
+                        test_question_response.response_file)
+                    test_question_response.response_text = transcript
+                    transcript_length = len(transcript.split())
+                    logger.info({"message":"************ transcript generated ******","transcript":transcript})
+                    end = time.time()
+                    logger.info(f"####################### process_orchestrated_test_response_by_user: transcript generation for AUDIO took {end - start:.2f} #######################")
+                except Exception as e:
+                    logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from gpt_wishper_api":e}, exc_info=True)
+
+                    try: 
+                        logger.info("*************** generating transcription for(any interaction mode) using speech_to_text *****")
+                        transcript = speech_to_text(test_question_response.response_file)
+                        test_question_response.response_text = transcript
+                    except Exception as e:
+                        logger.error({"!!!!!!!!!!!!!!!!!Error while generating transcription from speech_to_text":e}, exc_info=True)
+                        transcript = "Transcription couldn't be generated"
+                        test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        start = time.time()
+                        max_tries = 2
+                        retry = 0
+                        while True:
+                            try:
+                                speech_met = coach_metric_api.get_speech_metrics_from_audio(
+                                    test_question_response.response_file,transcript)
+                                test_question_response.speech_metrics = speech_met
+                                end = time.time()
+                                logger.info(f"####################### process_orchestrated_test_response_by_user: SPEECH METRICS For AUDIO took {end - start:.2f} #######################")
+                                break
+                            except Exception as e:
+                                logger.exception(e)
+                                retry += 1
+                                if retry >= max_tries:
+                                    # HACK sane default values
+                                    test_question_response.speech_metrics = default_metrics
+                                    logger.info("************************** process_orchestrated_test_response_by_user SPEECH METRICS failed for AUDIO. so assgned default values")
+                                    break
+
+                            
+                    else:
+                        # HACK sane default values
+                            test_question_response.speech_metrics = default_metrics
+
+                    update_fields.append("speech_metrics")
+
 
     if test.test_type == TestTypeChoices.dynamic_discussion:
         start = time.time()
         logger.info(f"***************question number is {question.question_number}**************")
         start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+        background = test.orchestrated_conversation_details.get('background')
         if question.question_number == 1 and start_with_user_message is not None:
             question_text = test.description
         elif question.question_number == 1:
@@ -1139,13 +1396,16 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
         else:
-            prompt = get_chat_conversation_prompt_v3(
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question_text,
-                                question_context=question.subjective_answer,
-                                candidate_reply=test_question_response.response_text,
-                                user_feedback_prompt="")
+            if background is not None:
+                prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
+            else:
+                prompt = get_chat_conversation_prompt_v3(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question_text,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt="")
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
@@ -1274,19 +1534,25 @@ def get_speech_metrics(test_question_response,transcript):
 @timeit
 def get_feedback(question, test_question_response,question_text,test):
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    background = test.orchestrated_conversation_details.get('background')
+
+    
     if start_with_user_message is not None:
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
     else:
-        prompt = get_chat_conversation_prompt_v3(
-                            test_title=test.title,
-                            test_description=test.description,
-                            question=question_text,
-                            question_context=question.subjective_answer,
-                            candidate_reply=test_question_response.response_text,
-                            user_feedback_prompt="")
+        if background is not None:
+            prompt = get_interview_feedback(test.title, test.description, background, question_text, test_question_response.response_text)
+        else:
+            prompt = get_chat_conversation_prompt_v3(
+                                test_title=test.title,
+                                test_description=test.description,
+                                question=question_text,
+                                question_context=question.subjective_answer,
+                                candidate_reply=test_question_response.response_text,
+                                user_feedback_prompt="")
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -1363,43 +1629,64 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         update_fields.extend(["response_text"])
 
         if test.interaction_mode == InteractionModeChoices.audio:
-            
-            transcript, transcript_length = get_transcript(test_question_response)
-            test_question_response.response_text = transcript
-            if not test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
                     else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
-                else:
-                    test_question_response.speech_metrics = default_metrics
+                        test_question_response.speech_metrics = default_metrics
 
-                update_fields.append("speech_metrics")
+                    update_fields.append("speech_metrics")
 
         elif test.interaction_mode == InteractionModeChoices.video:
-            
-            transcript, transcript_length = get_transcript(test_question_response)
-            test_question_response.response_text = transcript
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
 
-            if test.is_free:
-                if transcript_length > 10:
-                    if is_last_response:
-                        get_speech_metrics(test_question_response,transcript)
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
                     else:
-                        threading.Thread(target=get_speech_metrics,
-                                        kwargs={
-                                                "test_question_response":test_question_response,
-                                                "transcript":transcript
-                                        }).start()
-                else:
-                    test_question_response.speech_metrics = default_metrics
-                    
-                update_fields.append("speech_metrics")
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
+
+        elif test.interaction_mode == InteractionModeChoices.any:
+            if test_question_response.response_file:
+            
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+
+                if not test.is_free:
+                    if transcript_length > 10:
+                        if is_last_response:
+                            get_speech_metrics(test_question_response,transcript)
+                        else:
+                            threading.Thread(target=get_speech_metrics,
+                                            kwargs={
+                                                    "test_question_response":test_question_response,
+                                                    "transcript":transcript
+                                            }).start()
+                    else:
+                        test_question_response.speech_metrics = default_metrics
+                        
+                    update_fields.append("speech_metrics")
 
     if test.test_type == TestTypeChoices.dynamic_discussion_thread:
         start = time.time()
@@ -1534,6 +1821,10 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
 @timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
+
+    temp_rating = {}
+    skills_count = {}
+
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
     objective = test.orchestrated_conversation_details.get("objective")
@@ -1554,16 +1845,30 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test.is_free)
+    
+    for skill in skills_rating:
+        if skill in temp_rating:
+            temp_rating[skill] += skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] += 1
+        else:
+            temp_rating[skill] = skills_rating[skill] or random.randint(3, 7)
+            skills_count[skill] = 1
 
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
-    for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
-        elif skills_rating[skill] < 1.5:
-            skills_rating[skill] = 1.5
+    # for skill in skills_rating:
+    #     if skills_rating[skill] > 8.5:
+    #         skills_rating[skill] = 8.5
+    #     elif skills_rating[skill] < 1.5:
+    #         skills_rating[skill] = 1.5
 
-    skills_rating = update_skills_rating_if_same_scores(skills_rating)
+
+    skills_rating_score = {}
+    # calculate average skills rating
+    for skill in skills_rating:
+        skills_rating_score[skill] = temp_rating[skill] / skills_count[skill]
+
+    skills_rating = update_skills_rating_if_same_scores(skills_rating_score)
 
     culture_skills_rating = update_culture_skills_if_same_scores(
         culture_skills_rating)
@@ -1573,11 +1878,14 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_score += skills_rating[skill]
 
     avg_score = test_score / len(skills_rating.keys())
+    culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
 
     test_attempt_session.culture_skills_rating = culture_skills_rating
     
     updated_fields = ["culture_skills_rating"
                       ,"test_score","avg_score","finished_at","updated"]
+
+    skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
@@ -1598,6 +1906,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     feedbacks = ''
     speech_score = {}
     has_speech_metric = False
+    attempted_count = 0
+    speech_count = 0
     for response in responses:
         if response.feedback_text:
             feedbacks += response.feedback_text + '\n'
@@ -1605,6 +1915,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         if not test.is_free:
 
             if response.speech_metrics:
+                speech_count += 1
                 has_speech_metric = True
                 # get speech metrics from this response
                 response_speech_metrics = response.speech_metrics
@@ -1628,6 +1939,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
                     has_speech_metric = False
                     logger.error({"calc for speech matrix failed :" : e}, exc_info=True)
 
+        attempted_count += 1
+
     # calculating feedback_summary and skill summary
     # skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session,culture_skills_rating,skills_rating)
     # if len(skills_summary) > 0:
@@ -1639,7 +1952,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     # if len(feedbacks_summary) > 0:
     #     test_attempt_session.feedback_summary = feedbacks_summary
     #     updated_fields.append("feedback_summary")
-
+    if speech_count != int(responses.count()):
+        has_speech_metric = False
 
     if not test.is_free:
         start = time.time()
@@ -1664,6 +1978,43 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     test_attempt_session.avg_score = avg_score
 
     test_attempt_session.save(update_fields=updated_fields)
+
+    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                          tenant_id=test_attempt_session.tenant_id)
+
+    updated_fields = []
+
+    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+
+    for skill, rating in skills_rating.items():
+
+        if skill in skills_rating_object.skills_info:
+            skills_rating_object.skills_info[skill]['score'] += rating
+            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+        else:
+            skills_rating_object.skills_info[skill] = {
+                'score': rating,
+                'question_count': skills_count[skill]
+            }
+
+        if skills_count[skill] == 0:
+            skills_rating_object.skills_info[skill]['average_score'] = 0
+        else:
+            required_average_score = rating / skills_count[skill]
+            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+
+    skills_rating_object.total_questions_attempted += attempted_count
+    skills_rating_object.total_tests_attempted += 1
+
+    updated_fields.append("skills_info")
+    updated_fields.append("total_questions_attempted")
+    updated_fields.append("total_tests_attempted")
+    updated_fields.append("updated")
+    print(skills_rating,avg_score,test_score,skills_rating_object.uid )
+
+    skills_rating_object.save(update_fields=updated_fields)
+
 
     return test_attempt_session
 
@@ -1788,6 +2139,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
             if user_name.strip().lower() != user_persona.strip().lower():
                 is_bot = True
+            else:
+                user_name = 'User'
 
             chat_conversation_with_details.append(
                 {"user_name": user_name, "message": message, "is_bot": is_bot})
@@ -1861,6 +2214,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
         # data["skills_rating"] = update_skill_name(skills_rating)
         data["skills_rating"] = skills_rating
+        
+    data["certificate_details"] = test.certificate_details
+    data['ui_information'] = test.ui_information
 
     return data
 
@@ -1996,6 +2352,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # For calculating average score of the test
     avg_score = 0
     response_count = 0
+    speech_count = 0
 
     for response in responses:
         # if response.skills_rating is None:
@@ -2010,6 +2367,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         #     response_count += 1
         if not test.is_free:
             if response.speech_metrics:
+                speech_count += 1
                 has_speech_metric = True
                 # get speech metrics from this response
                 response_speech_metrics = response.speech_metrics
@@ -2055,6 +2413,9 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # for skill in skills:
     #     skill_.append(skill['name'])
 
+    if speech_count != int(responses.count()):
+        has_speech_metric = False
+
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     skills_=[]
     for question in questions:
@@ -2078,6 +2439,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
     response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating = {key.capitalize() : value for key, value in response_skills_rating.items()}
     for skill in response_skills_rating:
         if skill in skills_rating:
             skills_rating[skill] += response_skills_rating[skill] or random.randint(3, 7)
@@ -2115,6 +2477,11 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score)
     skills_rating_score, avg_score = increment_avg_score_in_percentages(
         skills_rating_score, avg_score, participant_id, test_attempt_session)
+    test_score = 0
+    for skill in skills_rating_score:
+        test_score += skills_rating_score[skill]
+
+
     culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
 
     logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
@@ -2124,6 +2491,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     # update skills_rating field in test_attempt_session
     skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
+    skills_rating_score = {key.capitalize() : value for key, value in skills_rating_score.items()}
     
     test_attempt_session.skills_rating = skills_rating_score
     test_attempt_session.test_score = test_score
@@ -2145,7 +2513,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     if culture_skills_rating is not None:
         culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
-        
+        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
         test_attempt_session.culture_skills_rating = culture_skills_rating
         updated_fields.append("culture_skills_rating")
 
@@ -2169,41 +2537,41 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     test_attempt_session.save(update_fields=updated_fields)
 
+    if not test.is_self_created:
+        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+                                                                            tenant_id=test_attempt_session.tenant_id)
 
-    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
-                                                                          tenant_id=test_attempt_session.tenant_id)
+        updated_fields = []
 
-    updated_fields = []
+        skills_rating_object.skills_info = skills_rating_object.skills_info or {}
 
-    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+        for skill, rating in skills_rating_score.items():
 
-    for skill, rating in skills_rating.items():
+            if skill in skills_rating_object.skills_info:
+                skills_rating_object.skills_info[skill]['score'] += rating
+                skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+            else:
+                skills_rating_object.skills_info[skill] = {
+                    'score': rating,
+                    'question_count': skills_count[skill]
+                }
 
-        if skill in skills_rating_object.skills_info:
-            skills_rating_object.skills_info[skill]['score'] += rating
-            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
-        else:
-            skills_rating_object.skills_info[skill] = {
-                'score': rating,
-                'question_count': skills_count[skill]
-            }
+            if skills_count[skill] == 0:
+                skills_rating_object.skills_info[skill]['average_score'] = 0
+            else:
+                required_average_score = rating / skills_count[skill]
+                skills_rating_object.skills_info[skill]['average_score'] = required_average_score
 
-        if skills_count[skill] == 0:
-            skills_rating_object.skills_info[skill]['average_score'] = 0
-        else:
-            required_average_score = rating / skills_count[skill]
-            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+        skills_rating_object.total_questions_attempted += attempted_count
+        skills_rating_object.total_tests_attempted += 1
 
-    skills_rating_object.total_questions_attempted += attempted_count
-    skills_rating_object.total_tests_attempted += 1
+        updated_fields.append("skills_info")
+        updated_fields.append("total_questions_attempted")
+        updated_fields.append("total_tests_attempted")
+        updated_fields.append("updated")
 
-    updated_fields.append("skills_info")
-    updated_fields.append("total_questions_attempted")
-    updated_fields.append("total_tests_attempted")
-    updated_fields.append("updated")
-
-    skills_rating_object.save(update_fields=updated_fields)
+        skills_rating_object.save(update_fields=updated_fields)
 
 
 def round_off_rating(number):
@@ -2276,7 +2644,11 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
                 refresh_token[:6], participant_id)
 
-    report_url = f"{FRONTEND_BASE_URL}/{ReportType.INTERACTION_SESSION_REPORT}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
+    report_type = ReportType.INTERACTION_SESSION_REPORT
+    if test.test_type == TestTypeChoices.mcq:
+        report_type = ReportType.DecisionAnalysisReport
+
+    report_url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
     test_attempt_session.report_url = report_url
     test_attempt_session.save(update_fields=["report_url"])
@@ -2349,8 +2721,40 @@ def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSes
     return report_url
 
 
+
+@timeit
+def modify_skills_rating_if_same(skills):
+    logger.info(f"skills before: {skills}")
+    modified_skills = {}
+    value_counts = {}
+
+    for skill, value in sorted(skills.items(), key=lambda x: x[1]):
+        # Modify the value to be unique and a multiple of 0.25
+        while True:
+            # Randomly decide whether to increase or decrease the value
+            increment = 0.25 if random.choice([True, False]) else -0.25
+
+            # Apply the increment until uniqueness is achieved
+            while round(value, 2) in value_counts and value_counts[round(value, 2)] >= 2:
+                value += increment
+
+            # Break out of the loop if the value is unique and less than 10
+            if (round(value, 2) not in value_counts or value_counts[round(value, 2)] < 2) and round(value, 2) <= 9 and round(value, 2) >= 0:
+                break
+
+        # Add the modified value to the count of occurrences
+        value_counts[round(value, 2)] = value_counts.get(round(value, 2), 0) + 1
+
+        # Round the final value to 2 decimal places and store in the result dictionary
+        modified_skills[skill] = round(value, 2)
+
+    logger.info(f"skills after: {modified_skills}")
+    return modified_skills
+
+
 @timeit
 def update_skills_rating_if_same_scores(skills_rating):
+    return modify_skills_rating_if_same(skills_rating)
     total_skills = len(skills_rating)
     scores_frequency = {}
     for skill in skills_rating:
@@ -2359,6 +2763,10 @@ def update_skills_rating_if_same_scores(skills_rating):
             scores_frequency[score].append(skill)
         else:
             scores_frequency[score] = [skill]
+
+    # # modify skills if any three skills have same score
+    # if any(len(scores_frequency[score]) >= 3 for score in scores_frequency):
+    #     return modify_skills_rating_if_same(skills_rating)
 
     for score in scores_frequency:
         if len(scores_frequency[score]) > 1:
@@ -2415,14 +2823,31 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
             scores_frequency[score] = [skill]
 
     for score in scores_frequency:
-        if len(scores_frequency[score]) > len(cultural_skills) / 2:
+        # if len(scores_frequency[score]) > len(cultural_skills) / 2:
+        #     # Increment half the skills by 0.5 and other half decrement by 0.5
+        #     for i in range(0, len(scores_frequency[score])):
+        #         skill = scores_frequency[score][i]
+        #         if i < len(scores_frequency[score]) / 2:
+        #             culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
+        #         else:
+        #             culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
+        if len(scores_frequency[score]) > 1:
+            random.shuffle(scores_frequency[score])  # Randomly shuffle skills with same score
             # Increment half the skills by 0.5 and other half decrement by 0.5
             for i in range(0, len(scores_frequency[score])):
                 skill = scores_frequency[score][i]
                 if i < len(scores_frequency[score]) / 2:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] + 0.5
-                else:
-                    culture_skills_rating[skill] = culture_skills_rating[skill] - 0.5
+                    if i < i/2:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] + 0.75   # changed 1 to 0.75 aug
+                    else:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] - 0.75   
+
+                elif i > len(scores_frequency[score]) / 2:
+                    if i > i/2:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] + 0.25   # changed 1 to 0.25 aug
+                    else:
+                        culture_skills_rating[skill] = culture_skills_rating[skill] - 0.25   
+
 
                 if culture_skills_rating[skill] < 0:
                     culture_skills_rating[skill] = 0
@@ -2673,6 +3098,67 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     return skills_rating
 
+@timeit
+def get_interview_feedback(title,description,background, question_text,candidate_comment):
+    prompt = Template("""
+            \n\nHuman:
+
+            Title: ${title}.
+
+            Test Description: ${description}
+
+            background: ${background}
+
+            Question : ${question_text}
+
+            Candidate Comment : ${candidate_comment}
+
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. The feedback should be structured in the following format:
+
+            "Feedback for the candidate's responses : "
+
+            Key insights to improve
+
+            What went well ?
+
+            What did not work ?
+
+            A sample candidate answer
+
+            Pro Interview Insights
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+            NOTE : Always consider the information provided in the "background" when generating the feedback
+
+            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+            NOTE: Only provide feedback on the "Candidate Comment" not on the "Test Description."
+
+            NOTE : A sample candidate answer is a sample Candidate comment based on the context provided.
+
+            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the candidate’s answer in "Key insights to improve the response."
+
+            NOTE : In cases where the "Candidate Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Minimum response length is 250 words. Always adhere to the same.
+
+            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
+
+            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
+
+            NOTE : NEVER print the response alignment score in the output.
+            \n\nAssistant
+                """).substitute(
+                    title=title,
+                    description=description,
+                    question_text=question_text,
+                    candidate_comment= candidate_comment,
+                    background=background
+                )
+    return prompt
 
 @timeit
 def get_chat_conversation_prompt_v3(test_title: str,
@@ -2706,9 +3192,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-            NOTE : Do not print the response alignment score in the output.
+            
 
             ${user_feedback_prompt}
             \n\nAssistant:
@@ -2744,9 +3228,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-            NOTE : Do not print the response alignment score in the output.
+            
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -3293,6 +3775,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     initial_messages = test.orchestrated_conversation_details.get(
         "initial_messages")
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
+    background = test.orchestrated_conversation_details.get('background')
 
     current_conversation = ''
 
@@ -3414,23 +3897,63 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
     
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
-        template = Template(
-                '''
-                \n\nHuman:
-                Main context : ${test_main_context}
-                Current conversation : ${current_conversation}
-                Candidate response : ${question_text}
 
-                NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+        if background is not None: # for interview type test
+            user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).order_by('id').last()
+            
+            template = Template(
+                """
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                background: ${background}
+
+                candidate_comment: ${user_comment}
+
+                Based on the candidate's comment, main context and background, ask the candidate another question as the interviewer. Do not provide any feedback on the response.
+
+                NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
+
+
+                NOTE : Always consider the information provided in the "background" when giving the next question.
+
 
                 NOTE: The question should not be more than 25 words.
 
                 NOTE: Do not show the word count.
 
-                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
-                \n\nAssistant:
-                '''
-            )
+                NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant
+
+                """
+            ).substitute(test_main_context=test_main_context,
+                         background=background,
+                         user_comment=user_comment.response_text)
+
+        else:
+
+            template = Template(
+                    '''
+                    \n\nHuman:
+                    Main context : ${test_main_context}
+                    Current conversation : ${current_conversation}
+                    Candidate response : ${question_text}
+
+                    NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+
+                    NOTE: The question should not be more than 25 words.
+
+                    NOTE: Do not show the word count.
+
+                    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                    \n\nAssistant:
+                    '''
+                ).substitute(test_main_context=test_main_context,
+                                current_conversation=current_conversation,
+                                question_text=question_text
+                                )
     else:
         template = Template(
             """
@@ -3445,11 +3968,15 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
             \n\nAssistant:
             """
-        )
-    return template.substitute(test_main_context=test_main_context,
+        ).substitute(test_main_context=test_main_context,
                                current_conversation=current_conversation,
                                question_text=question_text,
                                question_for=question.question_for)
+    # return template.substitute(test_main_context=test_main_context,
+    #                            current_conversation=current_conversation,
+    #                            question_text=question_text,
+    #                            question_for=question.question_for)
+    return template
 
 @timeit
 def get_email_type_prompt(test_title,
@@ -3478,11 +4005,7 @@ def get_email_type_prompt(test_title,
         NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-        NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-
-        NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-
-        NOTE : Do not print the response alignment score in the output.
+        
 
         ${user_feedback_prompt}
         \n\nAssistant:
@@ -3530,9 +4053,7 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-            NOTE : Do not print the response alignment score in the output.
+            
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -3570,9 +4091,7 @@ def get_overridden_prompt(prompt_template: str,
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-            NOTE : Do not print the response alignment score in the output.
+            
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -3608,9 +4127,7 @@ def emplyee_feedback_prompt(prompt_template: str,
         NOTE : In cases where the "employee_performance" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
         NOTE : Minimum response length is 300 words. Always adhere to the same.
-        NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-        NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-        NOTE : NEVER print the response alignment score in the output.
+        
         ${user_feedback_prompt}
         \n\nAssistant:
         """
@@ -4246,8 +4763,128 @@ def scrape_meta_info(url):
         return "Error: " + str(e), ""
 
 
+def extract_information(text):
+    # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
+    text = text.replace("KLS", "Skills")
 
-def create_scenario_from_site_context(url,access_token):
+    # Replace KLP with Takeaway
+    text = text.replace("KLP", "Takeaway")
+    title_pattern = re.compile(r'Title: (.+)')
+    description_pattern = re.compile(r'Description: (.+)')
+    question_pattern = re.compile(r'Question (\d+): (.+)')
+    prompt_pattern = re.compile(r'Prompt (\d+): (.+)')
+    takeaway_pattern = re.compile(r'Takeaway (\d+): (.+)')
+    skills_pattern = re.compile(r'Skills (\d+): (.+)')
+    rating_pattern = re.compile(r'Rating : (\d+)')
+
+    # Extracting information using regular expressions
+    title_match = title_pattern.search(text)
+    description_match = description_pattern.search(text)
+    rating_match = rating_pattern.search(text)
+
+    if not (title_match and description_match and rating_match):
+        print("Invalid format. Unable to extract necessary information.")
+        return None
+
+    title = title_match.group(1)
+    description = description_match.group(1)
+    rating = int(rating_match.group(1))
+
+    questions = []
+    for match in question_pattern.finditer(text):
+        question_number = int(match.group(1))
+        question_text = match.group(2)
+        prompt_match = prompt_pattern.search(text, match.end())
+        takeaway_match = takeaway_pattern.search(text, prompt_match.end())
+        skills_match = skills_pattern.search(text, takeaway_match.end())
+
+        prompt_text = prompt_match.group(2)
+        takeaway_text = takeaway_match.group(2)
+        skills_text = skills_match.group(2)
+
+        questions.append({
+            'number': question_number,
+            'text': question_text,
+            'prompt': prompt_text,
+            'takeaway': takeaway_text,
+            'skills': skills_text
+        })
+
+    informations =  {
+        'title': title,
+        'description': description,
+        'rating': rating,
+        'questions': questions
+    }
+    
+    title = informations['title']
+    description = informations['description']
+
+    question_info = []
+    skill_to_evalaute = ''
+    for que in informations['questions']:
+        question_info.append({
+            "question": que["text"],
+            "question_type": "subjective",
+            "gpt_prompt_override": que["prompt"],
+            "subjective_answer": "",
+            "key_learning_point": que['takeaway'],
+            "key_learning_skills": que['skills']
+        })
+        skills_to_eva = set()
+        for skill in que['skills'].split(','):
+            skills_to_eva.add(skill.capitalize())
+
+        for skill in skills_to_eva:
+            skill_to_evalaute += skill +", "
+
+    return title, description, question_info, skill_to_evalaute
+
+def extract_info_gpt(scenario):
+    # Extract title
+    title_match = re.search(r"Title: (.+)", scenario)
+    title = title_match.group(1) if title_match else None
+
+    # Extract description
+    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
+    description = description_match.group(1).strip() if description_match else None
+
+    if description is None:
+        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
+        description = description_match.group(1).strip() if description_match else None
+
+    question_info = []
+
+    # Extract questions, prompts, takeaways, and skills
+    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+    print(question_matches)
+    if len(question_matches) == 0:
+        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
+
+    logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
+    skills_to_eva = set()
+    for match in question_matches:
+        num, question, prompt, takeaway, skills = match
+        question_info.append({
+            "question": question,
+            "question_type": "subjective",
+            "gpt_prompt_override": prompt,
+            "subjective_answer": "",
+            "key_learning_point": takeaway,
+            "key_learning_skills": skills
+        })
+        for skill in skills.split(','):
+            skills_to_eva.add(skill.capitalize())
+    
+    skill_to_evalaute =''
+
+    for skill in skills_to_eva:
+        skill_to_evalaute += skill +", "
+
+    return title,description, question_info, skill_to_evalaute
+
+
+def create_scenario_from_site_context(url,access_token, tenant_id, context):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -4274,135 +4911,159 @@ def create_scenario_from_site_context(url,access_token):
     - The simulation created is expected to be advanced and tough.
 
     """
+    def decode_basic_auth_token(token: str) -> str:
+            decoded_token = base64.b64decode(token).decode("utf-8")
+            key_and_secret = decoded_token.split(":")
 
+            key = key_and_secret[0]
+            secret = key_and_secret[1]
 
-    title, des = scrape_meta_info(url)
+            return key, secret
     
-    site_information = f"Title: {title} \n Description: {des}"
-
-    prompt = """
-            {Information} - %s
-
-        Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
-
-        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
-        Title - Give a specific and relevant title for this description in less than 10 words.
-        Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
-        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
-        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
-        The Question, Custom Prompt, KLP, KLS should be numbered.
-
-        Here the format looks like :
-
-        "Title",
-
-        "Description",
-
-        "Question 1",
-
-        "Prompt 1",
-
-        "Takeaway 1" ,
-
-        "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
-
-        'The Question, Prompt, Takeaway, Skills should be numbered.'
-
-        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
-        
-        NOTE : Make sure the simulation is very advanced and tough.
-        
-
-    """%(site_information)
-
-    response = {}
-    scenario = ''
     for i in range(3):
-        logger.info(f'trying scenario creation for {i +1} time')
-        scenario = generic_completion(prompt,2000,'failed to generate scenario')
-        print(scenario)
-        rating_match = re.search(r"Rating: (\d+)", scenario)
-        rating = int(rating_match.group(1)) if rating_match else 0
-        if scenario == 'failed to generate scenario' or rating <= 6:
+        logger.info(f"trying outer test generation for {i+1} time")
+        try:
+            if context:
+                context = json.loads(context)
+                title, des = context['title'], context['data']['information']
+                logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
+            else:
+                title, des = scrape_meta_info(url)
+            
+            site_information = f"Title: {title} \n Description: {des}"
+
+            prompt = """
+                \n\nHuman:
+                    {Information} - %s
+
+                Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+
+                Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description in less than 10 words.
+                Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+
+                Here the format looks like :
+
+                "Title",
+
+                "Description",
+
+                "Question 1",
+
+                "Prompt 1",
+
+                "Takeaway 1" ,
+
+                "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
+
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+                
+                NOTE : Make sure the simulation is very advanced and tough.
+                
+                \n\nAssistant:
+            """%(site_information)
+
+            response = {}
+            scenario = ''
+            title, description, question_info, skill_to_evalaute = "","","",""
+            for i in range(3):
+                logger.info(f'trying scenario creation palm for {i +1} time')
+                
+
+                scenario = text_bison_compeletion(prompt)
+                title, description, question_info, skill_to_evalaute = extract_information(scenario)
+
+                print("palm",scenario)
+                print("#"*100)
+
+                # scenario = anthropic_completion(prompt,max_tokens=1000)
+                # print("palm",scenario)
+
+                rating_match = re.search(r"Rating: (\d+)", scenario)
+                if not rating_match:
+                    rating_match = re.search(r"Rating : (\d+)", scenario)
+                rating = int(rating_match.group(1)) if rating_match else 0
+
+
+                if scenario == 'failed to generate scenario' or rating <= 6:
+                    print(rating,"failed")
+                    if i+1 == 3:
+                        for i in range(3):
+                            logger.info(f'trying gpt for {i+1} time')
+                            scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                            print("gpt",scenario)
+                            print("#"*100)
+                            title,description, question_info, skill_to_evalaute = extract_info_gpt(scenario)
+
+                            rating_match = re.search(r"Rating: (\d+)", scenario)
+                            if not rating_match:
+                                rating_match = re.search(r"Rating : (\d+)", scenario)
+                            rating = int(rating_match.group(1)) if rating_match else 0
+
+                            if scenario == 'failed to generate scenario' or rating <= 6:
+                                continue
+
+                            break
+                    else:
+                        continue
+                break
+
+            key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
+            # client = Client.objects.get(key=key)
+            # creator = User.objects.get(uid=client.owner_id)
+            admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
+
+            logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
+
+            json_data = json.dumps({
+                "creator_id": admin_user.uid,
+                "title": title,
+                "description": description,
+                "email_address_list":'mail@coachbots.com',
+                "questions": question_info,
+                "scenario_case": 'simulation',
+                "interaction_mode":'any',
+                "test_type":'test',
+                "email_candidate":True,
+                "gpt_prompt_override":"",
+                "skills_to_evaluate": skill_to_evalaute,
+                "is_self_created": True,
+                "certificate_details": {"title": title},
+
+
+            })
+            headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': access_token
+                    }
+            
+            try:
+                response = requests.post(
+                                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+                response = response.json()
+                print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
+                
+            except Exception as e:
+                logger.error(e,exc_info=True)
+                
+                raise e
+
+        except Exception as e:
+            logger.error(e,exc_info=True)
+            if i+1 == 3:
+                    return {'message':"failed to generate the scenario"}
             continue
-        break
 
 
 
-    # Extract title
-    title_match = re.search(r"Title: (.+)", scenario)
-    title = title_match.group(1) if title_match else None
-
-    # Extract description
-    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
-    description = description_match.group(1).strip() if description_match else None
-
-    if description is None:
-        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
-        description = description_match.group(1).strip() if description_match else None
-
-    question_info = []
-
-    # Extract questions, prompts, takeaways, and skills
-    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-    if len(question_matches) == 0:
-        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-    skills_to_eva = set()
-    for match in question_matches:
-        num, question, prompt, takeaway, skills = match
-        question_info.append({
-            "question": question,
-            "question_type": "subjective",
-            "gpt_prompt_override": prompt,
-            "subjective_answer": "",
-            "key_learning_point": takeaway,
-            "key_learning_skills": skills
-        })
-        for skill in skills.split(','):
-            skills_to_eva.add(skill.capitalize())
-    
-    skill_to_evalaute =''
-
-    for skill in skills_to_eva:
-        skill_to_evalaute += skill +", "
-
-
-    json_data = json.dumps({
-        "creator_id": None,
-        "title": title,
-        "description": description,
-        "email_address_list":'mail@coachbots.com',
-        "questions": question_info,
-        "scenario_case": 'simulation',
-        "interaction_mode":'audio',
-        "test_type":'test',
-        "email_candidate":True,
-        "gpt_prompt_override":"",
-        "skills_to_evaluate": skill_to_evalaute
-
-
-    })
-    headers = {
-                'Content-Type': 'application/json',
-                'Authorization': access_token
-            }
-    
-    try:
-        response = requests.post(
-                                API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
-        response = response.json()
-        return {'title': response['title'],'test_code': response['test_code']}
-        
-    except Exception as e:
-        logger.error(e,exc_info=True)
-        return {'message':"failed to generate the scenario"}
-
-
-
-
-
-def fetch_test_codes_by_site_context(url,tenant_id):
+def fetch_test_codes_by_site_context(url,tenant_id, context):
 
     title, des = scrape_meta_info(url)
     site_information = f"Title: {title} \n Description: {des}"
@@ -4435,7 +5096,8 @@ def fetch_test_codes_by_site_context(url,tenant_id):
     for test in tests:
         test_list.append({
             "title": test.title,
-            "test_code": test.test_code
+            "test_code": test.test_code,
+            "description": test.description,
         })
 
     return test_list

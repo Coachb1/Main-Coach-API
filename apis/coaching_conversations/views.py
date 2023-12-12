@@ -19,6 +19,94 @@ from users.db import get_user_display_name, get_user_by_id
 
 class CoachingConversationViewSet(ApiViewSet,
                                   mixins.ListModelMixin):
+    """
+    This code defines a `CoachingConversationViewSet` class that is a subclass of `ApiViewSet` and `mixins.ListModelMixin`. 
+    It provides various methods for managing coaching conversations, such as initializing a conversation, replying to a conversation, and retrieving conversation report data.
+
+    Example Usage:
+        # Initialize a coaching conversation
+        POST /coaching-conversations/initialize
+        Request Body:
+        {
+        "test_attempt_session_id": "12345"
+        }
+        Response Body:
+        {
+        "uid": "67890",
+        "coach_message_text": "Hello, how can I help you?",
+        "participant_message_text": null,
+        "status": "bot_message_saved",
+        "created": "2022-01-01T00:00:00Z",
+        "updated": "2022-01-01T00:00:00Z"
+        }
+
+        # Reply to a coaching conversation
+        POST /coaching-conversations/{conversation_uid}/reply
+        Request Body:
+        {
+        "participant_message_text": "I have a question.",
+        "participant_message_url": ""
+        }
+        Response Body:
+        {
+        "uid": "67891",
+        "coach_message_text": "Sure, what's your question?",
+        "participant_message_text": "I have a question.",
+        "status": "participant_message_saved",
+        "created": "2022-01-01T00:01:00Z",
+        "updated": "2022-01-01T00:01:00Z"
+        }
+
+        # Get coaching conversation report data
+        GET /coaching-conversations/report-data?test_attempt_session_id=12345
+        Response Body:
+        {
+        "results": [
+            {
+            "uid": "67890",
+            "coach_message_text": "Hello, how can I help you?",
+            "participant_message_text": null,
+            "status": "bot_message_saved",
+            "created": "2022-01-01T00:00:00Z",
+            "updated": "2022-01-01T00:00:00Z"
+            },
+            {
+            "uid": "67891",
+            "coach_message_text": "Sure, what's your question?",
+            "participant_message_text": "I have a question.",
+            "status": "participant_message_saved",
+            "created": "2022-01-01T00:01:00Z",
+            "updated": "2022-01-01T00:01:00Z"
+            }
+        ],
+        "test_title": "Sample Test",
+        "participant_name": "John Doe",
+        "date": "2022-01-01T00:00:00Z",
+        "logo": "https://example.com/logo.png"
+        }
+
+    Main functionalities:
+    - Initialize a coaching conversation by providing a test attempt session ID.
+    - Reply to a coaching conversation by providing a participant message text and optional participant message URL.
+    - Get coaching conversation report data for a specific test attempt session.
+
+    Methods:
+    - `get_queryset()`: Overrides the base method to filter the queryset based on the current tenant ID.
+    - `initialize_coaching_conversation_view()`: Initializes a coaching conversation by calling the `initialize_coaching_conversation()` function and returns the created conversation.
+    - `continue_coaching_conversation_view()`: Continues a coaching conversation by calling the `continue_coaching_conversation()` function and returns the next conversation.
+    - `get_coaching_conversation_report_data()`: Retrieves coaching conversation report data for a specific test attempt session.
+
+    Fields:
+    - `queryset`: The queryset for the coaching conversations, filtered to exclude deleted conversations.
+    - `permission_classes`: The permission classes required to access the view.
+    - `serializer_class`: The serializer class used for serializing/deserializing coaching conversations.
+    - `filter_backends`: The filter backends used for filtering the coaching conversations.
+    - `filterset_class`: The filter set class used for filtering the coaching conversations.
+    - `ordering_fields`: The fields that can be used for ordering the coaching conversations.
+    - `lookup_field`: The field used for looking up individual coaching conversations.
+    """
+
+
     queryset = CoachingConversation.objects.filter(deleted=0)
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     serializer_class = CoachingConversationDisplaySerializer
@@ -32,6 +120,18 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=False, url_path="initialize")
     def initialize_coaching_conversation_view(self, request, *args, **kwargs):
+        """
+        Initializes a coaching conversation by calling the `initialize_coaching_conversation` function and returns the created conversation.
+
+        Args:
+            request (Request): The request object containing the POST data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Response: The response object containing the serialized data of the created conversation.
+
+        """
         serializer = InitializeCoachingConversationSerializer(
             data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -51,6 +151,17 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=True, url_path="reply")
     def continue_coaching_conversation_view(self, request, *args, **kwargs):
+        """
+        Handles the POST request to reply to a coaching conversation.
+
+        Args:
+            request (Request): The request object containing the POST data.
+            *args (tuple): Additional positional arguments.
+            **kwargs (dict): Additional keyword arguments.
+
+        Returns:
+            Response: The response object containing the serialized data of the updated conversation.
+        """
         serializer = ReplyCoachingConversationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -74,6 +185,42 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="report-data")
     def get_coaching_conversation_report_data(self, request, *args, **kwargs):
+        """
+        Retrieves coaching conversation report data for a specific test attempt session.
+
+        Args:
+            request (Request): The request object containing the GET data.
+            test_attempt_session_id (str): The ID of the test attempt session for which to retrieve the coaching conversation report data.
+
+        Returns:
+            Response: A response object containing the coaching conversation report data.
+
+        Expected output:
+            {
+              "results": [
+                {
+                  "uid": "67890",
+                  "coach_message_text": "Hello, how can I help you?",
+                  "participant_message_text": null,
+                  "status": "bot_message_saved",
+                  "created": "2022-01-01T00:00:00Z",
+                  "updated": "2022-01-01T00:00:00Z"
+                },
+                {
+                  "uid": "67891",
+                  "coach_message_text": "Sure, what's your question?",
+                  "participant_message_text": "I have a question.",
+                  "status": "participant_message_saved",
+                  "created": "2022-01-01T00:01:00Z",
+                  "updated": "2022-01-01T00:01:00Z"
+                }
+              ],
+              "test_title": "Sample Test",
+              "participant_name": "John Doe",
+              "date": "2022-01-01T00:00:00Z",
+              "logo": "https://example.com/logo.png"
+            }
+        """
         test_attempt_session_id = request.query_params.get(
             "test_attempt_session_id", None)
 

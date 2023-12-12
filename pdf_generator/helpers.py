@@ -250,7 +250,43 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
         
         
-        return {'test_type':test.test_type,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
+        return {'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name}
+
+    print(f"{'&'*50} test_type : {test.test_type}, condition: {test.test_type == TestTypeChoices.mcq}, only_data: {only_data}")
+    if test.test_type == TestTypeChoices.mcq and only_data:
+        print("HURRayyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+        if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
+            custom_rating = CustomRating.objects.get(
+                tenant_id=test_attempt_session.tenant_id).custom_rating
+        else:
+            custom_rating = {
+                "1": "Starting Point",
+                "2": "Learning Phase",
+                "3": "Growth Stage",
+                "4": "Proficient",
+                "5": "High Achiever"
+            }
+
+        qa = []
+        test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
+                                                                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                deleted=0).order_by('id')
+        for response in test_responses:
+            mcq_options = questions.get(uid=response.question_id).mcq_options
+            question_text = questions.get(uid=response.question_id).question
+            mcq_skill = ''
+            for key, value in mcq_options.items():
+                if 'opt' in value and value['opt'] == question_text:
+                    mcq_skill = value.get(f'Skill {key}', None)
+            qa.append({
+                "question": question_text,
+                'response': response.response_text,
+                'comment': response.feedback_text,
+                'skills': mcq_skill,
+                'mcq_opitons': mcq_options
+            })
+        
+        return {'test_type':test.test_type,"ui_information":test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary}
 
 
     qa = []
@@ -377,7 +413,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             
         
 
-        return {'skills_explanation':skill_exp,'test_type':test.test_type,'scenario_case':test.scenario_case,'culture_skills_explanation':culture_skill_exp,"title":test_title,'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,"feedback_summary":feedback_summary,"skill_summary":skill_summary}
+        return {'skills_explanation':skill_exp,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'test_type':test.test_type,'scenario_case':test.scenario_case,'culture_skills_explanation':culture_skill_exp,"title":test_title,'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,"feedback_summary":feedback_summary,"skill_summary":skill_summary}
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
@@ -427,6 +463,16 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
 
 def get_participant_report(user, only_data=False):
+    """
+    Generates a participant report.
+
+    Args:
+        user (User): The user object representing the participant for whom the report is generated.
+        only_data (bool, optional): A flag indicating whether to return only the data for the report or the complete PDF document. Defaults to False.
+
+    Returns:
+        dict or str: If only_data is True, a dictionary containing the participant's name, participant information, and custom rating. If only_data is False, the URL of the saved participant report PDF document.
+    """
     participant_info = get_participant_info(user)
 
     participant_name = participant_info['name']
@@ -463,18 +509,21 @@ def get_participant_report(user, only_data=False):
         cnt = 1
 
         for test_attempt_session in test_attempt_sessions:
-            try:
-                session_info = {
-                    "slno" : cnt,
-                    "title": Test.objects.get(uid=test_attempt_session.test_id).title,
-                    "link" : test_attempt_session.report_url,
-                    "date" : test_attempt_session.created.date()
-                }
-                test_attempt_session_list.append(session_info)
-                cnt += 1
+            test = Test.objects.get(uid=test_attempt_session.test_id)
+            
+            if not test.is_self_created:
+                try:
+                    session_info = {
+                        "slno" : cnt,
+                        "title": test.title,
+                        "link" : test_attempt_session.report_url,
+                        "date" : test_attempt_session.created.date()
+                    }
+                    test_attempt_session_list.append(session_info)
+                    cnt += 1
 
-            except Exception as e:
-                pass
+                except Exception as e:
+                    pass
 
         participant_info['test_attempt_session_list'] = test_attempt_session_list
         
