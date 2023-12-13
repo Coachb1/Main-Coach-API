@@ -2473,10 +2473,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     logger.info({"***************************skills_rating_score":skills_rating_score})
 
-    skills_rating_score = update_skills_rating_if_same_scores(
-        skills_rating_score)
     skills_rating_score, avg_score = increment_avg_score_in_percentages(
         skills_rating_score, avg_score, participant_id, test_attempt_session)
+    skills_rating_score = update_skills_rating_if_same_scores(
+        skills_rating_score)
     test_score = 0
     for skill in skills_rating_score:
         test_score += skills_rating_score[skill]
@@ -2805,6 +2805,8 @@ def update_skills_rating_if_same_scores(skills_rating):
 
 @timeit
 def update_culture_skills_if_same_scores(culture_skills_rating):
+    return modify_skills_rating_if_same(culture_skills_rating)
+
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
