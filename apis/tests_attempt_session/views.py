@@ -393,3 +393,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    @action(methods=["GET"], detail=False, url_path="check-session-data-exist")
+    def check_session_data_exist(self, request, *args, **kwargs):
+        session_id = request.query_params.get('session_id')
+
+        try:
+            session_finished_at = TestAttemptSession.objects.get(uid = session_id).finished_at
+            check  = False
+            if session_finished_at:
+                check = True
+
+            return Response({"check":check}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
