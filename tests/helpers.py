@@ -642,6 +642,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                             last_question_number: int = 0):
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+    logger.info(f"{test_attempt_session.uid} - start __process_test_response")
 
     test_attempt_session.refresh_from_db()
 
@@ -729,6 +730,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
+        
+        if not test_question_response.response_text:
+            test_question_response.save(update_fields=update_fields)
 
     if test.interaction_mode != InteractionModeChoices.text:
         update_fields = ["response_text", "updated"]
@@ -857,6 +861,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     update_fields.append("speech_metrics")
 
         test_question_response.save(update_fields=update_fields)
+
+        if not test_question_response.response_text:
+            test_question_response.save(update_fields=update_fields)
 
     updated_fields = ["evaluation_status", "updated"]
     if test.scenario_case != "feedback_role_play":
@@ -1044,6 +1051,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=updated_fields)
+    
+    if test_question_response != TestQuestionResponseEvaluationStatusChoices.success:
+        test_question_response.save(
+        update_fields=updated_fields)
 
     # Evaluating TestResponse based on skills required in the question [SAM CHANGES]
     # required_skills = question.key_learning_skills.split(",")
@@ -1167,6 +1178,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         # if is_whatsapp and test.test_type != TestTypeChoices.interview:
         #     send_report_link_to_whatsapp(
         #         test, test_attempt_session, report_url)
+
+    logger.info(f"{test_attempt_session.uid} - end __process_test_response")
+
 
     return test_question_response
 
@@ -2332,6 +2346,8 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     This function calculates the score for the test attempt session and update the skills_rating field in this object
     Also it uses these skills rating to update the skills table
     """
+
+    logger.info(f"{test_attempt_session.uid} - start last response calculation")
     # get participant id from test_attempt_session
     participant_id = test_attempt_session.participant_id
 
@@ -2537,6 +2553,11 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     #     updated_fields.append("feedback_summary")
 
     test_attempt_session.save(update_fields=updated_fields)
+    
+    if not test_attempt_session.finished_at:
+        test_attempt_session.save(update_fields=updated_fields)
+
+
 
     if not test.is_self_created:
         # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
@@ -2546,6 +2567,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         updated_fields = []
 
         skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+        total_test_attmepted = skills_rating_object.total_tests_attempted
 
         for skill, rating in skills_rating_score.items():
 
@@ -2573,6 +2595,12 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         updated_fields.append("updated")
 
         skills_rating_object.save(update_fields=updated_fields)
+
+        if skills_rating_object.total_tests_attempted == total_test_attmepted:
+            skills_rating_object.save(update_fields=updated_fields)
+
+    logger.info(f"{test_attempt_session.uid} - end last response calculation")
+    
 
 
 def round_off_rating(number):
