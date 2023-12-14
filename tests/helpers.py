@@ -2477,6 +2477,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         skills_rating_score, avg_score, participant_id, test_attempt_session)
     skills_rating_score = update_skills_rating_if_same_scores(
         skills_rating_score)
+    avg_score = sum(skills_rating_score.values()) / len(skills_rating_score)
     test_score = 0
     for skill in skills_rating_score:
         test_score += skills_rating_score[skill]
