@@ -14,9 +14,34 @@ from users.models import User
 import re
 from commons.google_apis import text_bison_compeletion
 from commons.timeit import timeit
+from nltk.stem import PorterStemmer
+
 
 
 logger = logging.getLogger(__name__)
+
+
+def is_skill_matched(skill_list, rating_list):
+    # Initialize the Porter Stemmer
+    skill_list = [element.strip().lower() for element in skill_list]
+    rating_list = [element.strip().lower() for element in rating_list]
+    if all(element in skill_list for element in rating_list):
+        return True
+    else:
+        stemmer = PorterStemmer()
+
+        # Get the root word for each element in the skills_list
+        root_skill_list = [stemmer.stem(skill.lower()) for skill in skill_list]
+        root_rating_list = [stemmer.stem(skill.lower()) for skill in rating_list]
+        logger.info(f"root word ratings : {root_rating_list}")
+        logger.info(f"root word ratings : {root_rating_list}")
+
+        # Check if any rating stems do not match any of the skills stems
+        if any(rat not in root_skill_list for rat in root_rating_list):
+            return False
+        else:
+            return True
+
 
 def split_skills_string(str):
     mydata = str.split('}')
@@ -516,8 +541,11 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         NOTE: Don't put any other text in the reply other than the JSON. The keys in json object must be taken from {skills} only.
 
+        NOTE: Give me the exact skill name as given. Do Not change the name of any of the skill.
 
         NOTE: Output Format Example: {{"skill1": "4.5", "skill2": "9", "skill3": "2.5"}}
+
+        NOTE : Do not give the output as skill1 or skill2, only use the name of the skills given.
 
         NOTE: For the entire question and answer conversation no two skills from {skills} can have exact same scores.
         
@@ -545,6 +573,10 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 skills_rating_str = json_extraction(response)
 
                 skills_rating = json.loads(skills_rating_str)
+
+                if not is_skill_matched(skills,skills_rating.keys()):
+                    raise ValueError("Skills not found in the skills list.")
+
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
                 responses.append(skills_rating)
@@ -600,6 +632,10 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 skills_rating_str = json_extraction(response)
 
                 skills_rating = json.loads(skills_rating_str)
+
+                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
+                    raise ValueError("Skills not found in the skills list.")
+
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
                 responses.append(skills_rating)
@@ -644,6 +680,9 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 skills_rating_str = json_extraction(response)
 
                 skills_rating = json.loads(skills_rating_str)
+                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
+                    raise ValueError("Skills not found in the skills list.")
+
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
                 responses.append(skills_rating)
@@ -688,6 +727,9 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 skills_rating_str = json_extraction(response)
 
                 skills_rating = json.loads(skills_rating_str)
+                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
+                    raise ValueError("Skills not found in the skills list.")
+                
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
                 responses.append(skills_rating)
@@ -1950,7 +1992,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -1988,7 +2030,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
             
             break
         except Exception as e:
@@ -2023,7 +2065,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -2091,7 +2133,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
             
             break
 
@@ -2129,7 +2171,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
             
             break
         except Exception as e:
@@ -2164,7 +2206,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -2220,7 +2262,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -2258,7 +2300,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
             
             break
         except Exception as e:
@@ -2293,7 +2335,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -2358,7 +2400,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
@@ -2396,7 +2438,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
             
             break
         except Exception as e:
@@ -2431,7 +2473,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
             if len(skills_explanation.keys()) != len(culture_skills_rating.keys()):
-                raise
+                raise ValueError("skills count didn't matched")
 
             break
 
