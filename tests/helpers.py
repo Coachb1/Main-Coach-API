@@ -2756,6 +2756,7 @@ def modify_skills_rating_if_same(skills):
     logger.info(f"skills before: {skills}")
     modified_skills = {}
     value_counts = {}
+    start = time.time()
 
     for skill, value in sorted(skills.items(), key=lambda x: x[1]):
         # Modify the value to be unique and a multiple of 0.25
@@ -2766,9 +2767,21 @@ def modify_skills_rating_if_same(skills):
             # Apply the increment until uniqueness is achieved
             while round(value, 2) in value_counts and value_counts[round(value, 2)] >= 2:
                 value += increment
+                if value >= 9 or value <= 1:
+                    break
+
+            if value >= 9:
+                value -= 0.5
+            if value <= 1:
+                value += 0.5
 
             # Break out of the loop if the value is unique and less than 10
             if (round(value, 2) not in value_counts or value_counts[round(value, 2)] < 2) and round(value, 2) <= 9 and round(value, 2) >= 0:
+                break
+            
+            end = time.time()
+            if end - start > 2:
+                logger.info(f"Too much Time taken to modify skills: {end - start:.2f}")
                 break
 
         # Add the modified value to the count of occurrences
