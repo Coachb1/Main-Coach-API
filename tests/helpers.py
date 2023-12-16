@@ -4810,29 +4810,31 @@ def scrape_meta_info(url):
 def extract_information(text):
     # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
     text = text.replace("KLS", "Skills")
-
     # Replace KLP with Takeaway
     text = text.replace("KLP", "Takeaway")
-    title_pattern = re.compile(r'Title: (.+)')
-    description_pattern = re.compile(r'Description: (.+)')
-    question_pattern = re.compile(r'Question (\d+): (.+)')
-    prompt_pattern = re.compile(r'Prompt (\d+): (.+)')
-    takeaway_pattern = re.compile(r'Takeaway (\d+): (.+)')
-    skills_pattern = re.compile(r'Skills (\d+): (.+)')
-    rating_pattern = re.compile(r'Rating : (\d+)')
+    text = text.replace("Custom prompt", "Prompt")
+
+
+    title_pattern = re.compile(r'Title\s*:\s*(.+)')
+    description_pattern = re.compile(r'Description\s*:\s*(.+)')
+    question_pattern = re.compile(r'Question\s*(\d+)\s*:\s*(.+)')
+    prompt_pattern = re.compile(r'Prompt\s*(\d+)\s*:\s*(.+)')
+    takeaway_pattern = re.compile(r'Takeaway\s*(\d+)\s*:\s*(.+)')
+    skills_pattern = re.compile(r'Skills\s*(\d+)\s*:\s*(.+)')
+    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
+    
 
     # Extracting information using regular expressions
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
 
-    if not (title_match and description_match and rating_match):
-        print("Invalid format. Unable to extract necessary information.")
-        return None
+    if not (title_match and description_match and rating_match and question_pattern and prompt_pattern and takeaway_pattern and skills_pattern):
+        raise ValueError("Invalid format. Unable to extract necessary information.")
 
     title = title_match.group(1)
     description = description_match.group(1)
-    rating = int(rating_match.group(1))
+    rating = int(rating_match.group(1)) if rating_match else 0
 
     questions = []
     for match in question_pattern.finditer(text):
@@ -4845,14 +4847,14 @@ def extract_information(text):
         prompt_text = prompt_match.group(2)
         takeaway_text = takeaway_match.group(2)
         skills_text = skills_match.group(2)
-
-        questions.append({
-            'number': question_number,
+        question_data = {
             'text': question_text,
             'prompt': prompt_text,
             'takeaway': takeaway_text,
             'skills': skills_text
-        })
+        }
+        questions.append(question_data)
+        
 
     informations =  {
         'title': title,
@@ -4873,21 +4875,30 @@ def extract_information(text):
             "gpt_prompt_override": que["prompt"],
             "subjective_answer": "",
             "key_learning_point": que['takeaway'],
-            "key_learning_skills": que['skills']
+            "key_learning_skills": que['skills'].strip()
         })
         skills_to_eva = set()
         for skill in que['skills'].split(','):
-            skills_to_eva.add(skill.capitalize())
+            skills_to_eva.add(skill.strip().capitalize())
 
         for skill in skills_to_eva:
             skill_to_evalaute += skill +", "
 
-    return title, description, question_info, skill_to_evalaute
+    return title, description, question_info, skill_to_evalaute, rating
 
 def extract_info_gpt(scenario):
+    scenario = scenario.replace("KLS", "Skills")
+    # Replace KLP with Takeaway
+    scenario = scenario.replace("KLP", "Takeaway")
+    scenario = scenario.replace("Custom prompt", "Prompt")
+
+
     # Extract title
     title_match = re.search(r"Title: (.+)", scenario)
     title = title_match.group(1) if title_match else None
+    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
+    rating_match = rating_pattern.search(scenario)
+    rating = int(rating_match.group(1)) if rating_match else 0
 
     # Extract description
     description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
@@ -4925,7 +4936,7 @@ def extract_info_gpt(scenario):
     for skill in skills_to_eva:
         skill_to_evalaute += skill +", "
 
-    return title,description, question_info, skill_to_evalaute
+    return title,description, question_info, skill_to_evalaute, rating
 
 
 def create_scenario_from_site_context(url,access_token, tenant_id, context):
@@ -4974,7 +4985,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
             else:
                 title, des = scrape_meta_info(url)
             
-            site_information = f"Title: {title} \n Description: {des}"
+            site_information = f"{title} {des}"
 
             prompt = """
                 \n\nHuman:
@@ -5006,7 +5017,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
-                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
                 
                 NOTE : Make sure the simulation is very advanced and tough.
                 
@@ -5021,19 +5032,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                 
 
                 scenario = text_bison_compeletion(prompt)
-                title, description, question_info, skill_to_evalaute = extract_information(scenario)
-
                 print("palm",scenario)
                 print("#"*100)
-
-                # scenario = anthropic_completion(prompt,max_tokens=1000)
-                # print("palm",scenario)
-
-                rating_match = re.search(r"Rating: (\d+)", scenario)
-                if not rating_match:
-                    rating_match = re.search(r"Rating : (\d+)", scenario)
-                rating = int(rating_match.group(1)) if rating_match else 0
-
+                title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
 
                 if scenario == 'failed to generate scenario' or rating <= 6:
                     print(rating,"failed")
@@ -5043,12 +5044,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                             scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                             print("gpt",scenario)
                             print("#"*100)
-                            title,description, question_info, skill_to_evalaute = extract_info_gpt(scenario)
-
-                            rating_match = re.search(r"Rating: (\d+)", scenario)
-                            if not rating_match:
-                                rating_match = re.search(r"Rating : (\d+)", scenario)
-                            rating = int(rating_match.group(1)) if rating_match else 0
+                            title,description, question_info, skill_to_evalaute,rating = extract_info_gpt(scenario)
 
                             if scenario == 'failed to generate scenario' or rating <= 6:
                                 continue
