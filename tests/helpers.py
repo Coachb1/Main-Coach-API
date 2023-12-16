@@ -4828,8 +4828,7 @@ def extract_information(text):
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
-
-    if not (title_match and description_match and rating_match and question_pattern and prompt_pattern and takeaway_pattern and skills_pattern):
+    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
 
     title = title_match.group(1)
@@ -4974,8 +4973,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
             secret = key_and_secret[1]
 
             return key, secret
-    
-    for i in range(3):
+
+    garbage_scenarios = []
+    for i in range(15):
         logger.info(f"trying outer test generation for {i+1} time")
         try:
             if context:
@@ -5034,23 +5034,29 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                 scenario = text_bison_compeletion(prompt)
                 print("palm",scenario)
                 print("#"*100)
-                title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
+
+                try:
+                    title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
+                except:
+                    print('garbage scenario :',scenario)
+                    garbage_scenarios.append(scenario)
+                    rating = 0
 
                 if scenario == 'failed to generate scenario' or rating <= 6:
-                    print(rating,"failed")
-                    if i+1 == 3:
-                        for i in range(3):
-                            logger.info(f'trying gpt for {i+1} time')
-                            scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                            print("gpt",scenario)
-                            print("#"*100)
-                            title,description, question_info, skill_to_evalaute,rating = extract_info_gpt(scenario)
+                    # print(rating,"failed")
+                    # if i+1 == 3:
+                    #     for i in range(3):
+                    #         logger.info(f'trying gpt for {i+1} time')
+                    #         scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    #         print("gpt",scenario)
+                    #         print("#"*100)
+                    #         title,description, question_info, skill_to_evalaute,rating = extract_info_gpt(scenario)
 
-                            if scenario == 'failed to generate scenario' or rating <= 6:
-                                continue
+                    #         if scenario == 'failed to generate scenario' or rating <= 6:
+                    #             continue
 
-                            break
-                    else:
+                    #         break
+                    # else:
                         continue
                 break
 
@@ -5097,8 +5103,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
 
         except Exception as e:
             logger.error(e,exc_info=True)
-            if i+1 == 3:
-                    return {'message':"failed to generate the scenario"}
+            if i+1 == 15:
+                logger.info(f"{'!'*100}  failed 15 times  {'!'*100}")
+                return {'message':"failed to generate the scenario","data":garbage_scenarios}
             continue
 
 
