@@ -773,22 +773,33 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
 
 @timeit
+def find_top_low_skills(skill_ratings, num_top_skills=2):
+    sorted_skills = sorted(skill_ratings.items(), key=lambda x: x[1], reverse=True)
+    top_skills = {skill: score for skill, score in sorted_skills[:num_top_skills]}
+
+    sorted_skills = sorted(skill_ratings.items(), key=lambda x: x[1])
+    lowest_skills = {skill: score for skill, score in sorted_skills[:num_top_skills]}
+    
+    return top_skills , lowest_skills
+
+@timeit
 def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_skill, skill_rating,is_free=False):
+
+    top_skill, low_skill = find_top_low_skills(skill_rating)
+    high_cult, low_cult = find_top_low_skills(cultural_skill)
+
     prompt= """
     \n\nHuman:
-    cultural_list: %s
 
-    skills_list: %s
+    {Top_skills} : %s
 
-    {Top_skills} : From the skills_list get the two skills with the highest score. Write the skill name and the score in this format skill : score
-
-    {Low_skills} : From the skills_list get the two skills with the lowest score. Write the skill name and the score in this format skill : score
+    {Low_skills} : %s
 
     {Improvement} : Provide some ideas on how the user can improve the {Low_skills} in 2-3 sentences.
 
-    {High_culture} : From the cultural_list get the skill with the highest score.
+    {High_culture} : %s
 
-    {Low_culture} : From the cultural_list get the skill with the lowest score.
+    {Low_culture} : %s
 
     {Culture_summary} : Please summarize the {High_culture} and {Low_culture} and the reason for the same in 2-3 sentences and comment on the culture orientation of the responder.
 
@@ -810,7 +821,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
     \n\nAssistant:
-    """%(cultural_skill,skill_rating)
+    """%(top_skill,low_skill,high_cult,low_cult)
 
 
     if is_free:
