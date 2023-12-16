@@ -621,7 +621,7 @@ class TestViewSet(ApiViewSet,
         access_token = request.query_params.get('access_token')
         context = request.query_params.get('information',None)
 
-        # print("%"*100,f"              {mode}  {url}   {key} : {secret}             ","%"*100)
+        print("%"*100,f"              {mode}  {url}   context: {context}           ","%"*100)
         if mode == 'A':
             scenario = create_scenario_from_site_context(url, access_token, tenant_id, context)
             return Response(data=[scenario], status=status.HTTP_200_OK)
