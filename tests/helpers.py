@@ -1417,13 +1417,24 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             if background is not None:
                 prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
             else:
-                prompt = get_chat_conversation_prompt_v3(
-                                    test_title=test.title,
-                                    test_description=test.description,
-                                    question=question_text,
-                                    question_context=question.subjective_answer,
-                                    candidate_reply=test_question_response.response_text,
-                                    user_feedback_prompt="")
+                if question.gpt_prompt_override or test.gpt_prompt_override:
+                    prompt = get_overridden_prompt(
+                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                        test_title=test.title,
+                        test_description=test.description,
+                        question=question.question,
+                        question_context=question.subjective_answer,
+                        candidate_reply=test_question_response.response_text,
+                        user_feedback_prompt=""
+                    )
+                else:
+                    prompt = get_chat_conversation_prompt_v3(
+                                        test_title=test.title,
+                                        test_description=test.description,
+                                        question=question_text,
+                                        question_context=question.subjective_answer,
+                                        candidate_reply=test_question_response.response_text,
+                                        user_feedback_prompt="")
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
@@ -1562,13 +1573,24 @@ def get_feedback(question, test_question_response,question_text,test):
         if background is not None:
             prompt = get_interview_feedback(test.title, test.description, background, question_text, test_question_response.response_text)
         else:
-            prompt = get_chat_conversation_prompt_v3(
-                                test_title=test.title,
-                                test_description=test.description,
-                                question=question_text,
-                                question_context=question.subjective_answer,
-                                candidate_reply=test_question_response.response_text,
-                                user_feedback_prompt="")
+            if question.gpt_prompt_override or test.gpt_prompt_override:
+                prompt = get_overridden_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    question_context=question.subjective_answer,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=""
+                )
+            else:
+                prompt = get_chat_conversation_prompt_v3(
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question_text,
+                                    question_context=question.subjective_answer,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt="")
         
     test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
