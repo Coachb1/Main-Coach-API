@@ -7,7 +7,7 @@ from tests.models import Test, TestQuestion
 class CreateTestQuestionSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=QuestionTypeChoices)
     question_for = serializers.CharField(default=QuestionForChoices.user)
-    question = serializers.CharField()
+    question = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_number = serializers.IntegerField(default=0)
     can_be_skipped = serializers.BooleanField(default=False)
     is_view_only = serializers.BooleanField(default=False)
@@ -70,6 +70,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_game_type = serializers.BooleanField(
         required=False, default=False)
+    is_immersive = serializers.BooleanField(
+        required=False, default=False)
     is_free = serializers.BooleanField(
         required=False, default=False)
     is_micro = serializers.BooleanField(default=False, required=False)
@@ -103,6 +105,7 @@ class CreateTestSerializer(serializers.Serializer):
     exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
     ui_information = serializers.JSONField(default=None, required=False, allow_null=True)
+    media_props = serializers.JSONField(default=None, required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -165,7 +168,9 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_self_created",
                   "is_logged_in",
                   "is_micro",
-                  "client_name"
+                  "client_name",
+                  "is_immersive",
+                  "media_props"
                   ]
 
     def get_questions(self, instance):
