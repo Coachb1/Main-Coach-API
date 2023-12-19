@@ -10,6 +10,7 @@ from commons.viewset import ApiViewSet
 from tests.helpers import create_test_question_answer, submit_feedback
 from tests.models import TestQuestionResponse, TestAttemptSession, TestQuestion, Test
 from rest_framework.decorators import action
+from commons.google_apis import text_to_speech_google
 
 
 
@@ -65,5 +66,15 @@ class TestQuestionResponseViewSet(ApiViewSet,
         feedback = submit_feedback(session_id,tenant_id,question_id,response_file)
 
         return Response({"feedback_text": feedback}, status=status.HTTP_201_CREATED)
+
+
+    @action(methods=['GET'],detail=False,url_path="get-text-to-speech")
+    def get_text_to_speech(self,request, *args, **kwargs):
+        
+        text = request.query_params.get('text')
+
+        response = text_to_speech_google(text)
+
+        return Response({"data": str(response.audio_content)}, status=status.HTTP_201_CREATED)
 
         
