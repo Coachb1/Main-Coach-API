@@ -12,6 +12,9 @@ from tests.models import TestQuestionResponse, TestAttemptSession, TestQuestion,
 from rest_framework.decorators import action
 from commons.google_apis import text_to_speech_google
 from django.http import StreamingHttpResponse
+from django.http import HttpResponse
+import tempfile
+import os
 
 
 
@@ -77,8 +80,23 @@ class TestQuestionResponseViewSet(ApiViewSet,
         response = text_to_speech_google(text)
 
         audio_file_content = response.audio_content
-        response = StreamingHttpResponse(audio_file_content, content_type="audio/mpeg")
-        response['Content-Disposition'] = 'attachment; filename="output.mp3"'
+        print(audio_file_content)
+        # response = StreamingHttpResponse(audio_file_content, content_type="audio/mpeg")
+        # response['Content-Disposition'] = 'attachment; filename="output.mp3"'
+
+        # Create a temporary MP3 file
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            temp_file.write(audio_file_content)
+            temp_file_path = temp_file.name
+
+        # Open the temporary file and create an HttpResponse
+        with open(temp_file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type="audio/mpeg")
+            response['Content-Disposition'] = 'attachment; filename="output.mp3"'
+
+        # Delete the temporary file after sending the response
+        os.remove(temp_file_path)
+
 
         return response
         
