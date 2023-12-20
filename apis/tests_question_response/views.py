@@ -77,7 +77,7 @@ class TestQuestionResponseViewSet(ApiViewSet,
         response = text_to_speech_google(text)
 
         audio_file_content = response.audio_content
-        response = StreamingHttpResponse(audio_file_content, content_type="audio/mp3")
+        response = StreamingHttpResponse(audio_file_content, content_type="audio/mpeg")
         response['Content-Disposition'] = 'attachment; filename="output.mp3"'
 
         return response
