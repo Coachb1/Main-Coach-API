@@ -11,6 +11,7 @@ from tests.helpers import create_test_question_answer, submit_feedback
 from tests.models import TestQuestionResponse, TestAttemptSession, TestQuestion, Test
 from rest_framework.decorators import action
 from commons.google_apis import text_to_speech_google
+from django.http import StreamingHttpResponse
 
 
 
@@ -75,6 +76,9 @@ class TestQuestionResponseViewSet(ApiViewSet,
 
         response = text_to_speech_google(text)
 
-        return Response({"data": str(response.audio_content)}, status=status.HTTP_201_CREATED)
+        audio_file_content = response.audio_content
+        response = StreamingHttpResponse(audio_file_content, content_type="audio/mp3")
+        response['Content-Disposition'] = 'attachment; filename="output.mp3"'
 
+        return response
         
