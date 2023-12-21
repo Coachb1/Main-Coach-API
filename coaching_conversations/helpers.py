@@ -50,16 +50,31 @@ def create_test_coaching_conversation_session(tenant: Tenant,
     return test_attempt_session
 
 
-def get_coaching_conversation_prompt(candidate_data_str):
-    return f"""
-Context:{candidate_data_str} \n\nImagine you are an life coach 
-who has just asked some question to which the candidate responds with the above 
-\"Context\". Provide developmental response to the candidate based on their answers, 
-and also ask a question to further explore their skills and knowledge in this domain. 
-Please make sure to provide elaborate feedback and it should be intertwined 
-with the question in a way that creates a cohesive conversation.
-NOTE: Do not show word count.(Eg: 50 words)
-"""
+def get_coaching_conversation_prompt(candidate_data_str, test, question):
+#     return f"""
+# Context:{candidate_data_str} \n\nImagine you are an life coach 
+# who has just asked some question to which the candidate responds with the above 
+# \"Context\". Provide developmental response to the candidate based on their answers, 
+# and also ask a question to further explore their skills and knowledge in this domain. 
+# Please make sure to provide elaborate feedback and it should be intertwined 
+# with the question in a way that creates a cohesive conversation.
+# NOTE: Do not show word count.(Eg: 50 words)
+# """
+    expert_suggestions = question.gpt_prompt_override if question.gpt_prompt_override else ""
+
+    prompt = f"""
+        Title: {test.title}. 
+        Test Description: {test.description}
+        Expert Suggestions:  {expert_suggestions} 
+        Context : {candidate_data_str}
+
+        You are a coach who is conducting a session with a candidate who is sharing their problem here {{Context}}. Provide a developmental response to the candidate based on their response. Provide realistic and actionable strategies to help the candidate solve their problem. Guide the candidate to reach an effective solution to their problem. The response should be based on the {expert_suggestions}. 
+        Ask a question to further explore their skills and knowledge in this domain. 
+        NOTE: The question should not be more than 100 words.
+        NOTE: Do not show word count.(Eg: 50 words)
+    """
+
+    return prompt
 
 
 @timeit
@@ -197,7 +212,10 @@ def continue_coaching_conversation(tenant: Tenant,
         flat=True
     )
 
-    prompt = get_coaching_conversation_prompt(" ".join(previous_conversations))
+    question = TestQuestion.objects.get(
+        tenant_id=tenant.uid, test_id=test.uid, deleted=0)
+
+    prompt = get_coaching_conversation_prompt(" ".join(previous_conversations), test, question)
     gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
     if not gpt_feedback.text:
