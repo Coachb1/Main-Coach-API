@@ -148,7 +148,15 @@ def continue_coaching_conversation(tenant: Tenant,
                          test_attempt_session.test_id)
         raise serializers.ValidationError("invalid test id")
 
-    if test.interaction_mode != InteractionModeChoices.text:
+    if test.interaction_mode == InteractionModeChoices.any:
+        if participant_message_url:
+            reply_to_conversation.participant_message_text = gpt_wishper_api(
+                participant_message_url
+            )
+            reply_to_conversation.save(
+            update_fields=["participant_message_text", "updated"])
+
+    if test.interaction_mode not in [InteractionModeChoices.any, InteractionModeChoices.text]:
         if not participant_message_url:
             raise serializers.ValidationError(
                 "participant_message_url is absent")
