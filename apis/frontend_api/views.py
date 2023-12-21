@@ -131,6 +131,7 @@ class FrontendAuthViewSet(ApiViewSet):
                                                         uid=test_attempt_session_id, deleted=0)
                 if test_attempt_session.status == TestAttemptSessionStatusChoices.in_progress:
                     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+                    test_attempt_session.finished_at = datetime.datetime.now()
                     test_attempt_session.save()
             except Exception as e:
                 logger.info({"!!! Error !!!":"failed to get session from session_id for coaching", "error":e.args})
