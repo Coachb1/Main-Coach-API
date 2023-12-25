@@ -77,17 +77,18 @@ def to_dict(string, skills = None):
     return None
     
 def json_extraction_for_competency(text):
-    pattern = re.compile(r'{.*}')
+    start_index = text.find('{')
+    end_index = text.rfind('}')
 
-    # Find the match in the input string
-    match = pattern.search(text)
+    if start_index != -1 and end_index != -1:
+        text = text[start_index: end_index+1]
+    
+    if start_index and end_index:
+        logger.info({'json': text})
 
-    if match:
-        json_data = match.group()
-        logger.info({"json": json_data})
-        return json_data
+        return text
     else:
-        logger.info({"message": "json not found"})
+        logger.error('no json found')
         return text
     
 def json_extraction(text):
