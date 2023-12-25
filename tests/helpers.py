@@ -1240,7 +1240,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         # Evaluate skills rating for the test attempt session and update skills table in that.
         if test.scenario_case == ScenarioCaseChoices.process_training:
             test_attempt_session.finished_at = timezone.now()
-            test_attempt_session.save(updated_fields=['finished_at']) 
+            test_attempt_session.save(update_fields=['finished_at']) 
         else:
             calc_score(test_attempt_session, test)
 
