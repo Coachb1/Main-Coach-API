@@ -77,17 +77,18 @@ def to_dict(string, skills = None):
     return None
     
 def json_extraction_for_competency(text):
-    pattern = re.compile(r'{.*}')
+    start_index = text.find('{')
+    end_index = text.rfind('}')
 
-    # Find the match in the input string
-    match = pattern.search(text)
+    if start_index != -1 and end_index != -1:
+        text = text[start_index: end_index+1]
+    
+    if start_index and end_index:
+        logger.info({'json': text})
 
-    if match:
-        json_data = match.group()
-        logger.info({"json": json_data})
-        return json_data
+        return text
     else:
-        logger.info({"message": "json not found"})
+        logger.error('no json found')
         return text
     
 def json_extraction(text):
@@ -669,17 +670,17 @@ def evaluate_competency_data(description, conversation,test_attempt_session,is_f
 @timeit
 def evaluate_rating_for_process_training(test_question_response, question_text, response_text,correct_answer, test_title,is_free=False):
     
-    prompt = f'''
+    prompt = '''
     \n\nHuman:
-    Question:  ${question_text} 
-    Correct answer:  ${correct_answer} 
-    Candidate answer:  ${response_text}
+    Question:  %s
+    Correct answer:  %s
+    Candidate answer:  %s
 
     For the given "Question", a correct answer was provided in "Correct answer". A candidate has given an answer to the question in "Candidate answer". Compare the answer given by the candidate to the correct and give a rating on the candidate answer on a scale of 1-10. 
 
     NOTE: Output Format Example: {"rating": "7"}
     \n\nAssistant:
-    '''
+    '''%(question_text,correct_answer,response_text)
 
 
     if is_free:
