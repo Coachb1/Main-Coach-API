@@ -251,7 +251,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
         
         
-        return {'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name,'competency_data':competency_report_data}
+        return {'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data}
 
 
 
