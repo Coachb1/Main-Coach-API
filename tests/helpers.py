@@ -1236,10 +1236,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        if test.scenario_case != ScenarioCaseChoices.process_training:
-            calc_score(test_attempt_session, test)
+        if test.scenario_case == ScenarioCaseChoices.process_training:
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.save(updated_fields=['finished_at']) 
+        else:
+            calc_score(test_attempt_session, test)
 
         if test.is_free:
             report_url = generate_summary_feedback_session_report_link(test_attempt_session, test)
