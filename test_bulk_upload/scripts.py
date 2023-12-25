@@ -687,6 +687,9 @@ def format_test_data_slack(raw_data):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
+                if input_dict[SCENARIO_CASE] == 'process_training':
+                    question['key_learning_point'] = "No key learning point for this question"
+                    question['key_learning_skills'] = "communication skills"
 
                 if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
@@ -968,20 +971,19 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                             f"Column '{col}' has null or empty value in row")
 
             # Checkoing for empty KLS and KLP and questions
-            if row_data[SCENARIO_CASE] != 'process_training':
-                for row_data in all_rows:
-                    for key in row_data:
-                        if key.startswith(QUESTION):
-                            if not row_data[key] and (IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
-                                raise Exception(
-                                    f"Column '{key}' has null or empty value in row")
-                        if key.startswith(KLS) or key.startswith(KLP):
-                            if not row_data[key]:
-                                raise Exception(
-                                    f"Column '{key}' has null or empty value in row")
+            for row_data in all_rows:
+                for key in row_data:
+                    if key.startswith(QUESTION):
+                        if not row_data[key] and (IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
+                            raise Exception(
+                                f"Column '{key}' has null or empty value in row")
+                    if key.startswith(KLS) or key.startswith(KLP):
+                        if not row_data[key]:
+                            raise Exception(
+                                f"Column '{key}' has null or empty value in row")
 
-                    # If row is valid, append it to list of valid rows to be sent to API
-                    valid_rows.append(row_data)
+                # If row is valid, append it to list of valid rows to be sent to API
+                valid_rows.append(row_data)
 
             logger.info(f"Total valid records: {len(valid_rows)}")
 

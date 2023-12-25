@@ -241,7 +241,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
 
-            if test.test_type == TestTypeChoices.coaching:
+            if test.test_type == TestTypeChoices.coaching or test.scenario_case == ScenarioCaseChoices.process_training:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
