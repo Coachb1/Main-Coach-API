@@ -2532,10 +2532,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if speech_count != int(responses.count()):
         has_speech_metric = False
 
-    if test.scenario_case == ScenarioCaseChoices.pms:
-        evaluate_competency_data_thread(question,responses,test,test_attempt_session)
 
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
+    if test.scenario_case == ScenarioCaseChoices.pms:
+        evaluate_competency_data_thread(questions,responses,test,test_attempt_session)
     skills_=[]
     for question in questions:
         required_skills = question.key_learning_skills.split(",")
