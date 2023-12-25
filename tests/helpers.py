@@ -68,6 +68,7 @@ from tests.choices import ScenarioCaseChoices
 from bs4 import BeautifulSoup
 import requests
 from test_bulk_upload.scripts import API_ENDPOINT_SLACK
+from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data
 
 logger = logging.getLogger(__name__)
 
@@ -615,6 +616,7 @@ def evaluate_relevence_thread(question, test_question_response, test, test_attem
                                         test_question_response.response_text,
                                         test.description,
                                         test.title,
+                                        test.is_free
                                         )
 
     if not is_evaluated:
@@ -631,6 +633,63 @@ def evaluate_relevence_thread(question, test_question_response, test, test_attem
 
     test_question_response.relevance = relevance
     test_question_response.save(update_fields=["relevance"])
+
+@timeit
+def evaluate_rating_thread(question, test_question_response, test, test_attempt_session):
+    raiting_score = {}
+    raiting_score, is_evaluated = evaluate_rating_for_process_training(test_question_response,
+                                        question.question,
+                                        test_question_response.response_text,
+                                        question.mcq_answer,
+                                        test.title,
+                                        test.is_free
+                                        )
+
+    if not is_evaluated:
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
+        # delete this response
+        delete_test_response(test_question_response)
+        logger.error("failed to get raiting_score, got %s", raiting_score)
+        raise ValueError("failed to get raiting_score json for %s",
+                         test_question_response.uid)
+
+    if "rating" in raiting_score:
+        rating = str(raiting_score['rating'])  # taking rating and deleting it form json
+
+        test_question_response.response_rating = rating
+        test_question_response.save(update_fields=["response_rating"])
+
+@timeit
+def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session):
+    competency_data = {}
+    conversation = ""
+    count = 1
+
+    for response in test_question_response:
+
+        question = TestQuestion.objects.get(
+            uid=response.question_id)
+
+        question_text = question.question
+        response_text = response.response_text
+
+        conversation += f"{count}. [Question:] {question_text}\n"
+        if not question.is_view_only:
+            conversation += f"[Answer:] {response_text}\n\n"
+
+        count += 1
+        
+
+    competency_data, is_evaluated = evaluate_competency_data(test.description,
+                                        conversation,
+                                        test_question_response,
+                                        test.is_free
+                                        )
+
+    
+
+    test_attempt_session.competency_data = competency_data
+    test_attempt_session.save(update_fields=["competency_data"])
 
 
 @timeit
@@ -700,7 +759,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             end = time.time()
             logger.info(f"####################### _process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
 
-            if not test.is_free:
+            if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
                 if transcript_length > 10:
                     if test.test_type == TestTypeChoices.trainer_thread:
                         threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -772,7 +831,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 end = time.time()
                 logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
-                if not test.is_free:
+                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -834,7 +893,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         transcript = "Transcription couldn't be generated"
                         test_question_response.response_text = transcript
 
-                if not test.is_free:
+                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -932,6 +991,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         if len(words) <= 10 :
             feedback_text = "No feedback can be generated because of too low response length"
+            go_for_feedback = False
+
+        if test.scenario_case == ScenarioCaseChoices.process_training:
+            feedback_text = "No feedback because of process training"
             go_for_feedback = False
         
         if go_for_feedback:
@@ -1084,7 +1147,12 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # because now we are cal skill_ratings at the end of conversation
     if test.test_type == TestTypeChoices.trainer_thread:
         threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
+        if test.scenario_case == ScenarioCaseChoices.process_training:
+            threading.Thread(target=evaluate_rating_thread, args=(question, test_question_response, test, test_attempt_session)).start()
     else:
+        if test.scenario_case == ScenarioCaseChoices.process_training:
+            evaluate_rating_thread(question, test_question_response, test, test_attempt_session)
+
         relevancy_score = {}
         if test.is_free:
             relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
@@ -1168,7 +1236,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        calc_score(test_attempt_session, test)
+        if test.scenario_case != ScenarioCaseChoices.process_training:
+            calc_score(test_attempt_session, test)
+            test_attempt_session.finished_at = timezone.now()
+            test_attempt_session.save(updated_fields=['finished_at']) 
 
         if test.is_free:
             report_url = generate_summary_feedback_session_report_link(test_attempt_session, test)
@@ -2457,6 +2528,9 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     if speech_count != int(responses.count()):
         has_speech_metric = False
+
+    if test.scenario_case == ScenarioCaseChoices.pms:
+        evaluate_competency_data_thread(question,responses,test,test_attempt_session)
 
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     skills_=[]

@@ -73,6 +73,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         tenant = self.request.tenant
         data['logo'] = tenant.logo
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+    
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
     def get_meeting_report_frontend(self, request, *args, **kwargs):
