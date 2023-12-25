@@ -684,7 +684,7 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
 
     competency_data, is_evaluated = evaluate_competency_data(test.description,
                                         conversation,
-                                        test_question_response,
+                                        test_attempt_session,
                                         test.is_free
                                         )
 
