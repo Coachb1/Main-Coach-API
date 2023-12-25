@@ -76,6 +76,20 @@ def to_dict(string, skills = None):
                 raise e
     return None
     
+def json_extraction_for_competency(text):
+    pattern = re.compile(r'{.*}')
+
+    # Find the match in the input string
+    match = pattern.search(text)
+
+    if match:
+        json_data = match.group()
+        logger.info({"json": json_data})
+        return json_data
+    else:
+        logger.info({"message": "json not found"})
+        return text
+    
 def json_extraction(text):
     pattern = r'{[^}]+}'
 
@@ -455,7 +469,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
         return response, True
 @timeit
-def evaluate_competency_data(description, conversation,test_question_response,is_free=False):
+def evaluate_competency_data(description, conversation,test_attempt_session,is_free=False):
     prompt = """
         "DESCRIPTION:" %s;
 
@@ -512,7 +526,7 @@ def evaluate_competency_data(description, conversation,test_question_response,is
                 logger.info({"****evaluate_competency_data ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-                response = json_extraction(response)
+                response = json_extraction_for_competency(response)
                 response = json.loads(response)
                 
 
@@ -546,7 +560,7 @@ def evaluate_competency_data(description, conversation,test_question_response,is
                 logger.info({"****evaluate_competency_data ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
                 response = text_bison_compeletion(prompt)
                 logger.info({"****evaluate_competency_data ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
-                response = json_extraction(response)
+                response = json_extraction_for_competency(response)
                 response = json.loads(response)
                 
                 
@@ -583,7 +597,7 @@ def evaluate_competency_data(description, conversation,test_question_response,is
                 logger.info({"****evaluate_competency_data ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-                response = json_extraction(response)
+                response = json_extraction_for_competency(response)
                 response = json.loads(response)
                 
 
@@ -615,7 +629,7 @@ def evaluate_competency_data(description, conversation,test_question_response,is
                 logger.info({"****evaluate_competency_data ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
                 response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                 logger.info({"****evaluate_competency_data ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-                response = json_extraction(response)
+                response = json_extraction_for_competency(response)
                 response = json.loads(response)
                 
                 
@@ -645,7 +659,7 @@ def evaluate_competency_data(description, conversation,test_question_response,is
 
         # send error on slack to debug this
         send_slack_message({"process": "evaluate_competency_data",
-                            "test_question_response": test_question_response.uid,
+                            "test_attempt_session": test_attempt_session.uid,
                             "error": "failed to evaluate; putting random value"})
 
         return response, True
