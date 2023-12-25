@@ -654,10 +654,12 @@ def evaluate_rating_thread(question, test_question_response, test, test_attempt_
                          test_question_response.uid)
 
     if "rating" in raiting_score:
-        rating = str(raiting_score['rating'])  # taking rating and deleting it form json
+        rating = raiting_score['rating']  # taking rating and deleting it form json
+    
+    logger.info({"reting_score": raiting_score})
 
-        test_question_response.response_rating = rating
-        test_question_response.save(update_fields=["response_rating"])
+    test_question_response.response_rating = rating
+    test_question_response.save(update_fields=["response_rating"])
 
 @timeit
 def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session):
