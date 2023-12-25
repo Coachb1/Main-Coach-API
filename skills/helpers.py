@@ -454,6 +454,373 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                             "error": "failed to evaluate; putting random value"})
 
         return response, True
+@timeit
+def evaluate_competency_data(description, conversation,test_question_response,is_free=False):
+    prompt = """
+        "DESCRIPTION:" %s;
+
+        "CONVERSATION:" %s;
+        "Evaluation Criteria:"
+
+        - Communication Skills - are based on the ability to respectfully communicate ideas and information to ensure that information and messages are understood and have the desired impact.
+        Level 1 - Communicates in a clear, concise and impartial manner. Takes time to listen to and understand the perspectives of others and proposes solutions.
+        Level 2 - Encourages open communication and builds consensus. Uses tact and discretion in dealing with sensitive information, and keeps staff informed of decisions and directives as appropriate.
+        Level 3 - Promotes an environment of open communication within and outside of the Agency, ensuring that sensitive information is protected. Inspires staff at all levels through his/her communication.
+
+        - Teamwork - implies working cooperatively with others, being a part of a team, and assuming the role of leader of a team. 
+        Level 1 - Actively contributes to achieving team results. Supports team decisions. Shares all relevant information with others and seeks others' input. Expresses own opinion while remaining factual and respectful.
+        Level 2 - Encourages teamwork, builds effective teams and resolves problems by creating a supportive and collaborative team spirit, remaining mindful of the need to collaborate with people outside the immediate area of responsibility
+        Level 3 - Motivates and empowers staff, and fosters a collaborative approach across the Department/Division and the Agency as a whole. Acts as a role model when handling disagreements.
+
+        - Planning and Organizing - is about understanding human, financial, and operational resource issues to make decisions aimed at building and planning efficient project workflows, and at improving overall organizational performance
+        Level 1 - Plans and organizes his/her own work in support of achieving the team or Section’s priorities. Takes into account potential changes and proposes contingency plans.
+        Level 2 - Sets clearly defined objectives for himself/herself and the team or Section. Identifies and organizes deployment of resources based on assessed needs, taking into account possible changing circumstances. Monitors team’s performance in meeting the assigned deadlines and milestones.
+        Level 3 - Sets clearly defined objectives for the Department/ Division in line with the priorities of the Agency. Works toward Agency-wide efficiencies with a view to strengthening and harmonizing planning systems and capacities at the Departmental/ Divisional level.
+
+        - Client Focus - is based on the ability to understand internal/external clients’ (e.g. Committees, working groups, country representatives, etc.,) needs and concerns in the short to long-term and to provide sound recommendations and/or solutions.
+        Level 1 - Establishes effective relationships with clients to understand and meet or exceed their needs. Finds ways to ensure client satisfaction.
+        Level 2 - Examines client plans and develops services and options to support ongoing relationships. Develops solutions that add value to the Agency’s programmes and operations.
+        Level 3 - Promotes an attitude of valuing clients. Advocates for the inclusion of client interests and needs in programme planning and decision making.
+
+        "Required from anthropic:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
+        If any of the skill is not related to the given conversation, rate that skills as 0. Only when the skill is not even slightly related to the conversation give the rating as 0.
+
+        "competency_list:" "{Communication Skills, Teamwork, Planning and Organizing, Client Focus}"
+
+        NOTE: Please put properties of JSON enclosed in double quotes.
+
+        Example of JSON: {"Communication Skills": {"rating": "8", "level": "3"}, "Teamwork": {"rating": "6", "level": "2"}, "Planning and Organizing": {"rating": "7", "level": "1"}, "Achievement Focus": {"rating": "8", "level": "2"}, "Analytical Thinking": {"rating": "7", "level": "1"}}
+
+        NOTE : Do not provide any kind of heading or introduction text in the output.
+
+        NOTE: Do not add any English language sentence in the output.
+
+
+    """%(description,conversation)
+
+    default_value = {"Communication Skills": {"rating": "3", "level": "2"},"Teamwork": {"rating": "2", "level": "1"},"Planning and Organizing": {"rating": "3", "level": "2"},"Client Focus": {"rating": "4", "level": "1"},}
+
+    if is_free:
+         ##################* anthropic ###################
+        is_evaluated = True
+        response = None
+
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_competency_data ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+
+                break
+            except Exception as e:
+                logger.error({"****evaluate_competency_data ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+        else:
+            return default_value, True
+        
+    else:
+        
+
+        ##################* text_bison_compeletion ###################
+
+        is_evaluated = True
+        response = None
+        max_tries = 3
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_competency_data ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****evaluate_competency_data ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_competency_data ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response, is_evaluated
+
+
+        ##################* text_bison_compeletion ###################
+        
+        logger.info({"****evaluate_competency_data ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+
+        ##################* anthropic ###################
+        is_evaluated = True
+        response = None
+
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_competency_data ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+
+                break
+            except Exception as e:
+                logger.error({"****evaluate_competency_data ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+
+        ##################* anthropic ###################
+
+        logger.info({"****evaluate_competency_data ":f"failed anthropic, so trying gpt_compeletion"})
+
+        ##################* gpt ###################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_competency_data ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_competency_data ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_competency_data ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+
+        ##################* gpt ###################
+
+
+        # HACK in case everything fails; just evaluate as a random number
+        logger.info({"****evaluate_competency_data ":f"failed everything, so assigning default values"})
+        response = default_value
+        
+
+        # send error on slack to debug this
+        send_slack_message({"process": "evaluate_competency_data",
+                            "test_question_response": test_question_response.uid,
+                            "error": "failed to evaluate; putting random value"})
+
+        return response, True
+
+
+
+@timeit
+def evaluate_rating_for_process_training(test_question_response, question_text, response_text,correct_answer, test_title,is_free=False):
+    
+    prompt = f'''
+    \n\nHuman:
+    Question:  ${question_text} 
+    Correct answer:  ${correct_answer} 
+    Candidate answer:  ${response_text}
+
+    For the given "Question", a correct answer was provided in "Correct answer". A candidate has given an answer to the question in "Candidate answer". Compare the answer given by the candidate to the correct and give a rating on the candidate answer on a scale of 1-10. 
+
+    NOTE: Output Format Example: {"rating": "7"}
+    \n\nAssistant:
+    '''
+
+
+    if is_free:
+         ##################* anthropic ###################
+        is_evaluated = True
+        response = None
+
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                for skill in response:
+                    response[skill] = float(response[skill])
+
+                break
+            except Exception as e:
+                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+        else:
+            return {"rating": 1}, True
+        
+    else:
+        
+
+        ##################* text_bison_compeletion ###################
+
+        is_evaluated = True
+        response = None
+        max_tries = 3
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
+                response = text_bison_compeletion(prompt)
+                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                for skill in response:
+                    response[skill] = float(response[skill])
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+
+        if is_evaluated:
+            return response, is_evaluated
+
+
+        ##################* text_bison_compeletion ###################
+        
+        logger.info({"****evaluate_rating_for_process_training ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+
+        ##################* anthropic ###################
+        is_evaluated = True
+        response = None
+
+        max_tries = 3  # because anthropic_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
+                response = anthropic_completion(prompt, 100)
+                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                for skill in response:
+                    response[skill] = float(response[skill])
+
+                break
+            except Exception as e:
+                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+
+        ##################* anthropic ###################
+
+        logger.info({"****evaluate_rating_for_process_training ":f"failed anthropic, so trying gpt_compeletion"})
+
+        ##################* gpt ###################
+        is_evaluated = True
+        response = None
+        max_tries = 3  # because gpt3_completion function itself retries 3 times
+
+        while max_tries > 0:
+            try:
+                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
+                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
+                response = json_extraction(response)
+                response = json.loads(response)
+                
+                for skill in response:
+                    response[skill] = float(response[skill])
+
+                break
+
+            except Exception as e:
+                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                max_tries -= 1
+                if max_tries == 0:
+                    is_evaluated = False
+                    break
+
+                time.sleep(1)
+                continue
+
+        if is_evaluated:
+            return response, is_evaluated
+
+        ##################* gpt ###################
+
+
+        # HACK in case everything fails; just evaluate as a random number
+        logger.info({"****evaluate_rating_for_process_training ":f"failed everything, so assigning default values"})
+        response = {"rating": 1}
+        
+
+        # send error on slack to debug this
+        send_slack_message({"process": "evaluate_rating_for_process_training",
+                            "test_question_response": test_question_response.uid,
+                            "error": "failed to evaluate; putting random value"})
+
+        return response, True
 
 
 @timeit

@@ -74,14 +74,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
         data['logo'] = tenant.logo
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
     
-    @action(methods=["GET"], detail=True, url_path="process-training-report-data")
-    def get_process_training_data(self, request, *args, **kwargs):
-        test_attempt_session = self.get_object()
-        data = get_report_from_test_attempt_session(
-            test_attempt_session, only_data=True)
-        tenant = self.request.tenant
-        data['logo'] = tenant.logo
-        return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
     def get_meeting_report_frontend(self, request, *args, **kwargs):

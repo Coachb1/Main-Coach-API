@@ -157,6 +157,8 @@ class TestAttemptSession(TenantAwareModel):
     feedback_summary = models.TextField(null=True,blank=True, default=None)
     culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
     mcq_summary = models.TextField(null=True,blank=True, default=None)
+    competency_data = models.JSONField(null=True, blank=True,default=None)
+
 
     
 
@@ -189,6 +191,7 @@ class TestQuestionResponse(TenantAwareModel):
     relevance = models.BooleanField(null=True, blank=True, default=True )
     kls_klp = models.JSONField(null=True, blank=True, default=None)
     mcq_skill = models.JSONField(null=True, blank=True, default=None)
+    response_rating = models.TextField(null=True, blank=True,default=None)
     class Meta:
         db_table = "test_question_response"
 
