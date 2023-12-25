@@ -669,17 +669,17 @@ def evaluate_competency_data(description, conversation,test_attempt_session,is_f
 @timeit
 def evaluate_rating_for_process_training(test_question_response, question_text, response_text,correct_answer, test_title,is_free=False):
     
-    prompt = f'''
+    prompt = '''
     \n\nHuman:
-    Question:  ${question_text} 
-    Correct answer:  ${correct_answer} 
-    Candidate answer:  ${response_text}
+    Question:  %s
+    Correct answer:  %s
+    Candidate answer:  %s
 
     For the given "Question", a correct answer was provided in "Correct answer". A candidate has given an answer to the question in "Candidate answer". Compare the answer given by the candidate to the correct and give a rating on the candidate answer on a scale of 1-10. 
 
     NOTE: Output Format Example: {"rating": "7"}
     \n\nAssistant:
-    '''
+    '''%(question_text,correct_answer,response_text)
 
 
     if is_free:
