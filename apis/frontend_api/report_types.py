@@ -12,5 +12,6 @@ class ReportType:
     DYNAMIC_DISCUSSOIN_REPORT = "dynamicDiscussionReport"
     SUMMARY_FEEDBACK_REPORT = "summaryFeedbackReport"
     DecisionAnalysisReport = "decisionAnalysisReport"
+    ProcessTrainingReport = "processTrainingReport"
 
 
