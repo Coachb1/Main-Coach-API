@@ -2779,6 +2779,8 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
     report_type = ReportType.INTERACTION_SESSION_REPORT
     if test.test_type == TestTypeChoices.mcq:
         report_type = ReportType.DecisionAnalysisReport
+    elif test.scenario_case == ScenarioCaseChoices.process_training:
+        report_type = ReportType.ProcessTrainingReport
 
     report_url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
