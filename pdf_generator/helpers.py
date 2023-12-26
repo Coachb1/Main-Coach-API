@@ -648,6 +648,7 @@ def get_participant_report(user, only_data=False):
                     pass
 
         participant_info['test_attempt_session_list'] = test_attempt_session_list
+        participant_info['total_tests_attempted'] = len(test_attempt_session_list)
         
 
         return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
