@@ -108,6 +108,17 @@ class FrontendAuthViewSet(ApiViewSet):
 
             url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
 
+        elif report_type == ReportType.ProcessTrainingReport:
+            session_serializer = FrontendInteractionSessionReportSerializer(
+                data=request.data)
+
+            session_serializer.is_valid(raise_exception=True)
+
+            session_id = session_serializer.validated_data["session_id"]
+            interaction_id = session_serializer.validated_data["interaction_id"]
+
+            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
+
         elif report_type == ReportType.SUMMARY_FEEDBACK_REPORT:
             session_serializer = FrontendInteractionSessionReportSerializer(
                 data=request.data)
