@@ -408,8 +408,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'mcq_opitons': mcq_options
             })
 
-        print(f"focus area : {test_attempt_session.skills_explanation['mcq_skills']}")
-        focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else ''
+        focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else []
         
         return {'test_type':test.test_type,'competency_data':competency_report_data,"ui_information":test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,'focus_area': focus_area}
 
