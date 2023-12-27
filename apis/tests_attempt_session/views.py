@@ -10,6 +10,7 @@ from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
+from commons.utils import generic_completion
 from tests.helpers import get_meeting_report_from_test_attempt_session
 from tests.helpers import get_skills_tracker_data
 from tests.helpers import create_test_question_answer_session
@@ -18,7 +19,8 @@ from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
-from tests.helpers import send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation, send_report_link_to_whatsapp
+from tests.helpers import (send_report_link_to_email, send_report_link_to_email_orch, get_group_discussion_chat_conversation, send_report_link_to_whatsapp,
+                            get_next_mcq_question_options_prompt, get_last_mcq_question_options_promt, extract_mcq_options_from_response)
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
 from email_sender.helpers import send_feedbackd_email
@@ -240,7 +242,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
 
-            if test.test_type == TestTypeChoices.coaching:
+            if test.test_type == TestTypeChoices.coaching or test.test_type == TestTypeChoices.dynamic_mcq:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
@@ -250,7 +252,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 
 
             #################* summary  start #################
-            if test.test_type != TestTypeChoices.mcq:
+            if test.test_type != TestTypeChoices.mcq or test.test_type != TestTypeChoices.dynamic_mcq:
                 updated_fields = []
                 
                 
@@ -412,3 +414,35 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(methods=['GET'],detail=False,url_path="get_next_mcq_question_options")
+    def get_next_mcq_question_options(self,request, *args, **kwargs):
+        test_attempt_session_id = request.query_params.get('test_attempt_session_id')
+        description = request.query_params.get('description')
+        question_text = request.query_params.get('situation')
+        option_a = request.query_params.get('option_a')
+        option_b = request.query_params.get('option_b')
+        option_selected = request.query_params.get('option_selected')
+        
+
+        try:
+            test_attempt_session = TestAttemptSession.objects.get(uid=test_attempt_session_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f")))))))))))))))))))))))))) question_text: {question_text}, option_selected: {option_selected}, option_a: {option_a}, option_b: {option_b}")
+        
+        test_attempt_session.feedback_summary = question_text
+        test_attempt_session.save(update_fields=['feedback_summary'])
+
+
+
+        next_question_and_options_prompt = get_next_mcq_question_options_prompt(description, question_text, option_a, option_b, option_selected)
+        response = generic_completion(next_question_and_options_prompt, 600)
+        logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question response":response})
+        options_data = extract_mcq_options_from_response(response)
+        logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> options_data":options_data, "question text": test_attempt_session.feedback_summary})
+
+        return Response({"options_data":options_data}, status=status.HTTP_200_OK)
