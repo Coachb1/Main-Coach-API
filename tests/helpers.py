@@ -645,7 +645,7 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
         skills = re.findall(r"'([^']+)'", skills_string)
         logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ skills: {skills}")
         
-        test_attempt_session.skills_explanation = {'mcq_skills': list(skills)}
+        test_attempt_session.skills_explanation = {'mcq_skills': list(set(skills))}
 
         
         test_attempt_session.save(update_fields=["mcq_summary","skills_explanation"])
@@ -5610,20 +5610,20 @@ def get_next_mcq_question_options_prompt(test_description, situation, choice_1, 
     return prompt
 
 
-def get_last_mcq_question_options_promt():
+def get_last_mcq_question_options_promt(test_description, situation, choice_1, choice_2, user_decision):
     prompt = '''
     \n\nHuman:
-    Scenario: ${test_description}
+    Scenario: {test_description}
 
 
-    Situation: ${situation}
+    Situation: {situation}
 
-    Choice 1: ${choice_1}
+    Choice 1: {choice_1}
 
-    Choice 2: ${choice_2}
+    Choice 2: {choice_2}
 
 
-    Decision: ${user_decision}
+    Decision: {user_decision}
 
 
     This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. This is the closing situation of the scenario. Make the Situation and Choices for ending the scenario.
