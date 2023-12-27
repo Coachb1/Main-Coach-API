@@ -584,7 +584,7 @@ def format_test_data_slack(raw_data):
             if skills not in defined_skills_list:
                 unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0 and test_type != TestTypeChoices.mcq:
+        if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
@@ -725,7 +725,8 @@ def format_test_data_slack(raw_data):
                 output_dict["questions"].append(question)
 
             elif key.startswith('Story'):
-                if test_type == TestTypeChoices.mcq:
+
+                if test_type == TestTypeChoices.mcq or test_type == TestTypeChoices.dynamic_mcq:
                     key_name = "0"
                     temp = key.strip().split()  # like A
                     if len(temp)>1:
@@ -800,6 +801,26 @@ def format_test_data_slack(raw_data):
             output_dict["questions"][-1]["is_view_only"] = False
 
         output_dict['total_question'] = int(len(output_dict['questions']))
+
+        if test_type == TestTypeChoices.dynamic_mcq:
+            print(f"********************** total questions **********************: {input_dict}")
+            if 'total_question' not in input_dict:
+                logger.error("total question not found")
+            output_dict['total_question'] = input_dict['total_question']
+
+            for i in range(1, int(output_dict['total_question'])):
+                question = {
+                        "question": f"dummy question - {i}",
+                        "question_type": "mcq",
+                        "mcq_options" : {},
+                        'mcq_path' : "path",
+                        "key_learning_point": "No key learning point for this question",
+                        "key_learning_skills": f'dummy skill'
+
+                    }
+
+
+                output_dict["questions"].append(question)
 
         output_json = json.dumps(output_dict)
 

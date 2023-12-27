@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from nltk.tokenize import sent_tokenize
 from rest_framework import serializers
+from rest_framework.response import Response
 
 import settings
 from apis.frontend_api.report_types import ReportType
@@ -521,6 +522,155 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
 #*********************** Process MCQ response end *******************************
 
+
+
+
+#*********************** Process Dynamic MCQ response start *******************************
+
+def extract_mcq_options_from_response(text):
+    pattern = re.compile(r"Situation:(.*?)Choice 1:(.*?)Choice 2:", re.DOTALL)
+
+    # Search for the pattern in the text
+    match = re.search(pattern, text)
+
+    # Extract the matched groups
+    if match:
+        next_question = match.group(1).strip()
+        choice1 = match.group(2).strip()
+        choice2 = text.split("Choice 2:")[1].strip()  # Extracting choice2 without using regex
+
+        data = {}
+        data['next_situation'] = next_question
+        data['option_a'] = choice1
+        data['option_b'] = choice2
+        return data
+    else:
+        logger.error(f"Pattern not found in the text ==> {text}")
+
+def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    question = TestQuestion.objects.get(uid=test_question_response.question_id)
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=test_question_response.test_attempt_session_id
+    )
+
+    logger.info(
+        f"[process_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+
+    logger.info(f"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^test_attempt_session.status: {test_attempt_session.status}, test_attempt_session.finished_at: {test_attempt_session.finished_at}")
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed and test_attempt_session.finished_at is not None:
+        logger.info(
+            f"Dynamic MCQ Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    test_question_response.metadata = {}
+    test_question_response.metadata['question'] = test_attempt_session.feedback_summary # stored question in this field in case of dynamic mcq
+    test_question_response.save(update_fields=["metadata"])
+
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+
+    updated_fields = []
+    #* get comment for user decision
+    prompt = """
+        \n\nHuman:
+        {Situation}: %s
+        {Decision}: %s
+
+        Based on the given situation {Situation} this is the decision {Decision} a candidate made. Analyze the decision critically and comment on the pros and cons of the decision, focusing on its short-term and long-term effects. Always comment on any potential downsides or risks of the decision in this situation. Always evaluate and comment on what worked well and what could be improved in the decision. Evaluate the decision-making process, focusing on the strategic aspects. Discuss how well the decision aligns with the overall situation. Keep it less than 150 words.
+        \n\nAssistant:
+        """%(test_question_response.metadata['question'], test_question_response.response_text)
+
+    comment = generic_completion(prompt, 300)
+    test_question_response.feedback_text = comment
+    updated_fields.append("feedback_text")
+    logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%comment: {comment} \n\n mcq_options: {question.mcq_options}")
+
+    # mcq_skills_prompt = get_dynamic_mcq_skills_prompt(skills, test_question_response.response_text, test_question_response.metadata['question'])
+    # selected_skill = generic_completion(mcq_skills_prompt, 1000)
+
+    test_question_response.mcq_skill = 'NA'
+    updated_fields.append("mcq_skill")
+
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    updated_fields.append("evaluation_status")
+    updated_fields.append("updated")
+
+    test_question_response.save(update_fields=updated_fields)
+
+    #* mark session completed if this is the last question
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = test.total_question  == total_responses.count()
+    logger.info(f"==================================> is_last_question: {is_last_question}, test.total_question: {test.total_question}, total_responses.count(): {total_responses.count()} , evaluation_status: {test_question_response.evaluation_status}")
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.finished_at = timezone.now()
+        test_attempt_session.save(update_fields=["status","finished_at", "updated"])
+
+        decision_data = []
+        for response in total_responses:
+            question = TestQuestion.objects.get(uid=response.question_id)
+            decision_data.append({
+                "situation": question.question,
+                "decision": response.response_text
+            })
+
+        decision_map = ""
+
+        for decision in decision_data:
+            decision_map += f"situation: {decision['situation']}\ndecision: {decision['decision']}\n\n"
+
+        #* get summary of user decisions
+        
+        prompt = f"""
+            \n\nHuman:
+            Scenario: {test.description}
+            
+            {decision_map}
+
+            Summarize the entire interaction, highlighting key decisions and their implications. Provide insights into the consistency, adaptability, and effectiveness of the candidate's decision-making throughout the scenario. Additionally, discuss any patterns or trends observed in the candidate's decision-making approach and offer suggestions for improvement or areas to be mindful of in future decision-making situations. Keep it less than 200 words.
+            \n\nAssistant:
+        """
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%decision_map: {decision_map}")
+        logger.info(f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%prompt: {prompt}")
+
+
+        session_summary = generic_completion(prompt, 500)
+        test_attempt_session.mcq_summary = session_summary
+
+        skills_prompt = get_dynamic_mcq_skills_prompt(decision_map, test.total_question)
+        logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ skills_prompt: {skills_prompt}")
+        
+        skills_string = generic_completion(skills_prompt, 1200)
+
+        skills = re.findall(r"'([^']+)'", skills_string)
+        logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ skills: {skills}")
+        
+        test_attempt_session.skills_explanation = {'mcq_skills': list(skills)}
+
+        
+        test_attempt_session.save(update_fields=["mcq_summary","skills_explanation"])
+        
+        report_url = generate_session_report_link(test_attempt_session, test)
+
+         # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                            tenant_id=test_attempt_session.tenant_id)
+
+        updated_fields = []
+        skills_rating_object.total_questions_attempted += int(total_responses.count())
+        skills_rating_object.total_tests_attempted += 1
+
+        updated_fields.append("total_questions_attempted")
+        updated_fields.append("total_tests_attempted")
+        updated_fields.append("updated")
+
+        skills_rating_object.save(update_fields=updated_fields)
+        
+
+#*********************** Process Dynamic MCQ response end *******************************
+
+
+
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
@@ -550,7 +700,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
     # sometimes questions are being processed in background;
     #  this is a hack to ensure before processing last question, all the previous ones are processed
-    if is_last_question:
+    if is_last_question and test.test_type != TestTypeChoices.dynamic_mcq:
         start_time = time.time()
         while True:
             end_time = time.time()
@@ -578,7 +728,7 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
     # if this was the last question; mark the session as completed
     with transaction.atomic():
-        if is_last_question:
+        if is_last_question and test.test_type != TestTypeChoices.dynamic_mcq:
             try:
                 _test_attempt_session = TestAttemptSession.objects.filter(
                     uid=test_attempt_session.uid, deleted=0
@@ -713,6 +863,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test.test_type == TestTypeChoices.mcq:
         return process_mcq_response(test_question_response)
+
+    if test.test_type == TestTypeChoices.dynamic_mcq:
+        return process_dynamic_mcq_response(test_question_response)
 
     test_attempt_session.current_question_idx = question.question_number
 
@@ -5255,3 +5408,392 @@ def fetch_test_codes_by_site_context(url,tenant_id, context):
     return test_list
 
     
+
+#************* Dynamic MCQ Start************#
+def get_next_mcq_question_options_prompt(test_description, situation, choice_1, choice_2, user_decision):
+    normal_prompt = f'''
+    \n\nHuman:
+    Scenario: {test_description}
+
+
+    Situation: {situation}
+
+    Choice 1: {choice_1}
+
+    Choice 2: {choice_2}
+
+
+    Decision: {user_decision}
+
+
+    This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+    Generate the next Situation, Choice 1 and Choice 2 for the candidate.
+    \n\nAssistant: 
+
+    '''
+
+
+    stakeholders_relationship_strain_prompt = f"""
+    \n\nHuman:
+    Scenario: {test_description}
+    Situation: {situation}
+    Choice 1: {choice_1}
+    Choice 2: {choice_2}
+    Decision: {user_decision}
+
+    This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. 
+
+    The next situation should be based on the Stakeholders Relationship Strain. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+    Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+    Output format  example : 
+    Situation : situation
+    Choice 1 : choice 1
+    Choice 2 : choice 2 
+    NOTE : Always give the output in this exact format.
+    \n\nAssistant: 
+    """
+
+    Unexpected_Collaboration_Opportunity_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. 
+
+        The next situation should be based on an Unexpected Collaboration Opportunity. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+    """
+
+    Leadership_Crisis_and_Team_Morale_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. 
+
+        The next situation should be based on Leadership Crisis and Team Morale. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+    Innovative_Solution_Emerges_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. 
+
+        The next situation should be based on Leadership Crisis and Team Morale. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+    Stakeholder_Flexibility_and_Understanding_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. 
+
+        The next situation should be based on Stakeholder Flexibility and Understanding. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+    Unexpected_Disruption_prompt = f""" 
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic.
+
+        The next situation should be based on Unexpected Disruption. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+    Regulatory_Hurdle_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic.
+
+        The next situation should be based on Unexpected Regulatory Hurdle. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else. 
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+    Key_Stakeholder_Disagreement_prompt = f"""
+        \n\nHuman:
+        Scenario: {test_description}
+        Situation: {situation}
+        Choice 1: {choice_1}
+        Choice 2: {choice_2}
+        Decision: {user_decision}
+
+        This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic.
+
+        The next situation should be based on Key Stakeholder Disagreement. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. The Choices and the Situation should be open ended to further develop the scenario. 
+
+        Generate the next Situation, Choice 1 and Choice 2 for the candidate. Only provide the next  Situation, Choice 1 and Choice 2 nothing else.
+        Output format  example : 
+        Situation : situation
+        Choice 1 : choice 1
+        Choice 2 : choice 2 
+        NOTE : Always give the output in this exact format.
+        \n\nAssistant:
+        """
+
+
+    prompts = [normal_prompt, stakeholders_relationship_strain_prompt, Unexpected_Collaboration_Opportunity_prompt, Leadership_Crisis_and_Team_Morale_prompt, Innovative_Solution_Emerges_prompt, Stakeholder_Flexibility_and_Understanding_prompt, Unexpected_Disruption_prompt, Regulatory_Hurdle_prompt, Key_Stakeholder_Disagreement_prompt]
+
+    prompt = random.choice(prompts)
+
+    return prompt
+
+
+def get_last_mcq_question_options_promt():
+    prompt = '''
+    \n\nHuman:
+    Scenario: ${test_description}
+
+
+    Situation: ${situation}
+
+    Choice 1: ${choice_1}
+
+    Choice 2: ${choice_2}
+
+
+    Decision: ${user_decision}
+
+
+    This is a scenario where the candidate has to make a decision between Choice 1 and Choice 2. Based on the decision generate the next part of the scenario where the candidate will be provided another situation and 2 choices. The candidate needs to make a decision between these choices. The situation should follow the natural flow of the story based on the Decision. The situation should be specific and realistic. Add necessary details in the Situation to make it specific. The Choices provided should be realistic, natural and professional. Keep the Choices relevant to the situation. This is the closing situation of the scenario. Make the Situation and Choices for ending the scenario.
+
+    Generate the next Situation, Choice 1 and Choice 2 for the candidate.
+    \n\nAssistant: 
+
+    '''
+
+    return prompt
+
+
+def get_dynamic_mcq_skills_prompt(situation_decision_map, num_decisions):
+    skills_prompt = f"""
+    Teamwork
+    Objection Handling
+    Goal-oriented focus
+    Ability to handle surprises
+    Tenacity
+    Empathy
+    Methodical Approach
+    Willingness to Learn
+    Business Acumen
+    Social Selling
+    Storytelling
+    Active Listening
+    Presentation skills
+    Curiosity
+    Judgment
+    Collaboration
+    Clarity and Concision
+    Friendliness
+    Confidence
+    Open-Mindedness
+    Respectful 
+    Feedback oriented
+    Picking the Right Medium
+    Being Assertive
+    Asking Questions
+    Inclusive Language
+    Tone
+    Self-motivated
+    Standards
+    Accountablility
+    Courageous
+    Engaged
+    Character
+    Humorous
+    Passionate
+    Integrity
+    Likable
+    Ethical
+    Loyal
+    Charisma
+    Emotional intelligence
+    Understanding of opportunity cost
+    Humility
+    Disciplined
+    Perspective
+    Risk management
+    Self assurance
+    Maturity
+    Relationship building
+    Social skills
+    Speaking skills
+    Honesty & Transparency
+    Reasonable
+    Boldness
+    Presence
+    Authenticity
+    Ability to Confront
+    Negotiation
+    Clarity
+    Ability to teach
+    Interested in feedback
+    Trustworthy 
+    Ability to inspire
+    Sharing your vision
+    Turning vision into reality
+    Motivational 
+    Insightful
+    Taking responsibly
+    Rewarding
+    Evaluative
+    Coaching
+    Enable others to act
+    Set Expectations
+    Fair
+    Urgency
+    Decisiveness
+    Commitment to vision
+    Consistency
+    Does not fear mistakes/risk
+    Ability to pivot
+    Open minded
+    Tough-minded
+    Resourceful
+    Faces obstacles with grace
+    Street smart
+    Make good decisions
+    Strategic Thinking
+    Proactive
+    Flexible
+    Manage setbacks
+    Organized
+    Creativity and resourcefulness
+    Intuition
+    Seeks out advice
+    Pursue new experiences
+    Reading
+    Curiosity
+    Competence
+    Focused
+    Intentional Learner
+    Enjoys The Ride
+    Improve lives around you
+    Foster potential
+    Supportive (Help other succeed)
+    Performance driven
+    Servant leadership
+    Assertive
+    Conviction
+    Patience
+    High-energy
+    Problem solving
+    Patience
+    Attentiveness
+    Emotional intelligence
+    Communication skills
+    Creativity and resourcefulness
+    Persuasive
+    Time management
+    Knowledge of Pay Equity Laws
+    DEI Strategist
+    Inclusive Interviewing
+    Mentorship 
+    Feedback Mechanism Implementation
+    Leadership 
+
+    This is the skills list. Based on this list give me one skill that is reflected in each of these decisions which were taken in the particular situations. 
+    context : {situation_decision_map}
+
+    decisions_no : {num_decisions}
+
+    Give me {num_decisions} skills in the output.
+    Do Not change the name of the skill. Just give me the skills name directly.
+    Never change the name of the skills.
+
+    Output format : {"skill1", "skill2", "skill3"}
+
+    Always give the output in the given format.
+    NOTE: Give me the exact skill name as given. Do Not change the name of any of the skill.
+    NOTE : Do not give the output as "skill", only use the name of the skills given.
+    """
+
+
+    skills_prompt = f"""
+    Give me one skill that is reflected in each of these decisions which were taken in the particular situations.  The situations and decisions are given in the context. Give one skill for each of these decisions. The skills should be relevant to the decision. 
+    context : {situation_decision_map}
+
+    decisions_no : {num_decisions}
+    Give me {num_decisions} skills in the output.
+
+    Output format : {"skill1", "skill2", "skill3"}
+
+    Always give the output in the given format.
+    NOTE : Do not give the output as "skill", only use the name of the skills given.
+    """
+
+    return skills_prompt
+
+
+#*************** Dynamic MCQ End ******************#
