@@ -75,6 +75,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         tenant = self.request.tenant
         data['logo'] = tenant.logo
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
+    
 
     @action(methods=["GET"], detail=True, url_path="meeting-report-data")
     def get_meeting_report_frontend(self, request, *args, **kwargs):
@@ -242,7 +243,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
 
-            if test.test_type == TestTypeChoices.coaching or test.test_type == TestTypeChoices.dynamic_mcq:
+
+            if test.test_type == TestTypeChoices.coaching or test.scenario_case == ScenarioCaseChoices.process_training or test.test_type == TestTypeChoices.dynamic_mcq:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 

@@ -72,6 +72,9 @@ TEST_IMAGE_LINK = 'Test Image Link'
 TEST_IMAGE_PROPS = 'Test Image Props'
 QUE_IMAGE_LINK = 'Que Image Link'
 QUE_IMAGE_PROPS = 'Que Image Props'
+NARRATION = 'Que Narration'
+TEST_NARRATION = 'Test Narration'
+ANSWER = 'Correct answer'
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -90,28 +93,19 @@ def format_test_orchestrated_conversation(raw_data):
             "questions": [],
         }
         media_json = {}
-        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0):
-            image_link_list = input_dict[TEST_IMAGE_LINK].strip().split(',')
-            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split('|')
-            for index, prop in enumerate(props_link_list):
-                props_list = prop.split(',')
-
-                image_data_list = []
-
-                # Iterate through the properties and create dictionaries
-                for i in range(0, len(props_list), 2):
-                    title = props_list[i]
-                    coord = props_list[i + 1]
+        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
+            image_link = input_dict[TEST_IMAGE_LINK].strip()
+            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split(',')
+            narration = input_dict[TEST_NARRATION].strip()
+            image_data_list = []
+            for i in range(0, len(props_link_list), 2):
+                    title = props_link_list[i]
+                    coord = props_link_list[i + 1]
 
                     # Create a dictionary for each title and coord pair
                     image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
-
-                # Create the final JSON structure
-                test_image_key = 'test_image_mobile'
-                
-                if index == 0:
-                    test_image_key = 'test_image'
-                media_json[test_image_key] = {image_link_list[index].lower(): image_data_list}
+            image_data_list.append(narration)
+            media_json['test_image'] = {image_link: image_data_list}
 
         if media_json:
             output_dict['media_props'] = media_json
@@ -459,28 +453,20 @@ def format_test_data_slack(raw_data):
             "questions": [],
         }
         media_json = {}
-        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0):
-            image_link_list = input_dict[TEST_IMAGE_LINK].strip().split(',')
-            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split('|')
-            for index, prop in enumerate(props_link_list):
-                props_list = prop.split(',')
 
-                image_data_list = []
-
-                # Iterate through the properties and create dictionaries
-                for i in range(0, len(props_list), 2):
-                    title = props_list[i]
-                    coord = props_list[i + 1]
+        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
+            image_link = input_dict[TEST_IMAGE_LINK].strip()
+            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split(',')
+            narration = input_dict[TEST_NARRATION].strip()
+            image_data_list = []
+            for i in range(0, len(props_link_list), 2):
+                    title = props_link_list[i]
+                    coord = props_link_list[i + 1]
 
                     # Create a dictionary for each title and coord pair
                     image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
-
-                # Create the final JSON structure
-                test_image_key = 'test_image_mobile'
-                
-                if index == 0:
-                    test_image_key = 'test_image'
-                media_json[test_image_key] = {image_link_list[index].lower(): image_data_list}
+            image_data_list.append(narration)
+            media_json['test_image'] = {image_link: image_data_list}
 
         if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
             output_dict['certificate_details'] = {}
@@ -618,7 +604,11 @@ def format_test_data_slack(raw_data):
                 check_pass = True
 
         skills_list = ','.join(skills_list)
+
         output_dict['skills_to_evaluate'] = skills_list
+        if input_dict[SCENARIO_CASE] == 'process_training':
+            output_dict['skills_to_evaluate'] = "communication skills"
+
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -697,35 +687,35 @@ def format_test_data_slack(raw_data):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
+                if input_dict[SCENARIO_CASE] == 'process_training':
+                    question['key_learning_point'] = "No key learning point for this question"
+                    question['key_learning_skills'] = "communication skills"
 
                 if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+                if f"{ANSWER} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{ANSWER} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["mcq_answer"] = input_dict.get(f"{ANSWER} {key[len(QUESTION) + 1:]}", '') # here I am using mcq_answer as correct answer
 
                 if (f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}"]) > 0) \
-                    and (f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"]) > 0):
+                    and (f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"]) > 0)\
+                        and (f"{NARRATION} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{NARRATION} {key[len(QUESTION) + 1:]}"]) > 0):
 
-                    que_img_list = input_dict[f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}"].strip().split(',')
-                    que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"].strip().split('|')
-                    print(que_img_list,que_props_list)
-                    for index, prop in enumerate(que_props_list):
-                        props_list = prop.split(',')
+                    que_image_link = input_dict[f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}"].strip()
+                    que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"].strip().split(',')
+                   
+                    narration = input_dict[f"{NARRATION} {key[len(QUESTION) + 1:]}"].strip()
+                    image_data_list = []
+                    for i in range(0, len(que_props_list), 2):
+                        title = que_props_list[i]
+                        coord = que_props_list[i + 1]
 
-                        image_data_list = []
+                        # Create a dictionary for each title and coord pair
+                        image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
 
-                        # Iterate through the properties and create dictionaries
-                        for i in range(0, len(props_list), 2):
-                            title = props_list[i]
-                            coord = props_list[i + 1]
+                    image_data_list.append(narration)
 
-                            # Create a dictionary for each title and coord pair
-                            image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
-
-                        # Create the final JSON structure
-                        que_image_key = 'que_image_mobile'
-                        if index == 0:
-                            que_image_key = 'que_image'
-                        media_json[f'{que_image_key} {key[len(QUESTION) + 1:]}'] = {que_img_list[index].lower(): image_data_list}
-
+                    media_json[f'que_image {key[len(QUESTION) + 1:]}'] = {que_image_link: image_data_list}
+                    
 
                 if test_type == "view":
                     question['is_view_only'] = True
@@ -735,33 +725,33 @@ def format_test_data_slack(raw_data):
                 output_dict["questions"].append(question)
 
             elif key.startswith('Story'):
+
                 if test_type == TestTypeChoices.mcq or test_type == TestTypeChoices.dynamic_mcq:
-                    key_name = key.strip().split()[-1]  # like A
-                    
+                    key_name = "0"
+                    temp = key.strip().split()  # like A
+                    if len(temp)>1:
+                        key_name = temp[-1]
+                
 
                     if (f"{QUE_IMAGE_LINK} {key_name}" in input_dict and len(input_dict[f"{QUE_IMAGE_LINK} {key_name}"]) > 0) \
-                        and (f"{QUE_IMAGE_PROPS} {key_name}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key_name}"]) > 0):
+                        and (f"{QUE_IMAGE_PROPS} {key_name}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key_name}"]) > 0) \
+                            and (f"{NARRATION} {key_name}" in input_dict and len(input_dict[f"{NARRATION} {key_name}"]) > 0):
 
-                        que_img_list = input_dict[f"{QUE_IMAGE_LINK} {key_name}"].strip().split(',')
-                        que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key_name}"].strip().split('|')
-                        for index, prop in enumerate(que_props_list):
-                            props_list = prop.split(',')
+                        que_img_list = input_dict[f"{QUE_IMAGE_LINK} {key_name}"].strip()
+                        que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key_name}"].strip().split(',')
+                        narration = input_dict[f"{NARRATION} {key_name}"].strip()
+                        print(que_img_list,que_props_list,narration)
 
-                            image_data_list = []
+                        image_data_list = []
+                        for i in range(0, len(que_props_list), 2):
+                            title = que_props_list[i]
+                            coord = que_props_list[i + 1]
 
-                            # Iterate through the properties and create dictionaries
-                            for i in range(0, len(props_list), 2):
-                                title = props_list[i]
-                                coord = props_list[i + 1]
+                            # Create a dictionary for each title and coord pair
+                            image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
 
-                                # Create a dictionary for each title and coord pair
-                                image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
-
-                            # Create the final JSON structure
-                            que_image_key = 'que_image_mobile'
-                            if index == 0:
-                                que_image_key = 'que_image'
-                            media_json[f'{que_image_key} {key_name}'] = {que_img_list[index].lower(): image_data_list}
+                        image_data_list.append(narration)
+                        media_json[f'que_image {key_name}'] = {que_img_list: image_data_list}
 
 
                     keys = list(input_dict.keys())
@@ -803,7 +793,7 @@ def format_test_data_slack(raw_data):
                         question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key_name}", '')
 
                     output_dict["questions"].append(question)
-                    
+        print(media_json)      
         if media_json:
             output_dict['media_props'] = media_json
 
