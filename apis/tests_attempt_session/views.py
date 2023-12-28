@@ -434,14 +434,21 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
-        logger.info(f")))))))))))))))))))))))))) question_text: {question_text}, option_selected: {option_selected}, option_a: {option_a}, option_b: {option_b}")
+        test = Test.objects.get(uid=test_attempt_session.test_id)
+
+        total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).count()
+
+        logger.info(f")))))))))))))))))))))))))) question_text: {question_text}, option_selected: {option_selected}, option_a: {option_a}, option_b: {option_b}, total_responses: {total_responses}")
         
         test_attempt_session.feedback_summary = question_text
         test_attempt_session.save(update_fields=['feedback_summary'])
 
+        if total_responses == test.total_question - 1:
+            next_question_and_options_prompt = get_last_mcq_question_options_promt(description, question_text, option_a, option_b, option_selected)
+        else:
+            next_question_and_options_prompt = get_next_mcq_question_options_prompt(description, question_text, option_a, option_b, option_selected)
 
-
-        next_question_and_options_prompt = get_next_mcq_question_options_prompt(description, question_text, option_a, option_b, option_selected)
+        logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question prompt":next_question_and_options_prompt})
         response = generic_completion(next_question_and_options_prompt, 600)
         logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question response":response})
         options_data = extract_mcq_options_from_response(response)
