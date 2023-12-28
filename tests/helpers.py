@@ -3908,7 +3908,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 
                 comment: ${user_comment}
 
-                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response. The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3934,7 +3936,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 current_conversation: ${current_conversation}
                 comment: ${user_comment}
 
-                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response. The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3962,6 +3966,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3990,7 +3997,10 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
 
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
+                
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
                 NOTE: The response should not be more than 25 words.
@@ -4017,6 +4027,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -4045,6 +4058,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -4214,7 +4230,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
                 candidate_comment: ${user_comment}
 
-                Based on the candidate's comment, main context and background, ask the candidate another question as the interviewer. Do not provide any feedback on the response.
+                Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
 
@@ -4243,7 +4260,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Current conversation : ${current_conversation}
                     Candidate response : ${question_text}
 
-                    NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+                    NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                    Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
                     NOTE: The question should not be more than 25 words.
 
