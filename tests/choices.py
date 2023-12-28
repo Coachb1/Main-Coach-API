@@ -18,6 +18,7 @@ class TestTypeChoices(DjangoChoices):
     test_thread = ChoiceItem('test_thread')
     trainer_thread = ChoiceItem('trainer_thread')
     mcq = ChoiceItem('mcq')
+    dynamic_mcq = ChoiceItem('dynamic_mcq')
 
 
 class ScenarioCaseChoices(DjangoChoices):
@@ -34,6 +35,8 @@ class ScenarioCaseChoices(DjangoChoices):
     feedback_role_play = ChoiceItem("feedback_role_play")
     employee_feedback = ChoiceItem('employee_feedback')
     mcq = ChoiceItem('mcq')
+    pms = ChoiceItem('pms')
+    process_training = ChoiceItem('process_training')
 
 
 class InteractionModeChoices(DjangoChoices):

@@ -9,6 +9,8 @@ from vertexai.language_models import TextGenerationModel
 import time
 import random
 
+from google.cloud import texttospeech
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,4 +97,30 @@ def text_bison_compeletion(prompt):
 
             time.sleep(random.randint(1,3))
 
+@timeit
+def text_to_speech_google(text):
 
+    try:
+        os.chdir(f"{Path(__file__).resolve().parent}")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
+        client = texttospeech.TextToSpeechClient()
+
+        input_text = texttospeech.SynthesisInput(text=text)
+        voice = texttospeech.VoiceSelectionParams(
+            language_code='en-IN',
+            name='en-IN-Neural2-A',
+            ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+        )
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3
+        )
+
+        response = client.synthesize_speech(
+            input=input_text,
+            voice=voice,
+            audio_config=audio_config
+        )
+        return response
+    except Exception as e:
+        logger.error(f"text_to_speech_google failed with {e}", exc_info=True)
+        raise e

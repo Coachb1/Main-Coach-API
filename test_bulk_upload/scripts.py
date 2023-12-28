@@ -50,7 +50,7 @@ IS_GAME_TYPE = "is_game_type"
 IMAGE_URL = "image_url"
 IS_DYNAMIC = "is_dynamic"
 IS_DYNAMIC_THREAD = "is_dynamic_thread"
-MEDIA_LINK = 'ML'
+MEDIA_LINK = 'Que Media'
 CLIENT = "Client Name"
 GOALS = "Goals"
 COURSE = "Course"
@@ -66,7 +66,15 @@ DESCRIPTIONUI = 'Description UI'
 QUESTIONUI = 'Que UI'
 IS_MICRO = 'is_micro'
 IS_LOGGEDiN = 'is_logged_in'
-
+IS_IMMERSIVE = 'Is Immersive'
+TEST_CUSTUM_PROMPT = 'Test Custum Prompt'
+TEST_IMAGE_LINK = 'Test Image Link'
+TEST_IMAGE_PROPS = 'Test Image Props'
+QUE_IMAGE_LINK = 'Que Image Link'
+QUE_IMAGE_PROPS = 'Que Image Props'
+NARRATION = 'Que Narration'
+TEST_NARRATION = 'Test Narration'
+ANSWER = 'Correct answer'
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -81,9 +89,29 @@ def format_test_orchestrated_conversation(raw_data):
             "test_type": "orchestrated_conversation",
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
-            "gpt_prompt_override": "",
+            "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
             "questions": [],
         }
+        media_json = {}
+        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
+            image_link = input_dict[TEST_IMAGE_LINK].strip()
+            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split(',')
+            narration = input_dict[TEST_NARRATION].strip()
+            image_data_list = []
+            for i in range(0, len(props_link_list), 2):
+                    title = props_link_list[i]
+                    coord = props_link_list[i + 1]
+
+                    # Create a dictionary for each title and coord pair
+                    image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
+            image_data_list.append(narration)
+            media_json['test_image'] = {image_link: image_data_list}
+
+        if media_json:
+            output_dict['media_props'] = media_json
+
+        
+
         
         if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
             output_dict['certificate_details'] = {}
@@ -131,6 +159,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_IMMERSIVE in input_dict:
+            if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
+                is_immersive = input_dict[IS_IMMERSIVE].strip().lower()
+
+                if is_immersive == "true":
+                    output_dict['is_immersive'] = True
+                elif is_immersive == "false":
+                    output_dict['is_immersive'] = False
+                else:
+                    output_dict['is_immersive'] = False
 
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
@@ -410,9 +449,24 @@ def format_test_data_slack(raw_data):
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
             "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
-            "gpt_prompt_override": "",
+            "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
             "questions": [],
         }
+        media_json = {}
+
+        if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
+            image_link = input_dict[TEST_IMAGE_LINK].strip()
+            props_link_list = input_dict[TEST_IMAGE_PROPS].strip().split(',')
+            narration = input_dict[TEST_NARRATION].strip()
+            image_data_list = []
+            for i in range(0, len(props_link_list), 2):
+                    title = props_link_list[i]
+                    coord = props_link_list[i + 1]
+
+                    # Create a dictionary for each title and coord pair
+                    image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
+            image_data_list.append(narration)
+            media_json['test_image'] = {image_link: image_data_list}
 
         if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
             output_dict['certificate_details'] = {}
@@ -450,6 +504,17 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_IMMERSIVE in input_dict:
+            if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
+                is_immersive = input_dict[IS_IMMERSIVE].strip().lower()
+
+                if is_immersive == "true":
+                    output_dict['is_immersive'] = True
+                elif is_immersive == "false":
+                    output_dict['is_immersive'] = False
+                else:
+                    output_dict['is_immersive'] = False
 
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
@@ -519,7 +584,7 @@ def format_test_data_slack(raw_data):
             if skills not in defined_skills_list:
                 unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0 and test_type != TestTypeChoices.mcq:
+        if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
@@ -539,7 +604,11 @@ def format_test_data_slack(raw_data):
                 check_pass = True
 
         skills_list = ','.join(skills_list)
+
         output_dict['skills_to_evaluate'] = skills_list
+        if input_dict[SCENARIO_CASE] == 'process_training':
+            output_dict['skills_to_evaluate'] = "communication skills"
+
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -618,9 +687,35 @@ def format_test_data_slack(raw_data):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
+                if input_dict[SCENARIO_CASE] == 'process_training':
+                    question['key_learning_point'] = "No key learning point for this question"
+                    question['key_learning_skills'] = "communication skills"
 
                 if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+                if f"{ANSWER} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{ANSWER} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["mcq_answer"] = input_dict.get(f"{ANSWER} {key[len(QUESTION) + 1:]}", '') # here I am using mcq_answer as correct answer
+
+                if (f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}"]) > 0) \
+                    and (f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"]) > 0)\
+                        and (f"{NARRATION} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{NARRATION} {key[len(QUESTION) + 1:]}"]) > 0):
+
+                    que_image_link = input_dict[f"{QUE_IMAGE_LINK} {key[len(QUESTION) + 1:]}"].strip()
+                    que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key[len(QUESTION) + 1:]}"].strip().split(',')
+                   
+                    narration = input_dict[f"{NARRATION} {key[len(QUESTION) + 1:]}"].strip()
+                    image_data_list = []
+                    for i in range(0, len(que_props_list), 2):
+                        title = que_props_list[i]
+                        coord = que_props_list[i + 1]
+
+                        # Create a dictionary for each title and coord pair
+                        image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
+
+                    image_data_list.append(narration)
+
+                    media_json[f'que_image {key[len(QUESTION) + 1:]}'] = {que_image_link: image_data_list}
+                    
 
                 if test_type == "view":
                     question['is_view_only'] = True
@@ -630,7 +725,35 @@ def format_test_data_slack(raw_data):
                 output_dict["questions"].append(question)
 
             elif key.startswith('Story'):
-                if test_type == TestTypeChoices.mcq:
+
+                if test_type == TestTypeChoices.mcq or test_type == TestTypeChoices.dynamic_mcq:
+                    key_name = "0"
+                    temp = key.strip().split()  # like A
+                    if len(temp)>1:
+                        key_name = temp[-1]
+                
+
+                    if (f"{QUE_IMAGE_LINK} {key_name}" in input_dict and len(input_dict[f"{QUE_IMAGE_LINK} {key_name}"]) > 0) \
+                        and (f"{QUE_IMAGE_PROPS} {key_name}" in input_dict and len(input_dict[f"{QUE_IMAGE_PROPS} {key_name}"]) > 0) \
+                            and (f"{NARRATION} {key_name}" in input_dict and len(input_dict[f"{NARRATION} {key_name}"]) > 0):
+
+                        que_img_list = input_dict[f"{QUE_IMAGE_LINK} {key_name}"].strip()
+                        que_props_list = input_dict[f"{QUE_IMAGE_PROPS} {key_name}"].strip().split(',')
+                        narration = input_dict[f"{NARRATION} {key_name}"].strip()
+                        print(que_img_list,que_props_list,narration)
+
+                        image_data_list = []
+                        for i in range(0, len(que_props_list), 2):
+                            title = que_props_list[i]
+                            coord = que_props_list[i + 1]
+
+                            # Create a dictionary for each title and coord pair
+                            image_data_list.append({"title": title.strip(), "coord": coord.strip().replace(".",",")})
+
+                        image_data_list.append(narration)
+                        media_json[f'que_image {key_name}'] = {que_img_list: image_data_list}
+
+
                     keys = list(input_dict.keys())
                     question_keys = []  # to store needed field for a question
                     for i in range(len(keys)):
@@ -665,13 +788,39 @@ def format_test_data_slack(raw_data):
                         "key_learning_skills": f'{skill1},{skill2}'
 
                     }
+
+                    if f"{MEDIA_LINK} {key_name}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key_name}"]) > 0:
+                        question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key_name}", '')
+
                     output_dict["questions"].append(question)
-                    
+        print(media_json)      
+        if media_json:
+            output_dict['media_props'] = media_json
 
         if test_type == 'single' and len(output_dict["questions"]) > 1:
             output_dict["questions"][-1]["is_view_only"] = False
 
         output_dict['total_question'] = int(len(output_dict['questions']))
+
+        if test_type == TestTypeChoices.dynamic_mcq:
+            print(f"********************** total questions **********************: {input_dict}")
+            if 'total_question' not in input_dict:
+                logger.error("total question not found")
+            output_dict['total_question'] = input_dict['total_question']
+
+            for i in range(1, int(output_dict['total_question'])):
+                question = {
+                        "question": f"dummy question - {i}",
+                        "question_type": "mcq",
+                        "mcq_options" : {},
+                        'mcq_path' : "path",
+                        "key_learning_point": "No key learning point for this question",
+                        "key_learning_skills": f'dummy skill'
+
+                    }
+
+
+                output_dict["questions"].append(question)
 
         output_json = json.dumps(output_dict)
 
@@ -846,10 +995,10 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             for row_data in all_rows:
                 for key in row_data:
                     if key.startswith(QUESTION):
-                        if not row_data[key]:
+                        if not row_data[key] and (IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
                             raise Exception(
                                 f"Column '{key}' has null or empty value in row")
-                    elif key.startswith(KLS) or key.startswith(KLP):
+                    if key.startswith(KLS) or key.startswith(KLP):
                         if not row_data[key]:
                             raise Exception(
                                 f"Column '{key}' has null or empty value in row")
