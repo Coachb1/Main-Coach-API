@@ -36,6 +36,7 @@ class Test(TenantAwareModel):
     is_self_created = models.BooleanField(default=False, null=True, blank=True)
     is_repeat = models.BooleanField(default=True, null=True, blank=True)
     is_game_type = models.BooleanField(default=False, null=True, blank=True)
+    is_immersive = models.BooleanField(default=False, null=True, blank=True)
     is_free = models.BooleanField(default=False, null=True, blank=True)
     is_checkin_type = models.BooleanField(default=False, null=True, blank=True)
     is_learner_path = models.BooleanField(default=False, null=True, blank=True)
@@ -55,6 +56,8 @@ class Test(TenantAwareModel):
     certificate_details = models.JSONField(
         null=True, blank=True, default=None)
     ui_information = models.JSONField(
+        null=True, blank=True, default=None)
+    media_props = models.JSONField(
         null=True, blank=True, default=None)
     description_media = models.TextField(
         null=True, blank=True, default=None)
@@ -154,6 +157,8 @@ class TestAttemptSession(TenantAwareModel):
     feedback_summary = models.TextField(null=True,blank=True, default=None)
     culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
     mcq_summary = models.TextField(null=True,blank=True, default=None)
+    competency_data = models.JSONField(null=True, blank=True,default=None)
+
 
     
 
@@ -186,6 +191,7 @@ class TestQuestionResponse(TenantAwareModel):
     relevance = models.BooleanField(null=True, blank=True, default=True )
     kls_klp = models.JSONField(null=True, blank=True, default=None)
     mcq_skill = models.JSONField(null=True, blank=True, default=None)
+    response_rating = models.TextField(null=True, blank=True,default=None)
     class Meta:
         db_table = "test_question_response"
 

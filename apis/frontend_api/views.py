@@ -108,6 +108,17 @@ class FrontendAuthViewSet(ApiViewSet):
 
             url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
 
+        elif report_type == ReportType.ProcessTrainingReport:
+            session_serializer = FrontendInteractionSessionReportSerializer(
+                data=request.data)
+
+            session_serializer.is_valid(raise_exception=True)
+
+            session_id = session_serializer.validated_data["session_id"]
+            interaction_id = session_serializer.validated_data["interaction_id"]
+
+            url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
+
         elif report_type == ReportType.SUMMARY_FEEDBACK_REPORT:
             session_serializer = FrontendInteractionSessionReportSerializer(
                 data=request.data)
@@ -131,6 +142,7 @@ class FrontendAuthViewSet(ApiViewSet):
                                                         uid=test_attempt_session_id, deleted=0)
                 if test_attempt_session.status == TestAttemptSessionStatusChoices.in_progress:
                     test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+                    test_attempt_session.finished_at = datetime.datetime.now()
                     test_attempt_session.save()
             except Exception as e:
                 logger.info({"!!! Error !!!":"failed to get session from session_id for coaching", "error":e.args})
