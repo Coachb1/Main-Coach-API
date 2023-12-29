@@ -55,8 +55,10 @@ from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
 from clients.models import Client
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import nltk
 nltk.download('punkt')
+nltk.download('stopwords')
 import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
@@ -5815,3 +5817,19 @@ def get_dynamic_mcq_skills_prompt(situation_decision_map, num_decisions):
 
 
 #*************** Dynamic MCQ End ******************#
+
+
+
+
+def calculate_similarity(sentence1, sentence2):
+    # Tokenize and remove stopwords
+    stop_words = set(stopwords.words('english'))
+    words1 = [word.lower() for word in word_tokenize(sentence1) if word.isalpha() and word.lower() not in stop_words]
+    words2 = [word.lower() for word in word_tokenize(sentence2) if word.isalpha() and word.lower() not in stop_words]
+
+    # Calculate the Jaccard similarity
+    intersection = len(set(words1) & set(words2))
+    union = len(set(words1) | set(words2))
+    similarity_percentage = (intersection / union) * 100
+
+    return similarity_percentage
