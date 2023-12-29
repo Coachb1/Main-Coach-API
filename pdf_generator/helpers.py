@@ -205,8 +205,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         competency_report_data = competency_data
 
 
-    
-    if test.scenario_case == "process_training" and only_data:
+
+    if (test.scenario_case == "process_training" or test.is_transcript_only) and only_data:
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
                 tenant_id=test_attempt_session.tenant_id).custom_rating
@@ -223,7 +223,6 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         for question in questions:
                 question_id = question.uid
                 question_text = question.question
-                correct_answer = question.mcq_answer
 
                 participant_response = None
 
@@ -237,16 +236,20 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     continue
 
                 response_text = participant_response.response_text
-                response_rating = participant_response.response_rating
+                data = {
+                    "question_text": question_text,
+                    "response_text": response_text,
+                    
+                }
+                if test.scenario_case == "process_training":
+                    correct_answer = question.mcq_answer
+                    response_rating = participant_response.response_rating
+                    data['rating'] = response_rating
+                    data["correct_answer"] = correct_answer
 
                 # Check if participant response object has speech_metrics or not
                 
-                qa.append({
-                    "question_text": question_text,
-                    "response_text": response_text,
-                    "rating": response_rating,
-                    "correct_answer": correct_answer
-                })
+                qa.append(data)
 
         print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
         

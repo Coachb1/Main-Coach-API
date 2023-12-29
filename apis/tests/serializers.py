@@ -60,6 +60,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_single_bot = serializers.BooleanField(
         required=False, default=False)
+    is_transcript_only = serializers.BooleanField(
+        required=False, default=False)
     is_self_created = serializers.BooleanField(
         required=False, default=False)
     is_checkin_type = serializers.BooleanField(
@@ -170,7 +172,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_micro",
                   "client_name",
                   "is_immersive",
-                  "media_props"
+                  "media_props",
+                  "is_transcript_only",
                   ]
 
     def get_questions(self, instance):

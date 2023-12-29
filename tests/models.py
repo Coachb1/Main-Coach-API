@@ -69,6 +69,7 @@ class Test(TenantAwareModel):
     total_question = models.IntegerField(null=True, blank=True, default=None)
     is_micro = models.BooleanField(default=False, null=True, blank=True)
     is_logged_in = models.BooleanField(default=False, null=True, blank=True)
+    is_transcript_only = models.BooleanField(default=False, null=True, blank=True)
 
     class Meta:
         db_table = "test"
