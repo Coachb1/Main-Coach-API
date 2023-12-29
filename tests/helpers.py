@@ -1152,7 +1152,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             feedback_text = "No feedback can be generated because of too low response length"
             go_for_feedback = False
 
-        if test.scenario_case == ScenarioCaseChoices.process_training or (not test.is_transcript_only):
+        if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
             feedback_text = "No feedback..."
             go_for_feedback = False
         
