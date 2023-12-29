@@ -1399,7 +1399,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.save(update_fields=['finished_at']) 
 
-            total_responses = TestQuestionResponse.objects.get(test_attempt_session_id = test_attempt_session.uid)
+            total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id = test_attempt_session.uid)
 
             # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
             skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
