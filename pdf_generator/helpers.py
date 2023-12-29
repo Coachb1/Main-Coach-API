@@ -252,9 +252,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 qa.append(data)
 
         print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
-        
-        
-        return {'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data}
+        return {'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data, 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 'speech_metrics_avg': None, "response_relevance": True,"feedback_summary":test_attempt_session.feedback_summary,"skill_summary":test_attempt_session.culture_and_skill_summary}
 
 
 
