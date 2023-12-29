@@ -152,7 +152,8 @@ def create_test(tenant: Tenant,
                 is_self_created:bool,
                 is_logged_in:bool,
                 is_immersive:bool,
-                media_props:dict) -> tuple[Test, list[TestQuestion]]:
+                media_props:dict,
+                is_transcript_only:bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -204,6 +205,7 @@ def create_test(tenant: Tenant,
             is_logged_in=is_logged_in,
             is_immersive=is_immersive,
             media_props=media_props,
+            is_transcript_only=is_transcript_only,
         )
 
         test_questions = []
@@ -916,7 +918,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             end = time.time()
             logger.info(f"####################### _process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
 
-            if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+            if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training :
                 if transcript_length > 10:
                     if test.test_type == TestTypeChoices.trainer_thread:
                         threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -988,7 +990,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 end = time.time()
                 logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
-                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+                if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -1050,7 +1052,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         transcript = "Transcription couldn't be generated"
                         test_question_response.response_text = transcript
 
-                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+                if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -1150,8 +1152,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             feedback_text = "No feedback can be generated because of too low response length"
             go_for_feedback = False
 
-        if test.scenario_case == ScenarioCaseChoices.process_training:
-            feedback_text = "No feedback because of process training"
+        if test.scenario_case == ScenarioCaseChoices.process_training or (not test.is_transcript_only):
+            feedback_text = "No feedback..."
             go_for_feedback = False
         
         if go_for_feedback:
@@ -1393,9 +1395,25 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        if test.scenario_case == ScenarioCaseChoices.process_training:
+        if test.scenario_case == ScenarioCaseChoices.process_training or test.is_transcript_only:
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.save(update_fields=['finished_at']) 
+
+            total_responses = TestQuestionResponse.objects.get(test_attempt_session_id = test_attempt_session.uid)
+
+            # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+            skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                                tenant_id=test_attempt_session.tenant_id)
+
+            updated_fields = []
+            skills_rating_object.total_questions_attempted += int(total_responses.count())
+            skills_rating_object.total_tests_attempted += 1
+
+            updated_fields.append("total_questions_attempted")
+            updated_fields.append("total_tests_attempted")
+            updated_fields.append("updated")
+
+            skills_rating_object.save(update_fields=updated_fields)
         else:
             calc_score(test_attempt_session, test)
 
