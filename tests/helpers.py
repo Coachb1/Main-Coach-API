@@ -55,8 +55,10 @@ from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens
 from clients.models import Client
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import nltk
 nltk.download('punkt')
+nltk.download('stopwords')
 import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
@@ -150,7 +152,8 @@ def create_test(tenant: Tenant,
                 is_self_created:bool,
                 is_logged_in:bool,
                 is_immersive:bool,
-                media_props:dict) -> tuple[Test, list[TestQuestion]]:
+                media_props:dict,
+                is_transcript_only:bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -202,6 +205,7 @@ def create_test(tenant: Tenant,
             is_logged_in=is_logged_in,
             is_immersive=is_immersive,
             media_props=media_props,
+            is_transcript_only=is_transcript_only,
         )
 
         test_questions = []
@@ -914,7 +918,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             end = time.time()
             logger.info(f"####################### _process_test_response: transcript generation for ANY: AUDIO took {end - start:.2f} #######################")
 
-            if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+            if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training :
                 if transcript_length > 10:
                     if test.test_type == TestTypeChoices.trainer_thread:
                         threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -986,7 +990,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 end = time.time()
                 logger.info(f"####################### _process_test_response: transcript generation for AUDIO took {end - start:.2f} #######################")
 
-                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+                if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -1048,7 +1052,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                         transcript = "Transcription couldn't be generated"
                         test_question_response.response_text = transcript
 
-                if not test.is_free and test.scenario_case != ScenarioCaseChoices.process_training:
+                if not test.is_free and (not test.is_transcript_only) and test.scenario_case != ScenarioCaseChoices.process_training:
                     if transcript_length > 10:
                         if test.test_type == TestTypeChoices.trainer_thread:
                             threading.Thread(target=speech_metrics_in_thread, args=(test_question_response, transcript)).start()
@@ -1148,8 +1152,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             feedback_text = "No feedback can be generated because of too low response length"
             go_for_feedback = False
 
-        if test.scenario_case == ScenarioCaseChoices.process_training:
-            feedback_text = "No feedback because of process training"
+        if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
+            feedback_text = "No feedback..."
             go_for_feedback = False
         
         if go_for_feedback:
@@ -1391,9 +1395,28 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        if test.scenario_case == ScenarioCaseChoices.process_training:
+        if test.scenario_case == ScenarioCaseChoices.process_training or test.is_transcript_only:
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.save(update_fields=['finished_at']) 
+
+            total_responses = TestQuestionResponse.objects.filter(
+                test_attempt_session_id=test_attempt_session.uid,
+                deleted=0
+            )
+
+            # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+            skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+                                                                                tenant_id=test_attempt_session.tenant_id)
+
+            updated_fields = []
+            skills_rating_object.total_questions_attempted += int(total_responses.count())
+            skills_rating_object.total_tests_attempted += 1
+
+            updated_fields.append("total_questions_attempted")
+            updated_fields.append("total_tests_attempted")
+            updated_fields.append("updated")
+
+            skills_rating_object.save(update_fields=updated_fields)
         else:
             calc_score(test_attempt_session, test)
 
@@ -3908,7 +3931,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 
                 comment: ${user_comment}
 
-                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response. The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3934,7 +3959,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 current_conversation: ${current_conversation}
                 comment: ${user_comment}
 
-                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response.
+                Provide a response to the user's comment as the team member based on the given context. Do not provide any feedback on the response. The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3962,6 +3989,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -3990,7 +4020,10 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the manager based on the given context for an ongoing conversation. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
 
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
+                
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
                 NOTE: The response should not be more than 25 words.
@@ -4017,6 +4050,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -4045,6 +4081,9 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 comment: ${user_comment}
 
                 Provide a response to the user's comment as the customer based on the given context. Do not provide any feedback on the response.
+                The response should prompt the conversation to move forward. Do not offer to schedule a meeting later this is an ongoing conversation.
+
+                Always give a unique, different and specific response based on the user's comment. The response should be relevant to the information or question or answer given in the comment. Always give a response to understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the response in bullet points. Only provide the response in paragraphs.
 
@@ -4214,7 +4253,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
                 candidate_comment: ${user_comment}
 
-                Based on the candidate's comment, main context and background, ask the candidate another question as the interviewer. Do not provide any feedback on the response.
+                Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
                 NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
 
@@ -4243,7 +4283,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Current conversation : ${current_conversation}
                     Candidate response : ${question_text}
 
-                    NOTE: Based on the candidate response and the main context ask the candidate another question. Do not provide any feedback on the response.
+                    NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                    Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
                     NOTE: The question should not be more than 25 words.
 
@@ -5797,3 +5838,19 @@ def get_dynamic_mcq_skills_prompt(situation_decision_map, num_decisions):
 
 
 #*************** Dynamic MCQ End ******************#
+
+
+
+
+def calculate_similarity(sentence1, sentence2):
+    # Tokenize and remove stopwords
+    stop_words = set(stopwords.words('english'))
+    words1 = [word.lower() for word in word_tokenize(sentence1) if word.isalpha() and word.lower() not in stop_words]
+    words2 = [word.lower() for word in word_tokenize(sentence2) if word.isalpha() and word.lower() not in stop_words]
+
+    # Calculate the Jaccard similarity
+    intersection = len(set(words1) & set(words2))
+    union = len(set(words1) | set(words2))
+    similarity_percentage = (intersection / union) * 100
+
+    return similarity_percentage
