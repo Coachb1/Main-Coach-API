@@ -12,7 +12,7 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from commons.utils import generic_completion
 from tests.helpers import get_meeting_report_from_test_attempt_session
-from tests.helpers import get_skills_tracker_data
+from tests.helpers import get_skills_tracker_data, calculate_similarity
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
 from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse
@@ -244,7 +244,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 report_url = test_attempt_session.report_url
 
 
-            if test.test_type == TestTypeChoices.coaching or test.scenario_case == ScenarioCaseChoices.process_training or test.test_type == TestTypeChoices.dynamic_mcq:
+            if test.test_type == TestTypeChoices.coaching or test.scenario_case == ScenarioCaseChoices.process_training or test.test_type in (TestTypeChoices.dynamic_mcq, TestTypeChoices.mcq) or test.is_transcript_only:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
@@ -254,100 +254,99 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 
 
             #################* summary  start #################
-            if test.test_type != TestTypeChoices.mcq or test.test_type != TestTypeChoices.dynamic_mcq:
-                updated_fields = []
+            updated_fields = []
+            
+            
+            skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
+                                                                            test_attempt_session.culture_skills_rating,
+                                                                            test_attempt_session.skills_rating,is_free)
+            logger.info({"************************skills_summary in submit email ********************":skills_summary})
+            if len(skills_summary) > 0:
+                test_attempt_session.culture_and_skill_summary = skills_summary
+                updated_fields.append("culture_and_skill_summary")
+
+            responses = TestQuestionResponse.objects.filter(
+                test_attempt_session_id=test_attempt_session.uid,
+                responder_type='user',
+                deleted=0
+            )
+            feedbacks = ''
+            for response in responses:
+                if response.feedback_text:
+                    feedbacks += response.feedback_text + '\n'
+
+            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
+            logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+            if len(feedbacks_summary) > 0:
+                test_attempt_session.feedback_summary = feedbacks_summary
+                updated_fields.append("feedback_summary")
+
+
+            #####################* summary end #################
+
+            if not test.is_free :
+                #####################* explanation start #################
+                if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
+                    user_persona = test.orchestrated_conversation_details.get("test_user_persona")
+                    objective = test.orchestrated_conversation_details.get("objective")
+
+                    chat_conversation = get_group_discussion_chat_conversation(
+                        test_attempt_session, user_persona)
+
+                    skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
+                    logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+
+                    culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                    logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+
+                    if skills_explanation:
+                        test_attempt_session.skills_explanation = skills_explanation
+                        updated_fields.append("skills_explanation")
+
+                    if culture_skills_explanation:
+                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                        updated_fields.append("culture_skills_explanation")
+
+                else:
                 
+                    responses = TestQuestionResponse.objects.filter(
+                        test_attempt_session_id=test_attempt_session.uid,
+                        deleted=0
+                    )
+                    conversation = ""
+                    count = 1
+
+                    for response in responses:
+
+                        question = TestQuestion.objects.get(
+                            uid=response.question_id)
+
+                        question_text = question.question
+                        response_text = response.response_text
+
+                        conversation += f"{count}. [Question:] {question_text}\n"
+                        if not question.is_view_only:
+                            conversation += f"[Answer:] {response_text}\n\n"
+
+                        count += 1
+
+                    skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+                    logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                    if skills_explanation:
+                        test_attempt_session.skills_explanation = skills_explanation
+                        updated_fields.append("skills_explanation")
+
+
+                    culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                    logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
+                    if culture_skills_explanation:
+                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                        updated_fields.append("culture_skills_explanation")
                 
-                skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
-                                                                                test_attempt_session.culture_skills_rating,
-                                                                                test_attempt_session.skills_rating,is_free)
-                logger.info({"************************skills_summary in submit email ********************":skills_summary})
-                if len(skills_summary) > 0:
-                    test_attempt_session.culture_and_skill_summary = skills_summary
-                    updated_fields.append("culture_and_skill_summary")
 
-                responses = TestQuestionResponse.objects.filter(
-                    test_attempt_session_id=test_attempt_session.uid,
-                    responder_type='user',
-                    deleted=0
-                )
-                feedbacks = ''
-                for response in responses:
-                    if response.feedback_text:
-                        feedbacks += response.feedback_text + '\n'
+                #####################* explanation end #################
 
-                feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
-                logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
-                if len(feedbacks_summary) > 0:
-                    test_attempt_session.feedback_summary = feedbacks_summary
-                    updated_fields.append("feedback_summary")
-
-
-                #####################* summary end #################
-
-                if not test.is_free :
-                    #####################* explanation start #################
-                    if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
-                        user_persona = test.orchestrated_conversation_details.get("test_user_persona")
-                        objective = test.orchestrated_conversation_details.get("objective")
-
-                        chat_conversation = get_group_discussion_chat_conversation(
-                            test_attempt_session, user_persona)
-
-                        skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
-                        logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-
-                        culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
-                        logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
-
-                        if skills_explanation:
-                            test_attempt_session.skills_explanation = skills_explanation
-                            updated_fields.append("skills_explanation")
-
-                        if culture_skills_explanation:
-                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                            updated_fields.append("culture_skills_explanation")
-
-                    else:
-                    
-                        responses = TestQuestionResponse.objects.filter(
-                            test_attempt_session_id=test_attempt_session.uid,
-                            deleted=0
-                        )
-                        conversation = ""
-                        count = 1
-
-                        for response in responses:
-
-                            question = TestQuestion.objects.get(
-                                uid=response.question_id)
-
-                            question_text = question.question
-                            response_text = response.response_text
-
-                            conversation += f"{count}. [Question:] {question_text}\n"
-                            if not question.is_view_only:
-                                conversation += f"[Answer:] {response_text}\n\n"
-
-                            count += 1
-
-                        skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
-                        logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-                        if skills_explanation:
-                            test_attempt_session.skills_explanation = skills_explanation
-                            updated_fields.append("skills_explanation")
-
-
-                        culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
-                        logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})              
-                        if culture_skills_explanation:
-                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                            updated_fields.append("culture_skills_explanation")
-                    
-
-                    #####################* explanation end #################
-
-                test_attempt_session.save(update_fields=updated_fields)
+            test_attempt_session.save(update_fields=updated_fields)
                 
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
@@ -449,9 +448,20 @@ class TestAttemptSessionViewSet(ApiViewSet,
             next_question_and_options_prompt = get_next_mcq_question_options_prompt(description, question_text, option_a, option_b, option_selected)
 
         logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question prompt":next_question_and_options_prompt})
-        response = generic_completion(next_question_and_options_prompt, 600)
-        logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question response":response})
-        options_data = extract_mcq_options_from_response(response)
-        logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> options_data":options_data, "question text": test_attempt_session.feedback_summary})
+
+        retry_count = 0
+        while retry_count < 5:
+            response = generic_completion(next_question_and_options_prompt, 600)
+            logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> next mcq question response":response})
+            options_data = extract_mcq_options_from_response(response)
+            logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> options_data":options_data, "question text": test_attempt_session.feedback_summary})
+
+            # if both options generated are 75% same then continue else break
+            if calculate_similarity(options_data['option_a'], options_data['option_b']) > 75:
+                logger.info({">>>>>>>>>>>>>>>>>>>>>>>>>>>> options are same so going to retry":options_data,"retry_count":retry_count})
+                retry_count += 1
+                continue
+            else:
+                break
 
         return Response({"options_data":options_data}, status=status.HTTP_200_OK)

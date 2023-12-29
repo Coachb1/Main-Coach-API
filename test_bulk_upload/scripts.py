@@ -75,6 +75,7 @@ QUE_IMAGE_PROPS = 'Que Image Props'
 NARRATION = 'Que Narration'
 TEST_NARRATION = 'Test Narration'
 ANSWER = 'Correct answer'
+IS_TRANSCRIPT_ONLY = "Is Transcript Only"
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -170,6 +171,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_immersive'] = False
                 else:
                     output_dict['is_immersive'] = False
+
+        if IS_TRANSCRIPT_ONLY in input_dict:
+            if input_dict[IS_TRANSCRIPT_ONLY] and len(input_dict[IS_TRANSCRIPT_ONLY].strip()) > 0:
+                is_transcript_only = input_dict[IS_TRANSCRIPT_ONLY].strip().lower()
+
+                if is_transcript_only == "true":
+                    output_dict['is_transcript_only'] = True
+                elif is_transcript_only == "false":
+                    output_dict['is_transcript_only'] = False
+                else:
+                    output_dict['is_transcript_only'] = False
 
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
@@ -516,6 +528,21 @@ def format_test_data_slack(raw_data):
                 else:
                     output_dict['is_immersive'] = False
 
+        is_transcript_only = False
+        if IS_TRANSCRIPT_ONLY in input_dict:
+            if input_dict[IS_TRANSCRIPT_ONLY] and len(input_dict[IS_TRANSCRIPT_ONLY].strip()) > 0:
+                is_transcript_only = input_dict[IS_TRANSCRIPT_ONLY].strip().lower()
+
+                if is_transcript_only == "true":
+                    output_dict['is_transcript_only'] = True
+                    is_transcript_only = True
+                elif is_transcript_only == "false":
+                    output_dict['is_transcript_only'] = False
+                    is_transcript_only = False
+                else:
+                    output_dict['is_transcript_only'] = False
+                    is_transcript_only = False
+
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
                 is_free = input_dict[IS_FREE].strip().lower()
@@ -606,7 +633,7 @@ def format_test_data_slack(raw_data):
         skills_list = ','.join(skills_list)
 
         output_dict['skills_to_evaluate'] = skills_list
-        if input_dict[SCENARIO_CASE] == 'process_training':
+        if input_dict[SCENARIO_CASE] == 'process_training' or is_transcript_only:
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
@@ -687,7 +714,7 @@ def format_test_data_slack(raw_data):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
-                if input_dict[SCENARIO_CASE] == 'process_training':
+                if input_dict[SCENARIO_CASE] == 'process_training' or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
