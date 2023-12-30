@@ -856,11 +856,12 @@ def set_language_skills_in_thread(user_response,test_attempt_session):
     \n\nHuman:
     Please provide an English language ability score (on a scale of 1 to 10) to a person based on the below recorded speech.
 
-    Candidate answer:  ${user_response}
+    Candidate answer: ${user_response}
 
     Always give the output in a single paragraph.
-    Keep the output less than 150 words.
-    Keep the output more than 50 words.
+    Keep the output less than 400 words.
+    Keep the output more than 200 words.
+    Note : Do not include any introduction sentence or word-count in the output.
     \n\nAssistant:"""
 
     language_skills = anthropic_completion(language_skills_prompt, 150)
