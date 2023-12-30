@@ -153,7 +153,8 @@ def create_test(tenant: Tenant,
                 is_logged_in:bool,
                 is_immersive:bool,
                 media_props:dict,
-                is_transcript_only:bool) -> tuple[Test, list[TestQuestion]]:
+                is_transcript_only:bool,
+                is_pitch: bool) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -206,6 +207,7 @@ def create_test(tenant: Tenant,
             is_immersive=is_immersive,
             media_props=media_props,
             is_transcript_only=is_transcript_only,
+            is_pitch=is_pitch
         )
 
         test_questions = []
@@ -849,6 +851,25 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
 
 
 @timeit
+def set_language_skills_in_thread(user_response,test_attempt_session):
+    language_skills_prompt = f"""
+    \n\nHuman:
+    Please provide an English language ability score (on a scale of 1 to 10) to a person based on the below recorded speech.
+
+    Candidate answer: ${user_response}
+
+    Always give the output in a single paragraph.
+    Keep the output less than 400 words.
+    Keep the output more than 200 words.
+    Note : Do not include any introduction sentence or word-count in the output.
+    \n\nAssistant:"""
+
+    language_skills = anthropic_completion(language_skills_prompt, 150)
+    logger.info(f"===========================> language_skills: {language_skills}")
+    test_attempt_session.language_skills = language_skills
+    test_attempt_session.save(update_fields=["language_skills"])
+
+@timeit
 def speech_metrics_in_thread(test_question_response, transcript):
     speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
@@ -1272,6 +1293,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         test_question_response.feedback_text = feedback_text
         updated_fields.append("feedback_text")
         updated_fields.append("metadata")
+
+    if test.is_pitch:
+        threading.Thread(target=set_language_skills_in_thread, args=(test_question_response.response_text,test_attempt_session)).start()
 
 
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
