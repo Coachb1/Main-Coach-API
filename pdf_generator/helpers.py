@@ -538,7 +538,19 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             
         
 
-        return {'is_transcript_only': test.is_transcript_only,'skills_explanation':skill_exp,'competency_data':competency_report_data,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'test_type':test.test_type,'scenario_case':test.scenario_case,'culture_skills_explanation':culture_skill_exp,"title":test_title,'candidate_type': candidate_type, 'test_description': test_description, 'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data, 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,"feedback_summary":feedback_summary,"skill_summary":skill_summary}
+        return {'is_transcript_only': test.is_transcript_only,'skills_explanation':skill_exp,
+                'competency_data':competency_report_data,"ui_information": test.ui_information,
+                "certificate_details":test.certificate_details,'test_type':test.test_type,
+                'scenario_case':test.scenario_case,'culture_skills_explanation':culture_skill_exp,
+                "title":test_title,'candidate_type': candidate_type, 'test_description': test_description,
+                'is_email_type': is_email_type, 'tedtalk_and_hbr': ted_talk_and_hbr, 'test_code': test_codes,
+                'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at,
+                'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data,
+                'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,
+                "feedback_summary":feedback_summary,"skill_summary":skill_summary,
+                "is_pitch": test.is_pitch,
+                "language_skills": test_attempt_session.language_skills,
+                }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
     culture_uri = get_test_attempt_session_culture_skills_graph(
