@@ -76,6 +76,7 @@ NARRATION = 'Que Narration'
 TEST_NARRATION = 'Test Narration'
 ANSWER = 'Correct answer'
 IS_TRANSCRIPT_ONLY = "Is Transcript Only"
+IS_PITCH = "is_pitch"
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -516,6 +517,18 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+
+        if IS_PITCH in input_dict:
+            if input_dict[IS_PITCH] and len(input_dict[IS_PITCH].strip()) > 0:
+                is_pitch = input_dict[IS_PITCH].strip().lower()
+
+                if is_pitch == "true":
+                    output_dict['is_pitch'] = True
+                elif is_pitch == "false":
+                    output_dict['is_pitch'] = False
+                else:
+                    output_dict['is_pitch'] = False
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
