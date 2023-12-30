@@ -70,6 +70,7 @@ class Test(TenantAwareModel):
     is_micro = models.BooleanField(default=False, null=True, blank=True)
     is_logged_in = models.BooleanField(default=False, null=True, blank=True)
     is_transcript_only = models.BooleanField(default=False, null=True, blank=True)
+    is_pitch = models.BooleanField(default=False, null=True, blank=True)
 
     class Meta:
         db_table = "test"
@@ -159,6 +160,7 @@ class TestAttemptSession(TenantAwareModel):
     culture_and_skill_summary = models.TextField(null=True,blank=True, default=None)
     mcq_summary = models.TextField(null=True,blank=True, default=None)
     competency_data = models.JSONField(null=True, blank=True,default=None)
+    language_skills = models.TextField(null=True, blank=True, default=None)
 
 
     
