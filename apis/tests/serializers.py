@@ -62,6 +62,7 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_transcript_only = serializers.BooleanField(
         required=False, default=False)
+    is_pitch = serializers.BooleanField(required=False, default=False)
     is_self_created = serializers.BooleanField(
         required=False, default=False)
     is_checkin_type = serializers.BooleanField(
