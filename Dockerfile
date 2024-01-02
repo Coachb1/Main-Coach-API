@@ -1,4 +1,4 @@
-FROM python:3.11-buster
+FROM 0b742944.c1.de1.container-registry.ovh.net/library/python:3.11-buster
 
 RUN apt-get update
 
