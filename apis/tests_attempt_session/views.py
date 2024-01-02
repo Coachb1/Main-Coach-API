@@ -500,5 +500,5 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 return Response({"data":data}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(F'save_session_notes erro , {e}',exc_info=True)
-            return Response({"Error":e}, status=status.HTTP_200_OK)
+            return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
 
