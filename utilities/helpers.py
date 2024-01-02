@@ -10,6 +10,7 @@ from .models import SessionNotesRecommendations, MentorDetails
 from tests.helpers import create_scenario_from_site_context
 import json
 import logging
+from users.models import UserAttribute
 
 
 
@@ -119,9 +120,12 @@ def get_session_notes(user_id):
             "context": session_note.session_notes,
             "date" : session_note.created_date,
             "recommendations": session_note.recommendations,
-            "mentor": session_note.mentor_id
-            
         }
+        mentor = UserAttribute.objects.get(user_id=session_note.mentee_id)
+        email = mentor.attributes.get("email",None)
+        name = mentor.attributes.get('name',None)
+        note['mentor_email_id'] = email
+        note['mentor_name'] = name
         data.append(note)
 
     return data
