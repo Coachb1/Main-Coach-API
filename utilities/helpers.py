@@ -109,9 +109,12 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     
 
     
-def get_session_notes(user_id):
+def get_session_notes(user_id,mentor_id):
 
-    session_notes = SessionNotesRecommendations.objects.filter(mentee_id = user_id)
+    if user_id:
+        session_notes = SessionNotesRecommendations.objects.filter(mentee_id = user_id)
+    elif mentor_id:
+        session_notes = SessionNotesRecommendations.objects.filter(mentor_id = mentor_id)
 
     data = []
 
@@ -121,11 +124,12 @@ def get_session_notes(user_id):
             "date" : session_note.created_date,
             "recommendations": session_note.recommendations,
         }
-        mentor = UserAttribute.objects.get(user_id=session_note.mentee_id)
-        email = mentor.attributes.get("email",None)
-        name = mentor.attributes.get('name',None)
-        note['mentor_email_id'] = email
-        note['mentor_name'] = name
+        if user_id:
+            mentor = UserAttribute.objects.get(user_id=session_note.mentee_id)
+            email = mentor.attributes.get("email",None)
+            name = mentor.attributes.get('name',None)
+            note['mentor_email_id'] = email
+            note['mentor_name'] = name
         data.append(note)
 
     return data
