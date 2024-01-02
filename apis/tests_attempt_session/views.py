@@ -27,6 +27,7 @@ from email_sender.helpers import send_feedbackd_email
 from users.models import UserAttribute
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
+from utilities.helpers import get_session_notes, save_session_notes
 logger = logging.getLogger(__name__)
 
 
@@ -467,3 +468,37 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 break
 
         return Response({"options_data":options_data}, status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False,url_path="save_session_notes")
+    def save_session_notes(self,request, *args, **kwargs):
+        """
+        Save or retrieve session notes for a user in a specific context.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
+            context (str): The context in which the session notes are being saved/retrieved.
+            mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
+            mode (str): The mode of operation, either 'mentor' or 'mentee'.
+        
+        Returns:
+            Response: The response containing the saved or retrieved session notes data.
+        """
+        try:
+            tenant_id = self.request.tenant.uid
+            user_id = request.query_params.get('user_id')
+            context = request.query_params.get('context')
+            mentor_id = request.query_params.get('mentor_id')
+            mode = request.query_params.get('for')
+            access_token = request.query_params.get('token', None)
+
+            if mode == 'mentor':
+                data = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            elif mode == 'mentee':
+                data = get_session_notes(user_id)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(F'save_session_notes erro , {e}',exc_info=True)
+            return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
+
