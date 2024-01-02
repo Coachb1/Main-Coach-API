@@ -491,6 +491,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             mentor_id = request.query_params.get('mentor_id')
             mode = request.query_params.get('for')
             access_token = request.query_params.get('token', None)
+            logger.info(f"details: {mode}, userid: {user_id}, mentor_id; {mentor_id}")
 
             if mode == 'mentor':
                 data = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
@@ -498,7 +499,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == 'mentee':
                 data = get_session_notes(user_id)
                 return Response({"data":data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"details": 'for parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(F'save_session_notes erro , {e}',exc_info=True)
+            logger.error(f'save_session_notes erro , {e}',exc_info=True)
             return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
 
