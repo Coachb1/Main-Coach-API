@@ -497,7 +497,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 data = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             elif mode == 'mentee':
-                data = get_session_notes(user_id)
+                data = get_session_notes(user_id,mentor_id)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             else:
                 return Response({"details": 'for parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
