@@ -92,7 +92,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         mentor_id = mentor_id,
         mentee_id = user_id,
         session_notes = context,
-        created_date = datetime.datetime.utcnow().date()
+        created_date = datetime.datetime.utcnow()
         )
     
     
@@ -148,7 +148,53 @@ def get_session_notes(user_id,mentor_id):
             name = mentor.attributes.get('name',None)
             note['mentor_email_id'] = email
             note['mentor_name'] = name
+
+        elif mentor_id:
+            mentee = UserAttribute.objects.get(user_id=session_note.mentee_id)
+            email = mentee.attributes.get("email",None)
+            name = mentee.attributes.get('name',None)
+            note['mentee_email_id'] = email
+            note['mentee_name'] = name
+            
         data.append(note)
 
     return data
 
+
+def get_session_notes_data(tenant_id):
+
+    session_notes = SessionNotesRecommendations.objects.filter(tenant_id=tenant_id)
+    data = []
+    for notes in session_notes:
+        temp = {
+            "id": notes.id,
+            "created":notes.created_date,
+            "updated": notes.updated_date,
+            "context": notes.session_notes,
+            "recommendations": notes.recommendations
+        }
+        try:
+            mentor = UserAttribute.objects.get(user_id=notes.mentor_id)
+            mentee = UserAttribute.objects.get(user_id=notes.mentee_id)
+            temp["mentor_name"] = mentor.get('name',None)
+            temp["mentor_email"] = mentor.get('email',None)
+            temp["mentee_name"] = mentee.get('name',None)
+            temp["mentee_email"] = mentee.get('email',None)
+
+        except Exception as e:
+            logger.exception(f"failed to fetch attributes: {e}")
+            
+
+        data.append(temp)
+
+    return data
+
+def update_session_notes(session_note_id,recommendations):
+
+    session_note = SessionNotesRecommendations.objects.get(id=session_note_id)
+
+    session_note.recommendations = recommendations
+    session_note.updated_date = datetime.datetime.utcnow()
+    session_note.save(update_fields=['recommendations',"updated_date"])
+
+    return {"message": "recommandations updated"}
