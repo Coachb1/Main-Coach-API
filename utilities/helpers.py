@@ -91,8 +91,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         mentor_id = mentor_id,
         mentee_id = user_id,
         session_notes = context,
-        created_date = datetime.datetime.utcnow().date(),
-        updated_date = datetime.datetime.utcnow().date()
+        created_date = datetime.datetime.utcnow().date()
         )
     
     
@@ -105,7 +104,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         except Exception as e:
             logger.error({"Error":e},exc_info=True)
     
-    return [{"context": session_notes.session_notes,"date" : datetime.datetime.utcnow().date(),"recommendations": session_notes.recommendations}]
+    return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}]
     
 
     
@@ -122,10 +121,11 @@ def get_session_notes(user_id,mentor_id):
         note = {
             "context": session_note.session_notes,
             "date" : session_note.created_date,
+            "updated": session_note.updated_date,
             "recommendations": session_note.recommendations,
         }
         if user_id:
-            mentor = UserAttribute.objects.get(user_id=session_note.mentee_id)
+            mentor = UserAttribute.objects.get(user_id=session_note.mentor_id)
             email = mentor.attributes.get("email",None)
             name = mentor.attributes.get('name',None)
             note['mentor_email_id'] = email
