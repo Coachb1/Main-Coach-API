@@ -27,7 +27,7 @@ from email_sender.helpers import send_feedbackd_email
 from users.models import UserAttribute
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
-from utilities.helpers import get_session_notes, save_session_notes
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes
 logger = logging.getLogger(__name__)
 
 
@@ -504,4 +504,29 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error(f'save_session_notes erro , {e}',exc_info=True)
             return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False,url_path="get_or_update_session_notes")
+    def get_or_update_session_notes(self,request, *args, **kwargs):
+        try:
+            tenant_id = self.request.tenant.uid
+            mode = request.query_params.get('mode',None)
+            session_note_id = request.query_params.get('session_note_id',None)
+            recommendations = request.query_params.get('recommendations',None)
+
+            if mode == 'get':
+                data = get_session_notes_data(tenant_id)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            elif mode == 'update':
+                if not recommendations or not session_note_id:
+                    return Response({"Error": "recommendations or session_note_id not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+                data = update_session_notes(session_note_id,recommendations)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"details": 'Mode parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f'get_or_update_session_notes error , {e}',exc_info=True)
+            return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
+
 
