@@ -11,6 +11,7 @@ from tests.helpers import create_scenario_from_site_context
 import json
 import logging
 from users.models import UserAttribute
+from email_sender.helpers import send_session_notes_email
 
 
 
@@ -103,6 +104,23 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
             session_notes.save(update_fields=['recommendations'])
         except Exception as e:
             logger.error({"Error":e},exc_info=True)
+
+
+    # sending email 
+    try:
+        mentor = UserAttribute.objects.get(user_id=session_notes.mentor_id)
+        mentee = UserAttribute.objects.get(user_id=session_notes.mentee_id)
+        mentor_name = mentor.get('name',None)
+        mentor_email = mentor.get('email',None)
+        mentee_name = mentee.get('name',None)
+        mentee_email = mentee.get('email',None)
+        
+        to_email = [mentor_email,mentee_email]
+        send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,mentee_name,session_notes.session_notes)
+        logger.info("email sent..")
+    except Exception as e:
+        logger.error(f'failed to send email. {e}')
+    
     
     return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}]
     
