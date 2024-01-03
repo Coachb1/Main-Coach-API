@@ -32,7 +32,7 @@ class MentorDetails(models.Model):
 class SessionNotesRecommendations(models.Model):
     tenant_id = models.CharField(max_length=255, db_index=True)
     created_date = models.DateTimeField()
-    updated_date = models.DateTimeField()
+    updated_date = models.DateTimeField(null=True,blank=True)
     mentor_id = models.CharField(max_length=255)
     mentee_id = models.CharField(max_length=255)
     session_notes = models.TextField(default=None,null=True,blank=True)
