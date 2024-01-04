@@ -20,3 +20,23 @@ class SpecialTypeTests(models.Model):
     
     class Meta:
         db_table = "specail_case_tests"
+
+class MentorDetails(models.Model):
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    mentor_id = models.CharField(max_length=255)
+    mentee_ids = models.TextField(default=None,null=True,blank=True)
+    
+    class Meta:
+        db_table = "mentor_details"
+
+class SessionNotesRecommendations(models.Model):
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    created_date = models.DateTimeField()
+    updated_date = models.DateTimeField(null=True,blank=True)
+    mentor_id = models.CharField(max_length=255)
+    mentee_id = models.CharField(max_length=255)
+    session_notes = models.TextField(default=None,null=True,blank=True)
+    recommendations = models.TextField(default=None,null=True,blank=True)
+
+    class Meta:
+        db_table = "session_notes_and_recommendations"
