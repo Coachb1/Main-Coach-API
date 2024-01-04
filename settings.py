@@ -47,7 +47,8 @@ MIDDLEWARE = [
     "clients.middlewares.ClientIdentifierMiddleware",
     "tenants.middlewares.TenantIdentifierMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    "commons.ResponseMiddleware.SlackNoRetryMiddleware"
+    "commons.ResponseMiddleware.SlackNoRetryMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware"
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -165,3 +166,5 @@ URL_SHORTENING_API_KEY = os.getenv("URL_SHORTENING_API_KEY")
 WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
 WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
 BACKEND = os.getenv("BACKEND")
+
+CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com']

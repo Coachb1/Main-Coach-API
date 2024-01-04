@@ -137,10 +137,12 @@ class CoachingConversationViewSet(ApiViewSet,
         serializer.is_valid(raise_exception=True)
 
         test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
 
         next_conversation = initialize_coaching_conversation(
             tenant=request.tenant,
-            test_attempt_session_id=test_attempt_session_id
+            test_attempt_session_id=test_attempt_session_id,
+            is_signature_bot=is_signature_bot,
         )
 
         return Response(
@@ -169,12 +171,15 @@ class CoachingConversationViewSet(ApiViewSet,
             "participant_message_text")
         participant_message_url = serializer.validated_data.get(
             "participant_message_url")
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+
 
         next_conversation = continue_coaching_conversation(
             tenant=request.tenant,
             reply_to_conversation=self.get_object(),
             participant_message_text=participant_message_text,
             participant_message_url=participant_message_url,
+            is_signature_bot=is_signature_bot,
         )
 
         return Response(
