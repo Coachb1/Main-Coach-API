@@ -5304,8 +5304,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
         logger.info(f"trying outer test generation for {i+1} time")
         try:
             if context:
-                context = json.loads(context)
-                title, des = context['title'], context['data']['information']
+                context_data = json.loads(context)
+                title, des = context_data['title'], context_data['data']['information']
                 logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
             else:
                 title, des = scrape_meta_info(url)
@@ -5385,7 +5385,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                         continue
                 break
 
-            key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
+            # key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
             # client = Client.objects.get(key=key)
             # creator = User.objects.get(uid=client.owner_id)
             admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
