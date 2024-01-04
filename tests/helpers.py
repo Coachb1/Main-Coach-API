@@ -295,20 +295,22 @@ def create_test_invite(tenant: Tenant,
 def create_test_question_answer_session(tenant: Tenant,
                                         test_id: str,
                                         test_invite_id: str,
-                                        participant_id: str) -> TestAttemptSession:
+                                        participant_id: str,
+                                        is_signature_bot: bool) -> TestAttemptSession:
     try:
-        test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
+        if not is_signature_bot:
+            test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
 
-        if test.max_test_allowed is not None:
-            if test.max_test_allowed == 0:
-                logger.exception(
-                    f"Failed to create session for test for id {test_id}")
-                raise serializers.ValidationError(
-                    "maximum test allowed exceeded!")
-            else:
-                if test.max_test_allowed > 0:
-                    test.max_test_allowed -= 1
-                    test.save()
+            if test.max_test_allowed is not None:
+                if test.max_test_allowed == 0:
+                    logger.exception(
+                        f"Failed to create session for test for id {test_id}")
+                    raise serializers.ValidationError(
+                        "maximum test allowed exceeded!")
+                else:
+                    if test.max_test_allowed > 0:
+                        test.max_test_allowed -= 1
+                        test.save()
 
     except Test.DoesNotExist as e:
         logger.exception(
@@ -342,7 +344,7 @@ def create_test_question_answer_session(tenant: Tenant,
         test_invite_id=test_invite_id,
         started_at=now,
         expires_at=now + datetime.timedelta(minutes=30),
-        is_checkin_type=test.is_checkin_type
+        is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)

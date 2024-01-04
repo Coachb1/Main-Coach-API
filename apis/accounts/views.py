@@ -21,6 +21,7 @@ from users.helpers import upsert_user_attributes
 from users.models import User, UserAttribute
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
+from users.models import SignatureBot
 
 
 from identities.models import Identity
@@ -273,6 +274,23 @@ class AccountsViewSet(ApiViewSet,
 
         return Response({"data":group_data},status=status.HTTP_200_OK)
 
+
+    @action(methods=['GET'],detail=False, url_path="get-bot-details")
+    def get_bot_details(self,request,*args, **kwargs):
+        bot_id = request.query_params.get('bot_id')
+
+        try:
+            signature_bot = SignatureBot.objects.get(bot_id=bot_id)
+        except:
+            return Response({"error": "Bot not found"},status=status.HTTP_404_NOT_FOUND)
+
+        data = {}
+        data['faqs'] = signature_bot.faqs
+        data['attributes'] = signature_bot.attributes
+        data['bot_details'] = signature_bot.bot_details
+        data['recommended_codes'] = signature_bot.recommended_codes
+
+        return Response({"data":data},status=status.HTTP_200_OK)
 
 
 
