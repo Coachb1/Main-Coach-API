@@ -47,3 +47,24 @@ class UserAttribute(TenantAwareModel):
         db_table = "user_attribute"
 
         unique_together = (("tenant_id", "user_id", "tag"),)
+
+
+
+class SignatureBot(TenantAwareModel):
+    bot_id = models.CharField(max_length=255)
+    bot_type = models.CharField(max_length=255, null=True, blank=True, default='coaching')
+    bot_details = models.JSONField(null=True, blank=True, default=None)
+    recommended_codes = models.CharField(max_length=255, null=True, blank=True, default=None)
+    user_id = models.CharField(max_length=255)
+    tag = models.CharField(max_length=255, null=True, blank=True, default=None)
+    attributes = models.JSONField(null=True, blank=True, default=None)
+    data = models.JSONField(null=True, blank=True, default=None)
+    prompt = models.TextField(null=True, blank=True, default=None)
+    custom_prompt = models.TextField(null=True, blank=True, default=None)
+    faqs = models.JSONField(null=True, blank=True, default=None)
+    
+
+    class Meta:
+        db_table = "signature_bot"
+
+        unique_together = (("tenant_id", "user_id", "tag"),)

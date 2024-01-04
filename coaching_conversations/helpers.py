@@ -13,6 +13,8 @@ from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
+from users.models import SignatureBot
+from commons.anthropic import anthropic_completion
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ def get_coaching_conversation_prompt(candidate_data_str, test, question):
 
 @timeit
 def initialize_coaching_conversation(tenant: Tenant,
-                                     test_attempt_session_id: str) -> CoachingConversation:
+                                     test_attempt_session_id: str, is_signature_bot: bool) -> CoachingConversation:
     """
     Initializes a coaching conversation based on a test attempt session.
 
@@ -99,25 +101,26 @@ def initialize_coaching_conversation(tenant: Tenant,
         deleted=0
     )
 
-    try:
-        test = Test.objects.get(tenant_id=tenant.uid,
-                                uid=test_attempt_session.test_id, deleted=0)
-    except Test.DoesNotExist as e:
-        logger.exception("failed, id %s does not exist",
-                         test_attempt_session.test_id)
-        raise serializers.ValidationError("invalid test id")
+    if not is_signature_bot:
+        try:
+            test = Test.objects.get(tenant_id=tenant.uid,
+                                    uid=test_attempt_session.test_id, deleted=0)
+        except Test.DoesNotExist as e:
+            logger.exception("failed, id %s does not exist",
+                            test_attempt_session.test_id)
+            raise serializers.ValidationError("invalid test id")
 
-    if test.test_type != TestTypeChoices.coaching:
-        raise serializers.ValidationError(
-            f"test type {test.test_type} is not supported")
+        if test.test_type != TestTypeChoices.coaching:
+            raise serializers.ValidationError(
+                f"test type {test.test_type} is not supported")
 
-    question = TestQuestion.objects.get(
-        tenant_id=tenant.uid, test_id=test.uid, deleted=0)
+        question = TestQuestion.objects.get(
+            tenant_id=tenant.uid, test_id=test.uid, deleted=0)
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
-        coach_message_text=question.question,
+        coach_message_text=question.question if not is_signature_bot else "initial question text",
         coach_message_metadata=None
     )
 
@@ -128,7 +131,8 @@ def initialize_coaching_conversation(tenant: Tenant,
 def continue_coaching_conversation(tenant: Tenant,
                                    reply_to_conversation: CoachingConversation,
                                    participant_message_text: str,
-                                   participant_message_url: str) -> CoachingConversation:
+                                   participant_message_url: str,
+                                   is_signature_bot: bool) -> CoachingConversation:
     """
     Continues a coaching conversation by saving the participant's message, retrieving the test and session information,
     processing the participant's message based on the interaction mode, generating a response using OpenAI GPT-3.5,
@@ -155,44 +159,45 @@ def continue_coaching_conversation(tenant: Tenant,
                          reply_to_conversation.test_attempt_session_id)
         raise serializers.ValidationError("invalid test_attempt_session_id")
 
-    try:
-        test = Test.objects.get(tenant_id=tenant.uid,
-                                uid=test_attempt_session.test_id, deleted=0)
-    except Test.DoesNotExist as e:
-        logger.exception("failed, id %s does not exist",
-                         test_attempt_session.test_id)
-        raise serializers.ValidationError("invalid test id")
+    if not is_signature_bot:
+        try:
+            test = Test.objects.get(tenant_id=tenant.uid,
+                                    uid=test_attempt_session.test_id, deleted=0)
+        except Test.DoesNotExist as e:
+            logger.exception("failed, id %s does not exist",
+                            test_attempt_session.test_id)
+            raise serializers.ValidationError("invalid test id")
 
-    if test.interaction_mode == InteractionModeChoices.any:
-        if participant_message_url:
-            reply_to_conversation.participant_message_text = gpt_wishper_api(
-                participant_message_url
-            )
+        if test.interaction_mode == InteractionModeChoices.any:
+            if participant_message_url:
+                reply_to_conversation.participant_message_text = gpt_wishper_api(
+                    participant_message_url
+                )
+                reply_to_conversation.save(
+                update_fields=["participant_message_text", "updated"])
+
+        if test.interaction_mode not in [InteractionModeChoices.any, InteractionModeChoices.text]:
+            if not participant_message_url:
+                raise serializers.ValidationError(
+                    "participant_message_url is absent")
+
+            if test.interaction_mode == InteractionModeChoices.audio:
+                # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_audio(
+                #     participant_message_url
+                # )
+                reply_to_conversation.participant_message_text = gpt_wishper_api(
+                    participant_message_url
+                )
+            elif test.interaction_mode == InteractionModeChoices.video:
+                # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_video(
+                #     participant_message_url
+                # )
+                reply_to_conversation.participant_message_text = gpt_wishper_api(
+                    participant_message_url
+                )
+
             reply_to_conversation.save(
-            update_fields=["participant_message_text", "updated"])
-
-    if test.interaction_mode not in [InteractionModeChoices.any, InteractionModeChoices.text]:
-        if not participant_message_url:
-            raise serializers.ValidationError(
-                "participant_message_url is absent")
-
-        if test.interaction_mode == InteractionModeChoices.audio:
-            # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_audio(
-            #     participant_message_url
-            # )
-            reply_to_conversation.participant_message_text = gpt_wishper_api(
-                participant_message_url
-            )
-        elif test.interaction_mode == InteractionModeChoices.video:
-            # reply_to_conversation.participant_message_text = coach_whisper_api.get_transcribe_from_video(
-            #     participant_message_url
-            # )
-            reply_to_conversation.participant_message_text = gpt_wishper_api(
-                participant_message_url
-            )
-
-        reply_to_conversation.save(
-            update_fields=["participant_message_text", "updated"])
+                update_fields=["participant_message_text", "updated"])
 
     #
     # test = Test.objects.get(
@@ -212,31 +217,81 @@ def continue_coaching_conversation(tenant: Tenant,
         flat=True
     )
 
-    question = TestQuestion.objects.get(
-        tenant_id=tenant.uid, test_id=test.uid, deleted=0)
 
-    prompt = get_coaching_conversation_prompt(" ".join(previous_conversations), test, question)
-    gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
+    if is_signature_bot:
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, bot_id=test_attempt_session.test_id, deleted=0)
+        # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
+        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type)
+        response = anthropic_completion(prompt,5000)
+    else:
+        question = TestQuestion.objects.get(
+        tenant_id=tenant.uid, test_id=test_attempt_session.test_id, deleted=0)
+        prompt = get_coaching_conversation_prompt(" ".join(previous_conversations), test, question)
+        gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
 
-    if not gpt_feedback.text:
-        raise ValueError("unable to get feedback for %s",
-                         reply_to_conversation.uid)
+        if not gpt_feedback.text:
+            raise ValueError("unable to get feedback for %s",
+                            reply_to_conversation.uid)
 
-    coach_message_metadata = {
-        "gpt": {
-            "prompt": prompt,
-            "response": {
-                "raw": gpt_feedback.raw,
-                "text": gpt_feedback.text,
+        coach_message_metadata = {
+            "gpt": {
+                "prompt": prompt,
+                "response": {
+                    "raw": gpt_feedback.raw,
+                    "text": gpt_feedback.text,
+                }
             }
         }
-    }
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=reply_to_conversation.test_attempt_session_id,
-        coach_message_text=gpt_feedback.text,
-        coach_message_metadata=coach_message_metadata
+        coach_message_text=gpt_feedback.text if not is_signature_bot else response,
+        coach_message_metadata=coach_message_metadata if not is_signature_bot else None
     )
 
     return next_conversation
+
+
+
+
+def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
+    coaching_prompt = f"""\n\nHuman:
+    {{Information}} - {page_info}
+    Context : {candidate_data_str}
+
+    Read this {{information}} thoroughly and understand it deeply. The information contains all the information of a coach and their philosophies, ideas and guidelines. Act as the coach who works on these philosophies, ideas and guidelines. The information is just for your understanding do not refer to the information while giving the response. Provide the response in a first person tone.
+
+    Conduct a session with a candidate who is asking a question here {{Context}}. Provide a response to the candidate based on the information given here {{information}}. Guide the candidate to reach an effective solution to their problem. 
+    At the end ask a question to further understand the problem.
+
+    NOTE: The response should not be more than 150 words.
+
+    NOTE: The response should not be less than 50 words.
+
+    NOTE: Do not show word count.(Eg: 50 words)
+
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
+
+    \n\nAssistant:"""
+
+
+    generic_prompt = f"""\n\nHuman:
+    {{Information}} - {page_info}
+    Context : {candidate_data_str}
+    Read this {{information}} thoroughly and understand it deeply. The user is seeking information on a specific topic, respond to the user with relevant details based on the available information. Provide comprehensive information and relevant details to address the user's query. The response should be directly related to the question asked. 
+    The information contains all the details about the subject so answer based on that. The response should be detailed and specific based on the given information. The response should be informative, and tailored to the user's context.
+    Only provide the response on the given information. Only provide the information that is directly related to the question in the response. 
+    Do Not provide any additional information apart from what is given here. Do not provide unnecessary information in the response. 
+
+    NOTE : Do not add any additional details to the response.
+    NOTE: The response should not be more than 150 words.
+    NOTE: Do not show word count.(Eg: 50 words)
+
+    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
+    \n\nAssistant:"""
+
+
+    prompt = coaching_prompt if bot_type == "coaching" else generic_prompt 
+
+    return prompt
