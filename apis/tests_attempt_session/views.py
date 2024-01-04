@@ -23,11 +23,14 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
                             get_next_mcq_question_options_prompt, get_last_mcq_question_options_promt, extract_mcq_options_from_response)
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
-from email_sender.helpers import send_feedbackd_email
-from users.models import UserAttribute
+from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email
+from users.models import UserAttribute, SignatureBot
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
+
+from coaching_conversations.models import CoachingConversation
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,12 +55,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_id = serializer.validated_data["test_id"]
         participant_id = serializer.validated_data["participant_id"]
         test_invite_id = serializer.validated_data.get("test_invite_id")
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+
+        print("is_signature_bot =========>", is_signature_bot)
 
         session = create_test_question_answer_session(
             tenant=request.tenant,
             test_id=test_id,
             test_invite_id=test_invite_id,
-            participant_id=participant_id
+            participant_id=participant_id,
+            is_signature_bot=is_signature_bot
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
@@ -383,8 +390,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_attribute = UserAttribute.objects.get(
                                     user_id=participant_id)
 
-            user.name = name
-            user.save(update_fields=['name'])
+            if name is not None and name != "":
+                user.name = name
+                user.save(update_fields=['name'])
 
             if 'profile' not in user_attribute.attributes:
                 user_attribute.attributes['profile'] = {}
@@ -468,6 +476,48 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 break
 
         return Response({"options_data":options_data}, status=status.HTTP_200_OK)
+
+
+
+    @action(methods=['GET'],detail=False,url_path="send-bot-transcript-email")
+    def send_bot_transcript_email(self,request, *args, **kwargs):
+        test_attempt_session_id = request.query_params.get('test_attempt_session_id')
+        submitted_email = request.query_params.get('submitted_email')
+
+        logger.info({"message":"##################################### Request Received for sending bot transcript email #####################################",
+                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email})
+
+        try:
+            test_attempt_session = TestAttemptSession.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=test_attempt_session.test_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
+        bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
+
+        previous_conversations = CoachingConversation.objects.filter(
+        tenant_id=self.request.tenant.uid,
+        test_attempt_session_id=test_attempt_session.uid,
+        deleted=0
+            ).order_by(
+                "id"
+            ).values(
+                "participant_message_text",
+                "coach_message_text",
+            )
+
+        for email in [user_email, bot_owner_email,"info@coachbots.com"]:
+            send_bot_conversation_email(user_email, previous_conversations, submitted_email)
+
+        return Response({"status": "sent"}, status=status.HTTP_200_OK)
+
     
     @action(methods=['GET'],detail=False,url_path="save_session_notes")
     def save_session_notes(self,request, *args, **kwargs):
