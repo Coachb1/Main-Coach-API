@@ -303,25 +303,28 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
 def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,user_id,only_converation=False):
     results=[]
     sessions = sessions.order_by('id')
+    date=''
     for session in sessions:
-            conversations = CoachingConversation.objects.filter(deleted=0,
-                test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
-            
+        conversations = CoachingConversation.objects.filter(deleted=0,
+            test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
+        
 
-            for conversation in conversations:
-                if results and results[-1]['participant_message_text'] is None:
-                    results[-1]['participant_message_text'] = conversation.participant_message_text
-                else:
-                    temp = {
-                        "uid": conversation.uid,
-                        "coach_message_text": conversation.coach_message_text,
-                        "participant_message_text": conversation.participant_message_text,
-                        "status": conversation.status,
-                        "created": conversation.created,
-                        "updated": conversation.updated
-                    }
+        for conversation in conversations:
+            if results and results[-1]['participant_message_text'] is None:
+                results[-1]['participant_message_text'] = conversation.participant_message_text
+            else:
+                temp = {
+                    "uid": conversation.uid,
+                    "coach_message_text": conversation.coach_message_text,
+                    "participant_message_text": conversation.participant_message_text,
+                    "status": conversation.status,
+                    "created": conversation.created,
+                    "updated": conversation.updated
+                }
 
-                    results.append(temp)
+                results.append(temp)
+        
+        date = session.created
 
     if only_converation:
         return results
@@ -332,7 +335,8 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
     data=({
         "results": results,
         "participant_name": participant_name,
-        "participant_uid":user_id
+        "participant_uid":user_id,
+        "date":date
     })
     return data
 
