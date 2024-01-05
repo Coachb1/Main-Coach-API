@@ -8,7 +8,7 @@ from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
-from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data
+from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data, get_bot_conversation_data_user
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
@@ -286,36 +286,24 @@ class CoachingConversationViewSet(ApiViewSet,
                 bot = SignatureBot.objects.get(user_id=user_id)
             except:
                 return Response({"Bot not Found"}, status=status.HTTP_404_NOT_FOUND)
-            
 
             bot_id = bot.bot_id
-            print(bot_id)
-            sessions = TestAttemptSession.objects.filter(tenant_id= tenant.uid,deleted=0,test_id = bot_id)
+            sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid,deleted=0,test_id = bot_id)
+            participant_ids = list(set(sessions.values_list('participant_id',flat=True)))
 
             data= []
-            for session in sessions:
-                conversations = self.queryset.filter(
-                    test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
-                conv_data = get_bot_conversation_data(conversations,session,tenant)
-                data.append(conv_data)
+            for participant_id in participant_ids:
+                bot_sessions = sessions.filter(participant_id=participant_id)
+                data_cov = get_bot_conversation_data_user(bot_sessions,tenant,participant_id)
+                data.append(data_cov)
 
             return Response(data, status=status.HTTP_200_OK)
 
 
         elif mode == 'user':
-
-            bot_ids = list(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True))
-
+            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
             sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id__in=bot_ids,participant_id=user_id)
-
-            data = []
-            for session in sessions:
-                conversations = self.queryset.filter(
-                    test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
-                conv_data = get_bot_conversation_data(conversations,session,tenant)
-                data.append(conv_data)
-            
-
+            data = get_bot_conversation_data_user(sessions,tenant,user_id)
             return Response(data, status=status.HTTP_200_OK)
         
         else:

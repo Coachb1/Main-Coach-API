@@ -300,35 +300,81 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
 
 
 @timeit
-def get_bot_conversation_data(conversations:CoachingConversation,session:TestAttemptSession,tenant:Tenant):
+def get_bot_conversation_data(sessions:TestAttemptSession,tenant:Tenant,only_converation=False):
     
+    data = {}
     results = []
+    participant_ids = list(sessions.values_list('participant_id',flat=True))
+    for participant_id in participant_ids:
 
-    for conversation in conversations:
-        results.append({
-            "uid": conversation.uid,
-            "coach_message_text": conversation.coach_message_text,
-            "participant_message_text": conversation.participant_message_text,
-            "status": conversation.status,
-            "created": conversation.created,
-            "updated": conversation.updated
+        for session in sessions:
+            conversations = CoachingConversation.objects.filter(deleted=0,
+                test_attempt_session_id=session.uid,participant_id = participant_id, tenant_id=tenant.uid).order_by("id")
+
+            for conversation in conversations:
+                if results and results[-1]['participant_message_text'] is None:
+                    results[-1]['participant_message_text'] = conversation.participant_message_text
+                else:
+                    temp = {
+                        "uid": conversation.uid,
+                        "coach_message_text": conversation.coach_message_text,
+                        "participant_message_text": conversation.participant_message_text,
+                        "status": conversation.status,
+                        "created": conversation.created,
+                        "updated": conversation.updated
+                    }
+
+                    results.append(temp)
+            
+
+
+
+
+        participant_name = get_user_display_name(
+            get_user_by_id(participant_id))
+
+        data.append({
+            "results": results,
+            "participant_name": participant_name,
+            "participant_uid":participant_id
         })
 
-    test_attempt_session = TestAttemptSession.objects.get(
-        uid=session.uid, tenant_id=tenant.uid)
+    return data
 
-    participant_id = test_attempt_session.participant_id
-    date = test_attempt_session.created
+@timeit
+def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,user_id,only_converation=False):
+    results=[]
+    sessions = sessions.order_by('id')
+    for session in sessions:
+            conversations = CoachingConversation.objects.filter(deleted=0,
+                test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
+            
 
+            for conversation in conversations:
+                if results and results[-1]['participant_message_text'] is None:
+                    results[-1]['participant_message_text'] = conversation.participant_message_text
+                else:
+                    temp = {
+                        "uid": conversation.uid,
+                        "coach_message_text": conversation.coach_message_text,
+                        "participant_message_text": conversation.participant_message_text,
+                        "status": conversation.status,
+                        "created": conversation.created,
+                        "updated": conversation.updated
+                    }
 
+                    results.append(temp)
+
+    if only_converation:
+        return results
+            
     participant_name = get_user_display_name(
-        get_user_by_id(participant_id))
+            get_user_by_id(user_id))
 
-    data ={
+    data=({
         "results": results,
         "participant_name": participant_name,
-        "date": date,
-        "logo": tenant.logo,
-    }
-
+        "participant_uid":user_id
+    })
     return data
+
