@@ -8,7 +8,7 @@ from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
-from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data, get_bot_conversation_data_user
+from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
