@@ -287,7 +287,7 @@ class CoachingConversationViewSet(ApiViewSet,
             except:
                 return Response({"Bot not Found"}, status=status.HTTP_404_NOT_FOUND)
 
-            bot_id = bot.bot_id
+            bot_id = bot.uid
             sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid,deleted=0,test_id = bot_id)
             participant_ids = list(set(sessions.values_list('participant_id',flat=True)))
 
@@ -301,7 +301,7 @@ class CoachingConversationViewSet(ApiViewSet,
 
 
         elif mode == 'user':
-            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
+            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid',flat=True)))
             sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id__in=bot_ids,participant_id=user_id)
             data = get_bot_conversation_data_user(sessions,tenant,user_id)
             return Response(data, status=status.HTTP_200_OK)
