@@ -15,6 +15,7 @@ from users.models import User
 from commons.openai_gpt import gpt_wishper_api
 from users.models import SignatureBot
 from commons.anthropic import anthropic_completion
+from users.db import get_user_display_name, get_user_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -295,3 +296,39 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
     prompt = coaching_prompt if bot_type == "coaching" else generic_prompt 
 
     return prompt
+
+
+
+@timeit
+def get_bot_conversation_data(conversations:CoachingConversation,session:TestAttemptSession,tenant:Tenant):
+    
+    results = []
+
+    for conversation in conversations:
+        results.append({
+            "uid": conversation.uid,
+            "coach_message_text": conversation.coach_message_text,
+            "participant_message_text": conversation.participant_message_text,
+            "status": conversation.status,
+            "created": conversation.created,
+            "updated": conversation.updated
+        })
+
+    test_attempt_session = TestAttemptSession.objects.get(
+        uid=session.uid, tenant_id=tenant.uid)
+
+    participant_id = test_attempt_session.participant_id
+    date = test_attempt_session.created
+
+
+    participant_name = get_user_display_name(
+        get_user_by_id(participant_id))
+
+    data ={
+        "results": results,
+        "participant_name": participant_name,
+        "date": date,
+        "logo": tenant.logo,
+    }
+
+    return data
