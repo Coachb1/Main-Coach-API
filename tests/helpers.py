@@ -51,7 +51,7 @@ from tests.models import TestQuestionResponse
 from users.db import get_user_by_id
 from users.db import get_user_display_name
 from users.models import User
-from users.models import UserAttribute
+from users.models import UserAttribute, SignatureBot
 from web_auth.helpers import create_new_tokens
 from clients.models import Client
 from nltk.tokenize import word_tokenize
@@ -336,6 +336,10 @@ def create_test_question_answer_session(tenant: Tenant,
 
     timezone = pytz.timezone("Asia/Kolkata")
     now = datetime.datetime.now(timezone)
+
+    if is_signature_bot:
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, bot_id=test_id, deleted=0)
+        test_id = signature_bot.uid
     
     test_attempt_session = TestAttemptSession.objects.create(
         tenant_id=tenant.uid,
