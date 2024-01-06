@@ -121,7 +121,7 @@ def initialize_coaching_conversation(tenant: Tenant,
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
-        coach_message_text=question.question if not is_signature_bot else "initial question text",
+        coach_message_text=question.question if not is_signature_bot else "what do you want to ask ?",
         coach_message_metadata=None
     )
 
@@ -220,10 +220,11 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
     if is_signature_bot:
-        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, bot_id=test_attempt_session.test_id, deleted=0)
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
-        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type)
-        response = anthropic_completion(prompt,5000)
+        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot)
+        logger.info(f"signature  bot prompt  {prompt}")
+        response = anthropic_completion(prompt,50000)
     else:
         question = TestQuestion.objects.get(
         tenant_id=tenant.uid, test_id=test_attempt_session.test_id, deleted=0)
@@ -256,8 +257,8 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
 
-def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
-    coaching_prompt = f"""\n\nHuman:
+def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot):
+    old_coaching_prompt = f"""\n\nHuman:
     {{Information}} - {page_info}
     Context : {candidate_data_str}
 
@@ -276,6 +277,33 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
 
     \n\nAssistant:"""
 
+    sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+    conversation_data = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+    conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
+    new_coaching_prompt = f""" 
+        \n\nHuman:
+        {{Information}} - {page_info}
+        Conversation History : {conversation_history}
+        Context : {candidate_data_str}
+
+        Read this {{information}} thoroughly and understand it deeply. The information contains detailed insights into a coach's background, personality, philosophies, and coaching style. Act as the coach whose information is provided here and respond to the coachee. Additionally, offer general advice, coaching, and mentoring based on the coach's style. Consider any other relevant information to provide comprehensive coaching advice. Always provide the response in a first-person tone.
+
+        Conduct a session with a coachee who is asking a question in this {{context}}. Understand the coachee's perspective to the question and provide the information they want. Provide a response based on all the information you have on the coach. Always provide accurate information about yourself as the coach when asked by the coachee. The response should always be directly related to the question. Consider the prior conversation given in Conversation History when providing the response.
+
+        At the end ask a question to understand the problem.
+
+        NOTE : The information is only about the coach not the coachee. 
+
+        NOTE: The response should not be more than 150 words.
+
+        NOTE: The response should not be less than 50 words.
+
+        NOTE: Do not show word count.(Eg: 50 words)
+
+        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
+        \n\nAssistant:"
+    """
+
 
     generic_prompt = f"""\n\nHuman:
     {{Information}} - {page_info}
@@ -293,7 +321,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
     \n\nAssistant:"""
 
 
-    prompt = coaching_prompt if bot_type == "coaching" else generic_prompt 
+    prompt = new_coaching_prompt if bot_type == "coaching" else generic_prompt 
 
     return prompt
 
