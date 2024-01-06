@@ -41,6 +41,42 @@ logger = logging.getLogger(__name__)
 class TestAttemptSessionViewSet(ApiViewSet,
                                 mixins.ListModelMixin,
                                 mixins.RetrieveModelMixin):
+    """
+    This class represents a viewset for handling API requests related to test attempt sessions.
+
+    Summary:
+        This viewset provides methods for creating test attempt sessions, retrieving test reports, getting session details, and performing various actions related to test sessions.
+
+    Methods:
+        - get_queryset(): Returns the queryset for retrieving test attempt sessions, filtered by tenant ID.
+        - create(): Creates a new test attempt session based on the provided data.
+        - get_test_report(): Retrieves the test report for a specific test attempt session.
+        - get_test_report_frontend(): Retrieves the test report data for a specific test attempt session, formatted for frontend display.
+        - get_meeting_report_frontend(): Retrieves the meeting report data for a specific test attempt session, formatted for frontend display.
+        - get_session_uid(): Retrieves the UID of the latest test attempt session for a given participant and test ID.
+        - get_skills_tracker_report_data(): Retrieves the skills tracker report data for a specific participant.
+        - cancel_prev_sessions(): Cancels all in-progress test attempt sessions for a given participant.
+        - get_past_completed_interactions(): Retrieves a list of past completed interactions for a given participant.
+        - get_session_status(): Retrieves the status of a specific test attempt session.
+        - get_list(): Retrieves a list of attempted tests for a given participant.
+        - submit_feedback(): Submits feedback for a specific test attempt session.
+        - send_report_email(): Sends a test report email for a specific test attempt session.
+        - set_name_email(): Sets the name and email for a participant.
+        - check_session_data_exist(): Checks if session data exists for a specific test attempt session.
+        - get_next_mcq_question_options(): Retrieves the next multiple-choice question options for a specific test attempt session.
+        - send_bot_transcript_email(): Sends a bot transcript email for a specific test attempt session.
+        - save_session_notes(): Saves or retrieves session notes for a user in a specific context.
+        - get_or_update_session_notes(): Retrieves or updates session notes data.
+
+    Fields:
+        - queryset: The queryset for retrieving test attempt sessions, filtered by deleted status.
+        - serializer_class: The serializer class for serializing/deserializing test attempt session data.
+        - permission_classes: The permission classes for controlling access to the API endpoints.
+        - filter_backends: The filter backends for filtering test attempt sessions based on specific fields.
+        - filterset_fields: The fields to be used for filtering test attempt sessions.
+        - ordering_fields: The fields to be used for ordering test attempt sessions.
+        - lookup_field: The field to be used for looking up test attempt sessions.
+    """
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)

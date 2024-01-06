@@ -39,6 +39,53 @@ logger = logging.getLogger(__name__)
 class TestViewSet(ApiViewSet,
                   mixins.ListModelMixin,
                   mixins.RetrieveModelMixin):
+    """
+    This code defines a class called `TestViewSet` which is a viewset for handling API requests related to tests. It includes various methods for creating, retrieving, and manipulating test data.
+
+    Example Usage:
+    - Create a new test
+    - Retrieve a specific test
+    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
+
+    Main functionalities:
+    - Create a new test
+    - Retrieve a specific test
+    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
+
+    Methods:
+    - get_queryset(): Returns the queryset of tests filtered by the tenant ID.
+    - create(): Creates a new test based on the provided data.
+    - get_test_flash_cards(): Retrieves the flash cards for a specific test.
+    - get_test_mindmap(): Retrieves the mindmap for a specific test.
+    - get_test_report_pdf_view(): Retrieves the report PDF for a specific test.
+    - get_test_flash_cards_data(): Retrieves the flash card data for a specific test.
+    - get_test_mindmap_data(): Retrieves the mindmap data for a specific test.
+    - get_test_report_frontend(): Retrieves the report data for a specific test.
+    - get_learner_path(): Retrieves the learner path for a specific user and objective.
+    - generate_test_from_objective(): Generates a test based on a specific objective.
+    - get_tenant_special_case_test_category(): Retrieves the special case test categories for a specific tenant.
+    - get_tenant_special_case_test(): Retrieves the special case tests for a specific tenant and category.
+    - get_test_previlage(): Retrieves the test privilege for a specific user.
+    - get_selection_options(): Retrieves the selection options for filtering tests.
+    - get_tests_by_choice(): Retrieves tests based on the provided filter choices.
+    - check_duplicate_response(): Checks if a duplicate response exists for a specific question and test attempt session.
+    - set_admin_controls(): Updates the admin controls for a specific tenant.
+    - get_test_scanrio_case(): Retrieves the test scenario cases.
+    - user_att_prmpt_updation(): Updates the user attribute prompts.
+    - get_normal_test_csv(): Retrieves the CSV data for normal tests.
+    - get_group_discussion_test_csv(): Retrieves the CSV data for group discussion tests.
+    - get_free_type_test(): Retrieves the free type tests for a specific skill.
+    - get_or_create_test_scenarios_by_site(): Retrieves or creates test scenarios based on a site URL and mode.
+
+    Fields:
+    - queryset: The queryset of tests filtered by the tenant ID.
+    - serializer_class: The serializer class for test data.
+    - permission_classes: The permission classes for accessing test data.
+    - filter_backends: The filter backends for filtering test data.
+    - filterset_class: The filterset class for filtering test data.
+    - ordering_fields: The ordering fields for ordering test data.
+    - lookup_field: The lookup field for retrieving a specific test.
+    """
     queryset = Test.objects.filter(deleted=0)
     serializer_class = TestDisplaySerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)

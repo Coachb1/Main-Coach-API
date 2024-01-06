@@ -54,6 +54,17 @@ def create_test_coaching_conversation_session(tenant: Tenant,
 
 
 def get_coaching_conversation_prompt(candidate_data_str, test, question):
+    """
+    Generates a prompt for a coaching conversation based on the candidate's data, the test information, and the question being asked.
+    
+    Args:
+        candidate_data_str (str): The candidate's response to the question.
+        test (Test object): The test object containing information about the test.
+        question (TestQuestion object): The question object containing information about the question.
+    
+    Returns:
+        str: The generated prompt for the coaching conversation.
+    """
 #     return f"""
 # Context:{candidate_data_str} \n\nImagine you are an life coach 
 # who has just asked some question to which the candidate responds with the above 
@@ -257,7 +268,22 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
 
+
 def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot):
+    """
+    Generates a prompt for the Signature Bot based on the provided inputs.
+
+    Args:
+        page_info (str): Information about the page.
+        candidate_data_str (str): Candidate data.
+        bot_type (str): Type of bot ("coaching" or "generic").
+        tenant (Tenant): Current tenant object.
+        participant_id (str): Participant ID.
+        signature_bot (SignatureBot): Signature bot object.
+
+    Returns:
+        str: Generated prompt for the Signature Bot.
+    """
     old_coaching_prompt = f"""\n\nHuman:
     {{Information}} - {page_info}
     Context : {candidate_data_str}
@@ -329,6 +355,18 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 @timeit
 def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,user_id,only_converation=False):
+    """
+    Retrieves conversation data for a specific user in a test attempt session.
+
+    Args:
+        sessions (TestAttemptSession queryset): The test attempt sessions for a specific user.
+        tenant (Tenant object): The current tenant object.
+        user_id (str): The ID of the user.
+        only_conversation (bool, optional): Flag to indicate if only conversation data should be returned. Defaults to False.
+
+    Returns:
+        list of dict or dict: If only_conversation is True, returns a list of dictionaries containing the conversation details. Otherwise, returns a dictionary containing the conversation data, participant name, participant ID, role, and date.
+    """
     results=[]
     sessions = sessions.order_by('id')
     date=''

@@ -22,6 +22,9 @@ from skills.constants import skills
 class SkillsIndexViewSet(ApiViewSet,
                          mixins.ListModelMixin,
                          mixins.CreateModelMixin):
+    """
+    retrive all skill from database
+    """
     queryset = SkillIndex.objects.filter(deleted=0)
     serializer_class = SkillIndexSerializer
     permission_classes = (IsAuthenticatedClient,)
@@ -31,6 +34,9 @@ class SkillsIndexViewSet(ApiViewSet,
 
 class GetSkillsName(ApiViewSet):
     def list(self, request):
+        """
+        retrive all skill from Skills contants.py
+        """
         data = []
         for skill in skills:
             data.append({
@@ -99,6 +105,9 @@ class SkillsViewSet(ApiViewSet,
 class CustomRatingViewSet(ApiViewSet,
                           mixins.ListModelMixin,
                           mixins.RetrieveModelMixin):
+    """
+    to retrive or create custom rating
+    """
     queryset = CustomRating.objects.filter(deleted=0)
     serializer_class = CustomRatingDisplaySerializer
     permission_classes = (IsAuthenticatedClient,)
