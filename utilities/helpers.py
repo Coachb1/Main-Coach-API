@@ -12,6 +12,7 @@ import json
 import logging
 from users.models import UserAttribute
 from email_sender.helpers import send_session_notes_email
+from commons.anthropic import anthropic_completion
 
 
 
@@ -198,3 +199,25 @@ def update_session_notes(session_note_id,recommendations):
     session_note.save(update_fields=['recommendations',"updated_date"])
 
     return {"message": "recommandations updated"}
+
+
+def get_fitness_analysis_score(coach_data, conversation_data):
+    prompt = f"""
+    {{Coach_Information}} - {coach_data}
+    Conversation: {conversation_data}
+
+    Based on the conversation, check whether the coach and coachee are a suitable fit for each other based on their values, personality, ideas, experiences and expectations. Assign a score out of 10 to determine the compatibility between the coach and coachee. 
+
+    NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
+
+    NOTE: Don't put any other text in the reply other than the JSON.
+
+    NOTE: Output Format Example: {{"Fitment score":"1"}}
+
+    NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above.
+    """
+
+    logger.info(f"Fitment Prompt: {prompt}")
+
+    response = anthropic_completion(prompt,5000)
+    return response
