@@ -5,6 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 import pytz
 import datetime
+import json
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
@@ -29,7 +30,7 @@ from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_n
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
 from coaching_conversations.models import CoachingConversation
-from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score
 
 logger = logging.getLogger(__name__)
 
@@ -580,3 +581,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+    @action(methods=['POST'],detail=False,url_path="get-fitness-analysis-score")
+    def get_fitness_analysis_score(self,request, *args, **kwargs):
+        try:
+            logger.info(f"fitness analysis score request: {request.data}")
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
+            coach_data = signature_bot.data
+            fitness_analysis_data = json.loads(request.data['fitness_analysis_data'])
+            fitness_analysis_score = get_fitness_analysis_score(coach_data,fitness_analysis_data)
+            logger.info(f"fitness_analysis_score: {fitness_analysis_score}")
+            return Response({"data":json.loads(fitness_analysis_score)}, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f'get_fitness_analysis_score error , {e}',exc_info=True)
+            return Response({"Error":e.args}, status=status.HTTP_400_BAD_REQUEST)
