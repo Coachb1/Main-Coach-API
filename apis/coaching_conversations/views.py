@@ -305,7 +305,7 @@ class CoachingConversationViewSet(ApiViewSet,
             sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id__in=bot_ids,participant_id=user_id)
             data = []
             data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
-            if len(data_cov['results']) > 0 :
+            if len(data_conv['results']) > 0 :
                 data.append(data_conv)
             return Response(data, status=status.HTTP_200_OK)
         
