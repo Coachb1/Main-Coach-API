@@ -46,6 +46,22 @@ def gpt3_completion(prompt,
                     max_tokens=4000,
                     freq_pen=0.0,
                     pres_pen=0.0) -> GPTResponse:
+    """
+    Generates text completions based on a given prompt using the OpenAI API.
+
+    Args:
+        prompt (str): The initial text prompt for generating completions.
+        stop (str): The stop condition that determines when to stop generating text.
+        engine (str, optional): The engine to use for text generation (default is 'text-davinci-003').
+        temp (float, optional): The temperature parameter for controlling the randomness of the generated text (default is 0).
+        top_p (float, optional): The top-p parameter for controlling the diversity of the generated text (default is 1.0).
+        max_tokens (int, optional): The maximum number of tokens to generate (default is 4000).
+        freq_pen (float, optional): The frequency penalty for discouraging repetitive completions (default is 0.0).
+        pres_pen (float, optional): The presence penalty for discouraging completions that don't match the prompt (default is 0.0).
+
+    Returns:
+        GPTResponse: An object containing the raw API response and the generated text.
+    """
     logger.info(f"prompt: {prompt}")
     prompt_tokens = num_tokens_for_prompt(prompt)
 
@@ -85,6 +101,18 @@ def gpt3_completion(prompt,
 
 @timeit
 def gpt_wishper_api(url):
+    """
+    Transcribes the audio file located at the specified URL and returns the transcribed text.
+
+    Args:
+        url (str): The URL of the audio file to be transcribed.
+
+    Returns:
+        str: The transcribed text from the audio file.
+
+    Raises:
+        Exception: If an error occurs during the transcription process.
+    """
     try:
         response = requests.get(url)
         audio_data = response.content

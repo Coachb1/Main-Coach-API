@@ -39,6 +39,28 @@ load_dotenv()
 
 
 class FrontendAuthViewSet(ApiViewSet):
+    """
+    This class represents a view set for handling frontend authentication-related operations.
+
+    Summary:
+        This code defines a class named `FrontendAuthViewSet` which is a subclass of `ApiViewSet`. It contains two methods: `get_report_url` and `get_or_refresh_sid`. The `get_report_url` method is used to generate a report URL based on the provided parameters, while the `get_or_refresh_sid` method is used to retrieve or refresh a session ID.
+
+    
+    Main functionalities:
+        - The `get_report_url` method generates a report URL based on the provided parameters. It handles different report types and includes additional query parameters based on the report type.
+        - The `get_or_refresh_sid` method retrieves or refreshes a session ID for a user. It checks if the session ID needs to be refreshed based on the last updated timestamp.
+
+    Methods:
+        - `get_report_url`: Generates a report URL based on the provided parameters. It handles different report types and includes additional query parameters based on the report type.
+        - `get_or_refresh_sid`: Retrieves or refreshes a session ID for a user. It checks if the session ID needs to be refreshed based on the last updated timestamp.
+
+    Fields:
+        - `FRONTEND_BASE_URL`: The base URL for the frontend application.
+        - `BACKEND`: The backend configuration.
+        - `ReportType`: A class that defines constants for different report types.
+        - `logger`: A logger instance for logging errors and information.
+        - Other imported modules and classes used within the code.
+    """
 
     @action(methods=["POST"], detail=False, url_path="get-report-url")
     def get_report_url(self, request, *args, **kwargs):
@@ -253,6 +275,17 @@ class FrontendAuthViewSet(ApiViewSet):
 
     @action(methods=["GET"], detail=False, url_path="get-or-refresh-sid")
     def get_or_refresh_sid(self, request, *args, **kwargs):
+        """
+        Retrieves or refreshes a session ID for jot url.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+
+        Returns:
+            Response: The response containing the session ID and hashed session ID.
+
+        
+        """
         user_email = os.getenv("JOTURL_EMAIL")
         try:
             session = JotUrlSession.objects.get(email=user_email)
@@ -262,9 +295,9 @@ class FrontendAuthViewSet(ApiViewSet):
             if session_updated_at < date_25_day_ago:
                 session.session_id = get_sid(user_email)
                 session.save()
-                
+            
         except Exception as e:
             session = JotUrlSession.objects.create(email=user_email, session_id=get_sid(user_email))
             logger.error({"!!!Error":e},exc_info=True)
-            
+        
         return Response(data={"sid": session.session_id,"_h":get_h(session.session_id)}, status=status.HTTP_200_OK)

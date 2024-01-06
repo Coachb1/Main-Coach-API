@@ -9,6 +9,18 @@ logger = logging.getLogger(__name__)
 
 @timeit
 def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
+    """
+    Generates text completions based on a given prompt.
+
+    Args:
+        prompt (str): The prompt for which completions are requested.
+        tokens (int, optional): The maximum number of tokens to generate in the completions. Defaults to 1200.
+        fallback_text (str, optional): The fallback text to use if completions cannot be generated. Defaults to None.
+        is_free (bool): A flag indicating if the completions should be generated for free or not.
+
+    Returns:
+        str: The generated completions based on the given prompt.
+    """
     response_text = fallback_text
     if is_free:
         response_text = anthropic_completion(prompt, tokens)

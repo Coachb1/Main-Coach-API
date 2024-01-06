@@ -54,6 +54,17 @@ def create_test_coaching_conversation_session(tenant: Tenant,
 
 
 def get_coaching_conversation_prompt(candidate_data_str, test, question):
+    """
+    Generates a prompt for a coaching conversation based on the candidate's data, the test information, and the question being asked.
+    
+    Args:
+        candidate_data_str (str): The candidate's response to the question.
+        test (Test object): The test object containing information about the test.
+        question (TestQuestion object): The question object containing information about the question.
+    
+    Returns:
+        str: The generated prompt for the coaching conversation.
+    """
 #     return f"""
 # Context:{candidate_data_str} \n\nImagine you are an life coach 
 # who has just asked some question to which the candidate responds with the above 
@@ -257,6 +268,17 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
 def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
+    """
+    Generates a prompt for a signature bot or a generic bot based on the given page information, candidate data, and bot type.
+
+    Args:
+        page_info (str): The information about the page.
+        candidate_data_str (str): The candidate data.
+        bot_type (str): The type of bot, either "coaching" or "generic".
+
+    Returns:
+        str: The generated prompt for the signature bot or generic bot.
+    """
     coaching_prompt = f"""\n\nHuman:
     {{Information}} - {page_info}
     Context : {candidate_data_str}
