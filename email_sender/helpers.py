@@ -151,6 +151,39 @@ def send_bot_conversation_email(candidate_name, conversation, to_email):
 
 
 def get_bot_conversation_email_body(candidate_name,conversation):
+    data = ""
+    for index,i in enumerate(conversation):
+        if index+1 == len(conversation):
+            data += f'''
+                <tr>
+                    <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                        <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Coach: {i['coach']}</p>
+                    </td>
+                </tr>
+                
+            '''
+        elif index+1 == 1:
+            data += f'''
+            
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                    <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+                </td>
+            </tr>
+        '''
+        else:
+            data += f'''
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                    <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Coach: {i['coach']}</p>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                    <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+                </td>
+            </tr>
+        '''
     return f"""
     <!doctype html>
     <html>
@@ -269,17 +302,14 @@ def get_bot_conversation_email_body(candidate_name,conversation):
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The  {candidate_name} interacted with bot </p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{candidate_name} interacted with bot </p>
                             <table role="presentation" border="0" cellpadding="0" cellspacing="0" class=" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                             <tbody>
                                 <tr>
                                 <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
                                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
                                     <tbody>
-                                        <tr>
-                                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: center; background-color: #3498db;" valign="top" align="center" bgcolor="#3498db"> <a href="#"  style="border: solid 1px #3498db; border-radius: 5px; box-sizing: border-box; cursor: none; pointer-events: none; display: inline-block; font-size: 14px; font-weight: bold; margin: 0; padding: 12px 25px; text-decoration: none; text-transform: capitalize; background-color: #3498db; border-color: #3498db; color: #ffffff;">
-                                        Conversation: {conversation} </a> </td>
-                                        </tr>
+                                        {data}
                                     </tbody>
                                     </table>
                                 </td>

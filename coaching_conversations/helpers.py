@@ -15,6 +15,7 @@ from users.models import User
 from commons.openai_gpt import gpt_wishper_api
 from users.models import SignatureBot
 from commons.anthropic import anthropic_completion
+from users.db import get_user_display_name, get_user_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -295,3 +296,49 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type):
     prompt = coaching_prompt if bot_type == "coaching" else generic_prompt 
 
     return prompt
+
+
+
+@timeit
+def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,user_id,only_converation=False):
+    results=[]
+    sessions = sessions.order_by('id')
+    date=''
+    for session in sessions:
+        conversations = CoachingConversation.objects.filter(deleted=0,
+            test_attempt_session_id=session.uid, tenant_id=tenant.uid).order_by("id")
+        
+
+        for conversation in conversations:
+            if results and results[-1]['participant_message_text'] is None:
+                results[-1]['participant_message_text'] = conversation.participant_message_text
+            else:
+                temp = {
+                    "uid": conversation.uid,
+                    "coach_message_text": conversation.coach_message_text,
+                    "participant_message_text": conversation.participant_message_text,
+                    "status": conversation.status,
+                    "created": conversation.created,
+                    "updated": conversation.updated
+                }
+
+                results.append(temp)
+        
+        date = session.created
+
+    if only_converation:
+        return results
+            
+    participant_name = get_user_display_name(
+            get_user_by_id(user_id))
+    role = get_user_by_id(user_id).role
+
+    data=({
+        "results": results,
+        "participant_name": participant_name,
+        "participant_uid":user_id,
+        "role": role,
+        "date":date
+    })
+    return data
+

@@ -30,7 +30,10 @@ from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_n
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
 from coaching_conversations.models import CoachingConversation
+
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score
+from coaching_conversations.helpers import get_bot_conversation_data_user
+
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +498,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=test_attempt_session.test_id)
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
@@ -503,19 +506,28 @@ class TestAttemptSessionViewSet(ApiViewSet,
         user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
         bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
 
-        previous_conversations = CoachingConversation.objects.filter(
-        tenant_id=self.request.tenant.uid,
-        test_attempt_session_id=test_attempt_session.uid,
-        deleted=0
-            ).order_by(
-                "id"
-            ).values(
-                "participant_message_text",
-                "coach_message_text",
-            )
+        # previous_conversations = CoachingConversation.objects.filter(
+        # tenant_id=self.request.tenant.uid,
+        # test_attempt_session_id=test_attempt_session.uid,
+        # deleted=0
+        #     ).order_by(
+        #         "id"
+        #     ).values(
+        #         "participant_message_text",
+        #         "coach_message_text",
+        #     )
+        
+        participant_id = test_attempt_session.participant_id
+        candidate_name = f"""{get_user_display_name(
+            get_user_by_id(participant_id)).capitalize()} {user_email}"""
+        tenant = self.request.tenant
+        # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
+        sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+        conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+        conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
 
-        for email in [user_email, bot_owner_email,"info@coachbots.com"]:
-            send_bot_conversation_email(user_email, previous_conversations, submitted_email)
+        for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+            send_bot_conversation_email(candidate_name, conv, email)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
