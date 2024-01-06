@@ -21,6 +21,16 @@ class TestInviteViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new test invite.
+
+        Args:
+            request (object): The request object containing the data for creating a new test invite.
+
+        Returns:
+            Response: The serialized test invite with a status code of 201.
+
+        """
         serializer = TestInviteCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
