@@ -4,6 +4,17 @@ from commons.anthropic import anthropic_completion
 
 
 def get_learner_path(queryset, objective, candidate_type):
+    """
+    Retrieves a set of recommended tests for a learner based on their objective and candidate type.
+
+    Args:
+        queryset (queryset): A queryset of tests.
+        objective (str): The objective for the learner.
+        candidate_type (str): The type of candidate (optional).
+
+    Returns:
+        queryset: A queryset containing the top two tests that have the highest intersection scores with the recommended skills.
+    """
     # Ask anthropic for the skills called as ant_skills
     if candidate_type is not None:
         temp_set = queryset.filter(candidate_type=candidate_type)
@@ -61,7 +72,17 @@ def get_learner_path(queryset, objective, candidate_type):
 
 
 def skills_from_anthropic(objective, skills_list):
-    # Ask anthropic for the skills called as ant_skills
+    """
+    Retrieve a list of recommended skills for a candidate based on their objective and a given list of skills.
+
+    Args:
+        objective (str): The objective for the candidate.
+        skills_list (list): A list of skills from which the recommended skills will be chosen.
+
+    Returns:
+        list: A list of recommended skills for the candidate.
+    """
+
     ant_skills_list = []
 
     prompt = f"""

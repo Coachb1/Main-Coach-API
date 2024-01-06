@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_uri(url):
-    # to get uri form url 
+    """to get uri form url 
+        url: string
+    """
 
     uri = url.split("https://storage.googleapis.com/")[1]
     uri = uri.split('?')[0]
@@ -26,6 +28,20 @@ def get_uri(url):
 
 @timeit
 def speech_to_text(url):
+    """
+    Convert speech from a given URL into text using the Google Cloud Speech-to-Text API.
+
+    Args:
+        url (str): The URL of the audio file to be transcribed.
+
+    Returns:
+        str: The transcribed text from the audio file.
+
+    Raises:
+        Exception: If the Google speech to text conversion fails.
+
+    
+    """
     try:
         os.chdir(f"{Path(__file__).resolve().parent}")
         client = speech.SpeechClient.from_service_account_file(r'bucketaccess.json')
@@ -63,7 +79,18 @@ def speech_to_text(url):
     
 @timeit
 def text_bison_compeletion(prompt):
+    """
+    Generates text completions based on a given prompt using the TextGenerationModel from the vertexai.language_models module.
 
+    Args:
+        prompt (str): The prompt for text completion.
+
+    Returns:
+        str: The generated text completion based on the given prompt.
+
+    Raises:
+        Exception: If the maximum number of retries is reached and text generation still fails.
+    """
     max_retry = 3
     retry = 0
     os.chdir(f"{Path(__file__).resolve().parent}")
@@ -99,7 +126,19 @@ def text_bison_compeletion(prompt):
 
 @timeit
 def text_to_speech_google(text):
+    """
+    Converts the given text into speech using the Google Cloud Text-to-Speech API.
 
+    Args:
+        text (str): The text to be converted into speech.
+
+    Returns:
+        google.cloud.texttospeech.types.SynthesizeSpeechResponse: The response object from the Google Cloud Text-to-Speech API, which contains the synthesized speech in the specified audio encoding.
+
+    Raises:
+        Exception: If the conversion fails.
+
+    """
     try:
         os.chdir(f"{Path(__file__).resolve().parent}")
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'

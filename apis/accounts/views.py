@@ -253,6 +253,16 @@ class AccountsViewSet(ApiViewSet,
     
     @action(methods=['GET','POST'],detail=False, url_path="get-my-lib-data")
     def get_my_lib_data(self,request,*args, **kwargs):
+        """
+        Retrieves library data based on a group name.
+
+        Args:
+            request (object): The HTTP request object.
+            group (string): The name of the group to filter tests.
+
+        Returns:
+            Dictionary: A dictionary containing the library data grouped by domain. Each domain key maps to a list of test items, where each item contains the title, description, domain, test code, and interaction mode.
+        """
         # test_codes = request.query_params.get('test_codes').split(',')
         group_name = request.query_params.get('group')
         tests = Test.objects.filter(deleted=0,client_name=group_name)
@@ -277,6 +287,14 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False, url_path="get-bot-details")
     def get_bot_details(self,request,*args, **kwargs):
+        """
+        Retrieves details of a bot based on the provided bot ID.
+
+        :param request: The HTTP request object.
+        :param bot_id: The ID of the bot to retrieve details for.
+        :return: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
+        :rtype: dict
+        """
         bot_id = request.query_params.get('bot_id')
 
         try:
