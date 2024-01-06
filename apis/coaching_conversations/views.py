@@ -303,7 +303,10 @@ class CoachingConversationViewSet(ApiViewSet,
         elif mode == 'user':
             bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid',flat=True)))
             sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id__in=bot_ids,participant_id=user_id)
-            data = get_bot_conversation_data_user(sessions,tenant,user_id)
+            data = []
+            data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
+            if len(data_conv['results']) > 0 :
+                data.append(data_conv)
             return Response(data, status=status.HTTP_200_OK)
         
         else:
