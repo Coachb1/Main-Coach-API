@@ -331,11 +331,13 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
             
     participant_name = get_user_display_name(
             get_user_by_id(user_id))
+    role = get_user_by_id(user_id).role
 
     data=({
         "results": results,
         "participant_name": participant_name,
         "participant_uid":user_id,
+        "role": role,
         "date":date
     })
     return data
