@@ -30,6 +30,8 @@ from commons.google_apis import text_bison_compeletion
 import time
 import base64
 from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context
+from skills.helpers import json_extraction
+import json
 
 import logging
 
@@ -679,4 +681,53 @@ class TestViewSet(ApiViewSet,
 
 
 
+    @action(methods=['GET'], detail=False, url_path="get-recommendetion-tests")
+    def get_recommendation_tests(self, request, *args, **kwargs):
+        
+        tenant_id = self.request.tenant.uid
+        context = request.query_params.get('context')
 
+        logger.info(f">>>>>>>>>>>>>>>>>>> request data : {request.data},  access_token : { request.headers.get('Authorization')}")
+        access_token = request.headers.get('Authorization')
+
+        if not context:
+            return Response({"Error": "context is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f">>>>>>>>>>>>>>>>>>> context : {context}")
+
+        all_tests = Test.objects.filter(tenant_id=tenant_id,deleted=0)
+        tests_data = """"""
+
+        for test in all_tests:
+            tests_data += f"{test.test_code} : {test.title}\n"
+
+        logger.info(f">>>>>>>>>>>>>>>>>>> tests_data : {tests_data}")
+
+        prompt = f"""
+        \n\nHuman:
+        user_input: {context}
+        test_data: {tests_data}
+
+        based on {{user_input}} pick the best test from the {{test_data}}
+
+        NOTE: just give me test_code and title in json format like {"{"}Q78TYZ : python skills improvement{"}"}
+        NOTE: do not provide any other information
+
+        \n\nAssistant:
+        """
+
+        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}))
+        logger.info(f">>>>>>>>>>>>>>>>>>> scenario : {scenario}")
+
+        response = anthropic_completion(prompt,5000)
+        logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
+        json_response = json_extraction(response)
+        logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}")
+
+        data = {
+            "matching_tests": json.loads(json_response),
+            "created_scenario": {scenario['test_code']: scenario['title']}
+        }
+        
+
+        return Response(data, status=status.HTTP_200_OK)
