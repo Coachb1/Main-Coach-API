@@ -581,8 +581,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
-            # bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
-            bot_owner_email = 'bagoriarajan@gmail.com'
+            bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
