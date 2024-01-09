@@ -5267,7 +5267,54 @@ def extract_info_gpt(scenario):
     return title,description, question_info, skill_to_evalaute, rating
 
 
-def create_scenario_from_site_context(url,access_token, tenant_id, context):
+def get_prompt_for_feedback_bot(site_information):
+    prompt = """
+                \n\nHuman:
+                 {Information} - %s
+
+                Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. The situation should be extremely relevant to the information provided. The simulation should ask questions from the user. For example if the user is a team member the questions should be asked from the team member, and if the user is a manager the questions should be asked from the manager. Understand the context clearly and then create the situation. After creating the situation provide these:
+
+                Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. Keep the context Indian. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+
+                Title - Give a specific and relevant title for this description in less than 10 words.
+
+                Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions. All the questions should be asked to the same person. If the situation is for team member only ask the questions from the team member.
+
+                Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+
+                KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+
+                Here the format looks like :
+
+                "Title",
+
+                "Description",
+
+                "Question 1",
+
+                "Prompt 1",
+
+                "Takeaway 1" ,
+
+                "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
+
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+
+                NOTE : Make sure the simulation is very advanced and tough.
+
+                \n\nAssistant:
+            """%(site_information)
+        
+    return prompt
+
+
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -5353,6 +5400,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context):
                 \n\nAssistant:
             """%(site_information)
 
+            if is_feedback_bot:
+                prompt = get_prompt_for_feedback_bot(site_information)
             response = {}
             scenario = ''
             title, description, question_info, skill_to_evalaute = "","","",""
