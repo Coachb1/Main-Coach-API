@@ -24,7 +24,7 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
                             get_next_mcq_question_options_prompt, get_last_mcq_question_options_promt, extract_mcq_options_from_response)
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
-from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email
+from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email,send_feedback_conversation_email
 from users.models import UserAttribute, SignatureBot
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
@@ -33,6 +33,8 @@ from coaching_conversations.models import CoachingConversation
 
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score
 from coaching_conversations.helpers import get_bot_conversation_data_user
+from skills.helpers import json_extraction
+
 
 
 logger = logging.getLogger(__name__)
@@ -567,6 +569,45 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
+    @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
+    def send_feedback_transcript_email(self,request, *args, **kwargs):
+        tenant = self.request.tenant
+        bot_id = request.query_params.get('bot_id')
+        conversation = request.query_params.get('conversation')
+        type_of_email = request.query_params.get('type_of_email')
+        user_email = request.query_params.get('user_email')
+
+        print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
+
+        try:
+            user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
+            # bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
+            bot_owner_email = 'bagoriarajan@gmail.com'
+
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+        conv = []
+        if  type_of_email == 'feedback_conv':
+            conversation = json.loads(conversation)
+            for key, value in conversation.items():
+                conv.append({
+                    "question": key,
+                    "answer": value
+                })
+        
+        send_feedback_conversation_email(user_email,conv,bot_owner_email,type_of_email)
+
+
+
+
+
+
+
+        return Response({'status': 'sent'}, status=status.HTTP_200_OK)
     
     @action(methods=['GET'],detail=False,url_path="save_session_notes")
     def save_session_notes(self,request, *args, **kwargs):
@@ -638,6 +679,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             coach_data = signature_bot.data
             fitness_analysis_data = json.loads(request.data['fitness_analysis_data'])
             fitness_analysis_score = get_fitness_analysis_score(coach_data,fitness_analysis_data)
+            fitness_analysis_score = json_extraction(fitness_analysis_score)
             logger.info(f"fitness_analysis_score: {fitness_analysis_score}")
             return Response({"data":json.loads(fitness_analysis_score)}, status=status.HTTP_200_OK)
             
