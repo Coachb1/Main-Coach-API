@@ -686,6 +686,7 @@ class TestViewSet(ApiViewSet,
         
         tenant_id = self.request.tenant.uid
         context = request.query_params.get('context')
+        mode = request.query_params.get('for',None)
 
         logger.info(f">>>>>>>>>>>>>>>>>>> request data : {request.data},  access_token : { request.headers.get('Authorization')}")
         access_token = request.headers.get('Authorization')
@@ -703,7 +704,46 @@ class TestViewSet(ApiViewSet,
 
         logger.info(f">>>>>>>>>>>>>>>>>>> tests_data : {tests_data}")
 
-        prompt = f"""
+        prompt = ""
+        scenario = ''
+
+        if mode == "feedback_bot":
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}),is_feedback_bot=True)
+        else:
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}))
+        logger.info(f">>>>>>>>>>>>>>>>>>> scenario : {scenario}")
+
+        if mode == 'feedback_bot':
+            data = ''
+            context = json.loads(context)
+            for que, ans in context.items():
+                data += f"Question: {que} , Answer: {ans}\n"
+
+            context = data
+            prompt = f"""
+
+                \n\nHuman:
+
+                user_input: {context}
+
+                test_data: {tests_data}
+
+                Based on {{user_input}} pick the best test from the {{test_data}}. Based on {{user_input}} this conversation give me the scenario from {{test_data}} that best suits the user's needs and requirements. The scenario should be directly linked to the skills or areas identified in {{user_input}}.
+
+                NOTE : Output format : {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
+                NOTE: just give me test_code and title in json format like {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
+                NOTE: do not provide any other information
+
+                NOTE : Do not provide any kind of explanation in the output.
+
+                \n\nAssistant:
+
+                """
+            
+        else:
+            prompt = f"""
         \n\nHuman:
         user_input: {context}
         test_data: {tests_data}
@@ -715,10 +755,7 @@ class TestViewSet(ApiViewSet,
 
         \n\nAssistant:
         """
-
-        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}))
-        logger.info(f">>>>>>>>>>>>>>>>>>> scenario : {scenario}")
-
+            
         response = anthropic_completion(prompt,5000)
         logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
         json_response = json_extraction(response)
