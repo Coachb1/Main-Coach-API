@@ -307,6 +307,7 @@ class AccountsViewSet(ApiViewSet,
         data['attributes'] = signature_bot.attributes
         data['bot_details'] = signature_bot.bot_details
         data['recommended_codes'] = signature_bot.recommended_codes
+        data['bot_type'] = signature_bot.bot_type
 
         return Response({"data":data},status=status.HTTP_200_OK)
 
