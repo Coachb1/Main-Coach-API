@@ -597,8 +597,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     "question": key,
                     "answer": value
                 })
-        
-        send_feedback_conversation_email(user_email,conv,bot_owner_email,type_of_email)
+
+        for email in [bot_owner_email,"info@coachbots.com"]:
+            send_feedback_conversation_email(user_email,conv,email,type_of_email)
 
 
 
