@@ -315,7 +315,7 @@ class AccountsViewSet(ApiViewSet,
             if bot_att.fitment_data:
                 data['fitment_options'] = bot_att.fitment_data['options']
             
-            if signature_bot.bot_type == 'feedback_bot':
+            if bot_att.feedback_questions:
                 data['feedback_qna'] = bot_att.feedback_questions
         except Exception as e:
             logger.exception(e)
