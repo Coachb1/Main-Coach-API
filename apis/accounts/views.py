@@ -310,9 +310,11 @@ class AccountsViewSet(ApiViewSet,
         data['bot_type'] = signature_bot.bot_type
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-            data['fitment_qna'] = bot_att.fitment_data['mentee_que']
-            data['fitment_options'] = bot_att.fitment_data['options']
-
+            if bot_att.fitment_data:
+                data['fitment_qna'] = bot_att.fitment_data['mentee_que']
+            if bot_att.fitment_data:
+                data['fitment_options'] = bot_att.fitment_data['options']
+            
             if signature_bot.bot_type == 'feedback_bot':
                 data['feedback_qna'] = bot_att.feedback_questions
         except Exception as e:
