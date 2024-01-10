@@ -21,7 +21,7 @@ from users.helpers import upsert_user_attributes
 from users.models import User, UserAttribute
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
-from users.models import SignatureBot
+from users.models import SignatureBot, BotAttribute
 
 
 from identities.models import Identity
@@ -308,6 +308,16 @@ class AccountsViewSet(ApiViewSet,
         data['bot_details'] = signature_bot.bot_details
         data['recommended_codes'] = signature_bot.recommended_codes
         data['bot_type'] = signature_bot.bot_type
+        try:
+            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            data['fitment_qna'] = bot_att.fitment_data['mentee_que']
+            data['fitment_options'] = bot_att.fitment_data['options']
+
+            if signature_bot.bot_type == 'feedback_bot':
+                data['feedback_qna'] = bot_att.feedback_questions
+        except Exception as e:
+            logger.exception(e)
+
 
         return Response({"data":data},status=status.HTTP_200_OK)
 
