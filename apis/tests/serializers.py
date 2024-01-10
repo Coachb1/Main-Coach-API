@@ -109,6 +109,7 @@ class CreateTestSerializer(serializers.Serializer):
     certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
     ui_information = serializers.JSONField(default=None, required=False, allow_null=True)
     media_props = serializers.JSONField(default=None, required=False, allow_null=True)
+    articles = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -175,6 +176,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_immersive",
                   "media_props",
                   "is_transcript_only",
+                  "articles"
                   ]
 
     def get_questions(self, instance):

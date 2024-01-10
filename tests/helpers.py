@@ -154,7 +154,8 @@ def create_test(tenant: Tenant,
                 is_immersive:bool,
                 media_props:dict,
                 is_transcript_only:bool,
-                is_pitch: bool) -> tuple[Test, list[TestQuestion]]:
+                is_pitch: bool,
+                articles:str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -207,7 +208,8 @@ def create_test(tenant: Tenant,
             is_immersive=is_immersive,
             media_props=media_props,
             is_transcript_only=is_transcript_only,
-            is_pitch=is_pitch
+            is_pitch=is_pitch,
+            articles=articles,
         )
 
         test_questions = []
@@ -1165,7 +1167,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     question=question.question,
                     question_context=question.subjective_answer,
                     candidate_reply=test_question_response.response_text,
-                    user_feedback_prompt=user_feedback_prompt)
+                    user_feedback_prompt=user_feedback_prompt,
+                    articles=test.articles)
 
 
         feedback_text = ''
@@ -1234,7 +1237,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     question=question.question,
                                     question_context=question.subjective_answer,
                                     candidate_reply=response_text,
-                                    user_feedback_prompt=user_feedback_prompt)
+                                    user_feedback_prompt=user_feedback_prompt,
+                                    articles=test.articles)
 
                     max_retry -= 1
 
@@ -1714,7 +1718,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         question=question_text,
                                         question_context=question.subjective_answer,
                                         candidate_reply=test_question_response.response_text,
-                                        user_feedback_prompt="")
+                                        user_feedback_prompt="",
+                                        articles=test.articles)
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
@@ -1870,7 +1875,8 @@ def get_feedback(question, test_question_response,question_text,test):
                                     question=question_text,
                                     question_context=question.subjective_answer,
                                     candidate_reply=test_question_response.response_text,
-                                    user_feedback_prompt="")
+                                    user_feedback_prompt="",
+                                    articles=test.articles)
         
     test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
@@ -3521,79 +3527,174 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question: str,
                                     question_context: str,
                                     candidate_reply: str,
-                                    user_feedback_prompt:str):
-    if question_context:
-        template = Template(
-            """
-            \n\nHuman:
-            Title: ${test_title}. 
-            Test Description: ${test_description}
-            Customer question:  ${question} 
-            Expert Suggestions:  ${question_context} 
-            Candidate answer:  ${candidate_reply}
+                                    user_feedback_prompt:str,
+                                    articles:str = None):
+    article_information = ''
+    if articles:
+        for url in articles.split(','):
+            articles_data = scrape_article_data(url.strip())
+            if articles_data:
+                articles_data = articles_data['article_content']
+                article_information += f"\n articles_data"
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            - Key insights to improve the response
-
-            - What went well ?
-
-            - What did not work ?
-
-            - A sample candidate answer
-
-            - A counter intuitive insight
-
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+    if len(article_information) == 0:
+        articles = None
             
 
-            ${user_feedback_prompt}
-            \n\nAssistant:
-            """
-        )
-        return template.substitute(test_title=test_title,
-                                   test_description=test_description,
-                                   question=question,
-                                   question_context=question_context,
-                                   candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
+
+    if question_context:
+        if articles:
+            template = Template(
+                """
+                \n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Expert Suggestions:  ${question_context}
+                Article: ${article_info} 
+                Candidate answer:  ${candidate_reply}
+        
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                - Key insights to improve the response
+
+                - What went well ?
+
+                - What did not work ?
+
+                - A sample candidate answer
+
+                - A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+                NOTE: Never give any feedback on the Question or anybody asking the question.
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+
+                ${user_feedback_prompt}
+                \n\nAssistant:
+                """
+            )
+            return template.substitute(test_title=test_title,
+                                    test_description=test_description,
+                                    question=question,
+                                    question_context=question_context,
+                                    candidate_reply=candidate_reply,
+                                    user_feedback_prompt=user_feedback_prompt,
+                                    article_info=article_information)
+
+        else:
+            template = Template(
+                """
+                \n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Expert Suggestions:  ${question_context} 
+                Candidate answer:  ${candidate_reply}
+        
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                - Key insights to improve the response
+
+                - What went well ?
+
+                - What did not work ?
+
+                - A sample candidate answer
+
+                - A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+                NOTE: Never give any feedback on the Question or anybody asking the question.
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+
+                ${user_feedback_prompt}
+                \n\nAssistant:
+                """
+            )
+            return template.substitute(test_title=test_title,
+                                    test_description=test_description,
+                                    question=question,
+                                    question_context=question_context,
+                                    candidate_reply=candidate_reply,
+                                    user_feedback_prompt=user_feedback_prompt)
     else:
-        template = Template(
-            """
-            \n\nHuman:
-            Title: ${test_title}. 
-            Test Description: ${test_description}
-            Customer question:  ${question} 
-            Candidate answer:  ${candidate_reply}
-            
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            - Key insights to improve the response
+        if articles:
+            template = Template(
+                """
+                \n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Candidate answer:  ${candidate_reply}
+                Article: ${article_info} 
+                
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                - Key insights to improve the response
 
-            - What went well ?
+                - What went well ?
 
-            - What did not work ?
+                - What did not work ?
 
-            - A sample candidate answer
+                - A sample candidate answer
 
-            - A counter intuitive insight
+                - A counter intuitive insight
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            
-            ${user_feedback_prompt}
-            \n\nAssistant:
-            """
-        )
-        # log template for debugging
-        return template.substitute(test_title=test_title,
-                                   test_description=test_description,
-                                   question=question,
-                                   candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+                NOTE: Never give any feedback on the Question or anybody asking the question.
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+                ${user_feedback_prompt}
+                \n\nAssistant:
+                """
+            )
+            # log template for debugging
+            return template.substitute(test_title=test_title,
+                                    test_description=test_description,
+                                    question=question,
+                                    candidate_reply=candidate_reply,
+                                    user_feedback_prompt=user_feedback_prompt,
+                                    article_info=article_information)
+
+
+        else:
+            template = Template(
+                """
+                \n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Candidate answer:  ${candidate_reply}
+                
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                - Key insights to improve the response
+
+                - What went well ?
+
+                - What did not work ?
+
+                - A sample candidate answer
+
+                - A counter intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+                NOTE: Never give any feedback on the Question or anybody asking the question.
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+                ${user_feedback_prompt}
+                \n\nAssistant:
+                """
+            )
+            # log template for debugging
+            return template.substitute(test_title=test_title,
+                                    test_description=test_description,
+                                    question=question,
+                                    candidate_reply=candidate_reply,
+                                    user_feedback_prompt=user_feedback_prompt)
 
 
 @timeit
@@ -5000,7 +5101,8 @@ def submit_feedback(
                 question=question.question,
                 question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text,
-                user_feedback_prompt=user_feedback_prompt)
+                user_feedback_prompt=user_feedback_prompt,
+                articles=test.articles)
 
 
     feedback_text = ''
@@ -5065,7 +5167,8 @@ def submit_feedback(
                                 question=question.question,
                                 question_context=question.subjective_answer,
                                 candidate_reply=response_text,
-                                user_feedback_prompt=user_feedback_prompt)
+                                user_feedback_prompt=user_feedback_prompt,
+                                articles=test.articles)
 
                 max_retry -= 1
 
@@ -5933,3 +6036,27 @@ def calculate_similarity(sentence1, sentence2):
     similarity_percentage = (intersection / union) * 100
 
     return similarity_percentage
+
+
+@timeit
+def scrape_article_data(url):
+    # Send a GET request to fetch the HTML content
+    response = requests.get(url)
+    
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(response.content, 'html.parser')
+        # Extract article content
+        article_content = ''
+        article_body = soup.find('div')
+        if article_body:
+            paragraphs = soup.find_all('p')
+            article_content = '\n'.join([p.get_text() for p in paragraphs])
+        
+        return {
+            'article_content': article_content
+        }
+    else:
+        print("Failed to retrieve the page.")
+        return {}

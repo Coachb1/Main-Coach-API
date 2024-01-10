@@ -89,3 +89,21 @@ class BotAttribute(TenantAwareModel):
         db_table = "bot_attributes"
 
         unique_together = (("tenant_id", "bot_id"),)
+
+
+class ClientUserInfo(TenantAwareModel):
+    client_name = models.CharField(max_length=255)
+    owner_id = models.CharField(max_length=255)
+    attributes = models.JSONField(null=True, blank=True, default=None)
+    member_emails = models.TextField(null=True, blank=True, default=None)
+    member_mob_numbers = models.TextField(null=True, blank=True, default=None)
+    member_user_ids = models.TextField(null=True, blank=True, default=None)
+    avatar_bot_creation = models.BooleanField(null=True, default=False)
+    feedback_bot_creation = models.BooleanField(null=True, default=False)
+    subject_matter_bot_creation = models.BooleanField(null=True, default=False)
+    number_of_creation_per_month = models.IntegerField(null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "client_user_info"
+
+        unique_together = (("tenant_id", "client_name"),)

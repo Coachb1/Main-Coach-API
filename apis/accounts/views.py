@@ -21,7 +21,7 @@ from users.helpers import upsert_user_attributes
 from users.models import User, UserAttribute
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
-from users.models import SignatureBot, BotAttribute
+from users.models import SignatureBot, BotAttribute, ClientUserInfo
 
 
 from identities.models import Identity
@@ -322,6 +322,60 @@ class AccountsViewSet(ApiViewSet,
 
 
         return Response({"data":data},status=status.HTTP_200_OK)
+
+
+    @action(methods=['GET'], detail=False, url_path="get-client-information")
+    def get_client_informations(self,request,*args, **kwargs):
+
+        try:
+            mode = request.query_params.get('for',None)  # can be my_lib, user_info
+            user_id = request.query_params.get('user_id',None)
+            email = request.query_params.get('email',None)
+            mob_number = request.query_params.get('mob_number',None)
+            tenant = self.request.tenant
+
+            logger.info(f"for: {mode}, user_id: {user_id},email: {email},mob_number: {mob_number}")
+            client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
+            data = {}
+
+            if mode == 'my_lib':
+                client_and_emails_map = []
+
+                for client in client_info:
+                    client_and_emails_map.append({"group": client.client_name,
+                                                "emails": [email for email in client.member_emails.split(',')]
+                                                })
+                
+                data['my_lib'] = client_and_emails_map
+            
+            elif mode == 'user_info':
+                user = ''
+                if user_id:
+                    user = client_info.filter(member_user_ids__contains = user_id)
+                if email:
+                    user = client_info.filter(member_emails__contains = email)
+                if mob_number:
+                    user = client_info.filter(member_mob_numbers__contains = mob_number)
+
+                user_info = []
+
+                for u in user:
+                    user_info.append({
+                        "client_name": u.client_name,
+                        "avatar_bot_creation": u.avatar_bot_creation,
+                        "feedback_bot_creation": u.feedback_bot_creation,
+                        "subject_matter_bot_creation": u.subject_matter_bot_creation,
+                        "monthly_bot_creation_limit": u.number_of_creation_per_month
+                    })
+
+                data['user_info'] = user_info
+
+            return Response({"data":data },status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"got error: {e}")
+            return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
+        
 
 
 
