@@ -25,7 +25,7 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
 from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email,send_feedback_conversation_email
-from users.models import UserAttribute, SignatureBot
+from users.models import UserAttribute, SignatureBot, BotAttribute
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
@@ -673,16 +673,61 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['POST'],detail=False,url_path="get-fitness-analysis-score")
     def get_fitness_analysis_score(self,request, *args, **kwargs):
+
+        # try:
+        #     logger.info(f"fitness analysis score request: {request.data}")
+        #     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
+        #     coach_data = signature_bot.data
+        #     fitness_analysis_data = json.loads(request.data['fitness_analysis_data'])
+        #     fitness_analysis_score = get_fitness_analysis_score(coach_data,fitness_analysis_data)
+        #     fitness_analysis_score = json_extraction(fitness_analysis_score)
+        #     logger.info(f"fitness_analysis_score: {fitness_analysis_score}")
+        #     return Response({"data":json.loads(fitness_analysis_score)}, status=status.HTTP_200_OK)
+            
+        # except Exception as e:
+        #     logger.error(f'get_fitness_analysis_score error , {e}',exc_info=True)
+        #     return Response({"Error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             logger.info(f"fitness analysis score request: {request.data}")
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
-            coach_data = signature_bot.data
-            fitness_analysis_data = json.loads(request.data['fitness_analysis_data'])
-            fitness_analysis_score = get_fitness_analysis_score(coach_data,fitness_analysis_data)
-            fitness_analysis_score = json_extraction(fitness_analysis_score)
-            logger.info(f"fitness_analysis_score: {fitness_analysis_score}")
-            return Response({"data":json.loads(fitness_analysis_score)}, status=status.HTTP_200_OK)
-            
+            bot_id = request.data.get("bot_id")
+            user_response = request.data.get("fitness_analysis_data",None)
+            logger.info(f"{bot_id},{self.request.tenant.uid}")
+
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=bot_id)
+            bot_att = BotAttribute.objects.get(tenant_id=self.request.tenant.uid, bot_id=signature_bot.uid)
+            mentor_answers = bot_att.fitment_answers['mentor_answer']
+            fitment_measures = bot_att.fitment_data['fitment_measures']
+            user_answers = (json.loads(user_response).values())
+            user_answers = [v['cochee'] for v in user_answers]
+
+            count_matching_answers = sum(1 for ua, ma in zip(user_answers, mentor_answers) if ua.strip().lower() == ma.strip().lower())
+
+            total_answers = len(user_answers)  # Assuming both lists are of the same length
+
+            # Calculate the percentage of matching answers
+            matching_percentage = (count_matching_answers / total_answers) * 100
+            print(count_matching_answers,matching_percentage)
+
+            # Define the thresholds for bottom, middle, and top thirds
+            bottom_threshold = 34
+            top_threshold = 67
+
+            msg = ''
+            # Classify based on percentage
+            if matching_percentage < bottom_threshold:
+                msg = fitment_measures['bottom']
+            elif bottom_threshold <= matching_percentage < top_threshold:
+                msg = fitment_measures['mid']
+            else:
+                msg = fitment_measures['top']
+
+
+
+            return Response({"message": msg}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f'get_fitness_analysis_score error , {e}',exc_info=True)
-            return Response({"Error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
