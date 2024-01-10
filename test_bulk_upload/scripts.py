@@ -77,6 +77,7 @@ TEST_NARRATION = 'Test Narration'
 ANSWER = 'Correct answer'
 IS_TRANSCRIPT_ONLY = "Is Transcript Only"
 IS_PITCH = "is_pitch"
+CURRENT_NEWS = 'Current news'
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -214,14 +215,21 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_logged_in'] = False
         
         
+        if CURRENT_NEWS in input_dict:
+            if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
+                output_dict['articles'] = input_dict.get(CURRENT_NEWS,None)
+
         if IMAGE_URL in input_dict:
-            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+            if input_dict[IMAGE_URL] and len(input_dict[IMAGE_URL].strip()) > 0:
+                output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
 
         if SOURCE in input_dict :
-            output_dict['source'] = input_dict.get(SOURCE,None)
+            if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
+                output_dict['source'] = input_dict.get(SOURCE,None)
         
         if RATINGS in input_dict:
-            output_dict['rating'] = input_dict.get(RATINGS,None)
+            if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
+                output_dict['rating'] = input_dict.get(RATINGS,None)
 
         bot_count = sum(1 for key in input_dict.keys()
                         if key.startswith('Person'))
@@ -591,14 +599,21 @@ def format_test_data_slack(raw_data):
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
         
+        if CURRENT_NEWS in input_dict:
+            if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
+                output_dict['articles'] = input_dict.get(CURRENT_NEWS,None)
+
         if IMAGE_URL in input_dict:
-            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+            if input_dict[IMAGE_URL] and len(input_dict[IMAGE_URL].strip()) > 0:
+                output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
 
         if SOURCE in input_dict :
-            output_dict['source'] = input_dict.get(SOURCE,None)
+            if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
+                output_dict['source'] = input_dict.get(SOURCE,None)
         
         if RATINGS in input_dict:
-            output_dict['rating'] = input_dict.get(RATINGS,None)
+            if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
+                output_dict['rating'] = input_dict.get(RATINGS,None)
 
         test_type = input_dict[TEST_TYPE].strip().lower()
 
