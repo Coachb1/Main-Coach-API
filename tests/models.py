@@ -71,6 +71,7 @@ class Test(TenantAwareModel):
     is_logged_in = models.BooleanField(default=False, null=True, blank=True)
     is_transcript_only = models.BooleanField(default=False, null=True, blank=True)
     is_pitch = models.BooleanField(default=False, null=True, blank=True)
+    articles = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
