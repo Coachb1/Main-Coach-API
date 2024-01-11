@@ -371,13 +371,17 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     context_info = "here",
                     conversation_history= 'history')
 
-            logger.info(f"Prompt for subject matter: {prompt}")
 
         else:
             prompt = Template(prompt).substitute(
                     info = page_info,
                     context_info = candidate_data_str
                     )
+            
+
+            
+        logger.info(f"custom Prompt: {prompt}")
+        
             
 
     return prompt
