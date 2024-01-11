@@ -16,6 +16,7 @@ from commons.openai_gpt import gpt_wishper_api
 from users.models import SignatureBot
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
+from string import Template
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +348,41 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     \n\nAssistant:"""
 
 
-    prompt = new_coaching_prompt if bot_type == "coaching" else generic_prompt 
+    prompt = new_coaching_prompt if bot_type == "avatar_bot" else generic_prompt 
+
+    if signature_bot.custom_prompt:
+        prompt = signature_bot.custom_prompt
+
+        if bot_type == 'avatar_bot':
+            prompt = Template(prompt).substitute(
+                    info = page_info,
+                    context_info = candidate_data_str,
+                    conversation_history = conversation_history
+                    )
+
+        elif bot_type == 'subject_matter_bot':
+            faqs = signature_bot.faqs
+            faqs_text = ""
+            for que, ans in faqs.items():
+                faqs_text += f"Question: {que} Answer: {ans}\n"
+
+            prompt = Template(prompt).substitute(
+                    qna = "qna",
+                    context_info = "here",
+                    conversation_history= 'history')
+
+
+        else:
+            prompt = Template(prompt).substitute(
+                    info = page_info,
+                    context_info = candidate_data_str
+                    )
+            
+
+            
+        logger.info(f"custom Prompt: {prompt}")
+        
+            
 
     return prompt
 
