@@ -361,7 +361,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     )
 
         elif bot_type == 'subject_matter_bot':
-            faqs = signature_bot.faqs
+            faqs = signature_bot.attached_faqs_context
             faqs_text = ""
             for que, ans in faqs.items():
                 faqs_text += f"Question: {que} Answer: {ans}\n"
