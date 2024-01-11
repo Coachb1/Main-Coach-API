@@ -13,7 +13,7 @@ from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
-from users.models import SignatureBot
+from users.models import SignatureBot, BotAttribute
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
@@ -361,7 +361,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     )
 
         elif bot_type == 'subject_matter_bot':
-            faqs = signature_bot.attached_faqs_context
+            bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+            faqs = bot_att.attached_faqs_context
             faqs_text = ""
             for que, ans in faqs.items():
                 faqs_text += f"Question: {que} Answer: {ans}\n"
