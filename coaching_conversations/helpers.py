@@ -17,6 +17,7 @@ from users.models import SignatureBot, BotAttribute
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
+from utilities.helpers import save_user_action_info
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,11 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
     if is_signature_bot:
+        
+        current_conversation = CoachingConversation.objects.filter(deleted=0,tenant_id=tenant.uid,test_attempt_session_id=test_attempt_session.uid).count()
+        if current_conversation == 5: # increasing action point if conversation contain five chat
+            save_user_action_info(tenant,test_attempt_session.participant_id,"chat_attempted")
+            
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot)
