@@ -26,6 +26,9 @@ from users.models import SignatureBot, BotAttribute, ClientUserInfo
 
 from identities.models import Identity
 from skills.models import SkillsRating
+from utilities.models import BotQnA
+from users.db import get_user_by_id,get_user_display_name
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -372,6 +375,63 @@ class AccountsViewSet(ApiViewSet,
 
             return Response({"data":data },status=status.HTTP_200_OK)
 
+        except Exception as e:
+            logger.exception(f"got error: {e}")
+            return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'], detail=False, url_path="get-user-feedback-data")
+    def get_user_feedback_data(self,request,*args, **kwargs):
+        try:
+            method = request.query_params.get('method',None)
+            bot_id = request.query_params.get('bot_id',None)
+            data = {}
+            try:
+                signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
+            except Exception as e:
+                logger.exception(e)
+                return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
+            if method.lower() == 'get':
+                try:
+                    feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
+                    print(feedback_bot_id)
+                except Exception as e:
+                    logger.exception(f"Feedback bot not found {e}")
+                    data['positive_msgs'] = []
+                    return Response(data,status=status.HTTP_200_OK)
+                
+                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=feedback_bot_id)
+                positive_msg_data = []
+                for feed in feedback_data:
+                    participant_name = get_user_display_name(
+                        get_user_by_id(feed.participant_id))
+                    if feed.is_positive:
+                        positive_msg_data.append({
+                            "participant_name": participant_name,
+                            "date": feed.created,
+                            "msg": feed.participant_qna
+                        })
+                
+                data['positive_msgs'] = positive_msg_data
+
+            elif method.lower() == 'post':
+                participant_id = request.query_params.get('user_id',None)
+                feedback_qna = request.query_params.get('qna',None)
+                is_positive = request.query_params.get('is_positive',None)
+                qna_type = request.query_params.get('qna_type',None)
+
+                BotQnA.objects.create(
+                    tenant_id = self.request.tenant.uid,
+                    participant_id = participant_id,
+                    participant_qna = json.loads(feedback_qna),
+                    is_positive = is_positive,
+                    bot_id = signature_bot.uid,
+                    qna_type = qna_type,
+                )
+                data['message'] = "created"
+
+            return Response(data,status=status.HTTP_200_OK)
+        
         except Exception as e:
             logger.exception(f"got error: {e}")
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
