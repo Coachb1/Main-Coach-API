@@ -392,15 +392,15 @@ class AccountsViewSet(ApiViewSet,
                 logger.exception(e)
                 return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
             if method.lower() == 'get':
-                try:
-                    feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
-                    print(feedback_bot_id)
-                except Exception as e:
-                    logger.exception(f"Feedback bot not found {e}")
-                    data['positive_msgs'] = []
-                    return Response(data,status=status.HTTP_200_OK)
+                # try:
+                #     feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
+                #     print(feedback_bot_id)
+                # except Exception as e:
+                #     logger.exception(f"Feedback bot not found {e}")
+                #     data['positive_msgs'] = []
+                #     return Response(data,status=status.HTTP_200_OK)
                 
-                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=feedback_bot_id)
+                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid)
                 positive_msg_data = []
                 for feed in feedback_data:
                     participant_name = get_user_display_name(
