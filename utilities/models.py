@@ -51,3 +51,17 @@ class BotQnA(TenantAwareModel):
 
     class Meta:
         db_table = "bot_qna"
+
+
+class UserActionInfo(TenantAwareModel):
+    user_id = models.CharField(max_length=255)
+    bot_id = models.CharField(max_length=255,default=None,null=True,blank=True)
+    feedback_given = models.IntegerField(null=True,blank=True,default=0)
+    feedback_recieved = models.IntegerField(null=True,blank=True,default=0)
+    transcript_email_sent = models.IntegerField(null=True,blank=True,default=0)
+    transcript_email_recieved = models.IntegerField(null=True,blank=True,default=0)
+    chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    interaction_attempted = models.IntegerField(null=True,blank=True,default=0)
+
+    class Meta:
+        db_table = "user_action_info"

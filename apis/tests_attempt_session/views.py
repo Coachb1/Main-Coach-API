@@ -34,6 +34,7 @@ from coaching_conversations.models import CoachingConversation
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
+from utilities.models import UserActionInfo
 
 
 
@@ -730,4 +731,45 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+    @action(methods=['GET'],detail=False,url_path="get-or-save-action-point")
+    def get_or_save_action_point(self,request, *args, **kwargs):
+        try:
+            mode = request.query_params.get('mode',None)
+            tenant = self.request.tenant
+            data = {}
+            if mode == 'get':
+                user_id = request.query_params.get('user_id',None)
+                try:
+                    action_info = UserActionInfo.objects.get(tenant_id= tenant.uid,user_id = user_id)
+                except:
+                    return Response({"msg": 'Action info not found'},status=status.HTTP_400_BAD_REQUEST)
+                action_data = {
+                    "feedback_given" : action_info.feedback_given,
+                    "feedback_recieved": action_info.feedback_recieved,
+                    "chat_attempted": action_info.chat_attempted,
+                    "transcript_email_recieved": action_info.transcript_email_recieved,
+                    "transcript_email_sent": action_info.transcript_email_sent,
+                    "interaction_attempted": action_info.interaction_attempted,
+                }
+                data['action_points'] = action_data
+
+            elif mode == "save":
+                user_id = request.query_params.get('user_id',None)
+                for_ = request.query_params.get('for',None)
+
+                action_info, is_created = UserActionInfo.objects.get_or_create(
+                    tenant_id = tenant.uid,
+                    user_id = user_id,
+                )
+
+                setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
+                action_info.save(update_fields=[for_])
+
+                data['message'] = "Action point increased."
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
 
