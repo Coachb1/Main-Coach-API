@@ -1,4 +1,5 @@
 from django.db import models
+from tenants.models import TenantAwareModel
 
 class JotUrlSession(models.Model):
     email = models.CharField(max_length=255)
@@ -40,3 +41,13 @@ class SessionNotesRecommendations(models.Model):
 
     class Meta:
         db_table = "session_notes_and_recommendations"
+
+class BotQnA(TenantAwareModel):
+    participant_id = models.CharField(max_length=255)
+    bot_id = models.CharField(max_length=255)
+    participant_qna = models.JSONField(default=None,null=True,blank=True)
+    is_positive = models.BooleanField(null=True,default=False)
+    qna_type = models.CharField(max_length=255,default=None,null=True,blank=True)
+
+    class Meta:
+        db_table = "bot_qna"
