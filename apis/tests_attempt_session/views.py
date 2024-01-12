@@ -31,7 +31,7 @@ from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_n
 
 from coaching_conversations.models import CoachingConversation
 
-from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
 from utilities.models import UserActionInfo
@@ -560,6 +560,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()} {user_email}"""
         tenant = self.request.tenant
+        save_user_action_info(tenant,participant_id,"transcript_email_sent") # saving action point
+        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_recieved")
+
         # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
         sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
         conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
@@ -582,6 +585,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
+            save_user_action_info(tenant,user_id,"feedback_recieved")
             bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
@@ -757,14 +761,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
                 for_ = request.query_params.get('for',None)
-
-                action_info, is_created = UserActionInfo.objects.get_or_create(
-                    tenant_id = tenant.uid,
-                    user_id = user_id,
-                )
-
-                setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
-                action_info.save(update_fields=[for_])
+                save_user_action_info(tenant,user_id,for_)
 
                 data['message'] = "Action point increased."
 
