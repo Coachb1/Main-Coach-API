@@ -6,13 +6,14 @@ import hashlib
 import datetime
 import os
 from dotenv import load_dotenv
-from .models import SessionNotesRecommendations, MentorDetails
+from .models import SessionNotesRecommendations, MentorDetails, UserActionInfo
 from tests.helpers import create_scenario_from_site_context
 import json
 import logging
 from users.models import UserAttribute
 from email_sender.helpers import send_session_notes_email
 from commons.anthropic import anthropic_completion
+
 
 
 
@@ -221,3 +222,13 @@ def get_fitness_analysis_score(coach_data, conversation_data):
 
     response = anthropic_completion(prompt,5000)
     return response
+
+
+def save_user_action_info(tenant,user_id,for_):
+    action_info, is_created = UserActionInfo.objects.get_or_create(
+                    tenant_id = tenant.uid,
+                    user_id = user_id,
+                )
+
+    setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
+    action_info.save(update_fields=[for_])
