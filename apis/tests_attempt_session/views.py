@@ -561,7 +561,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             get_user_by_id(participant_id)).capitalize()} {user_email}"""
         tenant = self.request.tenant
         save_user_action_info(tenant,participant_id,"transcript_email_sent") # saving action point
-        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_sent")
+        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_recieved")
 
         # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
         sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
