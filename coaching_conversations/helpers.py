@@ -18,6 +18,8 @@ from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
 from utilities.helpers import save_user_action_info
+import json
+from utilities.models import BotQnA
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +97,7 @@ def get_coaching_conversation_prompt(candidate_data_str, test, question):
 
 @timeit
 def initialize_coaching_conversation(tenant: Tenant,
-                                     test_attempt_session_id: str, is_signature_bot: bool) -> CoachingConversation:
+                                     test_attempt_session_id: str, is_signature_bot: bool, initial_qna: str) -> CoachingConversation:
     """
     Initializes a coaching conversation based on a test attempt session.
 
@@ -130,11 +132,53 @@ def initialize_coaching_conversation(tenant: Tenant,
 
         question = TestQuestion.objects.get(
             tenant_id=tenant.uid, test_id=test.uid, deleted=0)
+        
+    signature_bot_question = "what do you want to ask ?"
+    if is_signature_bot:
+        if initial_qna:
+
+            qna = json.loads(initial_qna)
+            signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
+            custom_prompt = signature_bot.custom_prompt
+            if custom_prompt:
+                # saving initial_qna
+                BotAttribute.create(
+                    tenant_id = tenant.uid,
+                    bot_id = signature_bot.uid,
+                    participant_id = test_attempt_session.participant_id,
+                    participant_qna = qna,
+                    qna_type = 'initial_qna'
+                )
+                initial_que_ans = ''
+                for que, ans in qna.items():
+                    initial_que_ans += f"Question: {que} Answer: {ans} \n"
+
+                
+
+                coach_info = ""
+                for val in signature_bot.data.values():
+                    coach_info += f"{val}\n"
+
+                sessions = TestAttemptSession.objects.filter(tenant_id = tenant.uid, test_id = signature_bot.uid)
+
+                conversation_data= get_bot_conversation_data_user(sessions,tenant,test_attempt_session.participant_id,only_converation=True)
+                conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
+
+
+                if signature_bot.bot_type == 'avatar_bot':
+                    prompt = Template(custom_prompt).substitute(
+                        coach_info = coach_info,
+                        conversation_history = conversation_history,
+                        context = initial_que_ans
+                    )
+                logger.info(f"signature  bot prompt  {prompt}")
+                signature_bot_question = anthropic_completion(prompt,50000)
+
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
-        coach_message_text=question.question if not is_signature_bot else "what do you want to ask ?",
+        coach_message_text=question.question if not is_signature_bot else signature_bot_question,
         coach_message_metadata=None
     )
 
@@ -360,11 +404,18 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         prompt = signature_bot.custom_prompt
 
         if bot_type == 'avatar_bot':
+            coach_info = ""
+            for val in signature_bot.data.values():
+                coach_info += f"{val}\n"
+
+            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
+            initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
+
             prompt = Template(prompt).substitute(
-                    info = page_info,
-                    context_info = candidate_data_str,
-                    conversation_history = conversation_history
-                    )
+                coach_info = coach_info,
+                conversation_history = conversation_history,
+                context = initial_que_ans
+            )
 
         elif bot_type == 'subject_matter_bot':
             bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)

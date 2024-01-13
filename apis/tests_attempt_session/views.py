@@ -34,7 +34,7 @@ from coaching_conversations.models import CoachingConversation
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
-from utilities.models import UserActionInfo
+from utilities.models import UserActionInfo, BotQnA
 
 
 
@@ -697,6 +697,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.info(f"fitness analysis score request: {request.data}")
             bot_id = request.data.get("bot_id")
             user_response = request.data.get("fitness_analysis_data",None)
+            participant_id = request.data.get("participant_id",None)
             logger.info(f"{bot_id},{self.request.tenant.uid}")
 
             signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=bot_id)
@@ -719,15 +720,27 @@ class TestAttemptSessionViewSet(ApiViewSet,
             top_threshold = 67
 
             msg = ''
+            score = {}
             # Classify based on percentage
             if matching_percentage < bottom_threshold:
                 msg = fitment_measures['bottom']
+                score['bottom'] = msg
             elif bottom_threshold <= matching_percentage < top_threshold:
                 msg = fitment_measures['mid']
+                score['mid'] = msg
             else:
                 msg = fitment_measures['top']
+                score['top'] = msg
 
-
+            # saving fitemtn qna and scores
+            BotQnA.objects.create(
+                tenant_id = self.request.tenant.uid,
+                bot_id = signature_bot.uid,
+                participant_id = participant_id,
+                participant_qna = json.loads(user_response),
+                qna_type = 'fitment',
+                fitment_score = score
+            )        
 
             return Response({"message": msg}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -769,4 +782,38 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False,url_path="get-fitment-analysis-by-user")
+    def get_fitment_analysis_by_user(self,request, *args, **kwargs):
+
+        try:
+            tenant = self.request.tenant
+            data= {}
+            user_id = request.query_params.get('user_id')
+            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            fitment_data = []
+            for qna in fitment_qnas:
+                fitment_data.append({
+                    "qna": qna.participant_qna,
+                    "score": qna.fitment_score
+                })
+
+            data['fitment_data'] = fitment_data
+
+            if len(fitment_data) == 0:
+                data['proceed'] = False
+            elif fitment_qnas.count() > 0:
+                score_key = fitment_qnas[0].fitment_score.keys()
+                if 'top' in score_key or 'mid' in score_key:
+                    data['proceed'] = True
+                else:
+                    data["proceed"] = False
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
 

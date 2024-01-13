@@ -48,6 +48,7 @@ class BotQnA(TenantAwareModel):
     participant_qna = models.JSONField(default=None,null=True,blank=True)
     is_positive = models.BooleanField(null=True,default=False)
     qna_type = models.CharField(max_length=255,default=None,null=True,blank=True)
+    fitment_score = models.JSONField(default=None,null=True,blank=True)
 
     class Meta:
         db_table = "bot_qna"
