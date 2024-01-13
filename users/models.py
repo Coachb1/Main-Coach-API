@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from users.choices import UserRoleChoice
+from users.choices import UserRoleChoice, ProfileTypeChoice
 
 
 class User(TenantAwareModel):
@@ -108,3 +108,28 @@ class ClientUserInfo(TenantAwareModel):
         db_table = "client_user_info"
 
         unique_together = (("tenant_id", "client_name"),)
+
+
+
+class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
+    profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)
+    name = models.CharField(max_length=255)
+    email = models.CharField(max_length=255)
+    status = models.CharField(max_length=255, null=True, blank=True, default=None)
+    speciality = models.CharField(max_length=255, null=True, blank=True, default=None)
+    experience = models.CharField(max_length=255, null=True, blank=True, default=None)
+    location = models.CharField(max_length=255, null=True, blank=True, default=None)
+    favourite_simulation_codes = models.CharField(max_length=255, null=True, blank=True, default=None)
+    about = models.TextField(null=True, blank=True, default=None)
+    department = models.CharField(max_length=255, null=True, blank=True, default=None)
+    unique_id = models.CharField(max_length=255, null=True, blank=True, default=None)
+    user_id = models.CharField(max_length=255)
+    bot_ids = models.TextField(null=True, blank=True, default=None)
+    bot_urls = models.TextField(null=True, blank=True, default=None)
+    profile_image_url = models.CharField(max_length=255, null=True, blank=True, default=None)
+    
+
+    class Meta:
+        db_table = "coach_coachee_mentor_mentee_profile"
+
+        unique_together = (("tenant_id", "uid"),)

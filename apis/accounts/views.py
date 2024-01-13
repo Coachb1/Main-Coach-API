@@ -10,7 +10,7 @@ from django.utils import timezone
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
-from apis.accounts.serializers import SetupAccountSerializer
+from apis.accounts.serializers import SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -18,7 +18,7 @@ from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
-from users.models import User, UserAttribute
+from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
@@ -29,6 +29,7 @@ from skills.models import SkillsRating
 from utilities.models import BotQnA
 from users.db import get_user_by_id,get_user_display_name
 import json
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class AccountsViewSet(ApiViewSet,
     serializer_class = AccountSerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
     lookup_field = "uid"
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
@@ -438,5 +440,49 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
+    @action(methods=['GET','POST','PATCH'], detail=False, url_path="coach-coachee-mentor-mentee-profile")
+    def coach_coachee_mentor_mentee_profile(self,request,*args, **kwargs):
+        """
+        Retrieves or creates a coach-coachee-mentor-mentee profile for a user.
 
+        Args:
+            request (object): The HTTP request object.
+
+        Returns:
+            dict: A dictionary containing the coach-coachee-mentor-mentee profile data.
+        """
+
+
+        # return Response({"data":data},status=status.HTTP_200_OK)
+        if request.method == 'GET':
+            profile_id = request.query_params.get('profile_id',None)
+            if profile_id:
+                profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
+                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+            else:
+                profiles = CoachCoacheeMentorMenteeProfile.objects.all()
+                profile_type = request.query_params.get('profile_type',None)
+                if profile_type:
+                    profiles = profiles.filter(profile_type=profile_type)
+                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profiles,many=True).data },status=status.HTTP_200_OK)
+
+        if request.method == 'PATCH':
+            profile_id = request.query_params.get('profile_id',None)
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
+            data = request.data.copy()
+            data['tenant_id'] = self.request.tenant.uid
+            serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+
+        if request.method == 'POST':
+            logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
+            data = request.data.copy()
+            data['tenant_id'] = self.request.tenant.uid
+            serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            logger.info(f"serializer data: {serializer.validated_data}")
+            created_profile = serializer.save()
+            return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
 
