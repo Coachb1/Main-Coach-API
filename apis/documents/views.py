@@ -9,6 +9,10 @@ from commons.viewset import ApiViewSet
 from documents.helpers import create_document, get_document_url
 from documents.models import Document
 from rest_framework import mixins
+from django.conf import settings
+import os
+
+from commons.langchain import generate_answer, generate_summary, generate_answer_from_text
 
 
 class DocumentViewSet(ApiViewSet,
@@ -39,3 +43,40 @@ class DocumentViewSet(ApiViewSet,
         doc = self.get_object()
         url = get_document_url(doc)
         return Response({"url": url})
+
+
+    @action(methods=["GET"], detail=False, url_path="ltest")
+    def ltest(self, request, *args, **kwargs):
+        import PyPDF2
+        pdf = open('sample3.pdf', 'rb')
+        pdfReader = PyPDF2.PdfReader(pdf)
+        text_data = ""
+        for i in range(pdfReader.numPages):
+            page = pdfReader.getPage(i)
+            text = page.extractText()
+            text_data += " ".join(text.split("\t"))
+
+        transcript_filepath = f"tmp/pdftext.txt"
+
+        file_path = "sample3.pdf"
+
+        # Get the size of the file in bytes
+        file_size = os.path.getsize(file_path)
+
+        # Convert bytes to megabytes
+        file_size_in_mb = file_size / (1024 * 1024)
+
+        # Check if the file size is less than 25 MB
+        if file_size_in_mb < 25:
+            with open(file_path, "rb") as audio_file:
+                
+                # Writing the content of transcript into a txt file
+                with open(transcript_filepath, 'w') as transcript_file:
+                    transcript_file.write(text_data)
+        # print("#"*100,text_data,'#'*100)
+            
+        # answer = generate_answer(settings.OPENAI_API_KEY,"https://www.youtube.com/watch?v=_v_fgW2SkkQ","what is langchain")
+        # answer = generate_answer(settings.OPENAI_API_KEY,"https://www.youtube.com/watch?v=9JUAPgtkKpI","what is langchain")
+        answer = generate_answer_from_text(transcript_filepath,"git push")
+        
+        return Response({"response": answer})
