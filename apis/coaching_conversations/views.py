@@ -138,11 +138,13 @@ class CoachingConversationViewSet(ApiViewSet,
 
         test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+        initial_qna = serializer.validated_data.get("initial_qna", None)
 
         next_conversation = initialize_coaching_conversation(
             tenant=request.tenant,
             test_attempt_session_id=test_attempt_session_id,
             is_signature_bot=is_signature_bot,
+            initial_qna = initial_qna
         )
 
         return Response(
