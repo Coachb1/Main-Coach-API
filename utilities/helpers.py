@@ -79,14 +79,17 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     mentees_ids = ""
     if mentor.mentee_ids :
         ids = mentor.mentee_ids.split(',')
-        ids.append(user_id)
-        ids = set(ids)
-        mentees_ids = ",".join(list(ids))
-    else:
-        mentees_ids = user_id
+        # ids.append(user_id)
+        # ids = set(ids)
+        # mentees_ids = ",".join(list(ids))
         
-    mentor.mentee_ids = mentees_ids
-    mentor.save(update_fields = ['mentee_ids'])
+        if user_id not in ids:
+            return [],{"error": "this user is not in your mentee list" } 
+    else:
+        return [], {"error": "no users in your mentee list"}
+        
+    # mentor.mentee_ids = mentees_ids
+    # mentor.save(update_fields = ['mentee_ids'])
 
 
     session_notes = SessionNotesRecommendations.objects.create(
@@ -124,7 +127,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         logger.error(f'failed to send email. {e}')
     
     
-    return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}]
+    return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}], {}
     
 
     

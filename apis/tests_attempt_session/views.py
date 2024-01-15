@@ -636,10 +636,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
             mentor_id = request.query_params.get('mentor_id')
             mode = request.query_params.get('for')
             access_token = request.query_params.get('token', None)
-            logger.info(f"details: {mode}, userid: {user_id}, mentor_id; {mentor_id}")
+            logger.info(f"************************** details: {mode}, userid: {user_id}, mentor_id; {mentor_id} \nQueryparams: {request.query_params}")
 
             if mode == 'mentor':
-                data = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                logger.info(f"######################################## save_session_notes data: {data} \nErrors : {errors}")
+                if "error" in errors:
+                    return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             elif mode == 'mentee':
                 data = get_session_notes(user_id,mentor_id)
