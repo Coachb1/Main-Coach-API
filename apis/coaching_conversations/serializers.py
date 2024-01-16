@@ -6,6 +6,7 @@ from coaching_conversations.models import CoachingConversation
 class InitializeCoachingConversationSerializer(serializers.Serializer):
     test_attempt_session_id = serializers.CharField()
     is_signature_bot = serializers.BooleanField(default=False,required=False)
+    initial_qna = serializers.JSONField(default=False,required=False)
 
 
 class ReplyCoachingConversationSerializer(serializers.Serializer):

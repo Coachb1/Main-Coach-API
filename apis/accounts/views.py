@@ -323,6 +323,8 @@ class AccountsViewSet(ApiViewSet,
             
             if bot_att.feedback_questions:
                 data['feedback_qna'] = bot_att.feedback_questions
+            if bot_att.initial_qnas:
+                data['initial_qna'] = bot_att.initial_qnas
         except Exception as e:
             logger.exception(e)
 
