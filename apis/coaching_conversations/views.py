@@ -16,6 +16,10 @@ from tests.models import TestAttemptSession, Test
 from users.models import User, SignatureBot
 from users.db import get_user_display_name, get_user_by_id
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CoachingConversationViewSet(ApiViewSet,
                                   mixins.ListModelMixin):
@@ -138,11 +142,15 @@ class CoachingConversationViewSet(ApiViewSet,
 
         test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+        initial_qna = serializer.validated_data.get("initial_qna", None)
+
+        logger.info("************************** initial_qna: {}".format(initial_qna))
 
         next_conversation = initialize_coaching_conversation(
             tenant=request.tenant,
             test_attempt_session_id=test_attempt_session_id,
             is_signature_bot=is_signature_bot,
+            initial_qna = initial_qna
         )
 
         return Response(
