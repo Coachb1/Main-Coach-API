@@ -142,7 +142,7 @@ def initialize_coaching_conversation(tenant: Tenant,
             custom_prompt = signature_bot.custom_prompt
             if custom_prompt:
                 # saving initial_qna
-                BotAttribute.create(
+                BotQnA.objects.create(
                     tenant_id = tenant.uid,
                     bot_id = signature_bot.uid,
                     participant_id = test_attempt_session.participant_id,
@@ -409,7 +409,9 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 coach_info += f"{val}\n"
 
             initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
-            initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
+            logger.info(f"************************************************ initial_qna: {initial_qna}")
+            # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
+            initial_que_ans = initial_qna.participant_qna
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
