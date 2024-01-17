@@ -315,6 +315,7 @@ class AccountsViewSet(ApiViewSet,
         data['recommended_codes'] = signature_bot.recommended_codes
         data['bot_type'] = signature_bot.bot_type
         data['user_id'] = signature_bot.user_id
+        data['is_fitment_analysis'] = signature_bot.is_fitment_analysis
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             if bot_att.fitment_data:

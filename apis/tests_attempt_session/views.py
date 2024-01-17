@@ -728,12 +728,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if matching_percentage < bottom_threshold:
                 msg = fitment_measures['bottom']
                 score['bottom'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
             elif bottom_threshold <= matching_percentage < top_threshold:
                 msg = fitment_measures['mid']
                 score['mid'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
             else:
                 msg = fitment_measures['top']
                 score['top'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
 
             # saving fitemtn qna and scores
             BotQnA.objects.create(
@@ -745,7 +751,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 fitment_score = score
             )        
 
-            return Response({"message": msg}, status=status.HTTP_200_OK)
+            return Response(score, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
             return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
@@ -807,11 +813,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if len(fitment_data) == 0:
                 data['proceed'] = False
             elif fitment_qnas.count() > 0:
-                score_key = fitment_qnas[0].fitment_score.keys()
-                if 'top' in score_key or 'mid' in score_key:
+                fitment_scores = fitment_qnas[0].fitment_score
+                score = fitment_scores['score'] if 'score' in fitment_scores else 0
+                # score_key = fitment_scores.keys()
+                # if 'top' in score_key or 'mid' in score_key:
+                #     data['proceed'] = True
+                # else:
+                #     data["proceed"] = False
+                
+                if score >= 2:
                     data['proceed'] = True
-                else:
-                    data["proceed"] = False
+                else: 
+                    data['proceed'] = False
 
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
