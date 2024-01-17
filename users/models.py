@@ -62,6 +62,7 @@ class SignatureBot(TenantAwareModel):
     prompt = models.TextField(null=True, blank=True, default=None)
     custom_prompt = models.TextField(null=True, blank=True, default=None)
     faqs = models.JSONField(null=True, blank=True, default=None)
+    is_fitment_analysis = models.BooleanField(null=True,default=True)
     
 
     class Meta:
@@ -103,7 +104,9 @@ class ClientUserInfo(TenantAwareModel):
     avatar_bot_creation = models.BooleanField(null=True, default=False)
     feedback_bot_creation = models.BooleanField(null=True, default=False)
     subject_matter_bot_creation = models.BooleanField(null=True, default=False)
-    number_of_creation_per_month = models.IntegerField(null=True, blank=True, default=None)
+    number_of_conversation_per_month = models.IntegerField(null=True, blank=True, default=None)
+    required_form_fields = models.JSONField(null=True, blank=True, default=None)
+
 
     class Meta:
         db_table = "client_user_info"
