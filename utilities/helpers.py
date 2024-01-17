@@ -235,3 +235,19 @@ def save_user_action_info(tenant,user_id,for_):
 
     setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
     action_info.save(update_fields=[for_])
+
+def extract_fields(data:dict):
+    extracted_fields = []
+    for key, value in data.items():
+        field = {"name": key}
+        if isinstance(value, list):
+            field["type"] = "dropdown"
+            field['options'] = value
+        elif "boolean" in value:
+            field["type"] = "bool"
+        else:
+            field["type"] = "text"
+            field['placeholder'] = value
+        extracted_fields.append(field)
+
+    return extracted_fields
