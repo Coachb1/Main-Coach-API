@@ -39,7 +39,21 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachCoacheeMentorMenteeProfile
         fields = ['uid','profile_type','name', 'email', 'status', 'speciality', 'experience', 'location','profile_image',
-                'favourite_simulation_codes', 'about', 'department', 'unique_id', 'user_id', 'bot_ids', 'bot_urls', 'profile_image_url']
+                'favourite_simulation_codes', 'about', 'department', 'unique_id', 'user_id', 'bot_ids', 'bot_urls', 'profile_image_url','hard_skill_areas',
+                'area_domain','provided_links','low_rating_characteristics','high_rating_characteristics','mentoring_preferences',
+                'mentoring_frameworks','dominant_point_of_view','problem_solving_approach','admired_leaders','voice_sample','coaching_for_fitment','coaching_level',
+                'coach_same_department',
+                'supported_outcome',
+                'coaching_style',
+                'time_commitment',
+                'is_approved',  
+                'other_details',]
+
+        extra_kwargs = {
+            'uid': {'read_only': True},
+            'unique_id': {'read_only': True},
+            'is_approved': {'read_only': True},
+        }
 
     def create(self, validated_data):
         if validated_data.get('profile_image'):
