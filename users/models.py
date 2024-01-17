@@ -128,6 +128,26 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     bot_ids = models.TextField(null=True, blank=True, default=None)
     bot_urls = models.TextField(null=True, blank=True, default=None)
     profile_image_url = models.CharField(max_length=255, null=True, blank=True, default=None)
+    hard_skill_areas = models.CharField(max_length=255, null=True, blank=True, default=None)
+    area_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    provided_links = models.JSONField(null=True, blank=True, default=None)
+    low_rating_characteristics = models.CharField(max_length=255, null=True, blank=True, default=None)
+    high_rating_characteristics = models.CharField(max_length=255, null=True, blank=True, default=None)
+    mentoring_preferences = models.CharField(max_length=255, null=True, blank=True, default=None)
+    mentoring_frameworks = models.TextField(null=True, blank=True, default=None)
+    dominant_point_of_view = models.TextField(null=True, blank=True, default=None)
+    problem_solving_approach = models.TextField(null=True, blank=True, default=None)
+    admired_leaders = models.TextField(null=True, blank=True, default=None)
+    voice_sample = models.BooleanField(null=True, default=False)
+    coaching_for_fitment = models.CharField(max_length=128, null=True, blank=True, default=None)
+    coaching_level = models.CharField(max_length=128, null=True, blank=True, default=None)
+    coach_same_department = models.BooleanField(null=True, default=False)
+    supported_outcome = models.CharField(max_length=255, null=True, blank=True, default=None)
+    coaching_style = models.CharField(max_length=255, null=True, blank=True, default=None)
+    time_commitment = models.CharField(max_length=128, null=True, blank=True, default=None)
+    is_approved = models.BooleanField(null=True, default=False)
+    other_details = models.JSONField(null=True, blank=True, default=None)
+    
     
 
     class Meta:
