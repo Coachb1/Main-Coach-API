@@ -30,6 +30,7 @@ from utilities.models import BotQnA
 from users.db import get_user_by_id,get_user_display_name
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from email_sender.helpers import send_generic_email
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +463,7 @@ class AccountsViewSet(ApiViewSet,
                 profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             else:
-                profiles = CoachCoacheeMentorMenteeProfile.objects.all()
+                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(is_approved=True)
                 profile_type = request.query_params.get('profile_type',None)
                 if profile_type:
                     profiles = profiles.filter(profile_type=profile_type)
@@ -486,5 +487,10 @@ class AccountsViewSet(ApiViewSet,
             serializer.is_valid(raise_exception=True)
             logger.info(f"serializer data: {serializer.validated_data}")
             created_profile = serializer.save()
+            send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
+                               f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page")
+            # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
+            #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
+            #                    'aadil611ofc@gmail.com')
             return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
 
