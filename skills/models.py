@@ -51,5 +51,5 @@ class CharacteristicsAndPrompts(TenantAwareModel):
     class Meta:
         db_table = 'characteristics_and_prompts'
         unique_together = (
-            ('tenant_id', 'deleted'),
+            ('uid', 'deleted','tenant_id'),
         )
