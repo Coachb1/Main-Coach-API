@@ -63,6 +63,7 @@ class SignatureBot(TenantAwareModel):
     custom_prompt = models.TextField(null=True, blank=True, default=None)
     faqs = models.JSONField(null=True, blank=True, default=None)
     is_fitment_analysis = models.BooleanField(null=True,default=True)
+    is_strict_fitment = models.BooleanField(null=True,default=True)
     
 
     class Meta:
