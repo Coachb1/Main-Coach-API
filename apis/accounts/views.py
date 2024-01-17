@@ -30,7 +30,10 @@ from utilities.models import BotQnA
 from users.db import get_user_by_id,get_user_display_name
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
 from email_sender.helpers import send_generic_email
+from utilities.helpers import extract_fields
+
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +318,8 @@ class AccountsViewSet(ApiViewSet,
         data['recommended_codes'] = signature_bot.recommended_codes
         data['bot_type'] = signature_bot.bot_type
         data['user_id'] = signature_bot.user_id
+        data['is_fitment_analysis'] = signature_bot.is_fitment_analysis
+        data['is_strict_fitment'] = signature_bot.is_strict_fitment
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             if bot_att.fitment_data:
@@ -374,7 +379,8 @@ class AccountsViewSet(ApiViewSet,
                         "avatar_bot_creation": u.avatar_bot_creation,
                         "feedback_bot_creation": u.feedback_bot_creation,
                         "subject_matter_bot_creation": u.subject_matter_bot_creation,
-                        "monthly_bot_creation_limit": u.number_of_creation_per_month
+                        "monthly_conversation_limit": u.number_of_conversation_per_month,
+                        "required_form_details": extract_fields(u.required_form_fields) if u.required_form_fields else None,
                     })
 
                 data['user_info'] = user_info
