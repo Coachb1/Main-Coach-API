@@ -377,6 +377,22 @@ class AccountsViewSet(ApiViewSet,
                 user_info = []
 
                 for u in user:
+                    restricted = False
+                    demo_user = False
+                    
+                    restricted_emails = []
+                    if u.restricted_ids:
+                        restricted_emails = [e.strip() for e in u.restricted_ids.split(',')]
+                    demo_emails = []
+                    if u.demo_ids:
+                        demo_emails = [e.strip() for e in u.demo_ids.split(',')]
+
+                    
+                    if email in restricted_emails:
+                        restricted = True
+                    if email in demo_emails:
+                        demo_user = True
+
                     user_info.append({
                         "client_name": u.client_name,
                         "avatar_bot_creation": u.avatar_bot_creation,
@@ -384,6 +400,8 @@ class AccountsViewSet(ApiViewSet,
                         "subject_matter_bot_creation": u.subject_matter_bot_creation,
                         "monthly_conversation_limit": u.number_of_conversation_per_month,
                         "required_form_details": extract_fields(u.required_form_fields) if u.required_form_fields else None,
+                        "is_restricted": restricted,
+                        "is_demo_user": demo_user
                     })
 
                 data['user_info'] = user_info

@@ -112,6 +112,9 @@ class ClientUserInfo(TenantAwareModel):
     subject_matter_bot_creation = models.BooleanField(null=True, default=False)
     number_of_conversation_per_month = models.IntegerField(null=True, blank=True, default=None)
     required_form_fields = models.JSONField(null=True, blank=True, default=None)
+    restricted_ids = models.TextField(null=True, blank=True, default=None)
+    demo_ids = models.TextField(null=True, blank=True, default=None)
+
 
 
     class Meta:
