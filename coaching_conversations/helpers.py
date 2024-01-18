@@ -13,13 +13,14 @@ from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
-from users.models import SignatureBot, BotAttribute
+from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
 from utilities.helpers import save_user_action_info
 import json
 from utilities.models import BotQnA
+from skills.models import CharacteristicsAndPrompts
 
 logger = logging.getLogger(__name__)
 
@@ -140,15 +141,16 @@ def initialize_coaching_conversation(tenant: Tenant,
             qna = json.loads(initial_qna)
             signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
             custom_prompt = signature_bot.custom_prompt
+            # saving initial_qna
+            BotQnA.objects.create(
+                tenant_id = tenant.uid,
+                bot_id = signature_bot.uid,
+                participant_id = test_attempt_session.participant_id,
+                participant_qna = qna,
+                qna_type = 'initial_qna'
+            )
             if custom_prompt:
-                # saving initial_qna
-                BotQnA.objects.create(
-                    tenant_id = tenant.uid,
-                    bot_id = signature_bot.uid,
-                    participant_id = test_attempt_session.participant_id,
-                    participant_qna = qna,
-                    qna_type = 'initial_qna'
-                )
+                
                 initial_que_ans = ''
                 for que, ans in qna.items():
                     initial_que_ans += f"Question: {que} Answer: {ans} \n"
@@ -166,11 +168,40 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
+                    try:
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=test_attempt_session.participant_id)
+                        highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                        lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                        low_char_prompt = ""
+                        for l in lowest_charactersic_prompt:
+                            low_char_prompt += f"{l} "
+                        high_char_prompt = ""
+                        for l in highest_charactersic_prompt:
+                            high_char_prompt += f"{l} "
+                        personality = low_char_prompt + " " + high_char_prompt
+
+                    except Exception as e:
+                        logger.exception(f"got error: {e}")
+                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+            
                     prompt = Template(custom_prompt).substitute(
                         coach_info = coach_info,
                         conversation_history = conversation_history,
-                        context = initial_que_ans
+                        context = initial_que_ans,
+                        user_personality = personality
                     )
+                elif signature_bot.bot_type == 'helper_bot':
+                    bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+                    faqs = bot_att.attached_faqs_context
+                    faqs_text = ""
+                    for que, ans in faqs.items():
+                        faqs_text += f"Question: {que} Answer: {ans}\n"
+
+                    prompt = Template(prompt).substitute(
+                            context_info = coach_info + f"\n{faqs_text}",
+                            conversation_history= conversation_history)
+
+                
                 logger.info(f"signature  bot prompt  {prompt}")
                 signature_bot_question = anthropic_completion(prompt,50000)
 
@@ -413,10 +444,28 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
             initial_que_ans = initial_qna.participant_qna
 
+            try:
+                personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+                highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                low_char_prompt = ""
+                for l in lowest_charactersic_prompt:
+                    low_char_prompt += f"{l} "
+                high_char_prompt = ""
+                for l in highest_charactersic_prompt:
+                    high_char_prompt += f"{l} "
+                personality = low_char_prompt + " " + high_char_prompt
+
+            except Exception as e:
+                logger.exception(f"got error: {e}")
+                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+            
+
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
                 conversation_history = conversation_history,
-                context = initial_que_ans
+                context = initial_que_ans,
+                user_personality = personality
             )
 
         elif bot_type == 'subject_matter_bot':
@@ -427,9 +476,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 faqs_text += f"Question: {que} Answer: {ans}\n"
 
             prompt = Template(prompt).substitute(
-                    qna = "qna",
-                    context_info = "here",
-                    conversation_history= 'history')
+                    qna = faqs_text,
+                    context_info = candidate_data_str,
+                    conversation_history= conversation_history)
+            
+        elif bot_type == 'helper_bot':
+            bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+            faqs = bot_att.attached_faqs_context
+            faqs_text = ""
+            for que, ans in faqs.items():
+                faqs_text += f"Question: {que} Answer: {ans}\n"
+
+            prompt = Template(prompt).substitute(
+                    context_info = candidate_data_str + f"\n{faqs_text}",
+                    conversation_history= conversation_history)
 
 
         else:
