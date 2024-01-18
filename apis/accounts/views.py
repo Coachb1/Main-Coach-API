@@ -325,6 +325,8 @@ class AccountsViewSet(ApiViewSet,
         data['is_strict_fitment'] = signature_bot.is_strict_fitment
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            data['is_audio_response'] = bot_att.is_audio_response
+
             if bot_att.fitment_data:
                 data['fitment_qna'] = bot_att.fitment_data['mentee_que']
             if bot_att.fitment_data:

@@ -93,6 +93,7 @@ class BotAttribute(TenantAwareModel):
     attached_faqs_context = models.JSONField(null=True, blank=True, default=None)
     attached_files = models.FileField(null=True, blank=True, default=None)
     initial_qnas = models.JSONField(null=True, blank=True, default=None)
+    is_audio_response = models.BooleanField(null=True,default=False)
 
     class Meta:
         db_table = "bot_attributes"
