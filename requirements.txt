@@ -71,9 +71,8 @@ google-cloud-texttospeech==2.15.0
 django-import-export==3.3.5
 cloudinary==1.38.0
 pytube==15.0.0
-langchain==0.1.1
+langchain==0.0.347
 moviepy==1.0.3
-chromadb==0.4.22
 pypdf2==3.0.1
 pydub==0.25.1
 
