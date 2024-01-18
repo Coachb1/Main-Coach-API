@@ -12,3 +12,9 @@ class ProfileTypeChoice(DjangoChoices):
     coachee = ChoiceItem("coachee")
     mentor = ChoiceItem("mentor")
     mentee = ChoiceItem("mentee")
+
+
+class BotTypeChoice(DjangoChoices):
+    avatar_bot = ChoiceItem("avatar_bot")
+    feedback_bot = ChoiceItem("feedback_bot")
+    subject_matter_bot = ChoiceItem("subject_matter_bot")

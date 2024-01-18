@@ -19,6 +19,7 @@ from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute
+from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
@@ -33,6 +34,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from email_sender.helpers import send_generic_email
 from utilities.helpers import extract_fields
+from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
 
 
 logger = logging.getLogger(__name__)
@@ -513,3 +515,98 @@ class AccountsViewSet(ApiViewSet,
             #                    'aadil611ofc@gmail.com')
             return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
 
+    @action(methods=['GET'], detail=False, url_path="get-bots")
+    def get_bots(self,request,*args, **kwargs):
+        all_bots = SignatureBot.objects.filter(is_active=True,is_approved=True)
+        return Response({"data": [bot.bot_id for bot in all_bots]},status=status.HTTP_200_OK)
+    
+    @action(methods=['POST'],detail=False, url_path="create-bot-by-details")
+    def create_bot_by_details(self,request,*args, **kwargs):
+        """
+        Creates a new bot based on the provided bot details.
+
+        :param request: The HTTP request object.
+        :param bot_details: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
+        :return: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
+        :rtype: dict
+        """
+
+        data = request.data
+
+        # tenant = self.request.tenant
+        # print("Tenant: ",tenant, "T"*100)
+        
+        bot_type = data.get('bot_type')
+        if bot_type is None or bot_type == '':
+            return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
+
+
+        participant_id = data.get('participant_id')
+        if participant_id is None or participant_id == '':
+            return Response({"error": "participant_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+        bot_name = data.get('bot_name')
+        if bot_name is None or bot_name == '':
+            return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(uid=participant_id)
+        except:
+            return Response({"error": "User not found"},status=status.HTTP_404_NOT_FOUND)
+        
+
+        bot_attributes = data.get('attributes')
+        if bot_attributes is None or bot_attributes == '':
+            return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
+
+        faqs = data.get('faqs')
+        fitment = data.get('fitment')
+        media_data = data.get('media_data')
+        bot_details = data.get('bot_details')
+        additional_data = data.get('additional_data')
+        
+
+        all_data = {}
+
+        if additional_data:
+            all_data['additional_data'] = additional_data
+
+        print("################# media_data: ",media_data)
+
+        if media_data:
+            if 'youtube_links' in media_data:
+                youtube_links = media_data['youtube_links']
+                youtube_links = [link.strip() for link in youtube_links.split(',')]
+
+                print("################# youtube_links: ",youtube_links)
+
+                #* save these links in bot attributes
+
+                for link in youtube_links:
+                    if link != '':
+                        transcript_data = download_and_transcribe_audio(link)
+                        all_data[link] = transcript_data
+
+            # if 'pdf_links' in media_data:
+            #     pdf_links = media_data['pdf_links']
+            #     pdf_links = [link.strip() for link in pdf_links.split(',')]
+
+            #     #* save these links in bot attributes
+
+            #     for link in pdf_links:
+            #         transcript_data = extract_text_from_pdf(link)
+            #         all_data[link] = transcript_data
+
+        bot_id = "-".join([bot_type, participant_id[:5], bot_name])
+
+        signature_bot = SignatureBot.objects.create(
+            bot_id=bot_id,
+            user_id=participant_id,
+            bot_type=bot_type,
+            faqs=faqs,
+            attributes=bot_attributes,
+            bot_details=bot_details,
+            data=all_data,
+        )
+
+        return Response({"bot_id":signature_bot.bot_id},status=status.HTTP_200_OK)

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot
 from commons.cloudinary import upload_image
 
 
