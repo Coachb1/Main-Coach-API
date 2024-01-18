@@ -15,8 +15,16 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     ordering = ('-uid',)
 
 
+class SignatureBotAdmin(admin.ModelAdmin):
+    list_display = ('uid','bot_id','bot_type','is_approved','is_system_bot','is_sample_bot','use_google_context','is_active')
+    list_filter = ('is_approved','is_system_bot','is_sample_bot','use_google_context')
+    search_fields = ('bot_name','bot_id')
+    list_editable = ('is_approved','is_system_bot','is_sample_bot','use_google_context','is_active')
+    ordering = ('-uid',)
+
+
 
 admin.site.register(CoachCoacheeMentorMenteeProfile, CoachCoacheeMentorMenteeProfileAdmin)
 admin.site.register(BotAttribute)
-admin.site.register(SignatureBot)
+admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(ClientUserInfo)

@@ -64,6 +64,11 @@ class SignatureBot(TenantAwareModel):
     faqs = models.JSONField(null=True, blank=True, default=None)
     is_fitment_analysis = models.BooleanField(null=True,default=True)
     is_strict_fitment = models.BooleanField(null=True,default=True)
+    is_approved = models.BooleanField(null=True,default=False)
+    is_active = models.BooleanField(null=True,default=True)
+    is_system_bot = models.BooleanField(null=True,default=False)
+    is_sample_bot = models.BooleanField(null=True,default=False)
+    use_google_context = models.BooleanField(null=True,default=False)
     
 
     class Meta:
