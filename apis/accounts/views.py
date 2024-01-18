@@ -308,7 +308,8 @@ class AccountsViewSet(ApiViewSet,
 
         try:
             signature_bot = SignatureBot.objects.get(bot_id=bot_id)
-        except:
+        except Exception as e:
+            logger.exception({"!!!!!!!!!! Error": e}, exc_info=True)
             return Response({"error": "Bot not found"},status=status.HTTP_404_NOT_FOUND)
 
         data = {}
@@ -465,9 +466,21 @@ class AccountsViewSet(ApiViewSet,
         # return Response({"data":data},status=status.HTTP_200_OK)
         if request.method == 'GET':
             profile_id = request.query_params.get('profile_id',None)
+            user_id = request.query_params.get('user_id',None)
+            if user_id:
+                try:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id)[0]
+                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             if profile_id:
-                profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
-                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                try:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
+                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             else:
                 profiles = CoachCoacheeMentorMenteeProfile.objects.filter(is_approved=True)
                 profile_type = request.query_params.get('profile_type',None)
