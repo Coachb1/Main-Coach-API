@@ -5421,7 +5421,7 @@ def get_prompt_for_feedback_bot(site_information):
     return prompt
 
 
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -5515,8 +5515,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             for i in range(3):
                 logger.info(f'trying scenario creation palm for {i +1} time')
                 
-
-                scenario = text_bison_compeletion(prompt)
+                if use_anthropic:
+                    scenario = anthropic_completion(prompt,5000)
+                else:
+                    scenario = text_bison_compeletion(prompt)
                 print("palm",scenario)
                 print("#"*100)
 
