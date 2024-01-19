@@ -791,7 +791,9 @@ class TestViewSet(ApiViewSet,
 
         scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True)
 
-        return Response({scenario['test_code']: scenario['title']}, status=status.HTTP_200_OK)
+        return Response({'test_code':scenario['test_code'],
+                            'title':scenario['title'],
+                                'description': scenario['description']}, status=status.HTTP_200_OK)
 
     
     @action(methods=['GET'], detail=False, url_path="get-tests-by-bot")
