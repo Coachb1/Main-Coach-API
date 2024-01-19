@@ -52,7 +52,7 @@ class UserAttribute(TenantAwareModel):
 
 class SignatureBot(TenantAwareModel):
     bot_id = models.CharField(max_length=255)
-    bot_type = models.CharField(max_length=255, null=True, blank=True, default='coaching')
+    bot_type = models.CharField(max_length=255, null=True, blank=True, choices=ProfileTypeChoice)
     bot_details = models.JSONField(null=True, blank=True, default=None)
     recommended_codes = models.CharField(max_length=255, null=True, blank=True, default=None)
     user_id = models.CharField(max_length=255)
