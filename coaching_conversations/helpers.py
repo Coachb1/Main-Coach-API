@@ -158,8 +158,8 @@ def initialize_coaching_conversation(tenant: Tenant,
                 
 
                 coach_info = ""
-                for val in signature_bot.data.values():
-                    coach_info += f"{val}\n"
+                for key,val in signature_bot.data.items():
+                    coach_info += f"{key}:{val}\n"
 
                 sessions = TestAttemptSession.objects.filter(tenant_id = tenant.uid, test_id = signature_bot.uid)
 
@@ -216,7 +216,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                     custom_prompt = Template(custom_prompt).substitute(
                                     conversation_history = initial_que_ans,
                                     user_personality = personality,
-                                    articles = coach_info + " " + faqs_text,
+                                    articles = coach_info + " General FAQs: " + faqs_text,
                                     google_search = ""  # TODO: Add functionality for extacting googlesearch result
                                 )
                     
@@ -229,7 +229,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     custom_prompt = Template(custom_prompt).substitute(
                                     conversation_history = initial_que_ans,
-                                    articles = coach_info + " " + faqs_text,
+                                    articles = coach_info + " General FAQs: " + faqs_text,
                                     google_search = ""  # TODO: Add functionality for extacting googlesearch result
                                 )
 
@@ -473,8 +473,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         if bot_type == 'avatar_bot':
             coach_info = ""
-            for val in signature_bot.data.values():
-                coach_info += f"{val}\n"
+            for key,val in signature_bot.data.items():
+                coach_info += f"{key}: {val}\n"
 
 
             try:
@@ -538,7 +538,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             prompt = Template(prompt).substitute(
                             conversation_history = conversation,
                             user_personality = personality,
-                            articles = coach_info + " " + faqs_text,
+                            articles = coach_info + " General FAQs: " + faqs_text,
                             google_search = ""  # TODO: Add functionality for extacting googlesearch result
                         )
 
@@ -561,7 +561,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             
             prompt = Template(prompt).substitute(
                             conversation_history = conversation,
-                            articles = coach_info + " " + faqs_text,
+                            articles = coach_info + " General FAQs: " + faqs_text,
                             google_search = ""  # TODO: Add functionality for extacting googlesearch result
                         )
 
