@@ -470,11 +470,12 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         logger.info(f"************************************************ initial_qna: {initial_qna}")
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
         initial_que_ans = initial_qna.participant_qna
-
+        coach_info = ""
+        for key,val in signature_bot.data.items():
+            coach_info += f"{key}: {val}\n"
+            
         if bot_type == 'avatar_bot':
-            coach_info = ""
-            for key,val in signature_bot.data.items():
-                coach_info += f"{key}: {val}\n"
+            
 
 
             try:
