@@ -13,7 +13,7 @@ from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User, SignatureBot
+from users.models import User, SignatureBot, BotAttribute
 from users.db import get_user_display_name, get_user_by_id
 
 import logging
@@ -310,11 +310,14 @@ class CoachingConversationViewSet(ApiViewSet,
 
         elif mode == 'user':
             bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid',flat=True)))
-            sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id__in=bot_ids,participant_id=user_id)
-            data = []
-            data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
-            if len(data_conv['results']) > 0 :
-                data.append(data_conv)
+            for b_id in bot_ids:
+                bot_att = BotAttribute.objects.get(deleted=0,tenant_id=tenant.uid,bot_id=b_id)
+                sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=b_id,participant_id=user_id)
+                data = []
+                data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
+                if len(data_conv['results']) > 0 :
+                    data_conv['bot_name'] = bot_att.bot_name
+                    data.append(data_conv)
             return Response(data, status=status.HTTP_200_OK)
         
         else:
