@@ -185,8 +185,10 @@ def download_and_transcribe_audio(url: str):
         return documents[0].page_content
 
     else: 
-        # download_audio(url)
-        audio_path = "tmp/9JUAPgtkKpI.mp3"
+        print("downloading audio...")
+        download_audio(url)
+        print("audio downloaded...")
+        # audio_path = "tmp/9JUAPgtkKpI.mp3"
 
         # Transcribe the mp3 audio to text
         transcribe_audio(audio_path, video_id)
