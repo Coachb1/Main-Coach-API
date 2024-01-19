@@ -13,7 +13,8 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates, update_prompt_user_attributes
+from tests.helpers import (create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
+                            update_prompt_user_attributes, scrape_article_data)
 from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -31,6 +32,7 @@ import time
 import base64
 from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context
 from skills.helpers import json_extraction
+from commons.langchain import download_and_transcribe_audio
 import json
 
 import logging
@@ -768,6 +770,29 @@ class TestViewSet(ApiViewSet,
         
 
         return Response(data, status=status.HTTP_200_OK)
+
+
+
+    @action(methods=['GET'], detail=False, url_path="create-test-from-links")
+    def create_scenario_from_links(self, request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        url = request.query_params.get('url')
+        access_token = request.headers.get('Authorization')
+
+        logger.info(f">>>>>>>>>>>> url : {url}")
+
+        raw_scenario_data = ''
+        if 'youtube' in url:
+            raw_scenario_data = download_and_transcribe_audio(url)
+        else:
+            raw_scenario_data = scrape_article_data(url).get('article_content',None)
+
+        logger.info(f">>>>>>>>>>>>> raw_scenario_data : {raw_scenario_data}")
+
+        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True)
+
+        return Response({scenario['test_code']: scenario['title']}, status=status.HTTP_200_OK)
+
     
     @action(methods=['GET'], detail=False, url_path="get-tests-by-bot")
     def get_tests_by_bot(self, request, *args, **kwargs):
@@ -778,3 +803,4 @@ class TestViewSet(ApiViewSet,
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
+
