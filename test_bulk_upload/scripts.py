@@ -78,6 +78,7 @@ ANSWER = 'Correct answer'
 IS_TRANSCRIPT_ONLY = "Is Transcript Only"
 IS_PITCH = "is_pitch"
 CURRENT_NEWS = 'Current news'
+BOT_NAME = "Bot Name"
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -146,6 +147,10 @@ def format_test_orchestrated_conversation(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+
+        if BOT_NAME in input_dict:
+            if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
+                output_dict['bot_name'] = input_dict[BOT_NAME].strip()
 
         if TED_TALK_AND_HBR_CASE in input_dict:
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
@@ -598,6 +603,10 @@ def format_test_data_slack(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+
+        if BOT_NAME in input_dict:
+            if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
+                output_dict['bot_name'] = input_dict[BOT_NAME].strip()
         
         if CURRENT_NEWS in input_dict:
             if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:

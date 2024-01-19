@@ -76,6 +76,7 @@ pytube==15.0.0
 # chromadb==0.4.11
 pypdf2==3.0.1
 pydub==0.25.1
+readability-lxml==0.8.1
 
 
 
