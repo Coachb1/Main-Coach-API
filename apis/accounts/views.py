@@ -308,6 +308,8 @@ class AccountsViewSet(ApiViewSet,
         """
         bot_id = request.query_params.get('bot_id')
 
+        logger.info(f"****************** Bot ID: {bot_id} **********************")
+
         try:
             signature_bot = SignatureBot.objects.get(bot_id=bot_id)
         except Exception as e:
@@ -323,6 +325,8 @@ class AccountsViewSet(ApiViewSet,
         data['user_id'] = signature_bot.user_id
         data['is_fitment_analysis'] = signature_bot.is_fitment_analysis
         data['is_strict_fitment'] = signature_bot.is_strict_fitment
+        data['is_sample_bot'] = signature_bot.is_sample_bot
+        data['is_system_bot'] = signature_bot.is_system_bot
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
@@ -557,7 +561,7 @@ class AccountsViewSet(ApiViewSet,
         # print("Tenant: ",tenant, "T"*100)
         
         bot_type = data.get('bot_type')
-        if bot_type is None or bot_type == '':
+        if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
             return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -569,6 +573,11 @@ class AccountsViewSet(ApiViewSet,
         if bot_name is None or bot_name == '':
             return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
+        bot_id = "-".join([bot_type, participant_id[:5], bot_name])
+        existing_bots = SignatureBot.objects.filter(bot_id=bot_id)
+        if existing_bots.count() > 0:
+            return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
+
         try:
             user = User.objects.get(uid=participant_id)
         except:
@@ -579,11 +588,18 @@ class AccountsViewSet(ApiViewSet,
         if bot_attributes is None or bot_attributes == '':
             return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
 
+        feedback_questions = data.get("feedback_questions")
+        if feedback_questions is None or feedback_questions == '':
+            return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
+
         faqs = data.get('faqs')
         fitment = data.get('fitment')
         media_data = data.get('media_data')
-        bot_details = data.get('bot_details')
+        bot_details = data.get('bot_details',{})
         additional_data = data.get('additional_data')
+
+        bot_details["is_login_required"] = False
+        bot_details["is_strict_login_required"] = False
         
 
         all_data = {}
@@ -617,10 +633,10 @@ class AccountsViewSet(ApiViewSet,
             #         transcript_data = extract_text_from_pdf(link)
             #         all_data[link] = transcript_data
 
-        bot_id = "-".join([bot_type, participant_id[:5], bot_name])
 
         signature_bot = SignatureBot.objects.create(
             bot_id=bot_id,
+            tenant_id=self.request.tenant.uid,
             user_id=participant_id,
             bot_type=bot_type,
             faqs=faqs,
@@ -628,5 +644,7 @@ class AccountsViewSet(ApiViewSet,
             bot_details=bot_details,
             data=all_data,
         )
+
+        BotAttribute.objects.create(tenant_id=self.request.tenant.uid,bot_id=signature_bot.uid,bot_name=bot_name,feedback_questions=feedback_questions)
 
         return Response({"bot_id":signature_bot.bot_id},status=status.HTTP_200_OK)
