@@ -184,7 +184,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                         logger.exception(f"got error: {e}")
                         personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
             
-                    prompt = Template(custom_prompt).substitute(
+                    custom_prompt = Template(custom_prompt).substitute(
                         coach_info = coach_info,
                         conversation_history = conversation_history,
                         context = initial_que_ans,
@@ -213,7 +213,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                     for que, ans in faqs.items():
                         faqs_text += f"Question: {que} Answer: {ans}\n"
 
-                    prompt = Template(prompt).substitute(
+                    custom_prompt = Template(custom_prompt).substitute(
                                     conversation_history = initial_que_ans,
                                     user_personality = personality,
                                     articles = coach_info + " " + faqs_text,
@@ -227,7 +227,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                     for que, ans in faqs.items():
                         faqs_text += f"Question: {que} Answer: {ans}\n"
 
-                    prompt = Template(prompt).substitute(
+                    custom_prompt = Template(custom_prompt).substitute(
                                     conversation_history = initial_que_ans,
                                     articles = coach_info + " " + faqs_text,
                                     google_search = ""  # TODO: Add functionality for extacting googlesearch result
@@ -235,8 +235,8 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 
-                logger.info(f"signature  bot prompt  {prompt}")
-                signature_bot_question = anthropic_completion(prompt,50000)
+                logger.info(f"signature  bot prompt  {custom_prompt}")
+                signature_bot_question = anthropic_completion(custom_prompt,50000)
 
 
     next_conversation = CoachingConversation.objects.create(
