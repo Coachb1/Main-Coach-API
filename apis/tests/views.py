@@ -768,3 +768,13 @@ class TestViewSet(ApiViewSet,
         
 
         return Response(data, status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'], detail=False, url_path="get-tests-by-bot")
+    def get_tests_by_bot(self, request, *args, **kwargs):
+
+        bot_name = request.query_params.get("bot_id",None)
+
+        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,bot_name=bot_name)
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
