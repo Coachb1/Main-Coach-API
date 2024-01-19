@@ -72,6 +72,8 @@ from bs4 import BeautifulSoup
 import requests
 from test_bulk_upload.scripts import API_ENDPOINT_SLACK
 from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data
+from readability import Document
+
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +157,8 @@ def create_test(tenant: Tenant,
                 media_props:dict,
                 is_transcript_only:bool,
                 is_pitch: bool,
-                articles:str) -> tuple[Test, list[TestQuestion]]:
+                articles:str,
+                bot_name:str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -210,6 +213,7 @@ def create_test(tenant: Tenant,
             is_transcript_only=is_transcript_only,
             is_pitch=is_pitch,
             articles=articles,
+            bot_name=bot_name,
         )
 
         test_questions = []
@@ -6040,6 +6044,30 @@ def calculate_similarity(sentence1, sentence2):
     return similarity_percentage
 
 
+# @timeit
+# def scrape_article_data(url):
+#     # Send a GET request to fetch the HTML content
+#     response = requests.get(url)
+    
+#     # Check if the request was successful (status code 200)
+#     if response.status_code == 200:
+#         # Parse the HTML content using BeautifulSoup
+#         soup = BeautifulSoup(response.content, 'html.parser')
+#         # Extract article content
+#         article_content = ''
+#         article_body = soup.find('div')
+#         if article_body:
+#             paragraphs = soup.find_all('p')
+#             article_content = '\n'.join([p.get_text() for p in paragraphs])
+        
+#         return {
+#             'article_content': article_content
+#         }
+#     else:
+#         print("Failed to retrieve the page.")
+#         return {}
+
+
 @timeit
 def scrape_article_data(url):
     # Send a GET request to fetch the HTML content
@@ -6048,17 +6076,24 @@ def scrape_article_data(url):
     # Check if the request was successful (status code 200)
     if response.status_code == 200:
         # Parse the HTML content using BeautifulSoup
-        soup = BeautifulSoup(response.content, 'html.parser')
+        doc = Document(response.content)
+        content = (doc.summary())
+        soup = BeautifulSoup(content, 'html.parser')
+        
+        # Extract title
+        title = doc.title()
+        
         # Extract article content
         article_content = ''
         article_body = soup.find('div')
         if article_body:
             paragraphs = soup.find_all('p')
             article_content = '\n'.join([p.get_text() for p in paragraphs])
-        
+
         return {
+            'title': title,
             'article_content': article_content
         }
     else:
-        print("Failed to retrieve the page.")
+        logger.error("Failed to retrieve the page.")
         return {}
