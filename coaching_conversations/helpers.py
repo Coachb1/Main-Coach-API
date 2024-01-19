@@ -191,6 +191,22 @@ def initialize_coaching_conversation(tenant: Tenant,
                         user_personality = personality
                     )
                 elif signature_bot.bot_type == 'helper_bot':
+                    try:
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=test_attempt_session.participant_id)
+                        highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                        lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                        low_char_prompt = ""
+                        for l in lowest_charactersic_prompt:
+                            low_char_prompt += f"{l} "
+                        high_char_prompt = ""
+                        for l in highest_charactersic_prompt:
+                            high_char_prompt += f"{l} "
+                        personality = low_char_prompt + " " + high_char_prompt
+
+                    except Exception as e:
+                        logger.exception(f"got error: {e}")
+                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+            
                     bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
                     faqs = bot_att.attached_faqs_context
                     faqs_text = ""
@@ -198,8 +214,25 @@ def initialize_coaching_conversation(tenant: Tenant,
                         faqs_text += f"Question: {que} Answer: {ans}\n"
 
                     prompt = Template(prompt).substitute(
-                            context_info = coach_info + f"\n{faqs_text}",
-                            conversation_history= conversation_history)
+                                    conversation_history = initial_que_ans,
+                                    user_personality = personality,
+                                    articles = coach_info + " " + faqs_text,
+                                    google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                                )
+                    
+                elif signature_bot.bot_type == 'subject_matter_bot':
+                    bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+                    faqs = bot_att.attached_faqs_context
+                    faqs_text = ""
+                    for que, ans in faqs.items():
+                        faqs_text += f"Question: {que} Answer: {ans}\n"
+
+                    prompt = Template(prompt).substitute(
+                                    conversation_history = initial_que_ans,
+                                    articles = coach_info + " " + faqs_text,
+                                    google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                                )
+
 
                 
                 logger.info(f"signature  bot prompt  {prompt}")
@@ -315,7 +348,7 @@ def continue_coaching_conversation(tenant: Tenant,
             
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
-        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot)
+        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000)
     else:
@@ -351,7 +384,7 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
 
-def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot):
+def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot,test_attempt_session_id):
     """
     Generates a prompt for the Signature Bot based on the provided inputs.
 
@@ -433,16 +466,16 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
     if signature_bot.custom_prompt:
         prompt = signature_bot.custom_prompt
+        initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
+        logger.info(f"************************************************ initial_qna: {initial_qna}")
+        # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
+        initial_que_ans = initial_qna.participant_qna
 
         if bot_type == 'avatar_bot':
             coach_info = ""
             for val in signature_bot.data.values():
                 coach_info += f"{val}\n"
 
-            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
-            logger.info(f"************************************************ initial_qna: {initial_qna}")
-            # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
-            initial_que_ans = initial_qna.participant_qna
 
             try:
                 personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
@@ -468,28 +501,69 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_personality = personality
             )
 
-        elif bot_type == 'subject_matter_bot':
-            bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
-            faqs = bot_att.attached_faqs_context
-            faqs_text = ""
-            for que, ans in faqs.items():
-                faqs_text += f"Question: {que} Answer: {ans}\n"
-
-            prompt = Template(prompt).substitute(
-                    qna = faqs_text,
-                    context_info = candidate_data_str,
-                    conversation_history= conversation_history)
-            
         elif bot_type == 'helper_bot':
+            try:
+                personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+                highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                low_char_prompt = ""
+                for l in lowest_charactersic_prompt:
+                    low_char_prompt += f"{l} "
+                high_char_prompt = ""
+                for l in highest_charactersic_prompt:
+                    high_char_prompt += f"{l} "
+                personality = low_char_prompt + " " + high_char_prompt
+
+            except Exception as e:
+                logger.exception(f"got error: {e}")
+                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+            
+
+            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
+                                                        uid=test_attempt_session_id,
+                                                        deleted=0
+                                                        )
+            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
             bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
             faqs = bot_att.attached_faqs_context
             faqs_text = ""
             for que, ans in faqs.items():
                 faqs_text += f"Question: {que} Answer: {ans}\n"
 
+            conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
+            conversation.extend(current_conv)
+
             prompt = Template(prompt).substitute(
-                    context_info = candidate_data_str + f"\n{faqs_text}",
-                    conversation_history= conversation_history)
+                            conversation_history = conversation,
+                            user_personality = personality,
+                            articles = coach_info + " " + faqs_text,
+                            google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                        )
+
+            
+        elif bot_type == 'subject_matter_bot':
+            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
+                                                        uid=test_attempt_session_id,
+                                                        deleted=0
+                                                        )
+            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+            bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+            faqs = bot_att.attached_faqs_context
+            faqs_text = ""
+            for que, ans in faqs.items():
+                faqs_text += f"Question: {que} Answer: {ans}\n"
+
+            conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
+            conversation.extend(current_conv)
+            
+            prompt = Template(prompt).substitute(
+                            conversation_history = conversation,
+                            articles = coach_info + " " + faqs_text,
+                            google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                        )
 
 
         else:
