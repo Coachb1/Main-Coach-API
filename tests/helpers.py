@@ -157,7 +157,8 @@ def create_test(tenant: Tenant,
                 media_props:dict,
                 is_transcript_only:bool,
                 is_pitch: bool,
-                articles:str) -> tuple[Test, list[TestQuestion]]:
+                articles:str,
+                bot_name:str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -212,6 +213,7 @@ def create_test(tenant: Tenant,
             is_transcript_only=is_transcript_only,
             is_pitch=is_pitch,
             articles=articles,
+            bot_name=bot_name,
         )
 
         test_questions = []
