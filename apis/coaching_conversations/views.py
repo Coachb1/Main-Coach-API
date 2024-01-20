@@ -291,19 +291,22 @@ class CoachingConversationViewSet(ApiViewSet,
 
         if mode == 'admin':
             try:
-                bot = SignatureBot.objects.get(user_id=user_id)
+                bots = SignatureBot.objects.filter(deleted=0,tenant_id=tenant.uid,user_id=user_id)
             except:
                 return Response({"Bot not Found"}, status=status.HTTP_404_NOT_FOUND)
-
-            bot_id = bot.uid
-            sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid,deleted=0,test_id = bot_id)
-            participant_ids = list(set(sessions.values_list('participant_id',flat=True)))
-
             data= []
-            for participant_id in participant_ids:
-                bot_sessions = sessions.filter(participant_id=participant_id)
-                data_cov = get_bot_conversation_data_user(bot_sessions,tenant,participant_id)
-                data.append(data_cov)
+
+            for bot in bots:
+                bot_id = bot.uid
+                bot_att = BotAttribute.objects.get(deleted=0,tenant_id=tenant.uid,bot_id=bot_id)
+                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid,deleted=0,test_id = bot_id)
+                participant_ids = list(set(sessions.values_list('participant_id',flat=True)))
+
+                for participant_id in participant_ids:
+                    bot_sessions = sessions.filter(participant_id=participant_id)
+                    data_cov = get_bot_conversation_data_user(bot_sessions,tenant,participant_id)
+                    data_cov['bot_name'] = bot_att.bot_name
+                    data.append(data_cov)
 
             return Response(data, status=status.HTTP_200_OK)
 
