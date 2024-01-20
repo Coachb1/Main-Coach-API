@@ -648,3 +648,27 @@ class AccountsViewSet(ApiViewSet,
         BotAttribute.objects.create(tenant_id=self.request.tenant.uid,bot_id=signature_bot.uid,bot_name=bot_name,feedback_questions=feedback_questions)
 
         return Response({"bot_id":signature_bot.bot_id},status=status.HTTP_200_OK)
+    
+
+    @action(methods=['GET','POST'],detail=False, url_path="user-competency-details")
+    def user_competency_details(self,request,*args, **kwargs):
+
+        try:
+            data = []
+            user_id = request.query_params.get('user_id')
+            if request.method == 'GET':
+                competency_data = UserAttribute.objects.get(user_id=user_id).competency_data
+                if competency_data:
+                    data.append(competency_data)
+
+                return Response(data,status=status.HTTP_200_OK)
+            elif request.method == 'POST':
+                skill_data = request.query_params.get('competency_skills')
+                skill_data = {str(i+1): value for i, value in enumerate(skill_data.split(','))}
+                user_att = UserAttribute.objects.get(user_id=user_id)
+                user_att.competency_data = skill_data
+                user_att.save(update_fields=["competency_data"])
+                return Response({"msg":"saved"},status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
