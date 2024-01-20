@@ -310,10 +310,11 @@ class CoachingConversationViewSet(ApiViewSet,
 
         elif mode == 'user':
             bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid',flat=True)))
+            data = []
+
             for b_id in bot_ids:
                 bot_att = BotAttribute.objects.get(deleted=0,tenant_id=tenant.uid,bot_id=b_id)
                 sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=b_id,participant_id=user_id)
-                data = []
                 data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
                 if len(data_conv['results']) > 0 :
                     data_conv['bot_name'] = bot_att.bot_name
