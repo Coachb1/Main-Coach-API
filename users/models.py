@@ -161,6 +161,9 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     time_commitment = models.CharField(max_length=128, null=True, blank=True, default=None)
     is_approved = models.BooleanField(null=True, default=False)
     other_details = models.JSONField(null=True, blank=True, default=None)
+    bot_snippets = models.JSONField(null=True, blank=True, default=None)
+
+
     
     
 
