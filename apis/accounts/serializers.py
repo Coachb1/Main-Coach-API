@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute
 from commons.cloudinary import upload_image
 
 
@@ -60,3 +60,14 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
             validated_data['profile_image_url'] = upload_image(validated_data['profile_image']).get('secure_url')
             validated_data.pop('profile_image')
         return CoachCoacheeMentorMenteeProfile.objects.create(**validated_data)
+    
+
+class BotAttributeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BotAttribute
+        fields = '__all__'
+
+class SignatureBotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SignatureBot
+        fields = '__all__'
