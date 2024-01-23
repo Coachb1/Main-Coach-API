@@ -102,6 +102,22 @@ class BotAttribute(TenantAwareModel):
         unique_together = (("tenant_id", "bot_id"),)
 
 
+class BotAndUserMapping(TenantAwareModel):
+    bot_id = models.CharField(max_length=255)
+    participant_id = models.CharField(max_length=255)
+    bot_owner_name = models.CharField(max_length=255,null=True, blank=True, default=None)
+    bot_owner_email = models.CharField(max_length=255,null=True, blank=True, default=None)
+    bot_owner_mob_number = models.CharField(max_length=255,null=True, blank=True, default=None)
+    user_mob_number = models.CharField(max_length=255,null=True, blank=True, default=None)
+    user_name = models.CharField(max_length=255,null=True, blank=True, default=None)
+    user_email = models.CharField(max_length=255,null=True, blank=True, default=None)
+
+
+    class Meta:
+        db_table = "bot_and_user_mapping"
+        unique_together = (("tenant_id", "bot_id","participant_id"),)
+
+
 class ClientUserInfo(TenantAwareModel):
     client_name = models.CharField(max_length=255)
     owner_id = models.CharField(max_length=255)
@@ -162,6 +178,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     is_approved = models.BooleanField(null=True, default=False)
     other_details = models.JSONField(null=True, blank=True, default=None)
     bot_snippets = models.JSONField(null=True, blank=True, default=None)
+    mob_number = models.CharField(max_length=255, null=True, blank=True, default=None)
 
 
     

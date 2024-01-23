@@ -21,6 +21,8 @@ from utilities.helpers import save_user_action_info
 import json
 from utilities.models import BotQnA
 from skills.models import CharacteristicsAndPrompts
+from users.helpers import get_user_attribute
+from users.models import BotAndUserMapping
 
 logger = logging.getLogger(__name__)
 
@@ -136,10 +138,13 @@ def initialize_coaching_conversation(tenant: Tenant,
         
     signature_bot_question = "what do you want to ask ?"
     if is_signature_bot:
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
+        user = User.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.participant_id)
+        get_or_create_bot_user_mapping(signature_bot,user)
+        
         if initial_qna:
 
             qna = json.loads(initial_qna)
-            signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
             custom_prompt = signature_bot.custom_prompt
             # saving initial_qna
             BotQnA.objects.create(
@@ -670,3 +675,41 @@ def avatar_bot_default_prompt():
 
     \n\nAssistant:"""
 
+
+@timeit
+def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
+    """
+    Create or retrieve a mapping between a bot and a user.
+
+    Args:
+        bot (SignatureBot): The bot object.
+        user (User): The user object.
+
+    Returns:
+        BotAndUserMapping: The created or retrieved BotAndUserMapping object representing the mapping between the bot and the user.
+    """
+    bot_user = get_user_by_id(bot.user_id)
+    user_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=user.uid)
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=bot.user_id)
+    user_email = user_profile.email or get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
+    bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
+    user_name = user_profile.name or user.name
+    bot_user_name = bot_user_profile.name or bot_user.name
+    user_mob_no = user_profile.mob_number
+    bot_user_mob_no = bot_user_profile.mob_number
+
+    bot_user_mapping, is_created = BotAndUserMapping.objects.get_or_create(
+        tenant_id=user.tenant_id,
+        bot_id=bot.uid,
+        participant_id=user.uid,
+    )
+    bot_user_mapping.bot_owner_name = bot_user_name
+    bot_user_mapping.bot_owner_email = bot_email
+    bot_user_mapping.bot_owner_mob_number = bot_user_mob_no
+    bot_user_mapping.user_mob_number = user_mob_no
+    bot_user_mapping.user_name = user_name
+    bot_user_mapping.user_email = user_email
+
+    bot_user_mapping.save()
+
+    return bot_user_mapping
