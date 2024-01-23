@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile
+from .models import BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_display = ('uid','profile_type','name', 'email', 'is_approved',)
@@ -22,9 +22,14 @@ class SignatureBotAdmin(admin.ModelAdmin):
     list_editable = ('is_approved','is_system_bot','is_sample_bot','use_google_context','is_active')
     ordering = ('-uid',)
 
-
+class BotUserMappingAdmin(admin.ModelAdmin):
+    list_display = ('id','bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number','user_mob_number','user_name','user_email')
+    list_filter = ('bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number')
+    search_fields = ('bot_owner_name','bot_id')
+    ordering = ('-uid',)
 
 admin.site.register(CoachCoacheeMentorMenteeProfile, CoachCoacheeMentorMenteeProfileAdmin)
 admin.site.register(BotAttribute)
 admin.site.register(SignatureBot, SignatureBotAdmin)
+admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
 admin.site.register(ClientUserInfo)
