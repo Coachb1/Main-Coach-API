@@ -47,7 +47,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'coaching_style',
                 'time_commitment',
                 'is_approved',  
-                'other_details',]
+                'other_details',
+                'mob_number']
 
         extra_kwargs = {
             'uid': {'read_only': True},
