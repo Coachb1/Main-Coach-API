@@ -6,6 +6,10 @@ class UserRoleChoice(DjangoChoices):
     member = ChoiceItem("member")
     client_admin = ChoiceItem("client_admin")
 
+class StatusChoice(DjangoChoices):
+    available = ChoiceItem("available")
+    booked = ChoiceItem("booked")
+
 
 class ProfileTypeChoice(DjangoChoices):
     coach = ChoiceItem("coach")
