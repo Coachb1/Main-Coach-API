@@ -1,5 +1,6 @@
 from django.db import models
 from tenants.models import TenantAwareModel
+from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice
 
 class JotUrlSession(models.Model):
     email = models.CharField(max_length=255)
@@ -66,3 +67,24 @@ class UserActionInfo(TenantAwareModel):
 
     class Meta:
         db_table = "user_action_info"
+
+class DirectoryPageInfo(models.Model):
+    name = models.CharField(max_length=255)
+    department = models.CharField(max_length=255)
+    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
+    profile_pic_url = models.CharField(max_length=255,default=None,null=True,blank=True)
+    profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)
+    description = models.TextField()
+    experience = models.CharField(max_length=255,default=None,null=True,blank=True)
+    favourite_simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
+    status = models.CharField(max_length=255, choices=StatusChoice)
+    bot_url = models.TextField()
+    feedback_wall = models.TextField(default=None,null=True,blank=True)
+    is_visible = models.BooleanField(blank=True,default=False)
+    is_approved = models.BooleanField(blank=True,default=False)
+
+    class Meta:
+        db_table = "directory_information"
+
+
+    

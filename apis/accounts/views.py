@@ -10,7 +10,7 @@ from django.utils import timezone
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
-from apis.accounts.serializers import SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer, SignatureBotSerializer, BotAttributeSerializer
+from apis.accounts.serializers import SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer, SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -27,7 +27,7 @@ from users.models import SignatureBot, BotAttribute, ClientUserInfo
 
 from identities.models import Identity
 from skills.models import SkillsRating
-from utilities.models import BotQnA
+from utilities.models import BotQnA, DirectoryPageInfo
 from users.db import get_user_by_id,get_user_display_name
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -542,7 +542,16 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
         user_id = request.query_params.get('user_id',None)
-        all_bots = SignatureBot.objects.filter(is_active=True,is_approved=True)
+        directories = DirectoryPageInfo.objects.filter(is_approved=True)
+        bot_id_list = [directory.bot_url for directory in directories]
+        bot_ids = []
+        for b in bot_id_list:
+            if "/" in b:
+                bot_ids.append(b.split("/")[-1])
+            else:
+                bot_ids.append(b)
+
+        all_bots = SignatureBot.objects.filter(is_active=True,bot_id__in=bot_ids)
         if user_id:
             data = []
             all_bots = all_bots.filter(user_id=user_id)
@@ -802,4 +811,16 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
             
         except Exception as e:
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False, url_path="get-directory-informations")
+    def get_directory_informations(self,request,*args, **kwargs):
+
+        try:
+            directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
+            serializer = DirectoryInfoSErializer(directories,many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception({"got error in directory information api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
