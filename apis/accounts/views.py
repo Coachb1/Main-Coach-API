@@ -23,6 +23,7 @@ from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
+from users.choices import StatusChoice
 
 
 from identities.models import Identity
@@ -543,7 +544,7 @@ class AccountsViewSet(ApiViewSet,
     def get_bots(self,request,*args, **kwargs):
         user_id = request.query_params.get('user_id',None)
         directories = DirectoryPageInfo.objects.filter(is_approved=True)
-        bot_id_list = [directory.bot_url for directory in directories]
+        bot_id_list = [directory.avatar_bot_id for directory in directories]
         bot_ids = []
         for b in bot_id_list:
             if "/" in b:
@@ -747,9 +748,44 @@ class AccountsViewSet(ApiViewSet,
                 coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,user_id=participant_id)
                 coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
                 coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
-                coach_profile.bot_snippets = {f"{bot_type}": bot_snippet}
+                snippet = coach_profile.bot_snippets
+                if snippet:
+                    snippet[bot_type] = bot_snippet
+                else:
+                    snippet = {f"{bot_type}": bot_snippet}
+                
+                coach_profile.bot_snippets = snippet
+
+                    
 
                 coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
+
+                if bot_type == BotTypeChoice.avatar_bot:
+                    DirectoryPageInfo.objects.create(
+                    name=coach_profile.name,
+                    profile_id=coach_profile.uid,
+                    department=coach_profile.department,
+                    bot_type=bot_type,
+                    profile_pic_url=coach_profile.profile_image_url or "None",
+                    profile_type=coach_profile.profile_type,
+                    description=coach_profile.about,
+                    experience=coach_profile.experience,
+                    favourite_simulation_codes=coach_profile.favourite_simulation_codes,
+                    status=StatusChoice.available,
+                    avatar_bot_id=bot_id,
+                    skills=coach_profile.hard_skill_areas,
+                    is_visible= True,
+                    is_approved = False,
+                    avatar_snippit= bot_snippet,
+                    avatar_bot_url= bot_url,
+                    )
+                if bot_type == BotTypeChoice.feedback_bot:
+                    directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
+
+                    for direc in directory:
+                        direc.feedback_wall = bot_url
+                        direc.save(update_fields=['feedback_wall'])
+
                 
             except Exception as e:
                 logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
