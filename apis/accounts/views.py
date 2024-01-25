@@ -37,6 +37,7 @@ from email_sender.helpers import send_generic_email
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
 from coaching_conversations.helpers import avatar_bot_default_prompt
+from utilities.helpers import process_idp
 
 logger = logging.getLogger(__name__)
 
@@ -850,6 +851,27 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
+    @action(methods=['GET','POST'],detail=False, url_path="get_or_create_idp")
+    def get_or_create_idp(self,request,*args, **kwargs):
+        
+        try:
+            access_token = request.headers.get('Authorization')
+
+            if request.method == 'GET':
+                user_id = request.data.get('user_id',None)
+                data = process_idp("",user_id,request.tenant.uid,access_token,only_data=True)
+                return Response(data,status=status.HTTP_200_OK)
+            
+            elif request.method == 'POST':
+                user_id = request.data.get('user_id',None)
+                idp_data = request.data.get('idp_data',None)
+                data = process_idp(idp_data,user_id,request.tenant.uid,access_token)
+                return Response(data,status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"got error in get_or_create_idp: {e}")
+            return Response({"msg": "got_error"},status=status.HTTP_400_BAD_REQUEST)
+          
+          
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
     def get_directory_informations(self,request,*args, **kwargs):
 
