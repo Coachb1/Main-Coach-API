@@ -3,6 +3,7 @@ from rest_framework import serializers
 from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute
 from commons.cloudinary import upload_image
+from utilities.models import UserIDP
 
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
@@ -71,4 +72,9 @@ class BotAttributeSerializer(serializers.ModelSerializer):
 class SignatureBotSerializer(serializers.ModelSerializer):
     class Meta:
         model = SignatureBot
+        fields = '__all__'
+
+class UserIDPSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = UserIDP
         fields = '__all__'
