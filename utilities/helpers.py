@@ -6,13 +6,20 @@ import hashlib
 import datetime
 import os
 from dotenv import load_dotenv
-from .models import SessionNotesRecommendations, MentorDetails, UserActionInfo
+from .models import SessionNotesRecommendations, MentorDetails, UserActionInfo, UserIDP
 from tests.helpers import create_scenario_from_site_context
 import json
 import logging
 from users.models import UserAttribute
 from email_sender.helpers import send_session_notes_email
 from commons.anthropic import anthropic_completion
+from apis.accounts.serializers import UserIDPSerializers
+from string import Template
+from commons.utils import generic_completion
+from tests.helpers import create_one_question_scenario_from_context, create_scenario_from_site_context
+import re
+from tests.choices import TestTypeChoices
+
 
 
 
@@ -251,3 +258,268 @@ def extract_fields(data:dict):
         extracted_fields.append(field)
 
     return extracted_fields
+
+def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False):
+
+    if only_data:
+        user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id)
+        serializer = UserIDPSerializers(user_idps,many=True)
+        return serializer.data
+
+    else:
+        strengths = idp_data.get('strengths')
+        weakness = idp_data.get('weakness')
+        opportunities = idp_data.get('opportunities')
+        threats = idp_data.get('threats')
+        key_focus_areas = idp_data.get('key_focus_areas')
+        goals = idp_data.get('goals')
+        priorities = idp_data.get('priorities')
+        learning_histories = idp_data.get('learning_histories')
+        key_skills = idp_data.get('key_skills')
+
+        user_idp = UserIDP.objects.create(
+            tenant_id = tenant_id,
+            user_id = user_id,
+            strengths = strengths,
+            weakness=weakness,
+            opportunities=opportunities,
+            threats=threats,
+            key_focus_areas=key_focus_areas,
+            goals=goals,
+            priorities=priorities,
+            learning_histories=learning_histories,
+            key_skills=key_skills
+        )
+
+        hard_skills = get_hard_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
+        soft_skills = get_soft_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
+        user_idp.skill_gap_for_development = hard_skills
+        user_idp.leadership_skill_focus_area = soft_skills
+
+        hard_soft_skills = hard_skills + soft_skills
+        book_recomm = get_recommendation("book",hard_soft_skills)
+        course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
+        hbr_recomm = get_recommendation("hbr",hard_soft_skills)
+        tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
+        user_idp.book_recommendations = book_recomm
+        user_idp.recommended_hbr = hbr_recomm
+        user_idp.recommended_ted_talk = tedtalk_recomm
+
+        user_idp.course_recommendations = course_recomm
+
+        recommendations = [book_recomm,hbr_recomm,tedtalk_recomm,course_recomm]
+        # topics = []
+        # for recommendation in recommendations:
+        #     topics.extend(extract_topics_info(recommendation))
+
+
+        user_idp.save()
+        tests = {}
+        # create_one_question_scenario_from_context(prompt_type="manager-team",information="Thought Leadership in Digital Marketing",access_token="access_token",tenant_id=tenant_id)
+        skills = hard_soft_skills.split(',')
+        for skill in skills:
+            temp = {}
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+            if dynamic_discussion.get("title",None):
+                temp["dynamic"] = dynamic_discussion
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
+            if simulation.get("title",None):
+                temp["simulation"] = simulation
+            
+            tests[skill] = temp
+
+
+        
+
+        user_idp.recommended_scenarios = tests
+
+        user_idp.save()
+
+
+
+        
+        return user_idp
+    
+
+def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    prompt = """
+            \n\nHuman:
+            {Key Focus areas}: ${focus_areas}
+
+            {Learning history}: ${learning_history}
+
+            {Existing key skills}: ${existing_skills}
+
+            {Goals}: ${goals}
+
+            {Priorities} : ${priorities}
+
+            This is the persons learning history {Learning history} and their Existing key skills {Existing key skills}. Please give me the top 2 technical or hard skills related to their career this person should prioritize to achieve their goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable. The skills should be directly related to their career or goals.
+            Only give me the name of top two skills.
+            Output format : {{Skill1, Skill2}}
+            DO not give a reason or explanation.
+            \n\nAssistant:
+            """
+    
+    prompt = Template(prompt).substitute(
+        focus_areas=focus_areas,
+        learning_history=learning_history,
+        existing_skills=existing_skills,
+        goals=goals,
+        priorities=priorities
+    )
+
+    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    print(data)
+
+    return data
+
+def get_soft_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    prompt = """
+            \n\nHuman:
+            {Key Focus areas}: ${focus_areas}
+
+            {Learning history}: ${learning_history}
+
+            {Existing key skills}: ${existing_skills}
+
+            {Goals}: ${goals}
+
+            {Priorities} : ${priorities}
+
+            This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please give me the top 2 soft skills or leadership skills related to their career this person should prioritize to achieve their long term goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable.
+            Only give me the name of top two skills.
+            Output format : {{Skill1, Skill2}}
+            DO not give a reason or explanation. 
+
+            \n\nAssistant:
+            """
+    
+    prompt = Template(prompt).substitute(
+        focus_areas=focus_areas,
+        learning_history=learning_history,
+        existing_skills=existing_skills,
+        goals=goals,
+        priorities=priorities
+    )
+
+    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    print(data)
+
+    return data
+
+def get_recommendation(prompt_type,hard_soft_skills):
+    prompt = ""
+    if prompt_type == "book":
+        prompt = """
+        \n\nHuman:
+        {skill_gaps}: ${hard_soft_skills}
+        Please provide book recommendations to improve these skills {skill_gaps}. Provide the book name, author and a small description of 80 words.
+        Output Format:
+        1. Skill1 - Book name and description.
+        2. Skill2 - Book name and description.
+        3. Skill3 - Book name and description.
+        4. Skill4 - Book name and description.
+
+        Always give the output in the given format.
+        Do not include any introductory sentence or any conclusion.
+
+        \n\nAssistant:
+
+        """
+    elif prompt_type == "hbr":
+        prompt = """
+            \n\nHuman:
+            {skill_gaps}: ${hard_soft_skills}
+            Please provide HBR Article recommendations to improve these skills {skill_gaps}. Provide the title of the video, the author and a small description of 80 words.
+            Output Format:
+            1. Skill1 - Video Title  and description.
+            2. Skill2 - Video Title and description.
+            3. Skill3 - Video Title and description.
+            4. Skill4 - Video Title and description.
+
+            Always give the output in the given format.
+            Do not include any introductory sentence or any conclusion.
+            \n\nAssistant:
+            """
+    elif prompt_type == "ted_talk":
+        prompt = """
+            \n\nHuman:
+            {skill_gaps}: ${hard_soft_skills}
+            Please provide Ted Talk video recommendations to improve these skills {skill_gaps}. Provide the title of the video, the speaker and a small description of 80 words.
+            Output Format:
+            1. Skill1 - Video Title  and description.
+            2. Skill2 - Video Title and description.
+            3. Skill3 - Video Title and description.
+            4. Skill4 - Video Title and description.
+
+            Always give the output in the given format.
+            Do not include any introductory sentence or any conclusion.
+
+
+            \n\nAssistant:
+            """
+
+    prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
+
+    data = generic_completion(prompt=prompt)
+    print(data)
+
+    return data
+
+def get_course_recommendation(learning_history,existing_skills,hard_soft_skills):
+    prompt = """
+    \n\nHuman:
+    {Learning history}: ${learning_history}
+    {Existing key skills}: ${existing_skills}
+    {skill_gaps}: ${hard_soft_skills}
+
+    This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please provide courses from Coursera to improve these skills {skill_gaps}. Provide the name of the course.
+    Output Format :
+    1. Skill1 - Course name
+    2. Skill2 - Course name
+    3. Skill3 - Course name
+    4. Skill4 - Course name
+
+    Always give the output in the given format.
+    Do not include any introductory sentence or any conclusion.
+
+    \n\nAssistant:
+
+    """
+
+    prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills,
+                                         existing_skills=existing_skills,
+                                         learning_history=learning_history)
+
+    data = generic_completion(prompt=prompt)
+    print(data)
+
+    return data
+
+
+
+def extract_topics_info(text):
+    # Define a regular expression pattern for extracting topics
+    pattern = re.compile(r"(\d+)\.\s*(.*?)-\s*(.*)", re.IGNORECASE | re.DOTALL)
+
+    # Find all matches in the text
+    matches = pattern.findall(text)
+
+    # Initialize a list to store extracted information for each topic
+    topics_info = []
+
+    # Iterate through matches and extract information
+    for match in matches:
+        topic_number = match[0].strip()
+        topic_title = match[1].strip()
+        topic_description = match[2].strip()
+
+        # Add the extracted information to the list
+        topics_info.append({
+            "number": topic_number,
+            "title": topic_title,
+            "description": topic_description
+        })
+
+    return topics_info

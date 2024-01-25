@@ -675,7 +675,8 @@ class TestViewSet(ApiViewSet,
         print("%"*100,f"              {mode}  {url}   context: {context}           ","%"*100)
         if mode == 'A':
             scenario = create_scenario_from_site_context(url, access_token, tenant_id, context)
-            return Response(data=[scenario], status=status.HTTP_200_OK)
+            dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread)
+            return Response(data=[scenario,dynamic_discussion], status=status.HTTP_200_OK)
         else:
             scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
             return Response(data=scenario, status=status.HTTP_200_OK)
