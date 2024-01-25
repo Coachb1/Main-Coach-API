@@ -68,6 +68,31 @@ class UserActionInfo(TenantAwareModel):
     class Meta:
         db_table = "user_action_info"
 
+
+class UserIDP(TenantAwareModel):
+    user_id = models.CharField(max_length=255)
+    strengths = models.TextField(null=True,blank=True,default=0)
+    weakness = models.TextField(null=True,blank=True,default=0)
+    opportunities = models.TextField(null=True,blank=True,default=0)
+    threats = models.TextField(null=True,blank=True,default=0)
+    key_focus_areas = models.TextField(null=True,blank=True,default=0)
+    goals = models.TextField(null=True,blank=True,default=0)
+    priorities = models.TextField(null=True,blank=True,default=0)
+    learning_histories = models.TextField(null=True,blank=True,default=0)
+    key_skills = models.TextField(null=True,blank=True,default=0)
+    skill_gap_for_development = models.CharField(max_length=255,null=True,blank=True,default=0)
+    leadership_skill_focus_area = models.CharField(max_length=255,null=True,blank=True,default=0)
+    book_recommendations = models.TextField(null=True,blank=True,default=0)
+    course_recommendations = models.TextField(null=True,blank=True,default=0)
+    recommended_hbr = models.TextField(null=True,blank=True,default=0)
+    recommended_ted_talk = models.TextField(null=True,blank=True,default=0)
+    recommended_scenarios = models.JSONField(null=True,blank=True,default=None)
+    report = models.TextField(null=True,blank=True,default=0)
+
+    class Meta:
+        db_table = "user_idp_report"
+        
+        
 class DirectoryPageInfo(models.Model):
     name = models.CharField(max_length=255)
     profile_id = models.CharField(max_length=255,default="1")
