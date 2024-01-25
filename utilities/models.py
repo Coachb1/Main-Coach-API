@@ -1,5 +1,6 @@
 from django.db import models
 from tenants.models import TenantAwareModel
+from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice
 
 class JotUrlSession(models.Model):
     email = models.CharField(max_length=255)
@@ -90,3 +91,28 @@ class UserIDP(TenantAwareModel):
 
     class Meta:
         db_table = "user_idp_report"
+        
+        
+class DirectoryPageInfo(models.Model):
+    name = models.CharField(max_length=255)
+    profile_id = models.CharField(max_length=255,default="1")
+    department = models.CharField(max_length=255)
+    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
+    profile_pic_url = models.CharField(max_length=255,default=None,null=True,blank=True)
+    profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)
+    description = models.TextField()
+    experience = models.CharField(max_length=255,default=None,null=True,blank=True)
+    favourite_simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
+    status = models.CharField(max_length=255, choices=StatusChoice)
+    avatar_bot_id = models.CharField(max_length=400,default='avatar')
+    feedback_wall = models.CharField(max_length=500,default=None,null=True,blank=True)
+    skills = models.CharField(max_length=400,default="communication skills")
+    is_visible = models.BooleanField(blank=True,default=False)
+    is_approved = models.BooleanField(blank=True,default=False)
+    avatar_snippit = models.TextField(default=None,null=True,blank=True)
+    avatar_bot_url = models.TextField(default=None,null=True,blank=True)
+    class Meta:
+        db_table = "directory_information"
+
+
+    

@@ -6,12 +6,18 @@ class UserRoleChoice(DjangoChoices):
     member = ChoiceItem("member")
     client_admin = ChoiceItem("client_admin")
 
+class StatusChoice(DjangoChoices):
+    available = ChoiceItem("available")
+    booked = ChoiceItem("booked")
+
 
 class ProfileTypeChoice(DjangoChoices):
     coach = ChoiceItem("coach")
     coachee = ChoiceItem("coachee")
     mentor = ChoiceItem("mentor")
     mentee = ChoiceItem("mentee")
+    coach_mentor = ChoiceItem("coach-mentor") # it has "-" because it contains two profiletype
+    skill_bot = ChoiceItem("skill_bot")
 
 
 class BotTypeChoice(DjangoChoices):
