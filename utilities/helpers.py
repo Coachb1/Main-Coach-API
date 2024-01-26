@@ -19,6 +19,7 @@ from commons.utils import generic_completion
 from tests.helpers import create_one_question_scenario_from_context, create_scenario_from_site_context
 import re
 from tests.choices import TestTypeChoices
+from settings import FRONTEND_BASE_URL
 
 
 
@@ -259,12 +260,24 @@ def extract_fields(data:dict):
 
     return extracted_fields
 
-def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False):
+def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id = None):
 
+    logger.info(f"*********************************************** idp_id: {idp_id}, user_id: {user_id}, tenant_id: {tenant_id}")
     if only_data:
+        if idp_id:
+            try:
+                user_idp = UserIDP.objects.get(tenant_id=tenant_id,uid=idp_id)
+                serializer = UserIDPSerializers(user_idp)
+                return serializer.data, True
+            except Exception as e:
+                logger.error({"Error":e},exc_info=True)
+                return {"error": "IDP not found"}, False
+
         user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id)
+        if user_idps.count() < 1:
+            return {"error": "No IDPs found"}, False
         serializer = UserIDPSerializers(user_idps,many=True)
-        return serializer.data
+        return serializer.data, True
 
     else:
         strengths = idp_data.get('strengths')
@@ -288,7 +301,8 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False):
             goals=goals,
             priorities=priorities,
             learning_histories=learning_histories,
-            key_skills=key_skills
+            key_skills=key_skills,
+            
         )
 
         hard_skills = get_hard_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
@@ -304,6 +318,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False):
         user_idp.book_recommendations = book_recomm
         user_idp.recommended_hbr = hbr_recomm
         user_idp.recommended_ted_talk = tedtalk_recomm
+        user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
 
         user_idp.course_recommendations = course_recomm
 
@@ -338,7 +353,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False):
 
 
         
-        return user_idp
+        return UserIDPSerializers(user_idp).data, True
     
 
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
