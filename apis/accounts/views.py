@@ -858,14 +858,25 @@ class AccountsViewSet(ApiViewSet,
             access_token = request.headers.get('Authorization')
 
             if request.method == 'GET':
-                user_id = request.data.get('user_id',None)
-                data = process_idp("",user_id,request.tenant.uid,access_token,only_data=True)
+                # user_id = request.data.get('user_id',None)
+                user_id = request.query_params.get('user_id',None)
+                idp_id = request.query_params.get('idp_id',None)
+                if idp_id is not None:
+                    data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True,idp_id=idp_id)
+                    if not success:
+                        return Response(data,status=status.HTTP_404_NOT_FOUND)
+                    return Response(data,status=status.HTTP_200_OK)
+
+
+                data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True)
+                if not success:
+                    return Response(data,status=status.HTTP_404_NOT_FOUND)
                 return Response(data,status=status.HTTP_200_OK)
             
             elif request.method == 'POST':
                 user_id = request.data.get('user_id',None)
                 idp_data = request.data.get('idp_data',None)
-                data = process_idp(idp_data,user_id,request.tenant.uid,access_token)
+                data, success = process_idp(idp_data,user_id,request.tenant.uid,access_token)
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"got error in get_or_create_idp: {e}")
