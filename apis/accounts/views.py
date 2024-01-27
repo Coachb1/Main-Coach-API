@@ -23,7 +23,7 @@ from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
-from users.choices import StatusChoice
+from users.choices import StatusChoice, ProfileTypeChoice
 
 
 from identities.models import Identity
@@ -342,6 +342,11 @@ class AccountsViewSet(ApiViewSet,
                 data['feedback_qna'] = bot_att.feedback_questions
             if bot_att.initial_qnas:
                 data['initial_qna'] = bot_att.initial_qnas
+
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id,profile_type=ProfileTypeChoice.coach,bot_ids__contain=bot_id)
+            for i in coach_profile:
+                data["coaching_for_fitment"] = i.coaching_for_fitment.lower()
+            
         except Exception as e:
             logger.exception(e)
 
