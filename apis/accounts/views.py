@@ -876,6 +876,7 @@ class AccountsViewSet(ApiViewSet,
             elif request.method == 'POST':
                 user_id = request.data.get('user_id',None)
                 idp_data = request.data.get('idp_data',None)
+                logger.info(f"****************** idp_data: {idp_data}")
                 data, success = process_idp(idp_data,user_id,request.tenant.uid,access_token)
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
