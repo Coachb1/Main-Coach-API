@@ -343,7 +343,7 @@ class AccountsViewSet(ApiViewSet,
             if bot_att.initial_qnas:
                 data['initial_qna'] = bot_att.initial_qnas
 
-            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id,profile_type=ProfileTypeChoice.coach,bot_ids__contain=bot_id)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id,profile_type=ProfileTypeChoice.coach,bot_ids__icontains=bot_id)
             for i in coach_profile:
                 data["coaching_for_fitment"] = i.coaching_for_fitment.lower()
             
