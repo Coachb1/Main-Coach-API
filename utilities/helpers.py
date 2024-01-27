@@ -20,7 +20,7 @@ from tests.helpers import create_one_question_scenario_from_context, create_scen
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
-
+from users.models import User
 
 
 
@@ -266,7 +266,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
     if only_data:
         if idp_id:
             try:
-                user_idp = UserIDP.objects.get(tenant_id=tenant_id,uid=idp_id)
+                user_idp = UserIDP.objects.get(tenant_id=tenant_id, uid=idp_id)
                 serializer = UserIDPSerializers(user_idp)
                 return serializer.data, True
             except Exception as e:
@@ -280,6 +280,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         return serializer.data, True
 
     else:
+        try:
+            user = User.objects.get(uid=user_id)
+        except Exception as e:
+            logger.error({"Error":e},exc_info=True)
+            return {"error": "User not found"}, False
+        
         strengths = idp_data.get('strengths')
         weakness = idp_data.get('weakness')
         opportunities = idp_data.get('opportunities')
@@ -289,6 +295,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         priorities = idp_data.get('priorities')
         learning_histories = idp_data.get('learning_histories')
         key_skills = idp_data.get('key_skills')
+        user_name = idp_data.get('user_name')
 
         user_idp = UserIDP.objects.create(
             tenant_id = tenant_id,
@@ -302,7 +309,8 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             priorities=priorities,
             learning_histories=learning_histories,
             key_skills=key_skills,
-            
+            user_name=user_name,
+
         )
 
         hard_skills = get_hard_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)

@@ -71,6 +71,7 @@ class UserActionInfo(TenantAwareModel):
 
 class UserIDP(TenantAwareModel):
     user_id = models.CharField(max_length=255)
+    user_name = models.CharField(max_length=64, blank=True, null=True)
     strengths = models.TextField(null=True,blank=True,default=0)
     weakness = models.TextField(null=True,blank=True,default=0)
     opportunities = models.TextField(null=True,blank=True,default=0)
