@@ -342,12 +342,14 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         skills = hard_soft_skills.split(',')
         for skill in skills:
             temp = {}
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
-            if dynamic_discussion.get("title",None):
-                temp["dynamic"] = dynamic_discussion
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
-            if simulation.get("title",None):
-                temp["simulation"] = simulation
+
+            for i in range(1,6):
+                dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+                if dynamic_discussion.get("title",None):
+                    temp[f"dynamic-{i}"] = dynamic_discussion
+                simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
+                if simulation.get("title",None):
+                    temp[f"simulation-{i}"] = simulation
             
             tests[skill] = temp
 

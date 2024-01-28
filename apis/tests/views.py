@@ -671,12 +671,24 @@ class TestViewSet(ApiViewSet,
         mode = request.query_params.get('mode')
         access_token = request.query_params.get('access_token')
         context = request.query_params.get('information',None)
+        source = request.query_params.get('source',None)
+        creator_user_id = request.query_params.get('creator_user_id',None)
+        competency = request.query_params.get('competency',None)
+        is_static = request.query_params.get('is_static',True)
+        is_dynamic = request.query_params.get('is_dynamic',True)
 
-        print("%"*100,f"              {mode}  {url}   context: {context}           ","%"*100)
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}")
+
         if mode == 'A':
-            scenario = create_scenario_from_site_context(url, access_token, tenant_id, context)
-            dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread)
-            return Response(data=[scenario,dynamic_discussion], status=status.HTTP_200_OK)
+            resp_data = []
+            if is_static == 'true' or is_static == True or is_static == "True":
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
+                resp_data.append(scenario)
+            if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
+                dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
+                                                                    origin=source, competency=competency, creator_user_id=creator_user_id)
+                resp_data.append(dynamic_discussion)
+            return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
             return Response(data=scenario, status=status.HTTP_200_OK)
@@ -807,3 +819,36 @@ class TestViewSet(ApiViewSet,
 
         return Response(data,status=status.HTTP_200_OK)
 
+
+    @action(methods=['GET'], detail=False, url_path="get-tests-by-competency")
+    def get_tests_by_competency(self, request, *args, **kwargs):
+
+        competencies = request.query_params.get("competencies",None)
+
+        logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
+
+        data = {}
+        if competencies:
+            competencies = competencies.split(',')
+
+            for competency in competencies:
+                competency = competency.strip()
+                tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
+                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type } for test in tests]
+            # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
+            # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
+    
+
+    @action(methods=['GET'], detail=False, url_path="get-requested-tests")
+    def get_requested_tests(self, request, *args, **kwargs):
+        user_id = request.query_params.get("user_id",None)
+
+        if not user_id:
+            return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
