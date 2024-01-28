@@ -73,6 +73,8 @@ class Test(TenantAwareModel):
     is_pitch = models.BooleanField(default=False, null=True, blank=True)
     articles = models.TextField(null=True, blank=True, default=None)
     bot_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+    competency_group = models.CharField(max_length=255, null=True, blank=True, default=None)
+    creator_user_id = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
