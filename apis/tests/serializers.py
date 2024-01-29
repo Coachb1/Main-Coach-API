@@ -180,7 +180,9 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "media_props",
                   "is_transcript_only",
                   "articles",
-                  "bot_name"
+                  "bot_name",
+                  "creator_user_id",
+                  "competency_group"
                   ]
 
     def get_questions(self, instance):
