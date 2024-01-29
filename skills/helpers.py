@@ -514,8 +514,7 @@ def evaluate_competency_data(description, conversation,test_attempt_session,skil
         "CONVERSATION:" ${conversation};
         "Evaluation Criteria:"
 
-        
-        Competency skills: ${competency_prompts}
+        ${competency_prompts}
 
         "Required from anthropic:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
         If any of the skill is not related to the given conversation, rate that skills as 0. Only when the skill is not even slightly related to the conversation give the rating as 0.
