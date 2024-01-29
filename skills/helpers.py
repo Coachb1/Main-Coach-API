@@ -479,11 +479,11 @@ def get_competency_prompt_or_output(skills,is_prompt_only=False):
     df = pd.read_csv(r"prompts - Competency prompts.csv")
     prompts_str = ""
     outputs_dict = {}
-    skills = [skill.lower() for skill in skills]
+    skills = [skill.lower().strip() for skill in skills]
 
     # Iterate through the rows and extract prompts and outputs based on provided skills
     for index, row in df.iterrows():
-        competency_skill = row['Competency skill'].lower()
+        competency_skill = row['Competency skill'].lower().strip()
         prompts = row['Prompts']
         output = row['Output']
 
