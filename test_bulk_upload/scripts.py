@@ -79,6 +79,7 @@ IS_TRANSCRIPT_ONLY = "Is Transcript Only"
 IS_PITCH = "is_pitch"
 CURRENT_NEWS = 'Current news'
 BOT_NAME = "Bot Name"
+USER_ID = "User ID" 
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -231,6 +232,10 @@ def format_test_orchestrated_conversation(raw_data):
         if SOURCE in input_dict :
             if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
                 output_dict['source'] = input_dict.get(SOURCE,None)
+
+        if USER_ID in input_dict :
+            if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
+                output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
         
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
@@ -619,6 +624,10 @@ def format_test_data_slack(raw_data):
         if SOURCE in input_dict :
             if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
                 output_dict['source'] = input_dict.get(SOURCE,None)
+
+        if USER_ID in input_dict :
+            if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
+                output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
         
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
