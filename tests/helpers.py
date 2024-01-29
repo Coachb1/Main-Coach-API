@@ -48,7 +48,7 @@ from tests.models import TestAttemptSession
 from tests.models import TestInvite
 from tests.models import TestQuestion
 from tests.models import TestQuestionResponse
-from users.db import get_user_by_id
+from users.db import get_user_by_id, get_user_attribute
 from users.db import get_user_display_name
 from users.models import User
 from users.models import UserAttribute, SignatureBot
@@ -835,7 +835,7 @@ def evaluate_rating_thread(question, test_question_response, test, test_attempt_
     test_question_response.save(update_fields=["response_rating"])
 
 @timeit
-def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session):
+def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session,competency_skill):
     competency_data = {}
     conversation = ""
     count = 1
@@ -858,6 +858,7 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
     competency_data, is_evaluated = evaluate_competency_data(test.description,
                                         conversation,
                                         test_attempt_session,
+                                        competency_skill,
                                         test.is_free
                                         )
 
@@ -2756,7 +2757,12 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     if test.scenario_case == ScenarioCaseChoices.pms:
-        evaluate_competency_data_thread(questions,responses,test,test_attempt_session)
+        competency_data = UserAttribute.objects.get(user_id=test_attempt_session.participant_id).competency_data
+        compentecy_skills = ["Communication Skills","Teamwork","Planning and Organizing","Client Focus"]
+        if competency_data:
+            compentecy_skills = list(competency_data.values())
+        evaluate_competency_data_thread(questions,responses,test,test_attempt_session,compentecy_skills)
+        
     skills_=[]
     for question in questions:
         required_skills = question.key_learning_skills.split(",")
