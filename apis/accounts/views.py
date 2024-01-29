@@ -345,7 +345,10 @@ class AccountsViewSet(ApiViewSet,
 
             coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id,profile_type=ProfileTypeChoice.coach,bot_ids__icontains=bot_id)
             for i in coach_profile:
-                data["coaching_for_fitment"] = i.coaching_for_fitment.lower()
+                data["coaching_for_fitment"] = i.coaching_for_fitment.lower() if i.coaching_for_fitment else None
+
+            if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
+                data['owner_profile_image'] = coach_profile[0].profile_image_url
             
         except Exception as e:
             logger.exception(e)
