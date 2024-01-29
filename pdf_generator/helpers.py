@@ -140,7 +140,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         competency_data= test_attempt_session.competency_data
         
         competency_skills = get_competency_prompt_or_output(skills=list(competency_data.keys()))
-        level_dict = {"1" : "Individual Contributor",
+        level_dict = {
+                "0" : "Individual Contributor",
+                "1" : "Individual Contributor",
                 "2" : "Middle Manager",
                 "3" : "Senior Leadership"}
         
