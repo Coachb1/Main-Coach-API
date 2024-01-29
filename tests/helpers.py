@@ -25,7 +25,7 @@ from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_
 from commons.timeit import timeit
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
-from email_sender.helpers import send_email
+from email_sender.helpers import send_email, send_generic_email
 from external_apis.coach_metric_api import coach_metric_api, default_metrics
 from external_apis.coach_whisper_api import coach_whisper_api
 from external_apis.whatsapp_api import whatsapp_api
@@ -159,7 +159,9 @@ def create_test(tenant: Tenant,
                 is_transcript_only:bool,
                 is_pitch: bool,
                 articles:str,
-                bot_name:str) -> tuple[Test, list[TestQuestion]]:
+                bot_name:str,
+                creator_user_id:str,
+                competency_group: str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -215,6 +217,8 @@ def create_test(tenant: Tenant,
             is_pitch=is_pitch,
             articles=articles,
             bot_name=bot_name,
+            creator_user_id=creator_user_id,
+            competency_group=competency_group
         )
 
         test_questions = []
@@ -5626,9 +5630,23 @@ def get_one_scenario_prompt(site_information,prompt_type):
         
         
         
+def get_improved_title(title):
+    prompt = f"""
+        \nHuman:
+        title: {title}
+        improve this title to 20 words.
+
+        NOTE: Make sure the title is very specific and relevant.
+        NOTE: do not start with any introduction sentences. Start with the title directly.
+        \nAssistant:
+    """
+
+    title = anthropic_completion(prompt, 25)
+    title = title.split(':')[-1]
+    return title
 
 
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -5665,14 +5683,17 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             return key, secret
 
     garbage_scenarios = []
-    for i in range(15):
+    max_retry = 3
+    for i in range(max_retry):
         logger.info(f"trying outer test generation for {i+1} time")
         try:
             if context:
                 # context_data = json.loads(context)
                 # title, des = context_data['title'], context_data['data']['information']
                 title,des = context,""
-                logger.info(f"{'#'*100} title: {title}, context: {des} {'#'*100} ")
+                if i > 0:
+                    title = get_improved_title(title)
+                logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
             else:
                 title, des = scrape_meta_info(url)
             
@@ -5742,11 +5763,11 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             test_json = {
                 "creator_id": admin_user.uid,
-                "title": title,
+                "title": json.loads(context)['title'] if origin == "script" else title,
                 "description": description,
                 "email_address_list":'mail@coachbots.com',
                 "questions": question_info,
-                "scenario_case": scenario_case,
+                "scenario_case": 'pms' if competency is not None else scenario_case,
                 "interaction_mode":'any',
                 "test_type":type_of_test,
                 "email_candidate":True,
@@ -5754,6 +5775,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "skills_to_evaluate": skill_to_evalaute,
                 "is_self_created": True,
                 "certificate_details": {"title": title},
+                "competency_group": competency,
+                "creator_user_id": creator_user_id,
             }
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
@@ -5765,11 +5788,20 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         'Authorization': access_token
                     }
             
+            logger.info(f"{'#'*100} Scenario raw data : {test_json}  , origin :{origin} {'#'*100} ")
+            # return test_json
+            
             try:
                 response = requests.post(
                                         API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
                 response = response.json()
                 print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
+
+                if origin == "script":
+                    resp_json = test_json.copy()
+                    resp_json['test_code'] = response['test_code']
+
+                    return resp_json
                 return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
                 
             except Exception as e:
@@ -5779,11 +5811,21 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
         except Exception as e:
             logger.error(e,exc_info=True)
-            if i+1 == 15:
-                logger.info(f"{'!'*100}  failed 15 times  {'!'*100}")
+            if i+1 == max_retry:
+                logger.info(f"{'!'*100}  failed outer {max_retry} times  {'!'*100}")
+                # TODO: send email to user if creator_user_id is not None
+                if creator_user_id:
+                    try:
+                        user = User.objects.get(uid=creator_user_id)
+                        send_generic_email(
+                            'Scenario Generation Failed for given details',context)
+                    except Exception as e:
+                        logger.error(e,exc_info=True)
+                        
                 return {'message':"failed to generate the scenario","data":garbage_scenarios}
             continue
 
+    # logger.info(f"!!!!!!!!!!!!!!!!!!!!!! Everything failed !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
 
 

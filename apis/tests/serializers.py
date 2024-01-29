@@ -111,6 +111,8 @@ class CreateTestSerializer(serializers.Serializer):
     media_props = serializers.JSONField(default=None, required=False, allow_null=True)
     articles = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     bot_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_user_id = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    competency_group = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
