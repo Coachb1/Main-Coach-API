@@ -21,6 +21,7 @@ import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
 from users.models import User
+from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 
 
 
@@ -343,18 +344,62 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         for skill in skills:
             temp = {}
 
-            for i in range(1,6):
-                dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
-                if dynamic_discussion.get("title",None):
-                    temp[f"dynamic-{i}"] = dynamic_discussion
-                simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
-                if simulation.get("title",None):
-                    temp[f"simulation-{i}"] = simulation
+            # for i in range(1,6):
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+            if dynamic_discussion.get("title",None):
+                temp[f"dynamic"] = dynamic_discussion
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
+            if simulation.get("title",None):
+                temp[f"simulation"] = simulation
             
             tests[skill] = temp
 
+        temp_data = {}
+        # focus oriented tests
+        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
+        if dynamic_discussion.get("title",None):
+            temp_data[f"dynamic"] = dynamic_discussion
 
-        
+        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
+        if simulation.get("title",None):
+            temp_data[f"simulation"] = simulation
+
+        tests["focus_areas"] = temp_data
+
+        logger.info(f"************** after focus areas tests: {tests}")
+
+        temp_data = {}
+
+        # goals oriented tests
+        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
+        if dynamic_discussion.get("title",None):
+            temp_data[f"dynamic"] = dynamic_discussion
+
+        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
+        if simulation.get("title",None):
+            temp_data[f"simulation"] = simulation
+
+        tests["goals_areas"] = temp_data
+
+        logger.info(f"************** after goals areas tests: {tests}")
+
+        temp_data = {}
+
+        # priority oriented tests
+        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
+        if dynamic_discussion.get("title",None):
+            temp_data[f"dynamic"] = dynamic_discussion
+
+        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
+        if simulation.get("title",None):
+            temp_data[f"simulation"] = simulation
+
+        tests["priority_areas"] = temp_data
+
+        logger.info(f"************** after priority areas tests: {tests}")
+
+        temp_data = {}
+
 
         user_idp.recommended_scenarios = tests
 
