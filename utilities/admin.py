@@ -42,7 +42,6 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         bot_owner_name = get_user_display_name(bot_owner)
         bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
         emails = ["info@coachbots.com",bot_owner_email]
-        emails = ["bagoriarajan@gmail.com"]
         html_content = f"""
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                         <tr>
