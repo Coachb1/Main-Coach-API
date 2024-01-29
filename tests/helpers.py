@@ -5582,7 +5582,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         "Respond as {Manager name}"
                         "Conclude the discussion as a participant."]
 
-                        Write the manager's name in place of {Manager name}. The manager name should always be same. 
+                        Write the manager's name in place of {Manager name}. The Manager name should always be the same. Do not make any changes in the given format. . 
 
                         Do not include any response.
                         Always provide the output in the given format. 
@@ -5652,7 +5652,7 @@ def get_improved_title(title):
     return title
 
 
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -5705,7 +5705,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             
             site_information = f"{title} {des}"
 
-            prompt = get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test)
+            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test)
 
             if is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
@@ -5798,16 +5798,19 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             # return test_json
             
             try:
-                response = requests.post(
+                resp = requests.post(
                                         API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
-                response = response.json()
-                print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
+                response = resp.json()
+                print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
 
                 if origin == "script":
                     resp_json = test_json.copy()
                     resp_json['test_code'] = response['test_code']
 
                     return resp_json
+                
+                # if resp.status_code != 201:
+                #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
                 return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
                 
             except Exception as e:
@@ -5824,7 +5827,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     try:
                         user = User.objects.get(uid=creator_user_id)
                         send_generic_email(
-                            'Scenario Generation Failed for given details',context)
+                            f'Scenario Generation(by user:{creator_user_id} ) Failed for given details',context)
                     except Exception as e:
                         logger.error(e,exc_info=True)
                         
