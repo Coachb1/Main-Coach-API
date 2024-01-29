@@ -10,6 +10,9 @@ from django.conf import settings
 from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SessionNotesRecommendationsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
@@ -64,5 +67,13 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     for feed in feedback_bot:
         feed.is_approved = is_approved
         feed.save(update_fields=["is_approved"])
+
+    try:
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=signature_bot.user_id)
+        coach_profile.is_approved = is_approved
+        coach_profile.save(update_fields=["is_approved"])
+    except Exception as e:
+        logger.info(f"failed to updated is_approved: {e}")
+        pass
 
 post_save.connect(save_and_send_approval_email_post_save, sender=DirectoryPageInfo)
