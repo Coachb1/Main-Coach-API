@@ -547,6 +547,22 @@ class AccountsViewSet(ApiViewSet,
             # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
             #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
             #                    'aadil611ofc@gmail.com')
+            DirectoryPageInfo.objects.create(
+                    name=created_profile.name,
+                    profile_id=created_profile.uid,
+                    department=created_profile.department,
+                    bot_type=BotTypeChoice.feedback_bot,
+                    profile_pic_url=created_profile.profile_image_url or "None",
+                    profile_type=created_profile.profile_type,
+                    description=created_profile.about,
+                    experience=created_profile.experience,
+                    favourite_simulation_codes=created_profile.favourite_simulation_codes,
+                    status=StatusChoice.available,
+                    skills=created_profile.hard_skill_areas,
+                    is_visible= True,
+                    is_approved = False,
+                    )
+            
             return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-bots")
@@ -782,24 +798,14 @@ class AccountsViewSet(ApiViewSet,
                 coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
 
                 if bot_type == BotTypeChoice.avatar_bot:
-                    DirectoryPageInfo.objects.create(
-                    name=coach_profile.name,
-                    profile_id=coach_profile.uid,
-                    department=coach_profile.department,
-                    bot_type=bot_type,
-                    profile_pic_url=coach_profile.profile_image_url or "None",
-                    profile_type=coach_profile.profile_type,
-                    description=coach_profile.about,
-                    experience=coach_profile.experience,
-                    favourite_simulation_codes=coach_profile.favourite_simulation_codes,
-                    status=StatusChoice.available,
-                    avatar_bot_id=bot_id,
-                    skills=coach_profile.hard_skill_areas,
-                    is_visible= True,
-                    is_approved = False,
-                    avatar_snippit= bot_snippet,
-                    avatar_bot_url= bot_url,
-                    )
+                    directories = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
+                    for directory in directories:
+                        directory.avatar_bot_id = bot_id
+                        directory.avatar_snippit = bot_snippet
+                        directory.avatar_bot_url = bot_url
+                        directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+
+                    
                 if bot_type == BotTypeChoice.feedback_bot:
                     directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
 
