@@ -3,6 +3,10 @@ from django.db import models
 from tenants.models import TenantAwareModel
 from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice
 
+def default_competency_data():
+        return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
+
+
 
 class User(TenantAwareModel):
     name = models.TextField(blank=True, null=True, default="")
@@ -40,7 +44,7 @@ class UserAttribute(TenantAwareModel):
     custom_skill_prompt_1 = models.TextField(null=True, blank=True, default=None)
     custom_skill_prompt_2 = models.TextField(null=True, blank=True, default=None)
     test_previlage = models.TextField(null=True,blank=True,default=None)
-    competency_data = models.JSONField(null=True,blank=True,default=None)
+    competency_data = models.JSONField(null=True,blank=True,default=default_competency_data())
     
 
 

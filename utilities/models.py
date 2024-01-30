@@ -96,7 +96,7 @@ class UserIDP(TenantAwareModel):
         
 class DirectoryPageInfo(models.Model):
     name = models.CharField(max_length=255)
-    profile_id = models.CharField(max_length=255,default="1")
+    profile_id = models.CharField(max_length=255)
     department = models.CharField(max_length=255)
     bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
     profile_pic_url = models.CharField(max_length=255,default=None,null=True,blank=True)
@@ -104,10 +104,10 @@ class DirectoryPageInfo(models.Model):
     description = models.TextField()
     experience = models.CharField(max_length=255,default=None,null=True,blank=True)
     favourite_simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
-    status = models.CharField(max_length=255, choices=StatusChoice)
-    avatar_bot_id = models.CharField(max_length=400,default='avatar')
+    status = models.CharField(max_length=255,null=True,blank=True,choices=StatusChoice,default=StatusChoice.available)
+    avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default='avatar')
     feedback_wall = models.CharField(max_length=500,default=None,null=True,blank=True)
-    skills = models.CharField(max_length=400,default="communication skills")
+    skills = models.CharField(max_length=400,null=True,blank=True,default="communication skills")
     is_visible = models.BooleanField(blank=True,default=False)
     is_approved = models.BooleanField(blank=True,default=False)
     avatar_snippit = models.TextField(default=None,null=True,blank=True)
