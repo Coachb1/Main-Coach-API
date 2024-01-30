@@ -568,16 +568,8 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
         user_id = request.query_params.get('user_id',None)
-        directories = DirectoryPageInfo.objects.filter(is_approved=True)
-        bot_id_list = [directory.avatar_bot_id for directory in directories]
-        bot_ids = []
-        for b in bot_id_list:
-            if "/" in b:
-                bot_ids.append(b.split("/")[-1])
-            else:
-                bot_ids.append(b)
-
-        all_bots = SignatureBot.objects.filter(is_active=True,bot_id__in=bot_ids)
+        
+        all_bots = SignatureBot.objects.filter(deleted=False,is_approved=True)
         if user_id:
             data = []
             all_bots = all_bots.filter(user_id=user_id)
@@ -914,7 +906,7 @@ class AccountsViewSet(ApiViewSet,
     def get_directory_informations(self,request,*args, **kwargs):
 
         try:
-            directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
+            directories = DirectoryPageInfo.objects.filter(is_visible=True)
             serializer = DirectoryInfoSErializer(directories,many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
