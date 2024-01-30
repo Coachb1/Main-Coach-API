@@ -1,7 +1,7 @@
-def get_focus_prompt(focus_areas, tepy):
-    simulation_prompt = f"""
+def get_focus_prompt(focus_areas, type):
+    simulation_prompt = """
         \n\nHuman:
-        {{Information}} - {focus_areas}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding  create an advanced and tough simulation situation for the key focus areas presented in the {{information}}. After creating the situation provide these:
 
@@ -27,17 +27,19 @@ def get_focus_prompt(focus_areas, tepy):
 
         "Skills 1" repeated for {3} question(s). Do not include any {{responder}}response.
 
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+
         NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
         NOTE : Make sure the simulation is very advanced and tough.
         \n\nAssistant:
 
-        """
+        """%(focus_areas)
     
 
-    dynamic_prompt = f"""
+    dynamic_prompt = """
         \n\nHuman:
-        {{Information}} - {focus_areas}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding create an advanced and detailed situation for the key focus areas presented in the {{information}}. After creating the situation provide these:
 
@@ -78,7 +80,7 @@ def get_focus_prompt(focus_areas, tepy):
         NOTE : Make sure the situation is very advanced and tough.
         \n\nAssistant:
     
-    """
+    """%(focus_areas)
 
     if type == "dynamic":
         return dynamic_prompt
@@ -87,9 +89,9 @@ def get_focus_prompt(focus_areas, tepy):
 
 
 def get_goals_prompt(goals, type):
-    simulation_prompt = f"""
+    simulation_prompt = """
         \n\nHuman:
-        {{Information}} - {goals}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding  create an advanced and tough simulation situation to achieve the long term goals presented in the {{information}}. After creating the situation provide these:
 
@@ -115,16 +117,18 @@ def get_goals_prompt(goals, type):
 
         "Skills 1" repeated for {3} question(s). Do not include any {{responder}} response.
 
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+
         NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
         NOTE : Make sure the simulation is very advanced and tough.
-        \n\nAssistant:\
-    """
+        \n\nAssistant:
+    """%(goals)
 
 
-    dynamic_prompt = f"""
+    dynamic_prompt = """
         \n\nHuman:
-        {{Information}} - {goals}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding create an advanced and detailed situation to achieve the long term goals presented in the {{information}}. After creating the situation provide these:
 
@@ -164,7 +168,7 @@ def get_goals_prompt(goals, type):
         
         NOTE : Make sure the situation is very advanced and tough.
         \n\nAssistant:
-    """
+    """%(goals)
 
     if type == "dynamic":
         return dynamic_prompt
@@ -172,9 +176,9 @@ def get_goals_prompt(goals, type):
 
 
 def get_priority_prompt(priorities, type):
-    simulation_prompt = f"""
+    simulation_prompt ="""
         \n\nHuman:
-        {{Information}} - {priorities}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding  create an advanced and tough simulation situation based on the priorities presented in the {{information}}. After creating the situation provide these:
 
@@ -200,15 +204,17 @@ def get_priority_prompt(priorities, type):
 
         "Skills 1" repeated for {3} question(s). Do not include any {{responder}} response.
 
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+
         NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
         NOTE : Make sure the simulation is very advanced and tough.
         \n\nAssistant:
-    """
+    """%(priorities)
 
-    dynamic_prompt = f"""
+    dynamic_prompt = """
         \n\nHuman:
-        {{Information}} - {priorities}
+        {{Information}} - %s
 
         Read this {{information}} thoroughly. Now based on this information and your understanding create an advanced and detailed situation based on the priorities presented in the {{information}}. After creating the situation provide these:
 
@@ -248,7 +254,7 @@ def get_priority_prompt(priorities, type):
         
         NOTE : Make sure the situation is very advanced and tough.
         \n\nAssistant:
-    """
+    """%(priorities)
 
     if type == "dynamic":
         return dynamic_prompt

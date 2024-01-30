@@ -267,14 +267,14 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
     if only_data:
         if idp_id:
             try:
-                user_idp = UserIDP.objects.get(tenant_id=tenant_id, uid=idp_id)
+                user_idp = UserIDP.objects.get(tenant_id=tenant_id, uid=idp_id, success=True)
                 serializer = UserIDPSerializers(user_idp)
                 return serializer.data, True
             except Exception as e:
                 logger.error({"Error":e},exc_info=True)
                 return {"error": "IDP not found"}, False
 
-        user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id)
+        user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id, success=True)
         if user_idps.count() < 1:
             return {"error": "No IDPs found"}, False
         serializer = UserIDPSerializers(user_idps,many=True)
@@ -318,8 +318,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         soft_skills = get_soft_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
         user_idp.skill_gap_for_development = hard_skills
         user_idp.leadership_skill_focus_area = soft_skills
-
-        hard_soft_skills = hard_skills + soft_skills
+        hard_soft_skills = hard_skills + "," + soft_skills
         book_recomm = get_recommendation("book",hard_soft_skills)
         course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
         hbr_recomm = get_recommendation("hbr",hard_soft_skills)
@@ -346,9 +345,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
             # for i in range(1,6):
             dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+            logger.info({f"scenario - {skill}": dynamic_discussion})
             if dynamic_discussion.get("title",None):
                 temp[f"dynamic"] = dynamic_discussion
             simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
+            logger.info({f"scenario - {skill}": simulation})
+
             if simulation.get("title",None):
                 temp[f"simulation"] = simulation
             
@@ -402,6 +404,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
 
         user_idp.recommended_scenarios = tests
+        user_idp.success = True
 
         user_idp.save()
 
