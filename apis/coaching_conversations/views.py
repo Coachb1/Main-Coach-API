@@ -284,46 +284,49 @@ class CoachingConversationViewSet(ApiViewSet,
     
     @action(methods=["GET"], detail=False, url_path="bot-conversation-data")
     def bot_conversation_data(self, request, *args, **kwargs):
-
+        """
+        Retrieves conversation data for bots and users based on the specified mode.
+        :return: A list of conversation data for bots and users based on the specified mode.
+        """
         tenant = self.request.tenant
-        mode = request.query_params.get('for',None)
-        user_id = request.query_params.get('user_id',None)
+        mode = request.query_params.get('for', None)
+        user_id = request.query_params.get('user_id', None)
 
         if mode == 'admin':
             try:
-                bots = SignatureBot.objects.filter(deleted=0,tenant_id=tenant.uid,user_id=user_id)
+                bots = SignatureBot.objects.filter(deleted=0, tenant_id=tenant.uid, user_id=user_id)
             except:
                 return Response({"Bot not Found"}, status=status.HTTP_404_NOT_FOUND)
-            data= []
+            data = []
 
             for bot in bots:
                 bot_id = bot.uid
-                bot_att = BotAttribute.objects.get(deleted=0,tenant_id=tenant.uid,bot_id=bot_id)
-                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid,deleted=0,test_id = bot_id)
-                participant_ids = list(set(sessions.values_list('participant_id',flat=True)))
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=bot_id)
+                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid, deleted=0, test_id=bot_id)
+                participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
 
                 for participant_id in participant_ids:
                     bot_sessions = sessions.filter(participant_id=participant_id)
-                    data_cov = get_bot_conversation_data_user(bot_sessions,tenant,participant_id)
+                    data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
                     data_cov['bot_name'] = bot_att.bot_name
                     data.append(data_cov)
 
             return Response(data, status=status.HTTP_200_OK)
 
-
         elif mode == 'user':
-            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid',flat=True)))
+            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
             data = []
 
             for b_id in bot_ids:
-                bot_att = BotAttribute.objects.get(deleted=0,tenant_id=tenant.uid,bot_id=b_id)
-                sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=b_id,participant_id=user_id)
-                data_conv = get_bot_conversation_data_user(sessions,tenant,user_id)
-                if len(data_conv['results']) > 0 :
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                sessions = TestAttemptSession.objects.filter(deleted=0, tenant_id=tenant.uid, test_id=b_id,
+                                                              participant_id=user_id)
+                data_conv = get_bot_conversation_data_user(sessions, tenant, user_id)
+                if len(data_conv['results']) > 0:
                     data_conv['bot_name'] = bot_att.bot_name
                     data.append(data_conv)
             return Response(data, status=status.HTTP_200_OK)
-        
+
         else:
-            return Response({"Error: For parameter doesn't exits please check"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"Error: For parameter doesn't exist, please check"}, status=status.HTTP_400_BAD_REQUEST)
 

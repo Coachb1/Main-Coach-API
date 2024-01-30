@@ -359,7 +359,11 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-client-information")
     def get_client_informations(self,request,*args, **kwargs):
-
+        """
+        Retrieves client information based on the provided parameters.
+        Returns:
+            dict: A dictionary containing the retrieved client information. The structure of the dictionary depends on the `mode` parameter.
+        """
         try:
             mode = request.query_params.get('for',None)  # can be my_lib, user_info
             user_id = request.query_params.get('user_id',None)
@@ -431,6 +435,24 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-user-feedback-data")
     def get_user_feedback_data(self,request,*args, **kwargs):
+        """
+        Retrieves or creates user feedback data for a specific bot.
+
+        Args:
+            request (object): The HTTP request object.
+            method (string): The method to perform, either "get" or "post".
+            bot_id (string): The ID of the bot for which to retrieve or create feedback data.
+            user_id (string): The ID of the user for whom to create feedback data (only required for "post" method).
+            qna (string): The question and answer data for the feedback (only required for "post" method).
+            is_positive (boolean): Indicates whether the feedback is positive or not (only required for "post" method).
+            qna_type (string): The type of the feedback (only required for "post" method).
+
+        Returns:
+            If the method is "get":
+                A dictionary containing the positive messages data.
+            If the method is "post":
+                A dictionary with a "message" key indicating the success of the creation.
+        """
         try:
             method = request.query_params.get('method',None)
             bot_id = request.query_params.get('bot_id',None)
@@ -847,7 +869,18 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET','POST'],detail=False, url_path="user-competency-details")
     def user_competency_details(self,request,*args, **kwargs):
+        """
+        Retrieves or updates the competency details of a user based on their user ID.
 
+        Args:
+            request (object): The HTTP request object.
+            user_id (string): The ID of the user for whom the competency details are being retrieved or updated.
+            method (string): The HTTP method used for the request ('GET' or 'POST').
+
+        Returns:
+            If the HTTP method is 'GET', the method returns a list containing the competency data of the user.
+            If the HTTP method is 'POST', the method returns a response with a success message.
+        """
         try:
             data = []
             user_id = request.query_params.get('user_id')
@@ -864,7 +897,7 @@ class AccountsViewSet(ApiViewSet,
                 user_att.competency_data = skill_data
                 user_att.save(update_fields=["competency_data"])
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
-            
+        
         except Exception as e:
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
