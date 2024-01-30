@@ -99,6 +99,7 @@ class TestViewSet(ApiViewSet,
     lookup_field = "uid"
 
     def get_queryset(self):
+        """Returns the queryset of tests filtered by the tenant ID."""
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
