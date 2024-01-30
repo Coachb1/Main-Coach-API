@@ -5694,9 +5694,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
         logger.info(f"trying outer test generation for {i+1} time")
         try:
             if context:
-                # context_data = json.loads(context)
-                # title, des = context_data['title'], context_data['data']['information']
-                title,des = context,""
+                context_data = json.loads(context)
+                title, des = context_data['title'], context_data['data']['information']
+                # title,des = context,""
                 if i > 0:
                     title = get_improved_title(title)
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
