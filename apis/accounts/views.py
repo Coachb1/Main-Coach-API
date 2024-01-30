@@ -750,7 +750,7 @@ class AccountsViewSet(ApiViewSet,
 
             updated_fields = []
             if fitment_answer and bot_type == BotTypeChoice.avatar_bot:
-                bot_att.fitment_answers = {"mentor_answer": fitment_answer}
+                bot_att.fitment_answers = {"mentor_answer": fitment_answer.split(",")}
                 bot_att.fitment_data = fitment_data
                 updated_fields.extend(["fitment_answers","fitment_data"])
 
