@@ -5865,6 +5865,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         user = User.objects.get(uid=creator_user_id)
                         send_generic_email(
                             f'Scenario Generation(by user:{creator_user_id} ) Failed for given details',context)
+                        send_generic_email(
+                            f'Scenario Generation(by user:{creator_user_id} ) Failed for given details',context,'help@coachbots.com')
                     except Exception as e:
                         logger.error(e,exc_info=True)
                         
