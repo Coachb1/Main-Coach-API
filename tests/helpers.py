@@ -74,6 +74,7 @@ from test_bulk_upload.scripts import API_ENDPOINT_SLACK
 from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data
 from readability import Document
 from test_bulk_upload.constants import get_skills
+from django.db.models import Q
 
 
 logger = logging.getLogger(__name__)
@@ -2126,10 +2127,40 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                                                        question=question)
     logger.info(f"**************************************orchestrated test prompt******************************** : {prompt}")
 
-    if is_whatsapp:
-        bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
-    else:
-        bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
+
+    # previous_bot_question = TestQuestion.objects.filter(
+    #     test_id=test.uid, deleted=0).order_by("-question_number").first()
+
+    try:
+        previous_bot_responses = TestQuestionResponse.objects.filter(
+            ~Q(responder_type='user'),
+            test_attempt_session_id=test_attempt_session.uid,
+            deleted=0
+        ).order_by("-id")
+    except:
+        previous_bot_responses = []
+
+    logger.info(f"<<<<<<<<<<<<<<<<<<<<<<<<<<< previous bot response >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> : {previous_bot_responses} =>")
+
+    for i in range(3):
+        if is_whatsapp:
+            bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+        else:
+            bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
+
+        current_and_previous_question_similarity = 0
+        for previous_bot_response in previous_bot_responses:
+            if previous_bot_response:
+                current_and_previous_question_similarity = max(current_and_previous_question_similarity,calculate_similarity(previous_bot_response.response_text, bot_llm_response_text))
+                if current_and_previous_question_similarity > 80:
+                    break
+
+        if current_and_previous_question_similarity > 80:
+            logger.info(f"############### bot llm response is similar to previous bot response. so generating new response no:{i+1} ## Current: {bot_llm_response_text}, ## Previous: {previous_bot_response} ***************")
+            continue
+        else:
+            logger.info("*************** bot llm response is unique so saving it ***************")
+            break
 
     end = time.time()
     logger.info(f"####################### process_orchestrated_test_response_by_bot_llm: LOGIC for generating next question took {end - start:.2f} #######################")
@@ -4402,6 +4433,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
                 Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
+                Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
+
                 NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
 
 
@@ -4432,6 +4465,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
                     Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
 
+                    Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
+
                     NOTE: The question should not be more than 25 words.
 
                     NOTE: Do not show the word count.
@@ -4452,6 +4487,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             ${current_conversation}
             
             ${question_text}
+
+            Read the Current conversation and make sure the response is unique and has not been repeated in the conversation before. Never give a response that has been given before.
 
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
@@ -5828,6 +5865,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         user = User.objects.get(uid=creator_user_id)
                         send_generic_email(
                             f'Scenario Generation(by user:{creator_user_id} ) Failed for given details',context)
+                        send_generic_email(
+                            f'Scenario Generation(by user:{creator_user_id} ) Failed for given details',context,'help@coachbots.com')
                     except Exception as e:
                         logger.error(e,exc_info=True)
                         
@@ -6445,6 +6484,8 @@ def calculate_similarity(sentence1, sentence2):
     intersection = len(set(words1) & set(words2))
     union = len(set(words1) | set(words2))
     similarity_percentage = (intersection / union) * 100
+
+    logger.info(f"{'#'*100} Similarity between {sentence1} and {sentence2} is {similarity_percentage} {'#'*100}")
 
     return similarity_percentage
 
