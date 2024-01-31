@@ -777,6 +777,12 @@ class AccountsViewSet(ApiViewSet,
                 bot_att.feedback_questions = feedback_questions
                 updated_fields.append("feedback_questions")
 
+            email = data.get('email',None)
+            if email:
+                bot_att.coach_email = email
+                updated_fields.append("coach_email")
+            
+
             if initial_qna and bot_type != BotTypeChoice.feedback_bot:
                 bot_att.initial_qnas = initial_qna
                 updated_fields.append("initial_qnas")
