@@ -583,7 +583,7 @@ class AccountsViewSet(ApiViewSet,
                     profile_type=created_profile.profile_type,
                     description=created_profile.about,
                     experience=created_profile.experience,
-                    favourite_simulation_codes=created_profile.favourite_simulation_codes,
+                    expertise=created_profile.area_domain,
                     status=StatusChoice.available,
                     skills=created_profile.hard_skill_areas,
                     is_visible= True,
@@ -777,6 +777,12 @@ class AccountsViewSet(ApiViewSet,
                 bot_att.feedback_questions = feedback_questions
                 updated_fields.append("feedback_questions")
 
+            email = data.get('email',None)
+            if email:
+                bot_att.coach_email = email
+                updated_fields.append("coach_email")
+            
+
             if initial_qna and bot_type != BotTypeChoice.feedback_bot:
                 bot_att.initial_qnas = initial_qna
                 updated_fields.append("initial_qnas")
@@ -847,26 +853,70 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
             
             updated_data = data.get("updated_data",None)
-            if updated_data:
-                # Update the instance with the new data
-                sig_bot_updates = updated_data['signature_bot']
-                bot_att_updates = updated_data['bot_attributes']
-                updated_fields = []
-                if sig_bot_updates:
-                    for key, value in sig_bot_updates.items():
-                        setattr(signature_bot, key, value)
-                        updated_fields.append(key)
-                    # Save the updated instance
-                    signature_bot.save(update_fields=updated_fields)
 
-                if bot_att_updates:
-                    updated_fields = []
-                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-                    for key, value in bot_att_updates.items():
-                        setattr(signature_bot, key, value)
-                        updated_fields.append(key)
-                    # Save the updated instance
-                    bot_att.save(update_fields=updated_fields)
+            if updated_data:
+                
+                additional_data = updated_data.get('additional_data')
+                profile_description = additional_data.get("profile_description",None)
+                bot_details = signature_bot.bot_details
+                bot_details['coach_name'] = updated_data.get("bot_name",None)
+                
+                
+                bot_data = signature_bot.data
+                if additional_data:
+                    if profile_description:
+                        bot_details['info'] = profile_description
+                    
+                    bot_data["additional_data"] = additional_data
+
+                signature_bot.bot_details = bot_details
+                signature_bot.data = bot_data
+                signature_bot.save(update_fields=["bot_details","bot_data"])
+
+                bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+                
+                fitment_answer = updated_data.get('fitment_answers',None)
+                email = updated_data.get("email",None)
+                updated_fields = []
+
+                if fitment_answer:
+                    bot_att.fitment_answers = fitment_answer.split(",")
+                    updated_fields.append("fitment_answers")
+                if email:
+                    bot_att.coach_email = email
+                    updated_fields.append("coach_email")
+
+                bot_att.coach_name = updated_data.get("bot_name",None)
+                updated_fields.append("coach_name")
+
+                feedback_questions = updated_data.get("feedback_questions",None)
+
+                if feedback_questions:
+                    bot_att.feedback_questions = feedback_questions
+                    updated_fields.append("feedback_questions")
+                
+                bot_att.save(update_fields=updated_fields)
+
+            # if updated_data:
+            #     # Update the instance with the new data
+            #     sig_bot_updates = updated_data.get('signature_bot',None)
+            #     bot_att_updates = updated_data.get('bot_attributes',None)
+            #     updated_fields = []
+            #     if sig_bot_updates:
+            #         for key, value in sig_bot_updates.items():
+            #             setattr(signature_bot, key, value)
+            #             updated_fields.append(key)
+            #         # Save the updated instance
+            #         signature_bot.save(update_fields=updated_fields)
+
+            #     if bot_att_updates:
+            #         updated_fields = []
+            #         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            #         for key, value in bot_att_updates.items():
+            #             setattr(signature_bot, key, value)
+            #             updated_fields.append(key)
+            #         # Save the updated instance
+            #         bot_att.save(update_fields=updated_fields)
                 
 
             return Response({"msg": "updated"}, status=status.HTTP_200_OK)

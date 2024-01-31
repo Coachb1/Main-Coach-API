@@ -690,7 +690,9 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
         BotAndUserMapping: The created or retrieved BotAndUserMapping object representing the mapping between the bot and the user.
     """
     bot_user = get_user_by_id(bot.user_id)
-    user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=user.uid,profile_type=ProfileTypeChoice.coachee)
+    logger.info(f"user_id: {user.uid}")
+    user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).first()
+    logger.info(f"bot_user_Id: {bot.user_id}")
     bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id,profile_type=ProfileTypeChoice.coach)
     user_email = user_profile.email or get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
     bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
