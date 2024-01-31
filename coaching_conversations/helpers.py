@@ -23,6 +23,7 @@ from utilities.models import BotQnA
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping
+from users.choices import ProfileTypeChoice
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                 if signature_bot.bot_type == 'avatar_bot':
                     try:
-                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=test_attempt_session.participant_id)
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id,profile_type=ProfileTypeChoice.coachee)
                         highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
@@ -197,7 +198,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                     )
                 elif signature_bot.bot_type == 'helper_bot':
                     try:
-                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=test_attempt_session.participant_id)
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id,profile_type=ProfileTypeChoice.coachee)
                         highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
@@ -484,7 +485,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+                personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee)
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -509,7 +510,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         elif bot_type == 'helper_bot':
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+                personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee)
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -689,8 +690,8 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
         BotAndUserMapping: The created or retrieved BotAndUserMapping object representing the mapping between the bot and the user.
     """
     bot_user = get_user_by_id(bot.user_id)
-    user_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=user.uid)
-    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=bot.user_id)
+    user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=user.uid,profile_type=ProfileTypeChoice.coachee)
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id,profile_type=ProfileTypeChoice.coach)
     user_email = user_profile.email or get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
     bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
     user_name = user_profile.name or user.name
