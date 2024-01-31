@@ -34,7 +34,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
     # Send email when is_approved is changed to True
     bot_id = instance.avatar_bot_id
-    signature_bot = SignatureBot.objects.get(bot_id=bot_id,bot_type="avatar_bot")
+    signature_bot = SignatureBot.objects.get(bot_id=bot_id)
     if instance.is_approved:
 
         subject = 'Your profile has been approved'
