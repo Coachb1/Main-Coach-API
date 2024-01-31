@@ -849,8 +849,8 @@ class AccountsViewSet(ApiViewSet,
             updated_data = data.get("updated_data",None)
             if updated_data:
                 # Update the instance with the new data
-                sig_bot_updates = updated_data['signature_bot']
-                bot_att_updates = updated_data['bot_attributes']
+                sig_bot_updates = updated_data.get('signature_bot',None)
+                bot_att_updates = updated_data.get('bot_attributes',None)
                 updated_fields = []
                 if sig_bot_updates:
                     for key, value in sig_bot_updates.items():
