@@ -794,8 +794,8 @@ class AccountsViewSet(ApiViewSet,
                     bot_url = f"{bot_base_url}/feedback/{bot_id}"
                 elif bot_type == BotTypeChoice.subject_matter_bot:
                     bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
-                if bot_type == BotTypeChoice.avatar_bot:
-                    bot_url = f"{bot_base_url}/helper/{bot_id}"
+                elif bot_type == BotTypeChoice.helper_bot:
+                    bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
 
                 bot_snippet = f"""
                             <div class="deep-chat-poc2" data-bot-id="{bot_id}">jiks</div>
