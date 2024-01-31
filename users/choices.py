@@ -5,6 +5,7 @@ class UserRoleChoice(DjangoChoices):
     admin = ChoiceItem("admin")
     member = ChoiceItem("member")
     client_admin = ChoiceItem("client_admin")
+    super_admin = ChoiceItem("super_admin")
 
 class StatusChoice(DjangoChoices):
     available = ChoiceItem("available")
