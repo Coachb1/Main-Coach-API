@@ -105,7 +105,7 @@ class DirectoryPageInfo(models.Model):
     profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)
     description = models.TextField()
     experience = models.CharField(max_length=255,default=None,null=True,blank=True)
-    favourite_simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
+    expertise = models.CharField(max_length=255,default=None,null=True,blank=True)
     status = models.CharField(max_length=255,null=True,blank=True,choices=StatusChoice,default=StatusChoice.available)
     avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default='avatar')
     feedback_wall = models.CharField(max_length=500,default=None,null=True,blank=True)
