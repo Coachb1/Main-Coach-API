@@ -19,10 +19,10 @@ class SessionNotesRecommendationsAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","avatar_snippit","feedback_wall", 'department','description','is_visible',"is_approved")
-    list_filter = ('profile_type','status','department','is_visible',"is_approved")
-    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","avatar_snippit","feedback_wall", 'department','description','is_visible',"is_approved")
+    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall", 'department','description','is_visible',"is_approved")
+    list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
+    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
+    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall", 'department','description','is_visible',"is_approved")
 
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
 admin.site.register(DirectoryPageInfo, DirectoryAdmin)
