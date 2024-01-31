@@ -68,7 +68,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         feed.save(update_fields=["is_approved"])
 
     try:
-        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=signature_bot.user_id)
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
         coach_profile.is_approved = is_approved
         coach_profile.save(update_fields=["is_approved"])
     except Exception as e:
