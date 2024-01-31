@@ -527,20 +527,20 @@ class AccountsViewSet(ApiViewSet,
             user_id = request.query_params.get('user_id',None)
             if user_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id)[0]
-                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_id)
+                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             if profile_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
                     return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             else:
-                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(is_approved=True)
+                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True)
                 profile_type = request.query_params.get('profile_type',None)
                 if profile_type:
                     profiles = profiles.filter(profile_type=profile_type)
@@ -548,7 +548,7 @@ class AccountsViewSet(ApiViewSet,
 
         if request.method == 'PATCH':
             profile_id = request.query_params.get('profile_id',None)
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=profile_id)
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
             data = request.data.copy()
             data['tenant_id'] = self.request.tenant.uid
             serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
@@ -560,6 +560,11 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
             data = request.data.copy()
             data['tenant_id'] = self.request.tenant.uid
+
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
+            if profile.count() > 0:
+                return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
+            
             serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             logger.info(f"serializer data: {serializer.validated_data}")
@@ -784,7 +789,7 @@ class AccountsViewSet(ApiViewSet,
             try: 
                 bot_url =''
                 if bot_type == BotTypeChoice.avatar_bot:
-                    bot_url = f"{bot_base_url}/{bot_id}"
+                    bot_url = f"{bot_base_url}/coach/{bot_id}"
                 elif bot_type == BotTypeChoice.feedback_bot:
                     bot_url = f"{bot_base_url}/feedback/{bot_id}"
                 elif bot_type == BotTypeChoice.subject_matter_bot:
