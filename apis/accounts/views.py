@@ -742,6 +742,12 @@ class AccountsViewSet(ApiViewSet,
                 }
             if fitment_details:
                 fitment_data = fitment_details
+
+            fitment_data["fitment_measures"] = {
+                                                "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.",
+                                                "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs.",
+                                                "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
+                                            }
             
             initial_qna = {"1": "Before we begin the session, hope you have checked the fitment. In any case, I would like to know more about you - as a person, your challenges, aspirations, and whatever you feel comfortable sharing.", "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.", "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?", "4": "Do you believe your solutions have worked so far? Why or why not?"}
             if initial_questions:
@@ -877,7 +883,7 @@ class AccountsViewSet(ApiViewSet,
 
                 signature_bot.bot_details = bot_details
                 signature_bot.data = bot_data
-                signature_bot.save(update_fields=["bot_details","bot_data"])
+                signature_bot.save(update_fields=["bot_details","data"])
 
                 bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 
