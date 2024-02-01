@@ -848,7 +848,7 @@ class AccountsViewSet(ApiViewSet,
         elif request.method == "PATCH":
             bot_id = data.get("bot_id",None)
             try:
-                signature_bot = SignatureBot.objects.get(id=bot_id)
+                signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
             except SignatureBot.DoesNotExist:
                 return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
             
