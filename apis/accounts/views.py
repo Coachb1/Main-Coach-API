@@ -277,16 +277,27 @@ class AccountsViewSet(ApiViewSet,
             Dictionary: A dictionary containing the library data grouped by domain. Each domain key maps to a list of test items, where each item contains the title, description, domain, test code, and interaction mode.
         """
         # test_codes = request.query_params.get('test_codes').split(',')
-        group_name = request.query_params.get('group')
-        tests = Test.objects.filter(deleted=0,client_name=group_name)
-        data = []
-        for item in tests:
-            title_parts = item.title.split(':')
-            key = title_parts[0].strip().capitalize()
-        
-            data.append({"title": item.title,"description": item.description, "domain": key,
-                            "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
+        group_name = request.query_params.get('group',None)
+        candidate_type = request.query_params.get('candidate_type',None)
+        if group_name:
+            tests = Test.objects.filter(deleted=0,client_name=group_name)
+            for item in tests:
+                title_parts = item.title.split(':')
+                key = title_parts[0].strip().capitalize()
+            
+                data.append({"title": item.title,"description": item.description, "domain": key,
+                                "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
 
+        if candidate_type:
+            tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,candidate_type=candidate_type.strip().lower())
+            for test in tests:
+                if test.area_domain:
+                    key = test.area_domain
+                    data.append({"title": item.title,"description": item.description, "domain": key,
+                                    "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
+
+        data = []
+        
         group_data = {}
         for item in data:
             domain = item['domain']
@@ -633,230 +644,244 @@ class AccountsViewSet(ApiViewSet,
         # print("Tenant: ",tenant, "T"*100)
 
         if request.method == 'POST':
-        
-            bot_type = data.get('bot_type')
-            if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
-                return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
-
-
-            participant_id = data.get('participant_id')
-            if participant_id is None or participant_id == '':
-                return Response({"error": "participant_id is required"},status=status.HTTP_400_BAD_REQUEST)
-
-            bot_name = data.get('bot_name')
-            if bot_name is None or bot_name == '':
-                return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
-
-            bot_id = "-".join([bot_type, participant_id[:5], bot_name])
-            existing_bots = SignatureBot.objects.filter(bot_id=bot_id)
-            if existing_bots.count() > 0:
-                return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
-
+            profile_id = data.get('profile_id',None)
             try:
-                user = User.objects.get(uid=participant_id)
-            except:
-                return Response({"error": "User not found"},status=status.HTTP_404_NOT_FOUND)
-            
-
-            bot_attributes = data.get('attributes')
-            if bot_attributes is None or bot_attributes == '':
-                return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
-            
-            feedback_questions = data.get("feedback_questions")
-            if bot_type == BotTypeChoice.feedback_bot:
-                if feedback_questions is None or feedback_questions == '':
-                    return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
-
-            fitment_answer = data.get('fitment_answer',None)
-            if bot_type == BotTypeChoice.avatar_bot:
-                if fitment_answer is None or fitment_answer == "":
-                    return Response({"error": "fitment_answer is required"},status=status.HTTP_400_BAD_REQUEST)
-                
-            bot_base_url = data.get('bot_base_url',None)
-            if not bot_base_url:
-                return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
-
-            faqs = data.get('faqs')
-            fitment_details = data.get('fitment_data',None)
-            initial_questions = data.get('initial_questions',None)
-            media_data = data.get('media_data')
-            bot_details = data.get('bot_details',{})
-            additional_data = data.get('additional_data')
-
-            bot_details["is_login_required"] = False
-            bot_details["is_strict_login_required"] = False
-            
-
-            all_data = {}
-
-            if additional_data:
-                all_data['additional_data'] = additional_data
-
-            print("################# media_data: ",media_data)
-
-            if media_data and bot_type != BotTypeChoice.feedback_bot:
-                if 'youtube_links' in media_data:
-                    youtube_links = media_data['youtube_links']
-                    youtube_links = [link.strip() for link in youtube_links.split(',')]
-
-                    print("################# youtube_links: ",youtube_links)
-
-                    #* save these links in bot attributes
-
-                    for link in youtube_links:
-                        if link != '':
-                            transcript_data = download_and_transcribe_audio(link)
-                            all_data[link] = transcript_data
-
-                # if 'pdf_links' in media_data:
-                #     pdf_links = media_data['pdf_links']
-                #     pdf_links = [link.strip() for link in pdf_links.split(',')]
-
-                #     #* save these links in bot attributes
-
-                #     for link in pdf_links:
-                #         transcript_data = extract_text_from_pdf(link)
-                #         all_data[link] = transcript_data
-
-
-            signature_bot = SignatureBot.objects.create(
-                bot_id=bot_id,
-                tenant_id=self.request.tenant.uid,
-                user_id=participant_id,
-                bot_type=bot_type,
-            )
-            bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
-                                                bot_id=signature_bot.uid,
-                                                bot_name=bot_name,
-                                                )
-            
-            # fitment_data= {"options": {"1": ["Weekly commitments", "Bi-weekly sessions", "Monthly sessions", "Ad Hoc / On demand", "Customized Structure"], "2": ["Career advancement", "Skill development", "Introspection & Reflection", "Industry insights", "Networking & Leadership"], "3": ["Technology", "Business Operations", "Industrial Operations", "Sales & Marketing", "HR & People Management"]}, "mentee_que": {"1": "How much time and commitment are you prepared to invest in a mentoring/coaching journey? Are there specific timelines or availability constraints you'd like your mentor/coach to consider?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to improve upon?"}, "mentor_que": {"1": "How much time are you willing to commit to mentoring/coaching? Are there specific times or days that work best for you, or any constraints you'd like a potential mentee to be aware of?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to contribute in?"}, "fitment_measures": {"mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership.", "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.", "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs."}}
-            fitment_data= {
-                  "options":{
-                  "1": ["Anyone above me","Same or up to two level below","Any level"],
-                  "2": ["Yes","No"],
-                  "3": ["Career advancement","Skill development", "Introspection & reflection", "Networking & leadership"]
-                  },
-                  "mentee_que": {"1": "What level of coach & mentor do you want?", "2": "I want a coach & mentor someone from the same department.", "3": "What kind of outcome do you want from these sessions the most?"},
-                  "mentor_que": {"1": "What level of participant do you want to coach & mentor?", "2": "I want to coach & mentor someone in the same department.", "3": "What kind of outcome can you support in these sessions the most?"}
-                }
-            if fitment_details:
-                fitment_data = fitment_details
-
-            fitment_data["fitment_measures"] = {
-                                                "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.",
-                                                "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs.",
-                                                "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
-                                            }
-            
-            initial_qna = {"1": "Before we begin the session, hope you have checked the fitment. In any case, I would like to know more about you - as a person, your challenges, aspirations, and whatever you feel comfortable sharing.", "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.", "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?", "4": "Do you believe your solutions have worked so far? Why or why not?"}
-            if initial_questions:
-                initial_qna = initial_questions
-            updated_fields = []
-            if bot_details:
-                signature_bot.bot_details = bot_details
-                updated_fields.append("bot_details")
-            else:
-                signature_bot.bot_details = {"info":bot_attributes['heading']}
-                updated_fields.append("bot_details")
-
-            if bot_attributes:
-                signature_bot.attributes = bot_attributes
-                updated_fields.append("attributes")
-
-            if faqs:
-                signature_bot.faqs = faqs
-                updated_fields.append("faqs")
-
-            if bot_type == BotTypeChoice.avatar_bot:
-                signature_bot.custom_prompt = avatar_bot_default_prompt()
-                updated_fields.append("custom_prompt")
-
-            if all_data:
-                signature_bot.data = all_data
-                updated_fields.append("data")
-
-            if updated_fields:
-                signature_bot.save(update_fields=updated_fields)
-
-            updated_fields = []
-            if fitment_answer and bot_type == BotTypeChoice.avatar_bot:
-                bot_att.fitment_answers = {"mentor_answer": fitment_answer.split(",")}
-                bot_att.fitment_data = fitment_data
-                updated_fields.extend(["fitment_answers","fitment_data"])
-
-            if feedback_questions:
-                bot_att.feedback_questions = feedback_questions
-                updated_fields.append("feedback_questions")
-
-            email = data.get('email',None)
-            if email:
-                bot_att.coach_email = email
-                updated_fields.append("coach_email")
-            
-
-            if initial_qna and bot_type != BotTypeChoice.feedback_bot:
-                bot_att.initial_qnas = initial_qna
-                updated_fields.append("initial_qnas")
-
-            
-            if updated_fields:
-                bot_att.save(update_fields=updated_fields)
-
-            # SAVING BOTURL AND bot_snippets
-            try: 
-                bot_url =''
-                if bot_type == BotTypeChoice.avatar_bot:
-                    bot_url = f"{bot_base_url}/coach/{bot_id}"
-                elif bot_type == BotTypeChoice.feedback_bot:
-                    bot_url = f"{bot_base_url}/feedback/{bot_id}"
-                elif bot_type == BotTypeChoice.subject_matter_bot:
-                    bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
-                elif bot_type == BotTypeChoice.helper_bot:
-                    bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
-
-                bot_snippet = f"""
-                            <div class="deep-chat-poc2" data-bot-id="{bot_id}">jiks</div>
-                            <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
-                                """
-                coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,user_id=participant_id)
-                coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
-                coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
-                snippet = coach_profile.bot_snippets
-                if snippet:
-                    snippet[bot_type] = bot_snippet
-                else:
-                    snippet = {f"{bot_type}": bot_snippet}
-                
-                coach_profile.bot_snippets = snippet
-
-                    
-
-                coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
-
-                if bot_type == BotTypeChoice.avatar_bot:
-                    directories = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
-                    for directory in directories:
-                        directory.avatar_bot_id = bot_id
-                        directory.avatar_snippit = bot_snippet
-                        directory.avatar_bot_url = bot_url
-                        directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
-
-                    
-                if bot_type == BotTypeChoice.feedback_bot:
-                    directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
-
-                    for direc in directory:
-                        direc.feedback_wall = bot_url
-                        direc.save(update_fields=['feedback_wall'])
-
-                
-            except Exception as e:
-                logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
-            
-
-            return Response({"bot_id":signature_bot.bot_id },status=status.HTTP_200_OK)
         
+                bot_type = data.get('bot_type')
+                if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
+                    return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
+                
+                if profile_id is None or profile_id == '':
+                    return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+
+                participant_id = data.get('participant_id')
+                if participant_id is None or participant_id == '':
+                    return Response({"error": "participant_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                bot_name = data.get('bot_name')
+                if bot_name is None or bot_name == '':
+                    return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                bot_id = "-".join([bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-")])
+                existing_bots = SignatureBot.objects.filter(bot_id=bot_id)
+                if existing_bots.count() > 0:
+                    return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    user = User.objects.get(uid=participant_id)
+                except:
+                    return Response({"error": "User not found"},status=status.HTTP_404_NOT_FOUND)
+                
+
+                bot_attributes = data.get('attributes')
+                if bot_attributes is None or bot_attributes == '':
+                    return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
+                
+                feedback_questions = data.get("feedback_questions")
+                if bot_type == BotTypeChoice.feedback_bot:
+                    if feedback_questions is None or feedback_questions == '':
+                        return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                fitment_answer = data.get('fitment_answer',None)
+                if bot_type == BotTypeChoice.avatar_bot:
+                    if fitment_answer is None or fitment_answer == "":
+                        return Response({"error": "fitment_answer is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                bot_base_url = data.get('bot_base_url',None)
+                if not bot_base_url:
+                    return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                faqs = data.get('faqs')
+                fitment_details = data.get('fitment_data',None)
+                initial_questions = data.get('initial_questions',None)
+                media_data = data.get('media_data')
+                bot_details = data.get('bot_details',{})
+                additional_data = data.get('additional_data')
+
+                bot_details["is_login_required"] = False
+                bot_details["is_strict_login_required"] = False
+                
+
+                all_data = {}
+
+                if additional_data:
+                    all_data['additional_data'] = additional_data
+
+                print("################# media_data: ",media_data)
+
+                if media_data and bot_type != BotTypeChoice.feedback_bot:
+                    if 'youtube_links' in media_data:
+                        youtube_links = media_data['youtube_links']
+                        youtube_links = [link.strip() for link in youtube_links.split(',')]
+
+                        print("################# youtube_links: ",youtube_links)
+
+                        #* save these links in bot attributes
+
+                        for link in youtube_links:
+                            if link != '':
+                                transcript_data = download_and_transcribe_audio(link)
+                                all_data[link] = transcript_data
+
+                    # if 'pdf_links' in media_data:
+                    #     pdf_links = media_data['pdf_links']
+                    #     pdf_links = [link.strip() for link in pdf_links.split(',')]
+
+                    #     #* save these links in bot attributes
+
+                    #     for link in pdf_links:
+                    #         transcript_data = extract_text_from_pdf(link)
+                    #         all_data[link] = transcript_data
+
+
+                signature_bot = SignatureBot.objects.create(
+                    bot_id=bot_id,
+                    tenant_id=self.request.tenant.uid,
+                    user_id=participant_id,
+                    bot_type=bot_type,
+                )
+                bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
+                                                    bot_id=signature_bot.uid,
+                                                    bot_name=bot_name,
+                                                    )
+                
+                # fitment_data= {"options": {"1": ["Weekly commitments", "Bi-weekly sessions", "Monthly sessions", "Ad Hoc / On demand", "Customized Structure"], "2": ["Career advancement", "Skill development", "Introspection & Reflection", "Industry insights", "Networking & Leadership"], "3": ["Technology", "Business Operations", "Industrial Operations", "Sales & Marketing", "HR & People Management"]}, "mentee_que": {"1": "How much time and commitment are you prepared to invest in a mentoring/coaching journey? Are there specific timelines or availability constraints you'd like your mentor/coach to consider?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to improve upon?"}, "mentor_que": {"1": "How much time are you willing to commit to mentoring/coaching? Are there specific times or days that work best for you, or any constraints you'd like a potential mentee to be aware of?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to contribute in?"}, "fitment_measures": {"mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership.", "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.", "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs."}}
+                fitment_data= {
+                    "options":{
+                    "1": ["Anyone above me","Same or up to two level below","Any level"],
+                    "2": ["Yes","No"],
+                    "3": ["Career advancement","Skill development", "Introspection & reflection", "Networking & leadership"]
+                    },
+                    "mentee_que": {"1": "What level of coach & mentor do you want?", "2": "I want a coach & mentor someone from the same department.", "3": "What kind of outcome do you want from these sessions the most?"},
+                    "mentor_que": {"1": "What level of participant do you want to coach & mentor?", "2": "I want to coach & mentor someone in the same department.", "3": "What kind of outcome can you support in these sessions the most?"}
+                    }
+                if fitment_details:
+                    fitment_data = fitment_details
+
+                fitment_data["fitment_measures"] = {
+                                                    "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.",
+                                                    "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs.",
+                                                    "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
+                                                }
+                
+                initial_qna = {"1": "Before we begin the session, hope you have checked the fitment. In any case, I would like to know more about you - as a person, your challenges, aspirations, and whatever you feel comfortable sharing.", "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.", "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?", "4": "Do you believe your solutions have worked so far? Why or why not?"}
+                if initial_questions:
+                    initial_qna = initial_questions
+                updated_fields = []
+                if bot_details:
+                    signature_bot.bot_details = bot_details
+                    updated_fields.append("bot_details")
+                else:
+                    signature_bot.bot_details = {"info":bot_attributes['heading']}
+                    updated_fields.append("bot_details")
+
+                if bot_attributes:
+                    signature_bot.attributes = bot_attributes
+                    updated_fields.append("attributes")
+
+                if faqs:
+                    signature_bot.faqs = faqs
+                    updated_fields.append("faqs")
+
+                if bot_type == BotTypeChoice.avatar_bot:
+                    signature_bot.custom_prompt = avatar_bot_default_prompt()
+                    updated_fields.append("custom_prompt")
+
+                if all_data:
+                    signature_bot.data = all_data
+                    updated_fields.append("data")
+
+                if updated_fields:
+                    signature_bot.save(update_fields=updated_fields)
+
+                updated_fields = []
+                if fitment_answer and bot_type == BotTypeChoice.avatar_bot:
+                    bot_att.fitment_answers = {"mentor_answer": fitment_answer.split(",")}
+                    bot_att.fitment_data = fitment_data
+                    updated_fields.extend(["fitment_answers","fitment_data"])
+
+                if feedback_questions:
+                    bot_att.feedback_questions = feedback_questions
+                    updated_fields.append("feedback_questions")
+
+                email = data.get('email',None)
+                if email:
+                    bot_att.coach_email = email
+                    updated_fields.append("coach_email")
+                
+
+                if initial_qna and bot_type != BotTypeChoice.feedback_bot:
+                    bot_att.initial_qnas = initial_qna
+                    updated_fields.append("initial_qnas")
+
+                
+                if updated_fields:
+                    bot_att.save(update_fields=updated_fields)
+
+                # SAVING BOTURL AND bot_snippets
+                try: 
+                    bot_url =''
+                    if bot_type == BotTypeChoice.avatar_bot:
+                        bot_url = f"{bot_base_url}/coach/{bot_id}"
+                    elif bot_type == BotTypeChoice.feedback_bot:
+                        bot_url = f"{bot_base_url}/feedback/{bot_id}"
+                    elif bot_type == BotTypeChoice.subject_matter_bot:
+                        bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
+                    elif bot_type == BotTypeChoice.helper_bot:
+                        bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
+
+                    bot_snippet = f"""
+                                <div class="deep-chat-poc2" data-bot-id="{bot_id}">jiks</div>
+                                <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
+                                    """
+                    coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                    coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
+                    coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
+                    snippet = coach_profile.bot_snippets
+                    if snippet:
+                        snippet[bot_type] = bot_snippet
+                    else:
+                        snippet = {f"{bot_type}": bot_snippet}
+                    
+                    coach_profile.bot_snippets = snippet
+
+                        
+
+                    coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
+
+                    if bot_type == BotTypeChoice.avatar_bot:
+                        directories = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
+                        for directory in directories:
+                            directory.avatar_bot_id = bot_id
+                            directory.avatar_snippit = bot_snippet
+                            directory.avatar_bot_url = bot_url
+                            directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+
+                        
+                    if bot_type == BotTypeChoice.feedback_bot:
+                        directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
+
+                        for direc in directory:
+                            direc.feedback_wall = bot_url
+                            direc.save(update_fields=['feedback_wall'])
+
+                    
+                except Exception as e:
+                    logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
+                
+                return Response({"bot_id":signature_bot.bot_id },status=status.HTTP_200_OK)
+            
+            except Exception as e:
+                logger.exception("Got error while creating bot: {e}")
+                coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                coach_profile.deleted = True
+                coach_profile.save(update_fields=["deleted"])
+                DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
+
+                return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
+
+            
         elif request.method == "PATCH":
             bot_id = data.get("bot_id",None)
             try:
