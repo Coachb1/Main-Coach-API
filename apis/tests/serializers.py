@@ -113,6 +113,7 @@ class CreateTestSerializer(serializers.Serializer):
     bot_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     creator_user_id = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     competency_group = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    area_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -182,7 +183,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "articles",
                   "bot_name",
                   "creator_user_id",
-                  "competency_group"
+                  "competency_group",
+                  "area_domain",
                   ]
 
     def get_questions(self, instance):
