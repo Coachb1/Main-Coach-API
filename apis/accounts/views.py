@@ -424,6 +424,12 @@ class AccountsViewSet(ApiViewSet,
                         "is_demo_user": demo_user
                     })
 
+                if len(user_info) == 0:
+                    user_info.append({"msg": "user not found",
+                                      "is_restricted": True,
+                                      "is_demo_user": False},
+                                      )
+
                 data['user_info'] = user_info
 
             return Response({"data":data },status=status.HTTP_200_OK)
