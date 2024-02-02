@@ -279,6 +279,7 @@ class AccountsViewSet(ApiViewSet,
         # test_codes = request.query_params.get('test_codes').split(',')
         group_name = request.query_params.get('group',None)
         candidate_type = request.query_params.get('candidate_type',None)
+        data = []
         if group_name:
             tests = Test.objects.filter(deleted=0,client_name=group_name)
             for item in tests:
@@ -296,7 +297,6 @@ class AccountsViewSet(ApiViewSet,
                     data.append({"title": item.title,"description": item.description, "domain": key,
                                     "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
 
-        data = []
         
         group_data = {}
         for item in data:
