@@ -40,7 +40,7 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
 @timeit
 def gpt3_completion(prompt,
                     stop,
-                    engine='text-davinci-003',
+                    engine='gpt-3.5-turbo-instruct',
                     temp=0,
                     top_p=1.0,
                     max_tokens=4000,
