@@ -226,23 +226,24 @@ def initialize_coaching_conversation(tenant: Tenant,
                                     google_search = ""  # TODO: Add functionality for extacting googlesearch result
                                 )
                     
-                elif signature_bot.bot_type == 'subject_matter_bot':
-                    bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
-                    faqs = bot_att.attached_faqs_context
-                    faqs_text = ""
-                    for que, ans in faqs.items():
-                        faqs_text += f"Question: {que} Answer: {ans}\n"
+                # elif signature_bot.bot_type == 'subject_matter_bot':
+                #     bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
+                #     faqs = bot_att.attached_faqs_context
+                #     faqs_text = ""
+                #     for que, ans in faqs.items():
+                #         faqs_text += f"Question: {que} Answer: {ans}\n"
 
-                    custom_prompt = Template(custom_prompt).substitute(
-                                    conversation_history = initial_que_ans,
-                                    articles = coach_info + " General FAQs: " + faqs_text,
-                                    google_search = ""  # TODO: Add functionality for extacting googlesearch result
-                                )
+                    # custom_prompt = Template(custom_prompt).substitute(
+                    #                 conversation_history = initial_que_ans,
+                    #                 articles = coach_info + " General FAQs: " + faqs_text,
+                    #                 google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                    #             )
 
 
                 
                 logger.info(f"signature  bot prompt  {custom_prompt}")
-                signature_bot_question = anthropic_completion(custom_prompt,50000)
+                if signature_bot.bot_type != 'subject_matter_bot':
+                    signature_bot_question = anthropic_completion(custom_prompt,50000)
 
 
     next_conversation = CoachingConversation.objects.create(
