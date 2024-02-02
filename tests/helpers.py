@@ -2150,11 +2150,17 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         if is_whatsapp:
             bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
         else:
-            bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
+            # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
+            if i == 0:
+                bot_llm_response_text = anthropic_completion(prompt, 300)
+            elif i == 1:
+                bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+            else:
+                bot_llm_response_text = text_bison_compeletion(prompt)
 
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
-            if previous_bot_response:
+            if previous_bot_response and previous_bot_response.response_text:
                 current_and_previous_question_similarity = max(current_and_previous_question_similarity,calculate_similarity(previous_bot_response.response_text, bot_llm_response_text))
                 if current_and_previous_question_similarity > 80:
                     break
