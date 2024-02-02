@@ -801,9 +801,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
             data= {}
             user_id = request.query_params.get('user_id')
             bot_id = request.query_params.get('bot_id')
+            logger.info({"user_id, bot_id": f"{user_id}, {bot_id}"})
             fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=bot_id, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"})
+            
             fitment_data = []
             for qna in fitment_qnas:
+                logger.info({"fitment================================================>": qna})
                 fitment_data.append({
                     "qna": qna.participant_qna,
                     "score": qna.fitment_score

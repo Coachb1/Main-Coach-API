@@ -861,19 +861,19 @@ class TestViewSet(ApiViewSet,
 
         try:
             tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
-            test_dict = defaultdict(list)
+            test_dict = defaultdict(lambda: defaultdict(list))
 
-            # Organizing tests into the dictionary
+            # Organizing tests into the nested dictionary
             for test in tests:
                 if test.tab_category:
                     tab_category = test.tab_category
-                    test_dict[tab_category].append({
+                    area_domain = test.area_domain
+                    test_dict[tab_category][area_domain].append({
                         "title": test.title,
-                        "descripton": test.description,
+                        "description": test.description,
                         "test_code": test.test_code,
                         "test_type": test.test_type
                     })
-
             # Converting defaultdict to a regular dictionary
             test_dict = dict(test_dict)
             return Response(test_dict, status=status.HTTP_200_OK)
