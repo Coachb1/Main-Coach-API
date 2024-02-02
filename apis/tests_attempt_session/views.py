@@ -802,7 +802,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_id = request.query_params.get('user_id')
             bot_id = request.query_params.get('bot_id')
             logger.info({"user_id, bot_id": f"{user_id}, {bot_id}"})
-            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=bot_id, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant.uid,bot_id=bot_id)
+            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
             logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"})
             
             fitment_data = []
