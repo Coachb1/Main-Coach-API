@@ -75,6 +75,8 @@ class Test(TenantAwareModel):
     bot_name = models.CharField(max_length=255, null=True, blank=True, default=None)
     competency_group = models.CharField(max_length=255, null=True, blank=True, default=None)
     creator_user_id = models.CharField(max_length=255, null=True, blank=True, default=None)
+    area_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test"
