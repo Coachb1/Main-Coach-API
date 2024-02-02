@@ -1031,7 +1031,7 @@ class AccountsViewSet(ApiViewSet,
     def get_directory_informations(self,request,*args, **kwargs):
 
         try:
-            directories = DirectoryPageInfo.objects.filter(is_visible=True)
+            directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
             serializer = DirectoryInfoSErializer(directories,many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
