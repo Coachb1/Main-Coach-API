@@ -163,7 +163,8 @@ def create_test(tenant: Tenant,
                 bot_name:str,
                 creator_user_id:str,
                 competency_group: str,
-                area_domain:str) -> tuple[Test, list[TestQuestion]]:
+                area_domain:str,
+                tab_category:str) -> tuple[Test, list[TestQuestion]]:
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -222,6 +223,7 @@ def create_test(tenant: Tenant,
             creator_user_id=creator_user_id,
             competency_group=competency_group,
             area_domain=area_domain,
+            tab_category=tab_category,
         )
 
         test_questions = []

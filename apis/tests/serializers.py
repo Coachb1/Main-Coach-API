@@ -114,6 +114,7 @@ class CreateTestSerializer(serializers.Serializer):
     creator_user_id = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     competency_group = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     area_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -185,6 +186,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "creator_user_id",
                   "competency_group",
                   "area_domain",
+                  "tab_category",
                   ]
 
     def get_questions(self, instance):

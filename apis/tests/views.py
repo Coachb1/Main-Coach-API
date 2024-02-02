@@ -34,6 +34,8 @@ from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by
 from skills.helpers import json_extraction
 from commons.langchain import download_and_transcribe_audio
 import json
+from collections import defaultdict
+
 
 import logging
 
@@ -853,3 +855,29 @@ class TestViewSet(ApiViewSet,
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
+    def get_tests_by_tab_category(self,request,*args, **kwargs):
+
+        try:
+            tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
+            test_dict = defaultdict(list)
+
+            # Organizing tests into the dictionary
+            for test in tests:
+                if test.tab_category:
+                    tab_category = test.tab_category
+                    test_dict[tab_category].append({
+                        "title": test.title,
+                        "descripton": test.description,
+                        "test_code": test.test_code,
+                        "test_type": test.test_type
+                    })
+
+            # Converting defaultdict to a regular dictionary
+            test_dict = dict(test_dict)
+            return Response(test_dict, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.exception({"got error in get-tests-by-tab-category api": e})
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
