@@ -41,3 +41,15 @@ class CustomRating(TenantAwareModel):
         unique_together = (
             ('tenant_id', 'deleted'),
         )
+
+
+class CharacteristicsAndPrompts(TenantAwareModel):
+    name = models.CharField(max_length=255)
+    positive_prompt = models.TextField()
+    negitive_prompt = models.TextField()
+
+    class Meta:
+        db_table = 'characteristics_and_prompts'
+        unique_together = (
+            ('uid', 'deleted','tenant_id','name'),
+        )

@@ -5,6 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 import pytz
 import datetime
+import json
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
@@ -23,16 +24,62 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
                             get_next_mcq_question_options_prompt, get_last_mcq_question_options_promt, extract_mcq_options_from_response)
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
-from email_sender.helpers import send_feedbackd_email
-from users.models import UserAttribute
+from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email,send_feedback_conversation_email
+from users.models import UserAttribute, SignatureBot, BotAttribute
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
+
+from coaching_conversations.models import CoachingConversation
+
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
+from coaching_conversations.helpers import get_bot_conversation_data_user
+from skills.helpers import json_extraction
+from utilities.models import UserActionInfo, BotQnA
+
+
+
 logger = logging.getLogger(__name__)
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
                                 mixins.ListModelMixin,
                                 mixins.RetrieveModelMixin):
+    """
+    This class represents a viewset for handling API requests related to test attempt sessions.
+
+    Summary:
+        This viewset provides methods for creating test attempt sessions, retrieving test reports, getting session details, and performing various actions related to test sessions.
+
+    Methods:
+        - get_queryset(): Returns the queryset for retrieving test attempt sessions, filtered by tenant ID.
+        - create(): Creates a new test attempt session based on the provided data.
+        - get_test_report(): Retrieves the test report for a specific test attempt session.
+        - get_test_report_frontend(): Retrieves the test report data for a specific test attempt session, formatted for frontend display.
+        - get_meeting_report_frontend(): Retrieves the meeting report data for a specific test attempt session, formatted for frontend display.
+        - get_session_uid(): Retrieves the UID of the latest test attempt session for a given participant and test ID.
+        - get_skills_tracker_report_data(): Retrieves the skills tracker report data for a specific participant.
+        - cancel_prev_sessions(): Cancels all in-progress test attempt sessions for a given participant.
+        - get_past_completed_interactions(): Retrieves a list of past completed interactions for a given participant.
+        - get_session_status(): Retrieves the status of a specific test attempt session.
+        - get_list(): Retrieves a list of attempted tests for a given participant.
+        - submit_feedback(): Submits feedback for a specific test attempt session.
+        - send_report_email(): Sends a test report email for a specific test attempt session.
+        - set_name_email(): Sets the name and email for a participant.
+        - check_session_data_exist(): Checks if session data exists for a specific test attempt session.
+        - get_next_mcq_question_options(): Retrieves the next multiple-choice question options for a specific test attempt session.
+        - send_bot_transcript_email(): Sends a bot transcript email for a specific test attempt session.
+        - save_session_notes(): Saves or retrieves session notes for a user in a specific context.
+        - get_or_update_session_notes(): Retrieves or updates session notes data.
+
+    Fields:
+        - queryset: The queryset for retrieving test attempt sessions, filtered by deleted status.
+        - serializer_class: The serializer class for serializing/deserializing test attempt session data.
+        - permission_classes: The permission classes for controlling access to the API endpoints.
+        - filter_backends: The filter backends for filtering test attempt sessions based on specific fields.
+        - filterset_fields: The fields to be used for filtering test attempt sessions.
+        - ordering_fields: The fields to be used for ordering test attempt sessions.
+        - lookup_field: The field to be used for looking up test attempt sessions.
+    """
     queryset = TestAttemptSession.objects.filter(deleted=0)
     serializer_class = TestAttemptSessionSerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
@@ -51,12 +98,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_id = serializer.validated_data["test_id"]
         participant_id = serializer.validated_data["participant_id"]
         test_invite_id = serializer.validated_data.get("test_invite_id")
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+
+        print("is_signature_bot =========>", is_signature_bot)
 
         session = create_test_question_answer_session(
             tenant=request.tenant,
             test_id=test_id,
             test_invite_id=test_invite_id,
-            participant_id=participant_id
+            participant_id=participant_id,
+            is_signature_bot=is_signature_bot
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
@@ -382,8 +433,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_attribute = UserAttribute.objects.get(
                                     user_id=participant_id)
 
-            user.name = name
-            user.save(update_fields=['name'])
+            if name is not None and name != "":
+                user.name = name
+                user.save(update_fields=['name'])
 
             if 'profile' not in user_attribute.attributes:
                 user_attribute.attributes['profile'] = {}
@@ -467,3 +519,323 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 break
 
         return Response({"options_data":options_data}, status=status.HTTP_200_OK)
+
+
+
+    @action(methods=['GET'],detail=False,url_path="send-bot-transcript-email")
+    def send_bot_transcript_email(self,request, *args, **kwargs):
+        test_attempt_session_id = request.query_params.get('test_attempt_session_id')
+        submitted_email = request.query_params.get('submitted_email')
+
+        logger.info({"message":"##################################### Request Received for sending bot transcript email #####################################",
+                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email})
+
+        try:
+            test_attempt_session = TestAttemptSession.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
+        bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
+
+        # previous_conversations = CoachingConversation.objects.filter(
+        # tenant_id=self.request.tenant.uid,
+        # test_attempt_session_id=test_attempt_session.uid,
+        # deleted=0
+        #     ).order_by(
+        #         "id"
+        #     ).values(
+        #         "participant_message_text",
+        #         "coach_message_text",
+        #     )
+        
+        participant_id = test_attempt_session.participant_id
+        candidate_name = f"""{get_user_display_name(
+            get_user_by_id(participant_id)).capitalize()} {user_email}"""
+        tenant = self.request.tenant
+        save_user_action_info(tenant,participant_id,"transcript_email_sent") # saving action point
+        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_recieved")
+
+        # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
+        sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+        conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+        conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+
+        for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+            send_bot_conversation_email(candidate_name, conv, email)
+
+        return Response({"status": "sent"}, status=status.HTTP_200_OK)
+
+    @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
+    def send_feedback_transcript_email(self,request, *args, **kwargs):
+        tenant = self.request.tenant
+        bot_id = request.query_params.get('bot_id')
+        conversation = request.query_params.get('conversation')
+        type_of_email = request.query_params.get('type_of_email')
+        user_email = request.query_params.get('user_email')
+
+        print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
+
+        try:
+            user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
+            save_user_action_info(tenant,user_id,"feedback_recieved")
+            bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
+
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+        conv = []
+        if  type_of_email == 'feedback_conv':
+            conversation = json.loads(conversation)
+            for key, value in conversation.items():
+                conv.append({
+                    "question": key,
+                    "answer": value
+                })
+
+        for email in [bot_owner_email,"info@coachbots.com"]:
+            send_feedback_conversation_email(user_email,conv,email,type_of_email)
+
+
+
+
+
+
+
+        return Response({'status': 'sent'}, status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False,url_path="save_session_notes")
+    def save_session_notes(self,request, *args, **kwargs):
+        """
+        Save or retrieve session notes for a user in a specific context.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
+            context (str): The context in which the session notes are being saved/retrieved.
+            mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
+            mode (str): The mode of operation, either 'mentor' or 'mentee'.
+        
+        Returns:
+            Response: The response containing the saved or retrieved session notes data.
+        """
+        try:
+            tenant_id = self.request.tenant.uid
+            user_id = request.query_params.get('user_id')
+            context = request.query_params.get('context')
+            mentor_id = request.query_params.get('mentor_id')
+            mode = request.query_params.get('for')
+            access_token = request.query_params.get('token', None)
+            logger.info(f"************************** details: {mode}, userid: {user_id}, mentor_id; {mentor_id} \nQueryparams: {request.query_params}")
+
+            if mode == 'mentor':
+                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                logger.info(f"######################################## save_session_notes data: {data} \nErrors : {errors}")
+                if "error" in errors:
+                    return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            elif mode == 'mentee':
+                data = get_session_notes(user_id,mentor_id)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"details": 'for parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f'save_session_notes erro , {e}',exc_info=True)
+            return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False,url_path="get_or_update_session_notes")
+    def get_or_update_session_notes(self,request, *args, **kwargs):
+        try:
+            tenant_id = self.request.tenant.uid
+            mode = request.query_params.get('mode',None)
+            session_note_id = request.query_params.get('session_note_id',None)
+            recommendations = request.query_params.get('recommendations',None)
+
+            if mode == 'get':
+                data = get_session_notes_data(tenant_id)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            elif mode == 'update':
+                if not recommendations or not session_note_id:
+                    return Response({"Error": "recommendations or session_note_id not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+                data = update_session_notes(session_note_id,recommendations)
+                return Response({"data":data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"details": 'Mode parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f'get_or_update_session_notes error , {e}',exc_info=True)
+            return Response({"Error":e}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    @action(methods=['POST'],detail=False,url_path="get-fitness-analysis-score")
+    def get_fitness_analysis_score(self,request, *args, **kwargs):
+
+        # try:
+        #     logger.info(f"fitness analysis score request: {request.data}")
+        #     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
+        #     coach_data = signature_bot.data
+        #     fitness_analysis_data = json.loads(request.data['fitness_analysis_data'])
+        #     fitness_analysis_score = get_fitness_analysis_score(coach_data,fitness_analysis_data)
+        #     fitness_analysis_score = json_extraction(fitness_analysis_score)
+        #     logger.info(f"fitness_analysis_score: {fitness_analysis_score}")
+        #     return Response({"data":json.loads(fitness_analysis_score)}, status=status.HTTP_200_OK)
+            
+        # except Exception as e:
+        #     logger.error(f'get_fitness_analysis_score error , {e}',exc_info=True)
+        #     return Response({"Error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            logger.info(f"fitness analysis score request: {request.data}")
+            bot_id = request.data.get("bot_id")
+            user_response = request.data.get("fitness_analysis_data",None)
+            participant_id = request.data.get("participant_id",None)
+            logger.info(f"{bot_id},{self.request.tenant.uid}")
+
+            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=bot_id)
+            bot_att = BotAttribute.objects.get(tenant_id=self.request.tenant.uid, bot_id=signature_bot.uid)
+            mentor_answers = bot_att.fitment_answers['mentor_answer']
+            fitment_measures = bot_att.fitment_data['fitment_measures']
+            user_answers = (json.loads(user_response).values())
+            user_answers = [v['cochee'] for v in user_answers]
+
+            count_matching_answers = sum(1 for ua, ma in zip(user_answers, mentor_answers) if ua.strip().lower() == ma.strip().lower())
+
+            total_answers = len(user_answers)  # Assuming both lists are of the same length
+
+            # Calculate the percentage of matching answers
+            matching_percentage = (count_matching_answers / total_answers) * 100
+            print(count_matching_answers,matching_percentage)
+
+            # Define the thresholds for bottom, middle, and top thirds
+            bottom_threshold = 34
+            top_threshold = 67
+
+            msg = ''
+            score = {}
+            # Classify based on percentage
+            if matching_percentage < bottom_threshold:
+                msg = fitment_measures['bottom']
+                score['bottom'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
+            elif bottom_threshold <= matching_percentage < top_threshold:
+                msg = fitment_measures['mid']
+                score['mid'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
+            else:
+                msg = fitment_measures['top']
+                score['top'] = msg
+                score['msg'] = msg
+                score['score'] = count_matching_answers
+
+            # saving fitemtn qna and scores
+            BotQnA.objects.create(
+                tenant_id = self.request.tenant.uid,
+                bot_id = signature_bot.uid,
+                participant_id = participant_id,
+                participant_qna = json.loads(user_response),
+                qna_type = 'fitment',
+                fitment_score = score
+            )        
+
+            return Response(score, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    @action(methods=['GET'],detail=False,url_path="get-or-save-action-point")
+    def get_or_save_action_point(self,request, *args, **kwargs):
+        try:
+            mode = request.query_params.get('mode',None)
+            tenant = self.request.tenant
+            data = {}
+            if mode == 'get':
+                user_id = request.query_params.get('user_id',None)
+                try:
+                    action_info = UserActionInfo.objects.get(tenant_id= tenant.uid,user_id = user_id)
+                except:
+                    return Response({"msg": 'Action info not found'},status=status.HTTP_400_BAD_REQUEST)
+                action_data = {
+                    "feedback_given" : action_info.feedback_given,
+                    "feedback_recieved": action_info.feedback_recieved,
+                    "chat_attempted": action_info.chat_attempted,
+                    "transcript_email_recieved": action_info.transcript_email_recieved,
+                    "transcript_email_sent": action_info.transcript_email_sent,
+                    "interaction_attempted": action_info.interaction_attempted,
+                }
+                data['action_points'] = action_data
+
+            elif mode == "save":
+                user_id = request.query_params.get('user_id',None)
+                for_ = request.query_params.get('for',None)
+                save_user_action_info(tenant,user_id,for_)
+
+                data['message'] = "Action point increased."
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False,url_path="get-fitment-analysis-by-user")
+    def get_fitment_analysis_by_user(self,request, *args, **kwargs):
+
+        try:
+            tenant = self.request.tenant
+            data= {}
+            user_id = request.query_params.get('user_id')
+            bot_id = request.query_params.get('bot_id')
+            logger.info({"user_id, bot_id": f"{user_id}, {bot_id}"})
+            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant.uid,bot_id=bot_id)
+            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"})
+            
+            fitment_data = []
+            for qna in fitment_qnas:
+                logger.info({"fitment================================================>": qna})
+                fitment_data.append({
+                    "qna": qna.participant_qna,
+                    "score": qna.fitment_score
+                })
+
+            data['fitment_data'] = fitment_data
+
+            if len(fitment_data) == 0:
+                data['proceed'] = False
+            elif fitment_qnas.count() > 0:
+                fitment_scores = fitment_qnas[0].fitment_score
+                score = fitment_scores['score'] if 'score' in fitment_scores else 0
+                # score_key = fitment_scores.keys()
+                # if 'top' in score_key or 'mid' in score_key:
+                #     data['proceed'] = True
+                # else:
+                #     data["proceed"] = False
+                
+                if score >= 2:
+                    data['proceed'] = True
+                else: 
+                    data['proceed'] = False
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+

@@ -77,6 +77,11 @@ TEST_NARRATION = 'Test Narration'
 ANSWER = 'Correct answer'
 IS_TRANSCRIPT_ONLY = "Is Transcript Only"
 IS_PITCH = "is_pitch"
+CURRENT_NEWS = 'Current news'
+BOT_NAME = "Bot Name"
+USER_ID = "User ID" 
+AREA_DOMAIN = "Area/Domain"
+TAB_CATEGORY = "Tab Category"
 
 def format_test_orchestrated_conversation(raw_data):
     try:
@@ -146,6 +151,23 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
 
+        if BOT_NAME in input_dict:
+            if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
+                output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if TAB_CATEGORY in input_dict:
+            if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
+                output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
+
+        if AREA_DOMAIN in input_dict:
+            if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
+                output_dict['area_domain'] = input_dict[AREA_DOMAIN].strip().capitalize()
+        else:
+            domain_title = input_dict.get(TITLE).split(":")
+            if len(domain_title) > 1:
+                output_dict['area_domain'] = domain_title[0].strip().capitalize()
+
+
         if TED_TALK_AND_HBR_CASE in input_dict:
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
                 output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
@@ -214,14 +236,25 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_logged_in'] = False
         
         
+        if CURRENT_NEWS in input_dict:
+            if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
+                output_dict['articles'] = input_dict.get(CURRENT_NEWS,None)
+
         if IMAGE_URL in input_dict:
-            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+            if input_dict[IMAGE_URL] and len(input_dict[IMAGE_URL].strip()) > 0:
+                output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
 
         if SOURCE in input_dict :
-            output_dict['source'] = input_dict.get(SOURCE,None)
+            if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
+                output_dict['source'] = input_dict.get(SOURCE,None)
+
+        if USER_ID in input_dict :
+            if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
+                output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
         
         if RATINGS in input_dict:
-            output_dict['rating'] = input_dict.get(RATINGS,None)
+            if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
+                output_dict['rating'] = input_dict.get(RATINGS,None)
 
         bot_count = sum(1 for key in input_dict.keys()
                         if key.startswith('Person'))
@@ -590,15 +623,42 @@ def format_test_data_slack(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+
+        if BOT_NAME in input_dict:
+            if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
+                output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if AREA_DOMAIN in input_dict:
+            if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
+                output_dict['area_domain'] = input_dict[AREA_DOMAIN].strip().capitalize()
+        else:
+            domain_title = input_dict.get(TITLE).split(":")
+            if len(domain_title) > 1:
+                output_dict['area_domain'] = domain_title[0].strip().capitalize()
+
+        if TAB_CATEGORY in input_dict:
+            if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
+                output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
         
+        if CURRENT_NEWS in input_dict:
+            if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
+                output_dict['articles'] = input_dict.get(CURRENT_NEWS,None)
+
         if IMAGE_URL in input_dict:
-            output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
+            if input_dict[IMAGE_URL] and len(input_dict[IMAGE_URL].strip()) > 0:
+                output_dict['image_url'] = input_dict.get(IMAGE_URL,None)
 
         if SOURCE in input_dict :
-            output_dict['source'] = input_dict.get(SOURCE,None)
+            if input_dict[SOURCE] and len(input_dict[SOURCE].strip()) > 0:
+                output_dict['source'] = input_dict.get(SOURCE,None)
+
+        if USER_ID in input_dict :
+            if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
+                output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
         
         if RATINGS in input_dict:
-            output_dict['rating'] = input_dict.get(RATINGS,None)
+            if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
+                output_dict['rating'] = input_dict.get(RATINGS,None)
 
         test_type = input_dict[TEST_TYPE].strip().lower()
 

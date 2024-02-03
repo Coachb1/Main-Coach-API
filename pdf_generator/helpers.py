@@ -21,6 +21,7 @@ from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
 import re
+from skills.helpers import get_competency_prompt_or_output
 
 import matplotlib
 matplotlib.use('Agg')
@@ -134,56 +135,14 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     feedback_summary = test_attempt_session.feedback_summary
     skill_summary = test_attempt_session.culture_and_skill_summary
     competency_report_data = {}
-    competency_skills = {
-        "communication skills": {
-            "individual contributor": {
-            "description": "Communicates in a clear, concise, and impartial manner. Takes time to listen to and understand the perspectives of others and proposes solutions."
-            },
-            "middle manager": {
-            "description": "Encourages open communication and builds consensus. Uses tact and discretion in dealing with sensitive information, and keeps staff informed of decisions and directives as appropriate."
-            },
-            "senior leadership": {
-            "description": "Promotes an environment of open communication within and outside of the Agency, ensuring that sensitive information is protected. Inspires staff at all levels through his/her communication."
-            }
-        },
-        "teamwork": {
-            "individual contributor": {
-            "description": "Actively contributes to achieving team results. Supports team decisions. Shares all relevant information with others and seeks others' input. Expresses own opinion while remaining factual and respectful."
-            },
-            "middle manager": {
-            "description": "Encourages teamwork, builds effective teams, and resolves problems by creating a supportive and collaborative team spirit. Remains mindful of the need to collaborate with people outside the immediate area of responsibility."
-            },
-            "senior leadership": {
-            "description": "Motivates and empowers staff, and fosters a collaborative approach across the Department/Division and the Agency as a whole. Acts as a role model when handling disagreements."
-            }
-        },
-        "planning and organizing": {
-            "individual contributor": {
-            "description": "Plans and organizes his/her own work in support of achieving the team or Section’s priorities. Takes into account potential changes and proposes contingency plans."
-            },
-            "middle manager": {
-            "description": "Sets clearly defined objectives for himself/herself and the team or Section. Identifies and organizes deployment of resources based on assessed needs, taking into account possible changing circumstances. Monitors team’s performance in meeting the assigned deadlines and milestones."
-            },
-            "senior leadership": {
-            "description": "Sets clearly defined objectives for the Department/Division in line with the priorities of the Agency. Works toward Agency-wide efficiencies with a view to strengthening and harmonizing planning systems and capacities at the Departmental/Divisional level."
-            }
-        },
-        "client focus": {
-            "individual contributor": {
-            "description": "Establishes effective relationships with clients to understand and meet or exceed their needs. Finds ways to ensure client satisfaction."
-            },
-            "middle manager": {
-            "description": "Examines client plans and develops services and options to support ongoing relationships. Develops solutions that add value to the Agency’s programmes and operations."
-            },
-            "senior leadership": {
-            "description": "Promotes an attitude of valuing clients. Advocates for the inclusion of client interests and needs in programme planning and decision making."
-            }
-        }
-        }
     
     if test_attempt_session.competency_data:
         competency_data= test_attempt_session.competency_data
-        level_dict = {"1" : "Individual Contributor",
+        
+        competency_skills = get_competency_prompt_or_output(skills=list(competency_data.keys()))
+        level_dict = {
+                "0" : "Individual Contributor",
+                "1" : "Individual Contributor",
                 "2" : "Middle Manager",
                 "3" : "Senior Leadership"}
         

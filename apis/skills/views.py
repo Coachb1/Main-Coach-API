@@ -17,11 +17,15 @@ from skills.models import SkillsRating
 from skills.models import CustomRating
 from skills.helpers import save_the_custom_rating
 from skills.constants import skills
+from skills.models import CharacteristicsAndPrompts
 
 
 class SkillsIndexViewSet(ApiViewSet,
                          mixins.ListModelMixin,
                          mixins.CreateModelMixin):
+    """
+    retrive all skill from database
+    """
     queryset = SkillIndex.objects.filter(deleted=0)
     serializer_class = SkillIndexSerializer
     permission_classes = (IsAuthenticatedClient,)
@@ -31,6 +35,9 @@ class SkillsIndexViewSet(ApiViewSet,
 
 class GetSkillsName(ApiViewSet):
     def list(self, request):
+        """
+        retrive all skill from Skills contants.py
+        """
         data = []
         for skill in skills:
             data.append({
@@ -94,11 +101,29 @@ class SkillsViewSet(ApiViewSet,
         data['logo'] = tenant.logo
 
         return Response({"data": data, "status": "completed"})
+    
+    @action(methods=["GET"], detail=False, url_path="get-characteristics-list")
+    def get_characteristics_list(self, request, *args, **kwargs):
+        """
+        to retrive characteractics list 
+        """
+        try:
+            characteristics = CharacteristicsAndPrompts.objects.filter(tenant_id = self.request.tenant.uid,deleted=0)
+            charac_list = []
+            for charac in characteristics:
+                charac_list.append(charac.name)
+            return Response({"characteristic_list": charac_list }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': e}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class CustomRatingViewSet(ApiViewSet,
                           mixins.ListModelMixin,
                           mixins.RetrieveModelMixin):
+    """
+    to retrive or create custom rating
+    """
     queryset = CustomRating.objects.filter(deleted=0)
     serializer_class = CustomRatingDisplaySerializer
     permission_classes = (IsAuthenticatedClient,)

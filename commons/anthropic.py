@@ -12,6 +12,20 @@ ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 @timeit
 def anthropic_completion(prompt, max_tokens):
+    """
+    Generate completions for a given prompt using the Anthropic API.
+
+    Args:
+        prompt (str): The prompt for which completion is requested.
+        max_tokens (int): The maximum number of tokens to generate in the completion.
+
+    Returns:
+        str: The generated completion.
+
+    Raises:
+        Exception: If the maximum number of retries is reached and the API call still fails.
+
+    """
     client = anthropic.Client(ANTHROPIC_KEY)
 
     max_retries = 10

@@ -5,6 +5,8 @@ from coaching_conversations.models import CoachingConversation
 
 class InitializeCoachingConversationSerializer(serializers.Serializer):
     test_attempt_session_id = serializers.CharField()
+    is_signature_bot = serializers.BooleanField(default=False,required=False)
+    initial_qna = serializers.JSONField(default=False,required=False)
 
 
 class ReplyCoachingConversationSerializer(serializers.Serializer):
@@ -12,6 +14,7 @@ class ReplyCoachingConversationSerializer(serializers.Serializer):
         required=False, default="", allow_null=True, allow_blank=True)
     participant_message_url = serializers.CharField(
         required=False, default="", allow_null=True, allow_blank=True)
+    is_signature_bot = serializers.BooleanField(default=False,required=False)
 
     def validate(self, attrs):
         if not attrs.get("participant_message_url") and not attrs.get("participant_message_text"):

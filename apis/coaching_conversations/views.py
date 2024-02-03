@@ -8,13 +8,17 @@ from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
-from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation
+from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User
+from users.models import User, SignatureBot, BotAttribute
 from users.db import get_user_display_name, get_user_by_id
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CoachingConversationViewSet(ApiViewSet,
@@ -137,10 +141,16 @@ class CoachingConversationViewSet(ApiViewSet,
         serializer.is_valid(raise_exception=True)
 
         test_attempt_session_id = serializer.validated_data["test_attempt_session_id"]
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+        initial_qna = serializer.validated_data.get("initial_qna", None)
+
+        logger.info("************************** initial_qna: {}".format(initial_qna))
 
         next_conversation = initialize_coaching_conversation(
             tenant=request.tenant,
-            test_attempt_session_id=test_attempt_session_id
+            test_attempt_session_id=test_attempt_session_id,
+            is_signature_bot=is_signature_bot,
+            initial_qna = initial_qna
         )
 
         return Response(
@@ -169,12 +179,15 @@ class CoachingConversationViewSet(ApiViewSet,
             "participant_message_text")
         participant_message_url = serializer.validated_data.get(
             "participant_message_url")
+        is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+
 
         next_conversation = continue_coaching_conversation(
             tenant=request.tenant,
             reply_to_conversation=self.get_object(),
             participant_message_text=participant_message_text,
             participant_message_url=participant_message_url,
+            is_signature_bot=is_signature_bot,
         )
 
         return Response(
@@ -268,3 +281,52 @@ class CoachingConversationViewSet(ApiViewSet,
         }
 
         return Response(data, status=status.HTTP_200_OK)
+    
+    @action(methods=["GET"], detail=False, url_path="bot-conversation-data")
+    def bot_conversation_data(self, request, *args, **kwargs):
+        """
+        Retrieves conversation data for bots and users based on the specified mode.
+        :return: A list of conversation data for bots and users based on the specified mode.
+        """
+        tenant = self.request.tenant
+        mode = request.query_params.get('for', None)
+        user_id = request.query_params.get('user_id', None)
+
+        if mode == 'admin':
+            try:
+                bots = SignatureBot.objects.filter(deleted=0, tenant_id=tenant.uid, user_id=user_id)
+            except:
+                return Response({"Bot not Found"}, status=status.HTTP_404_NOT_FOUND)
+            data = []
+
+            for bot in bots:
+                bot_id = bot.uid
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=bot_id)
+                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid, deleted=0, test_id=bot_id)
+                participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
+
+                for participant_id in participant_ids:
+                    bot_sessions = sessions.filter(participant_id=participant_id)
+                    data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
+                    data_cov['bot_name'] = bot_att.bot_name
+                    data.append(data_cov)
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        elif mode == 'user':
+            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
+            data = []
+
+            for b_id in bot_ids:
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                sessions = TestAttemptSession.objects.filter(deleted=0, tenant_id=tenant.uid, test_id=b_id,
+                                                              participant_id=user_id)
+                data_conv = get_bot_conversation_data_user(sessions, tenant, user_id)
+                if len(data_conv['results']) > 0:
+                    data_conv['bot_name'] = bot_att.bot_name
+                    data.append(data_conv)
+            return Response(data, status=status.HTTP_200_OK)
+
+        else:
+            return Response({"Error: For parameter doesn't exist, please check"}, status=status.HTTP_400_BAD_REQUEST)
+

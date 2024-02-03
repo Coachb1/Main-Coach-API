@@ -34,6 +34,16 @@ class TestQuestionResponseViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new test question response.
+
+        Args:
+            request (HttpRequest): The HTTP request object containing the data for creating the test question response.
+
+        Returns:
+            Response: The serialized data of the created test question response.
+
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -62,6 +72,18 @@ class TestQuestionResponseViewSet(ApiViewSet,
     
     @action(methods=['POST'],detail=False,url_path="submit-feedback-response")
     def submit_feedback_response(self,request, *args, **kwargs):
+        """
+        Submits feedback for a test question response.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Response: The generated feedback for the test question response.
+
+        """
         tenant_id = self.request.tenant.uid
         session_id = request.query_params.get('test_attempt_session_id')
         question_id = request.query_params.get('question_id')
@@ -72,15 +94,23 @@ class TestQuestionResponseViewSet(ApiViewSet,
         return Response({"feedback_text": feedback}, status=status.HTTP_201_CREATED)
 
 
-    @action(methods=['GET'],detail=False,url_path="get-text-to-speech")
+    @action(methods=['GET'], detail=False, url_path="get-text-to-speech")
     def get_text_to_speech(self,request, *args, **kwargs):
-        
+        """
+        Generates a text-to-speech audio file using the Google Text-to-Speech API and returns it as a response.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            text (str): The text to be converted to speech.
+
+        Returns:
+            HttpResponse: The HTTP response containing the generated audio file.
+        """
         text = request.query_params.get('text')
 
         response = text_to_speech_google(text)
 
         audio_file_content = response.audio_content
-        print(audio_file_content)
         # response = StreamingHttpResponse(audio_file_content, content_type="audio/mpeg")
         # response['Content-Disposition'] = 'attachment; filename="output.mp3"'
 
