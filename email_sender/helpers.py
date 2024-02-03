@@ -202,6 +202,21 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
     server.quit()
 
 def send_email_with_html_template(subject, html_content, to_email = 'info@coachbots.com'):
+    """
+    please enter html content like this (can reference from it):
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+        <tr>
+        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Rajan Liked Your Bot </p>
+            
+
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+        </td>
+        </tr>
+    </table>
+    
+    """
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 

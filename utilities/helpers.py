@@ -22,6 +22,8 @@ from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
 from users.models import User
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
+from email_sender.helpers import send_email_with_html_template
+
 
 
 
@@ -314,36 +316,220 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
         )
 
-        hard_skills = get_hard_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
-        soft_skills = get_soft_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
-        user_idp.skill_gap_for_development = hard_skills
-        user_idp.leadership_skill_focus_area = soft_skills
-        hard_soft_skills = hard_skills + "," + soft_skills
-        book_recomm = get_recommendation("book",hard_soft_skills)
-        course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
-        hbr_recomm = get_recommendation("hbr",hard_soft_skills)
-        tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
-        user_idp.book_recommendations = book_recomm
-        user_idp.recommended_hbr = hbr_recomm
-        user_idp.recommended_ted_talk = tedtalk_recomm
-        user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
+        for i in range(2):
+            logger.info(f" Trying fetching recommendation book, skills etc for {i+1} time")
+            try:
+                hard_skills = get_hard_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
+                soft_skills = get_soft_skills(key_focus_areas,learning_histories,key_skills,goals,priorities)
+                user_idp.skill_gap_for_development = hard_skills
+                user_idp.leadership_skill_focus_area = soft_skills
+                hard_soft_skills = hard_skills + "," + soft_skills
+                book_recomm = get_recommendation("book",hard_soft_skills)
+                course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
+                hbr_recomm = get_recommendation("hbr",hard_soft_skills)
+                tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
+                user_idp.book_recommendations = book_recomm
+                user_idp.recommended_hbr = hbr_recomm
+                user_idp.recommended_ted_talk = tedtalk_recomm
+                user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
 
-        user_idp.course_recommendations = course_recomm
+                user_idp.course_recommendations = course_recomm
 
-        recommendations = [book_recomm,hbr_recomm,tedtalk_recomm,course_recomm]
-        # topics = []
-        # for recommendation in recommendations:
-        #     topics.extend(extract_topics_info(recommendation))
+                # recommendations = [book_recomm,hbr_recomm,tedtalk_recomm,course_recomm]
+                
+                user_idp.save()
+                break
+            except Exception as e:
+                logger.exception(f"Failed to fetch recommendations and soft and hard skills: {e}")
+                if i+1 == 2:
+                    subject = "Failed to generate IDP"
+                    html = f"""
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                <tr>
+                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}</p>
+
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                </td>
+                                </tr>
+                        </table>
+                        """
+
+                    send_email_with_html_template(subject=subject,html_content=html)
+                    return {"error": "in book recommendation, skills etc couldn't generate"}, False
+                continue
 
 
-        user_idp.save()
         tests = {}
         # create_one_question_scenario_from_context(prompt_type="manager-team",information="Thought Leadership in Digital Marketing",access_token="access_token",tenant_id=tenant_id)
         skills = hard_soft_skills.split(',')
-        for skill in skills:
-            temp = {}
+        total_scenarios_created = 0
 
-            # for i in range(1,6):
+        for i in range(2):
+            
+            for skill in skills:
+                temp = {}
+
+                # for i in range(1,6):
+                dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+                logger.info({f"scenario - {skill}": dynamic_discussion})
+                if dynamic_discussion.get("title",None):
+                    total_scenarios_created += 1
+                    temp[f"dynamic"] = dynamic_discussion
+                simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
+                logger.info({f"scenario - {skill}": simulation})
+
+                if simulation.get("title",None):
+                    total_scenarios_created += 1
+                    temp[f"simulation"] = simulation
+                
+                tests[skill] = temp
+
+            temp_data = {}
+            # focus oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
+            if dynamic_discussion.get("title",None):
+                total_scenarios_created += 1
+
+                temp_data[f"dynamic"] = dynamic_discussion
+
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
+            if simulation.get("title",None):
+                total_scenarios_created += 1
+                temp_data[f"simulation"] = simulation
+
+            tests["focus_areas"] = temp_data
+
+            logger.info(f"************** after focus areas tests: {tests}")
+
+            temp_data = {}
+
+            # goals oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
+            if dynamic_discussion.get("title",None):
+                total_scenarios_created += 1
+                temp_data[f"dynamic"] = dynamic_discussion
+
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
+            if simulation.get("title",None):
+                total_scenarios_created += 1
+                temp_data[f"simulation"] = simulation
+
+            tests["goals_areas"] = temp_data
+
+            logger.info(f"************** after goals areas tests: {tests}")
+
+            temp_data = {}
+
+            # priority oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
+            if dynamic_discussion.get("title",None):
+                total_scenarios_created += 1
+                temp_data[f"dynamic"] = dynamic_discussion
+
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
+            if simulation.get("title",None):
+                total_scenarios_created += 1
+                temp_data[f"simulation"] = simulation
+
+            tests["priority_areas"] = temp_data
+
+            logger.info(f"************** after priority areas tests: {tests}")
+
+            if total_scenarios_created <=6:
+                if i+1 == 2:
+                    subject = "Failed to generate required Scenarios For IDP"
+                    html = f"""
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                <tr>
+                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
+                                    
+
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                </td>
+                                </tr>
+                        </table>
+                        """
+
+                    send_email_with_html_template(subject=subject,html_content=html)
+                    return {"error": f"Failed to generate enough scenraios : {total_scenarios_created}"}, False
+                continue
+
+            break
+
+
+
+        user_idp.recommended_scenarios = tests
+        user_idp.total_scenarios_created = total_scenarios_created
+        user_idp.success = True
+
+        user_idp.save()
+
+        # sending email
+        subject = "Individual Development Plan (IDP)"
+        html = f"""
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                            <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {user_name} </p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your IDP is ready. The detailed report can be viewed here:</p>
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
+                        <tbody>
+                            <tr>
+                            <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
+                                <tbody>
+                                    <tr>
+                                    <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: center; background-color: #3498db;" valign="top" align="center" bgcolor="#3498db"> <a href="{user_idp.report}" target="_blank" style="border: solid 1px #3498db; border-radius: 5px; box-sizing: border-box; cursor: pointer; display: inline-block; font-size: 14px; font-weight: bold; margin: 0; padding: 12px 25px; text-decoration: none; text-transform: capitalize; background-color: #3498db; border-color: #3498db; color: #ffffff;">Get Report</a> </td>
+                                    </tr>
+                                </tbody>
+                                </table>
+                            </td>
+                            </tr>
+                        </tbody>
+                        </table>
+                                
+
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            </td>
+                            </tr>
+                    </table>
+                    """
+        user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id).attributes
+        emails = [user_att['email'],"info@coachbots.com"]
+        for email in emails:
+            send_email_with_html_template(subject=subject,html_content=html,to_email=email)
+
+
+        return UserIDPSerializers(user_idp).data, True
+    
+def regenerate_idp_or_scenarios(idp_id,access_token,tenant_id,):
+
+    user_idp = UserIDP.objects.get(uid=idp_id)
+    key_focus_areas = user_idp.key_focus_areas
+    goals = user_idp.goals,
+    priorities = user_idp.priorities
+    soft_skills = user_idp.skill_gap_for_development.split(',')
+    hard_skills = user_idp.leadership_skill_focus_area.split(',')
+    skills = soft_skills + hard_skills
+    tests = user_idp.recommended_scenarios
+    scenarios_list = list(["priority_areas","goals_areas","focus_areas"]) + skills
+    created_scenario_list = list(tests.keys())
+
+    failed_scenarios = [ scenario for scenario in scenarios_list if scenario not in created_scenario_list]
+    
+
+    logger.info(f"******* failed scenarios ***** : {failed_scenarios}")
+    for failed_scenario in failed_scenarios:
+        temp = {}
+
+        # for i in range(1,6):
+        if failed_scenario in skills:
+            skill = failed_scenario
             dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
             logger.info({f"scenario - {skill}": dynamic_discussion})
             if dynamic_discussion.get("title",None):
@@ -356,63 +542,60 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             
             tests[skill] = temp
 
-        temp_data = {}
-        # focus oriented tests
-        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
-        if dynamic_discussion.get("title",None):
-            temp_data[f"dynamic"] = dynamic_discussion
+        if failed_scenario == "focus_areas":
+            temp_data = {}
+            # focus oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
+            if dynamic_discussion.get("title",None):
 
-        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
-        if simulation.get("title",None):
-            temp_data[f"simulation"] = simulation
+                temp_data[f"dynamic"] = dynamic_discussion
 
-        tests["focus_areas"] = temp_data
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
+            if simulation.get("title",None):
+                temp_data[f"simulation"] = simulation
 
-        logger.info(f"************** after focus areas tests: {tests}")
+            tests["focus_areas"] = temp_data
 
-        temp_data = {}
+            logger.info(f"************** after focus areas tests: {tests}")
 
-        # goals oriented tests
-        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
-        if dynamic_discussion.get("title",None):
-            temp_data[f"dynamic"] = dynamic_discussion
+        if failed_scenario == "goals_areas":
 
-        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
-        if simulation.get("title",None):
-            temp_data[f"simulation"] = simulation
+            temp_data = {}
 
-        tests["goals_areas"] = temp_data
+            # goals oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
+            if dynamic_discussion.get("title",None):
+                temp_data[f"dynamic"] = dynamic_discussion
 
-        logger.info(f"************** after goals areas tests: {tests}")
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
+            if simulation.get("title",None):
+                temp_data[f"simulation"] = simulation
 
-        temp_data = {}
+            tests["goals_areas"] = temp_data
 
-        # priority oriented tests
-        dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
-        if dynamic_discussion.get("title",None):
-            temp_data[f"dynamic"] = dynamic_discussion
+            logger.info(f"************** after goals areas tests: {tests}")
 
-        simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
-        if simulation.get("title",None):
-            temp_data[f"simulation"] = simulation
+        if failed_scenario == "priority_areas":
+            temp_data = {}
 
-        tests["priority_areas"] = temp_data
+            # priority oriented tests
+            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
+            if dynamic_discussion.get("title",None):
+                temp_data[f"dynamic"] = dynamic_discussion
 
-        logger.info(f"************** after priority areas tests: {tests}")
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
+            if simulation.get("title",None):
+                temp_data[f"simulation"] = simulation
 
-        temp_data = {}
+            tests["priority_areas"] = temp_data
 
+            logger.info(f"************** after priority areas tests: {tests}")
 
-        user_idp.recommended_scenarios = tests
-        user_idp.success = True
+    user_idp.recommended_scenarios = tests
+    user_idp.save()
 
-        user_idp.save()
+    return UserIDPSerializers(user_idp).data, True
 
-
-
-        
-        return UserIDPSerializers(user_idp).data, True
-    
 
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
     prompt = """
