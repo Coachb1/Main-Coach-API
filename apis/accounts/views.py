@@ -37,7 +37,7 @@ from email_sender.helpers import send_generic_email
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
 from coaching_conversations.helpers import avatar_bot_default_prompt
-from utilities.helpers import process_idp
+from utilities.helpers import process_idp, regenerate_idp_or_scenarios
 
 logger = logging.getLogger(__name__)
 
@@ -994,7 +994,7 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
-    @action(methods=['GET','POST'],detail=False, url_path="get_or_create_idp")
+    @action(methods=['GET','POST','PATCH'],detail=False, url_path="get_or_create_idp")
     def get_or_create_idp(self,request,*args, **kwargs):
         
         try:
@@ -1021,6 +1021,14 @@ class AccountsViewSet(ApiViewSet,
                 idp_data = request.data.get('idp_data',None)
                 logger.info(f"****************** idp_data: {idp_data}")
                 data, success = process_idp(idp_data,user_id,request.tenant.uid,access_token)
+                if not success:
+                    return Response(data,status=status.HTTP_404_NOT_FOUND)
+                return Response(data,status=status.HTTP_200_OK)
+            
+            elif request.method == 'PATCH':
+                idp_id = request.data.get('idp_id',None)
+                logger.info(f"****************** idp_id: {idp_id}")
+                data, success = regenerate_idp_or_scenarios(idp_id=idp_id,access_token=access_token,tenant_id=request.tenant.uid)
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"got error in get_or_create_idp: {e}")
