@@ -15,6 +15,10 @@ import re
 from commons.google_apis import text_bison_compeletion
 from commons.timeit import timeit
 from nltk.stem import PorterStemmer
+import os
+from pathlib import Path
+import pandas as pd
+from string import Template
 
 
 
@@ -469,38 +473,53 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                             "error": "failed to evaluate; putting random value"})
 
         return response, True
-@timeit
-def evaluate_competency_data(description, conversation,test_attempt_session,is_free=False):
-    prompt = """
-        "DESCRIPTION:" %s;
 
-        "CONVERSATION:" %s;
+def get_competency_prompt_or_output(skills,is_prompt_only=False):
+    os.chdir(f"{Path(__file__).resolve().parent}")
+    df = pd.read_csv(r"prompts - Competency prompts.csv")
+    prompts_str = ""
+    outputs_dict = {}
+    skills = [skill.lower().strip() for skill in skills]
+
+    # Iterate through the rows and extract prompts and outputs based on provided skills
+    for index, row in df.iterrows():
+        competency_skill = row['Competency skill'].lower().strip()
+        prompts = row['Prompts']
+        output = row['Output']
+
+        # Check if the competency skill is in the provided skills list
+        if competency_skill in skills:
+            prompts_str +=  f"{prompts}\n"
+            output = output.split("\n")[1:]
+            output_dict = {}
+            for out in output:
+                level = out.split("-")[0].strip().lower()
+                desc = out.split("-")[1].strip()
+                output_dict[level] = {"description":desc}
+            outputs_dict[competency_skill] = output_dict
+
+    if is_prompt_only:
+        return prompts_str
+    else:
+        return outputs_dict
+
+@timeit
+def evaluate_competency_data(description, conversation,test_attempt_session,skills,is_free=False):
+
+    competency_prompt = get_competency_prompt_or_output(skills=skills,is_prompt_only=True)
+
+    prompt = """
+        "DESCRIPTION:" ${discription};
+
+        "CONVERSATION:" ${conversation};
         "Evaluation Criteria:"
 
-        - Communication Skills - are based on the ability to respectfully communicate ideas and information to ensure that information and messages are understood and have the desired impact.
-        Level 1 - Communicates in a clear, concise and impartial manner. Takes time to listen to and understand the perspectives of others and proposes solutions.
-        Level 2 - Encourages open communication and builds consensus. Uses tact and discretion in dealing with sensitive information, and keeps staff informed of decisions and directives as appropriate.
-        Level 3 - Promotes an environment of open communication within and outside of the Agency, ensuring that sensitive information is protected. Inspires staff at all levels through his/her communication.
-
-        - Teamwork - implies working cooperatively with others, being a part of a team, and assuming the role of leader of a team. 
-        Level 1 - Actively contributes to achieving team results. Supports team decisions. Shares all relevant information with others and seeks others' input. Expresses own opinion while remaining factual and respectful.
-        Level 2 - Encourages teamwork, builds effective teams and resolves problems by creating a supportive and collaborative team spirit, remaining mindful of the need to collaborate with people outside the immediate area of responsibility
-        Level 3 - Motivates and empowers staff, and fosters a collaborative approach across the Department/Division and the Agency as a whole. Acts as a role model when handling disagreements.
-
-        - Planning and Organizing - is about understanding human, financial, and operational resource issues to make decisions aimed at building and planning efficient project workflows, and at improving overall organizational performance
-        Level 1 - Plans and organizes his/her own work in support of achieving the team or Section’s priorities. Takes into account potential changes and proposes contingency plans.
-        Level 2 - Sets clearly defined objectives for himself/herself and the team or Section. Identifies and organizes deployment of resources based on assessed needs, taking into account possible changing circumstances. Monitors team’s performance in meeting the assigned deadlines and milestones.
-        Level 3 - Sets clearly defined objectives for the Department/ Division in line with the priorities of the Agency. Works toward Agency-wide efficiencies with a view to strengthening and harmonizing planning systems and capacities at the Departmental/ Divisional level.
-
-        - Client Focus - is based on the ability to understand internal/external clients’ (e.g. Committees, working groups, country representatives, etc.,) needs and concerns in the short to long-term and to provide sound recommendations and/or solutions.
-        Level 1 - Establishes effective relationships with clients to understand and meet or exceed their needs. Finds ways to ensure client satisfaction.
-        Level 2 - Examines client plans and develops services and options to support ongoing relationships. Develops solutions that add value to the Agency’s programmes and operations.
-        Level 3 - Promotes an attitude of valuing clients. Advocates for the inclusion of client interests and needs in programme planning and decision making.
+        ${competency_prompts}
 
         "Required from anthropic:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
         If any of the skill is not related to the given conversation, rate that skills as 0. Only when the skill is not even slightly related to the conversation give the rating as 0.
 
-        "competency_list:" "{Communication Skills, Teamwork, Planning and Organizing, Client Focus}"
+        "competency_list:" "${competency_list}"
 
         NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -511,7 +530,13 @@ def evaluate_competency_data(description, conversation,test_attempt_session,is_f
         NOTE: Do not add any English language sentence in the output.
 
 
-    """%(description,conversation)
+    """
+    prompt = Template(prompt).substitute(
+        discription=description,
+        conversation=conversation,
+        competency_prompts=competency_prompt,
+        competency_list=skills,
+    )
 
     default_value = {"Communication Skills": {"rating": "3", "level": "2"},"Teamwork": {"rating": "2", "level": "1"},"Planning and Organizing": {"rating": "3", "level": "2"},"Client Focus": {"rating": "4", "level": "1"},}
 

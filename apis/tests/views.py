@@ -13,7 +13,8 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates, update_prompt_user_attributes
+from tests.helpers import (create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
+                            update_prompt_user_attributes, scrape_article_data)
 from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -30,6 +31,11 @@ from commons.google_apis import text_bison_compeletion
 import time
 import base64
 from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context
+from skills.helpers import json_extraction
+from commons.langchain import download_and_transcribe_audio
+import json
+from collections import defaultdict
+
 
 import logging
 
@@ -39,6 +45,53 @@ logger = logging.getLogger(__name__)
 class TestViewSet(ApiViewSet,
                   mixins.ListModelMixin,
                   mixins.RetrieveModelMixin):
+    """
+    This code defines a class called `TestViewSet` which is a viewset for handling API requests related to tests. It includes various methods for creating, retrieving, and manipulating test data.
+
+    Example Usage:
+    - Create a new test
+    - Retrieve a specific test
+    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
+
+    Main functionalities:
+    - Create a new test
+    - Retrieve a specific test
+    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
+
+    Methods:
+    - get_queryset(): Returns the queryset of tests filtered by the tenant ID.
+    - create(): Creates a new test based on the provided data.
+    - get_test_flash_cards(): Retrieves the flash cards for a specific test.
+    - get_test_mindmap(): Retrieves the mindmap for a specific test.
+    - get_test_report_pdf_view(): Retrieves the report PDF for a specific test.
+    - get_test_flash_cards_data(): Retrieves the flash card data for a specific test.
+    - get_test_mindmap_data(): Retrieves the mindmap data for a specific test.
+    - get_test_report_frontend(): Retrieves the report data for a specific test.
+    - get_learner_path(): Retrieves the learner path for a specific user and objective.
+    - generate_test_from_objective(): Generates a test based on a specific objective.
+    - get_tenant_special_case_test_category(): Retrieves the special case test categories for a specific tenant.
+    - get_tenant_special_case_test(): Retrieves the special case tests for a specific tenant and category.
+    - get_test_previlage(): Retrieves the test privilege for a specific user.
+    - get_selection_options(): Retrieves the selection options for filtering tests.
+    - get_tests_by_choice(): Retrieves tests based on the provided filter choices.
+    - check_duplicate_response(): Checks if a duplicate response exists for a specific question and test attempt session.
+    - set_admin_controls(): Updates the admin controls for a specific tenant.
+    - get_test_scanrio_case(): Retrieves the test scenario cases.
+    - user_att_prmpt_updation(): Updates the user attribute prompts.
+    - get_normal_test_csv(): Retrieves the CSV data for normal tests.
+    - get_group_discussion_test_csv(): Retrieves the CSV data for group discussion tests.
+    - get_free_type_test(): Retrieves the free type tests for a specific skill.
+    - get_or_create_test_scenarios_by_site(): Retrieves or creates test scenarios based on a site URL and mode.
+
+    Fields:
+    - queryset: The queryset of tests filtered by the tenant ID.
+    - serializer_class: The serializer class for test data.
+    - permission_classes: The permission classes for accessing test data.
+    - filter_backends: The filter backends for filtering test data.
+    - filterset_class: The filterset class for filtering test data.
+    - ordering_fields: The ordering fields for ordering test data.
+    - lookup_field: The lookup field for retrieving a specific test.
+    """
     queryset = Test.objects.filter(deleted=0)
     serializer_class = TestDisplaySerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
@@ -48,6 +101,7 @@ class TestViewSet(ApiViewSet,
     lookup_field = "uid"
 
     def get_queryset(self):
+        """Returns the queryset of tests filtered by the tenant ID."""
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
@@ -620,11 +674,24 @@ class TestViewSet(ApiViewSet,
         mode = request.query_params.get('mode')
         access_token = request.query_params.get('access_token')
         context = request.query_params.get('information',None)
+        source = request.query_params.get('source',None)
+        creator_user_id = request.query_params.get('creator_user_id',None)
+        competency = request.query_params.get('competency',None)
+        is_static = request.query_params.get('is_static',True)
+        is_dynamic = request.query_params.get('is_dynamic',True)
 
-        print("%"*100,f"              {mode}  {url}   context: {context}           ","%"*100)
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}")
+
         if mode == 'A':
-            scenario = create_scenario_from_site_context(url, access_token, tenant_id, context)
-            return Response(data=[scenario], status=status.HTTP_200_OK)
+            resp_data = []
+            if is_static == 'true' or is_static == True or is_static == "True":
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
+                resp_data.append(scenario)
+            if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
+                dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
+                                                                    origin=source, competency=None, creator_user_id=creator_user_id)
+                resp_data.append(dynamic_discussion)
+            return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
             return Response(data=scenario, status=status.HTTP_200_OK)
@@ -632,4 +699,185 @@ class TestViewSet(ApiViewSet,
 
 
 
+    @action(methods=['GET'], detail=False, url_path="get-recommendetion-tests")
+    def get_recommendation_tests(self, request, *args, **kwargs):
+        
+        tenant_id = self.request.tenant.uid
+        context = request.query_params.get('context')
+        mode = request.query_params.get('for',None)
 
+        logger.info(f">>>>>>>>>>>>>>>>>>> request data : {request.data},  access_token : { request.headers.get('Authorization')}")
+        access_token = request.headers.get('Authorization')
+
+        if not context:
+            return Response({"Error": "context is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f">>>>>>>>>>>>>>>>>>> context : {context}")
+
+        all_tests = Test.objects.filter(tenant_id=tenant_id,deleted=0)
+        tests_data = """"""
+
+        for test in all_tests:
+            tests_data += f"{test.test_code} : {test.title}\n"
+
+        logger.info(f">>>>>>>>>>>>>>>>>>> tests_data : {tests_data}")
+
+        prompt = ""
+        scenario = ''
+
+        if mode == "feedback_bot":
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}),is_feedback_bot=True)
+        else:
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}))
+        logger.info(f">>>>>>>>>>>>>>>>>>> scenario : {scenario}")
+
+        if mode == 'feedback_bot':
+            data = ''
+            context = json.loads(context)
+            for que, ans in context.items():
+                data += f"Question: {que} , Answer: {ans}\n"
+
+            context = data
+            prompt = f"""
+
+                \n\nHuman:
+
+                user_input: {context}
+
+                test_data: {tests_data}
+
+                Based on {{user_input}} pick the best test from the {{test_data}}. Based on {{user_input}} this conversation give me the scenario from {{test_data}} that best suits the user's needs and requirements. The scenario should be directly linked to the skills or areas identified in {{user_input}}.
+
+                NOTE : Output format : {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
+                NOTE: just give me test_code and title in json format like {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
+                NOTE: do not provide any other information
+
+                NOTE : Do not provide any kind of explanation in the output.
+
+                \n\nAssistant:
+
+                """
+            
+        else:
+            prompt = f"""
+        \n\nHuman:
+        user_input: {context}
+        test_data: {tests_data}
+
+        based on {{user_input}} pick the best test from the {{test_data}}
+
+        NOTE: just give me test_code and title in json format like {"{"}Q78TYZ : python skills improvement{"}"}
+        NOTE: do not provide any other information
+
+        \n\nAssistant:
+        """
+            
+        response = anthropic_completion(prompt,5000)
+        logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
+        json_response = json_extraction(response)
+        logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}")
+
+        data = {
+            "matching_tests": json.loads(json_response),
+            "created_scenario": {scenario['test_code']: scenario['title']}
+        }
+        
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+
+    @action(methods=['GET'], detail=False, url_path="create-test-from-links")
+    def create_scenario_from_links(self, request, *args, **kwargs):
+        tenant_id = self.request.tenant.uid
+        url = request.query_params.get('url')
+        access_token = request.headers.get('Authorization')
+
+        logger.info(f">>>>>>>>>>>> url : {url}")
+
+        raw_scenario_data = ''
+        if 'youtube' in url:
+            raw_scenario_data = download_and_transcribe_audio(url)
+        else:
+            raw_scenario_data = scrape_article_data(url).get('article_content',None)
+
+        logger.info(f">>>>>>>>>>>>> raw_scenario_data : {raw_scenario_data}")
+
+        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True)
+
+        return Response({'test_code':scenario['test_code'],
+                            'title':scenario['title'],
+                                'description': scenario['description']}, status=status.HTTP_200_OK)
+
+    
+    @action(methods=['GET'], detail=False, url_path="get-tests-by-bot")
+    def get_tests_by_bot(self, request, *args, **kwargs):
+
+        bot_name = request.query_params.get("bot_id",None)
+
+        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,bot_name=bot_name)
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
+
+
+    @action(methods=['GET'], detail=False, url_path="get-tests-by-competency")
+    def get_tests_by_competency(self, request, *args, **kwargs):
+
+        competencies = request.query_params.get("competencies",None)
+
+        logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
+
+        data = {}
+        if competencies:
+            competencies = competencies.split(',')
+
+            for competency in competencies:
+                competency = competency.strip()
+                tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
+                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type } for test in tests]
+            # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
+            # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
+    
+
+    @action(methods=['GET'], detail=False, url_path="get-requested-tests")
+    def get_requested_tests(self, request, *args, **kwargs):
+        user_id = request.query_params.get("user_id",None)
+
+        if not user_id:
+            return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+
+        return Response(data,status=status.HTTP_200_OK)
+    
+    @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
+    def get_tests_by_tab_category(self,request,*args, **kwargs):
+
+        try:
+            tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
+            test_dict = defaultdict(lambda: defaultdict(list))
+
+            # Organizing tests into the nested dictionary
+            for test in tests:
+                if test.tab_category:
+                    tab_category = test.tab_category
+                    area_domain = test.area_domain
+                    test_dict[tab_category][area_domain].append({
+                        "title": test.title,
+                        "description": test.description,
+                        "test_code": test.test_code,
+                        "test_type": test.test_type
+                    })
+            # Converting defaultdict to a regular dictionary
+            test_dict = dict(test_dict)
+            return Response(test_dict, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.exception({"got error in get-tests-by-tab-category api": e})
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)

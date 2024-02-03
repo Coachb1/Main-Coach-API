@@ -9,6 +9,15 @@ def upload_to_ovh_s3(file, s3_file_name):
 
 
 def get_ovh_url(file_name):
+    """
+    Generates a pre-signed URL for accessing a file in an S3 bucket.
+
+    Args:
+        file_name (str): The name of the file for which the pre-signed URL is generated.
+
+    Returns:
+        str: The pre-signed URL for accessing the specified file in the S3 bucket.
+    """
     return s3.generate_presigned_url(
             ClientMethod='get_object',
             Params={

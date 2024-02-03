@@ -13,5 +13,6 @@ class ReportType:
     SUMMARY_FEEDBACK_REPORT = "summaryFeedbackReport"
     DecisionAnalysisReport = "decisionAnalysisReport"
     ProcessTrainingReport = "processTrainingReport"
+    IDP_REPORT = "idpReport"
 
 

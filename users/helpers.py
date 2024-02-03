@@ -117,3 +117,4 @@ def get_user_attribute(user: User,
         user_id=user.uid,
         tag=tag
     ).last()
+
