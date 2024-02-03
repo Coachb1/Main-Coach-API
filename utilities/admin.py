@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -24,8 +24,15 @@ class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
     list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall", 'department','description','is_visible',"is_approved")
 
+class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','uid','user_id',"user_name","strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","report","success")
+    list_filter = ("uid","user_id","success")
+    search_fields = ("uid","user_id","success")
+    list_editable = ("strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","success")
+
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
 admin.site.register(DirectoryPageInfo, DirectoryAdmin)
+admin.site.register(UserIDP, IDPAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):

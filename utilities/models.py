@@ -71,7 +71,7 @@ class UserActionInfo(TenantAwareModel):
 
 class UserIDP(TenantAwareModel):
     user_id = models.CharField(max_length=255)
-    user_name = models.CharField(max_length=64, blank=True, null=True)
+    user_name = models.CharField(max_length=255, blank=True, null=True)
     strengths = models.TextField(null=True,blank=True,default=None)
     weakness = models.TextField(null=True,blank=True,default=None)
     opportunities = models.TextField(null=True,blank=True,default=None)
@@ -81,8 +81,8 @@ class UserIDP(TenantAwareModel):
     priorities = models.TextField(null=True,blank=True,default=None)
     learning_histories = models.TextField(null=True,blank=True,default=None)
     key_skills = models.TextField(null=True,blank=True,default=None)
-    skill_gap_for_development = models.CharField(max_length=255,null=True,blank=True,default=None)
-    leadership_skill_focus_area = models.CharField(max_length=255,null=True,blank=True,default=None)
+    skill_gap_for_development = models.TextField(null=True,blank=True,default=None)
+    leadership_skill_focus_area = models.TextField(null=True,blank=True,default=None)
     book_recommendations = models.TextField(null=True,blank=True,default=None)
     course_recommendations = models.TextField(null=True,blank=True,default=None)
     recommended_hbr = models.TextField(null=True,blank=True,default=None)
@@ -90,6 +90,7 @@ class UserIDP(TenantAwareModel):
     recommended_scenarios = models.JSONField(null=True,blank=True,default=None)
     report = models.TextField(null=True,blank=True,default=None)
     success = models.BooleanField(default=False, null=True,blank=True)
+    total_scenarios_created = models.IntegerField(null=True, blank=True, default=0)
 
 
     class Meta:
