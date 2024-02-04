@@ -268,6 +268,35 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=False, url_path="send-report-email")
     def send_report_email(self, request, *args, **kwargs):
+        """
+            Objective: The objective of this method is to send a test report email to the participant or send whatsapp report and do some calculation like feedback_summary and all ,  for a specific test attempt session.
+            
+            Explanation:
+
+            The method first retrieves the necessary parameters from the request query parameters, such as the test_attempt_session_id, report_url, and is_whatsapp.
+            It then checks if the test is free or not.
+            If the is_whatsapp parameter is True or the report_url is empty or not provided, it uses the report_url stored in the test attempt session object.
+            If the test type is coaching, process training, dynamic MCQ, MCQ, or transcript only, it calls the send_report_link_to_email function to send the test report email.
+            If is_whatsapp is True and the test type is not interview or the scenario case is not employee feedback, it calls the send_report_link_to_whatsapp function to send the test report via WhatsApp.
+            It then calculates the skills summary and feedback summary for the test attempt session.
+            If the test is not free, it evaluates the skills explanation and culture skills explanation based on the test type and conversation data.
+            The updated fields are saved in the test attempt session object.
+            If the test type is orchestrated conversation or dynamic discussion and there is an email address list specified for the test, it calls the send_report_link_to_email_orch function to send the test report email.
+            Otherwise, if there is an email address list specified for the test, it calls the send_report_link_to_email function to send the test report email.
+            Finally, it returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.
+
+            Parameters:
+
+                request: The HTTP request object.
+                test_attempt_session_id: The ID of the test attempt session for which the report email is to be sent.
+                report_url: The URL of the test report.
+                is_whatsapp: A boolean indicating whether the report should be sent via WhatsApp.
+
+            Input: The method expects the test_attempt_session_id, report_url, and is_whatsapp parameters to be provided in the request query parameters.
+
+            Output: The method returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.             Eg {"status": "sent"}
+
+        """
         try:
             logger.info("send_report_email")
             test_attempt_session_id = request.query_params.get("test_attempt_session_id")
@@ -417,6 +446,21 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=False, url_path="set-name-and-email")
     def set_name_email(self, request, *args, **kwargs):
+        """
+        Objective: The objective of the set_name_email method is to set the name and email of a participant in the system.
+
+        Explanation: This method is used to update the name and email of a participant in the system. It receives the participant ID, name, and email as query parameters in the request. It then retrieves the user associated with the participant ID and updates their name and email fields. It also updates the user attributes related to the participant's profile, such as real name, username, and email. Finally, it saves the updated user attributes.
+
+        Params:
+        participant_id: The ID of the participant for whom the name and email need to be set.
+        name: The new name of the participant.
+        email: The new email of the participant.
+
+        Input: The method receives the participant ID, name, and email as query parameters in the request.
+
+        Output: The method returns a response with a status code indicating the success or failure of the operation. If the name and email are successfully updated, the response will have a status code of 200 (OK) and a JSON body with the status "updated". If there is an error, the response will have a status code indicating the type of error (e.g., 400 for a bad request or 500 for an internal server error) and a JSON body with the status "error". Eg : {"status": "updated"}
+
+        """
         try:
             participant_id = request.query_params.get("participant_id")
             name = request.query_params.get("name")
@@ -457,6 +501,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
     @action(methods=["GET"], detail=False, url_path="check-session-data-exist")
     def check_session_data_exist(self, request, *args, **kwargs):
+        """
+        Check if session data exists for a specific test attempt session.
+
+        Parameters:
+        - request: The HTTP request object.
+        - session_id: The UID of the test attempt session.
+
+        Returns:
+        - Response: The HTTP response object containing the result of the check.
+            - check (bool): True if session data exists, False otherwise.
+            - {"check": true}
+        """
         session_id = request.query_params.get('session_id')
 
         try:
@@ -473,6 +529,54 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_next_mcq_question_options")
     def get_next_mcq_question_options(self,request, *args, **kwargs):
+        """
+        Retrieves the next multiple-choice question options for a specific test attempt session.
+
+        Parameters:
+            - test_attempt_session_id (str): The UID of the test attempt session.
+            - description (str): The description of the question.
+            - question_text (str): The text of the question.
+            - option_a (str): The text of option A.
+            - option_b (str): The text of option B.
+            - option_selected (str): The selected option.
+
+        Returns:
+            - options_data (dict): A dictionary containing the next question options data.
+
+        Raises:
+            - HTTP 400 Bad Request: If the test attempt session with the given UID does not exist.
+
+        Description:
+            This method retrieves the next multiple-choice question options for a specific test attempt session. It takes the UID of the test attempt session, the description of the question, the text of the question, the text of option A, the text of option B, and the selected option as parameters.
+
+            First, it retrieves the test attempt session object using the provided UID. If the test attempt session does not exist, it returns an HTTP 400 Bad Request response.
+
+            Then, it retrieves the test object associated with the test attempt session.
+
+            Next, it counts the total number of responses for the test attempt session.
+
+            It updates the feedback summary of the test attempt session with the question text.
+
+            If the total number of responses is equal to the total number of questions minus one, it calls the get_last_mcq_question_options_promt() function to get the last question options prompt. Otherwise, it calls the get_next_mcq_question_options_prompt() function to get the next question options prompt.
+
+            It then enters a loop with a maximum of 5 retries. In each iteration, it calls the generic_completion() function with the next question options prompt and a timeout of 600 seconds to generate a response. It extracts the options data from the response using the extract_mcq_options_from_response() function.
+
+            If the similarity between option A and option B is greater than 75%, it continues to the next iteration. Otherwise, it breaks out of the loop.
+
+            Finally, it returns the options_data dictionary containing the next question options.
+
+        Example:
+            GET /test-attempt-sessions/get_next_mcq_question_options?test_attempt_session_id=123&description=Question%20description&question_text=What%20is%20the%20capital%20of%20France%3F&option_a=Paris&option_b=London&option_selected=option_a
+
+            Response:
+            {
+                "options_data": {
+                    "option_a": "Paris",
+                    "option_b": "London"
+                }
+            }
+        """
+   
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         description = request.query_params.get('description')
         question_text = request.query_params.get('situation')
@@ -524,6 +628,38 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="send-bot-transcript-email")
     def send_bot_transcript_email(self,request, *args, **kwargs):
+        
+        """
+        Sends a bot transcript email for a specific test attempt session.
+
+        Parameters:
+            - request: The HTTP request object.
+            - test_attempt_session_id: The ID of the test attempt session for which the bot transcript email is to be sent.
+            - submitted_email: The email address to which the bot transcript email should be sent.
+
+        Returns:
+            - Response: The HTTP response object containing the status of the email sending process.
+
+        Objective:
+            This method is used to send a bot transcript email for a specific test attempt session. The bot transcript email contains the conversation between the participant and the bot during the test session.
+
+        Process:
+            1. Retrieve the test attempt session ID and the submitted email address from the request query parameters.
+            2. Get the test attempt session object based on the tenant ID and the test attempt session ID.
+            3. Get the signature bot object based on the tenant ID and the test ID of the test attempt session.
+            4. Get the user email address and the bot owner email address from the user attributes.
+            5. Save the action point for the participant and the bot owner.
+            6. Get the conversation data between the participant and the bot for the test attempt session.
+            7. Send the bot conversation email to the submitted email address, the bot owner email address, and the default email address.
+
+        Input Requirements:
+            - The test_attempt_session_id parameter must be a valid ID of a test attempt session.
+            - The submitted_email parameter must be a valid email address.
+
+        Output:
+            - The HTTP response object containing the status of the email sending process. The status can be "sent" if the email is successfully sent, or "error" if there is an error during the email sending process.
+            - {"status": "sent"}
+        """
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
 
@@ -575,6 +711,44 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
     def send_feedback_transcript_email(self,request, *args, **kwargs):
+        """
+        Sends a feedback transcript email for a specific test attempt session.
+        Parameters:
+           Input Requirements:
+            - The request object must contain the required query parameters:
+                - bot_id: The ID of the bot.
+                - conversation: The conversation data.
+                - type_of_email: The type of email to be sent.
+                - user_email: The email of the user.
+
+
+        Objective:
+                This method is used to send a feedback transcript email for a specific test attempt session.
+
+
+            Process:
+                1. Retrieve the necessary parameters from the request query parameters:
+                    - tenant: The tenant object.
+                    - bot_id: The ID of the bot.
+                    - conversation: The conversation data.
+                    - type_of_email: The type of email to be sent.
+                    - user_email: The email of the user.
+
+
+                2. Retrieve the user ID associated with the bot.
+                3. Save the user action information for the feedback received.
+                4. Retrieve the bot owner's email address.
+                5. Prepare the conversation data for the email, if the type of email is 'feedback_conv'.
+                6. Send the feedback conversation email to the bot owner and the default email address.
+                7. Return a success response.
+        
+        Output:
+                - Response: The HTTP response object with a success status.
+                -          {
+                        "status": "sent"
+                    }
+
+        """
         tenant = self.request.tenant
         bot_id = request.query_params.get('bot_id')
         conversation = request.query_params.get('conversation')
@@ -606,12 +780,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
         for email in [bot_owner_email,"info@coachbots.com"]:
             send_feedback_conversation_email(user_email,conv,email,type_of_email)
 
-
-
-
-
-
-
         return Response({'status': 'sent'}, status=status.HTTP_200_OK)
     
     @action(methods=['GET'],detail=False,url_path="save_session_notes")
@@ -619,15 +787,43 @@ class TestAttemptSessionViewSet(ApiViewSet,
         """
         Save or retrieve session notes for a user in a specific context.
 
-        Args:
-            request (HttpRequest): The HTTP request object.
-            user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
-            context (str): The context in which the session notes are being saved/retrieved.
-            mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
-            mode (str): The mode of operation, either 'mentor' or 'mentee'.
-        
+        This method allows for saving or retrieving session notes for a user in a specific context. The session notes are associated with a user and can be saved or retrieved based on the provided parameters.
+
+        Parameters:
+        - request (HttpRequest): The HTTP request object.
+        - user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
+        - context (str): The context in which the session notes are being saved/retrieved.
+        - mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
+        - mode (str): The mode of operation, either 'mentor' or 'mentee'.
+        - access_token (str, optional): The access token for authentication (required only when saving session notes as a mentor).
+
         Returns:
-            Response: The response containing the saved or retrieved session notes data.
+        - Response: The response containing the saved or retrieved session notes data.
+        - {"data": session notes data}
+
+        Process:
+        1. Extract the necessary parameters from the request and validate them.
+        2. Determine the mode of operation (mentor or mentee).
+        3. If the mode is 'mentor':
+        - Call the 'save_session_notes' function with the provided parameters to save the session notes.
+        - If there are any errors, return a response with the error message.
+        - Otherwise, return a response with the saved session notes data.
+        4. If the mode is 'mentee':
+        - Call the 'get_session_notes' function with the provided user ID and mentor ID to retrieve the session notes.
+        - Return a response with the retrieved session notes data.
+        5. If the mode is neither 'mentor' nor 'mentee', return a response indicating that the 'for' parameter is not found.
+
+        Input Requirements:
+        - The request object must contain the necessary parameters: user_id, context, mode.
+        - The mode parameter must be either 'mentor' or 'mentee'.
+
+        Output:
+        - If the mode is 'mentor':
+        - If the session notes are successfully saved, return a response with the saved session notes data.
+        - If there are any errors, return a response with the error message.
+        - If the mode is 'mentee':
+        - Return a response with the retrieved session notes data.
+        - If the mode is neither 'mentor' nor 'mentee', return a response indicating that the 'for' parameter is not found.
         """
         try:
             tenant_id = self.request.tenant.uid
@@ -656,6 +852,50 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_or_update_session_notes")
     def get_or_update_session_notes(self,request, *args, **kwargs):
+        """
+    Retrieves or updates session notes data.
+
+    Returns:
+        - If the 'mode' parameter is set to 'get':
+            - Response: A JSON response containing the session notes data.
+        - If the 'mode' parameter is set to 'update':
+            - Response: A JSON response containing the updated session notes data.
+        - If the 'mode' parameter is not provided or is invalid:
+            - Response: A JSON response indicating the error.
+
+    
+    Objective:
+        This method is used to retrieve or update session notes data for a user in a specific context.
+
+    Process:
+        - The method first checks the 'mode' parameter to determine the operation to be performed.
+        - If the 'mode' parameter is set to 'get', the method retrieves the session notes data using the 'get_session_notes_data' function.
+        - If the 'mode' parameter is set to 'update', the method checks if the 'recommendations' and 'session_note_id' parameters are provided.
+        - If the parameters are provided, the method updates the session notes data using the 'update_session_notes' function.
+        - If the parameters are not provided, the method returns an error response.
+        - If the 'mode' parameter is not provided or is invalid, the method returns an error response.
+
+    Input/Parameters:
+        - mode (str): The mode of operation. Valid values are 'get' and 'update'.
+        - session_note_id (str): The ID of the session note to be updated.
+        - recommendations (str): The updated recommendations for the session note.
+
+    Output:
+        - If the 'mode' parameter is set to 'get':
+            - data (dict): A dictionary containing the session notes data.
+        - If the 'mode' parameter is set to 'update':
+            - data (dict): A dictionary containing the updated session notes data.
+        - If the 'mode' parameter is not provided or is invalid:
+            - details (str): A string indicating the error.
+
+    Example Usage:
+        - To retrieve session notes data:
+            GET /api/test-attempt-sessions/get_or_update_session_notes?mode=get
+
+        - To update session notes data:
+            GET /api/test-attempt-sessions/get_or_update_session_notes?mode=update&session_note_id=123&recommendations=Lorem%20ipsum
+
+    """
         try:
             tenant_id = self.request.tenant.uid
             mode = request.query_params.get('mode',None)
@@ -682,6 +922,60 @@ class TestAttemptSessionViewSet(ApiViewSet,
     @action(methods=['POST'],detail=False,url_path="get-fitness-analysis-score")
     def get_fitness_analysis_score(self,request, *args, **kwargs):
 
+        """
+        Retrieves the fitness analysis score based on the provided fitness analysis data.
+
+        Parameters: which will in raw body not params
+            - bot_id: The ID of the signature bot.
+            - fitness_analysis_data: The fitness analysis data provided by the user.
+            - participant_id: The ID of the participant.
+
+        Returns:
+            - Response: The HTTP response object containing the fitness analysis score.
+
+        Raises:
+            - Exception: If there is an error while retrieving the fitness analysis score.
+
+        Process:
+            - Retrieves the fitness analysis data from the request.
+            - Retrieves the signature bot and bot attributes based on the provided bot ID.
+            - Compares the user's fitness analysis data with the mentor's answers.
+            - Calculates the matching percentage of answers.
+            - Classifies the fitness analysis score based on the matching percentage.
+            - Saves the fitness analysis Q&A and scores in the database.
+            - Returns the fitness analysis score as the HTTP response.
+
+        Input Requirements:
+            - The request must contain the following data:
+                - bot_id: The ID of the signature bot.
+                - fitness_analysis_data: The fitness analysis data provided by the user.
+                - participant_id: The ID of the participant.
+
+        Output:
+            - The fitness analysis score as a JSON object containing the following fields:
+                - bottom: The classification for the bottom third.
+                - mid: The classification for the middle third.
+                - top: The classification for the top third.
+                - msg: The overall classification message.
+                - score: The count of matching answers.
+
+        Example Usage:
+            POST /get-fitness-analysis-score
+            {
+                "bot_id": "12345",
+                "fitness_analysis_data": "{\"question1\": {\"cochee\": \"answer1\"}, \"question2\": {\"cochee\": \"answer2\"}}",
+                "participant_id": "67890"
+            }
+
+            Response:
+            {
+                "bottom": "Not a good fit",
+                "mid": "Potential fit",
+                "top": "Good fit",
+                "msg": "Potential fit",
+                "score": 1
+            }
+        """
         # try:
         #     logger.info(f"fitness analysis score request: {request.data}")
         #     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
@@ -754,12 +1048,39 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response(score, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
     @action(methods=['GET'],detail=False,url_path="get-or-save-action-point")
     def get_or_save_action_point(self,request, *args, **kwargs):
+        
+        """
+        Retrieves or saves the action points for a user.
+
+        Parameters:
+            - mode (can be get or save) , user_id, for(if mode is "save"): for is name of the action which we want to increase
+
+        Returns:
+            - If the 'mode' parameter is set to 'get':
+                - Returns the action points for the specified user.
+            - If the 'mode' parameter is set to 'save':
+                - Saves the action points for the specified user and returns a success message.
+
+        Raises:
+            - If the 'mode' parameter is not provided or is invalid:
+                - Returns a 400 Bad Request response with an error message.
+            - If the action info for the specified user is not found:
+                - Returns a 400 Bad Request response with an error message.
+
+        Example usage:
+            - To retrieve the action points for a user:
+                GET /api/test-attempt-sessions/get-or-save-action-point?mode=get&user_id=<user_id>
+
+            - To save the action points for a user:
+                GET /api/test-attempt-sessions/get-or-save-action-point?mode=save&user_id=<user_id>&for=<for_>
+
+        """
         try:
             mode = request.query_params.get('mode',None)
             tenant = self.request.tenant
@@ -790,12 +1111,54 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
 
     @action(methods=['GET'],detail=False,url_path="get-fitment-analysis-by-user")
     def get_fitment_analysis_by_user(self,request, *args, **kwargs):
+        
+        """
+        Retrieves fitment analysis data for a specific user and bot.
 
+        Parameters:
+            - request: The HTTP request object.
+            - user_id: The ID of the user for whom the fitment analysis is being retrieved.
+            - bot_id: The ID of the bot for which the fitment analysis is being retrieved.
+
+        Returns:
+            - data: A dictionary containing fitment analysis data for the user and bot.
+                - fitment_data: A list of fitment questions and their corresponding scores.
+                    - qna: The fitment question.
+                    - score: The fitment score for the question.
+                - proceed: A boolean indicating whether the user can proceed based on the fitment scores.
+                    - True: The user can proceed.
+                    - False: The user cannot proceed.
+
+        Raises:
+            - Exception: If there is an error retrieving the fitment analysis data.
+
+        Description:
+            This method retrieves fitment analysis data for a specific user and bot. It takes the user ID and bot ID as query parameters in the HTTP request. The method first retrieves the signature bot object based on the bot ID and the tenant ID from the request. Then, it queries the BotQnA model to retrieve fitment questions and their scores for the specified user and bot. The fitment questions are ordered in descending order based on their IDs. The fitment questions and scores are then added to a list in the format of a dictionary. Finally, the method constructs a response dictionary containing the fitment data and a boolean indicating whether the user can proceed based on the fitment scores.
+
+        Example:
+            HTTP GET Request:
+            GET /api/test-attempt-sessions/get-fitment-analysis-by-user?user_id=123&bot_id=456
+
+            Response:
+            {
+                "fitment_data": [
+                    {
+                        "qna": "What are your strengths?",
+                        "score": 3
+                    },
+                    {
+                        "qna": "What are your weaknesses?",
+                        "score": 2
+                    }
+                ],
+                "proceed": true
+            }
+        """
         try:
             tenant = self.request.tenant
             data= {}
@@ -835,7 +1198,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
         
 

@@ -75,10 +75,8 @@ class TestQuestionResponseViewSet(ApiViewSet,
         """
         Submits feedback for a test question response.
 
-        Args:
-            request (HttpRequest): The HTTP request object.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
+        Params:
+            test_attempt_session_id,question_id,response_file
 
         Returns:
             Response: The generated feedback for the test question response.
