@@ -241,6 +241,15 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="get-selection-options")
     def get_selection_options(self, request, *args, **kwargs):
+        """
+        Retrieves the selection options for filtering tests based on the tenant ID.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+
+        Returns:
+            HttpResponse: The HTTP response object containing the selection options data.
+        """
         tenant_id = self.request.tenant.uid
         all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
         all_skills = set()
@@ -250,31 +259,31 @@ class TestViewSet(ApiViewSet,
             if skills[0]:
                 skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
                 all_skills.update(skill_name_list)
-                
+            
         all_goals_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('goals')
         all_goals = set()
         for goals in all_goals_qs:
             if goals[0]:
                 all_goals.update(goals[0].split(','))
-        
+    
         all_roles_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('candidate_type')
         all_roles = set()
         for roles in all_roles_qs:
             if roles[0]:
                 all_roles.add(roles[0])
-        
+    
         all_courses_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('course')
         all_courses = set()
         for courses in all_courses_qs:
             if courses[0]:
                 all_courses.add(courses[0])
-        
+    
         all_industry_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('industry')
         all_industry = set()
         for industry in all_industry_qs:
             if industry[0]:
                 all_industry.add(industry[0])
-        
+    
         all_exp_level_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('exp_level')
         all_exp_level = set()
         for exp_level in all_exp_level_qs:
@@ -383,7 +392,29 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="check-duplicate-response")
     def check_duplicate_response(self, request, *args, **kwargs):
+        """
+        Checks if a duplicate response exists for a specific question and test attempt session.
 
+        Args:
+            request (HttpRequest): The HTTP request object.
+            question_id (str): The ID of the question.
+            test_attempt_session_id (str): The ID of the test attempt session.
+
+        Returns:
+            HttpResponse: The HTTP response object containing the result of the duplicate response check.
+
+        Raises:
+            Exception: If an error occurs during the duplicate response check.
+
+        Example Usage:
+            GET /check-duplicate-response?question_id=123&test_attempt_session_id=456
+
+            Response:
+            {
+                "duplicate_check": true,
+                "status": "sent"
+            }
+        """
         try:
             question_id = request.query_params.get("question_id")
             test_attempt_session_id = request.query_params.get("test_attempt_session_id")
@@ -407,6 +438,26 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['POST'],detail=False,url_path="updates-admin-panel")
     def set_admin_controls(self,request, *args, **kwargs):
+        """
+        Update the admin controls for a specific tenant.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+    
+        Query Parameters:
+            interaction_per_month (str): The maximum number of interactions allowed per month.
+            interaction_repeatation (str): The maximum number of times an interaction can be repeated.
+            logo_url (str): The URL of the logo to be updated.
+            user_id (str): The ID of the user for whom the admin controls are being updated.
+            test_codes (str): The comma-separated list of test codes to be updated.
+            test_type (str): The type of the test to be updated.
+            scenario_case (str): The scenario case to be updated.
+            test_code (str): The test code to be updated.
+            interaction_mode (str): The interaction mode to be updated.
+
+        Returns:
+            Response: A response indicating the status of the update.
+        """
         tenant = self.request.tenant.uid
         interaction_per_month = request.query_params.get('interaction_per_month')
         interaction_repeatation = request.query_params.get('interaction_repeatation')
@@ -414,13 +465,10 @@ class TestViewSet(ApiViewSet,
         user_id = request.query_params.get('user_id')
         test_codes = request.query_params.get('test_codes')
 
-
         test_code = request.query_params.get('test_code')
         test_type = request.query_params.get('test_type')
         scenario_case = request.query_params.get('scenario_case')
         interaction_mode = request.query_params.get("interaction_mode")
-
-        
 
         admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,tenant,test_codes,user_id,test_type,scenario_case,test_code,interaction_mode)
 
@@ -428,7 +476,12 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=['GET'],detail=False,url_path="get-test-scenario-case")
     def get_test_scanrio_case(self,request, *args, **kwargs):
+        """
+        Retrieves the test types and scenario cases available in the system.
 
+        :param request: The HTTP request object.
+        :return: A JSON response containing the test types and scenario cases available in the system.
+        """
         test_types = dict(TestTypeChoices.values)
         scenario_cases = dict(ScenarioCaseChoices.values)
 
@@ -436,7 +489,27 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['POST'],detail=False,url_path="user-attributes-prompt-updation")
     def user_att_prmpt_updation(self,request, *args, **kwargs):
+        """
+        Update the user attribute prompts for a specific user.
 
+        Args:
+            request (HttpRequest): The HTTP request object.
+            user_id (str): The ID of the user for whom the prompts need to be updated.
+            difficulty_level (str): The difficulty level prompt.
+            easy_feedback_prompt (str): The prompt for easy feedback.
+            midium_feedback_prompt (str): The prompt for medium feedback.
+            critical_feedback_prompt (str): The prompt for critical feedback.
+            custom_feedback_prompt_1 (str): The prompt for custom feedback 1.
+            custom_feedback_prompt_2 (str): The prompt for custom feedback 2.
+            easy_skill_prompt (str): The prompt for easy skill.
+            midium_skill_prompt (str): The prompt for medium skill.
+            critical_skill_prompt (str): The prompt for critical skill.
+            custom_skill_prompt_1 (str): The prompt for custom skill 1.
+            custom_skill_prompt_2 (str): The prompt for custom skill 2.
+
+        Returns:
+            Response: A response indicating that the prompts have been updated.
+        """
         user_id = request.query_params.get('user_id')
         difficulty_level = request.query_params.get('difficulty_level')
         easy_feedback_prompt = request.query_params.get('easy_feedback_prompt')
@@ -449,7 +522,6 @@ class TestViewSet(ApiViewSet,
         critical_skill_prompt = request.query_params.get('critical_skill_prompt')
         custom_skill_prompt_1 = request.query_params.get('custom_skill_prompt_1')
         custom_skill_prompt_2 = request.query_params.get('custom_skill_prompt_2')
-
 
         var_list= [("difficulty_level",difficulty_level),
                 ("easy_feedback_prompt",easy_feedback_prompt),
@@ -634,14 +706,22 @@ class TestViewSet(ApiViewSet,
 
         return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
 
-    @action(methods=['GET'],detail=False,url_path="get-free-type-test")
-    def get_free_type_test(self,request, *args, **kwargs):
+    @action(methods=['GET'], detail=False, url_path="get-free-type-test")
+    def get_free_type_test(self, request, *args, **kwargs):
+        """
+        Retrieves free type tests based on the provided skill name and optional sub-tenant ID.
+
+        :param request: The HTTP request object.
+        :param sub_tenant_id: (optional) The ID of the sub-tenant. Defaults to None.
+        :param skill_name: The name of the skill for which to retrieve free type tests.
+        :return: A list of dictionaries containing the test title and test code for each free type test that matches the provided skill name and optional sub-tenant ID.
+        """
 
         tenant_id = self.request.tenant.uid
-        sub_tenant_id = request.query_params.get('sub_tenant_id',None)
+        sub_tenant_id = request.query_params.get('sub_tenant_id', None)
         skill_name = request.query_params.get('skill')
 
-        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,is_free=1)
+        tests = Test.objects.filter(tenant_id=tenant_id, deleted=0, is_free=1)
 
         if sub_tenant_id:
             tests = tests.filter(sub_tenant_id=sub_tenant_id)
@@ -655,20 +735,47 @@ class TestViewSet(ApiViewSet,
                 "test_code": test.test_code
             })
 
-        return Response(data=test_details,status=status.HTTP_200_OK)
+        return Response(data=test_details, status=status.HTTP_200_OK)
     
 
     @action(methods=['POST'], detail=False, url_path="get_or_create_test_scenarios_by_site")
     def get_or_create_test_scenarios_by_site(self, request, *args, **kwargs):
         """
-        Get or create test scenarios based on a given site URL and mode.
+            Retrieves or creates test scenarios based on a site URL and mode.
 
-        :param request: the HTTP request object
-        :param url: a string representing the URL of the site
-        :param mode: a string representing the mode ('A' or 'B')
-        :param access_token: a string representing the access token for the site
-        :return: the created scenario as a response
-        """    
+            Parameters:
+            - request: The HTTP request object.
+            - args: Additional positional arguments.
+            - kwargs: Additional keyword arguments.
+
+            Returns:
+            - Response: The HTTP response object containing the test scenarios data.
+
+            Raises:
+            - N/A
+
+            Example Usage:
+            - Retrieve or create test scenarios for a specific site URL and mode.
+
+            Notes:
+            - This method is used to retrieve or create test scenarios based on a site URL and mode. It takes in various parameters such as the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios. It then calls the appropriate helper functions to retrieve or create the test scenarios and returns the data in the HTTP response object.
+
+            Algorithm:
+            1. Get the tenant ID from the request object.
+            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request query parameters.
+            3. If the mode is 'A':
+                - Create an empty list to store the test scenarios data.
+                - If the static scenario flag is True:
+                    - Call the 'create_scenario_from_site_context' helper function to create a static scenario based on the site context.
+                    - Append the static scenario data to the list.
+                - If the dynamic scenario flag is True:
+                    - Call the 'create_scenario_from_site_context' helper function to create a dynamic scenario based on the site context.
+                    - Append the dynamic scenario data to the list.
+                - Return the list of test scenarios data in the HTTP response object.
+            4. If the mode is not 'A':
+                - Call the 'fetch_test_codes_by_site_context' helper function to retrieve the test scenarios based on the site context.
+                - Return the test scenarios data in the HTTP response object.
+        """ 
         tenant_id = self.request.tenant.uid
         url = request.query_params.get('url')
         mode = request.query_params.get('mode')
@@ -701,7 +808,22 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-recommendetion-tests")
     def get_recommendation_tests(self, request, *args, **kwargs):
-        
+        """
+            Retrieves recommendation tests based on the provided context.
+            
+            Parameters:
+                request (Request): The HTTP request object.
+                args (tuple): Additional positional arguments.
+                kwargs (dict): Additional keyword arguments.
+                
+            Returns:
+                Response: The HTTP response object containing the matching tests and the created scenario.
+                            
+            Note:
+                This method uses the 'context' parameter to generate a prompt for the OpenAI GPT-3 model.
+                The generated prompt is then used to get recommendation tests based on the provided context.
+                The 'for' parameter can be used to specify the mode of operation, such as 'feedback_bot'.
+        """
         tenant_id = self.request.tenant.uid
         context = request.query_params.get('context')
         mode = request.query_params.get('for',None)
@@ -791,6 +913,16 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="create-test-from-links")
     def create_scenario_from_links(self, request, *args, **kwargs):
+        """
+        Creates a scenario from the provided URL and generates a test based on the site context.
+
+        Args:
+            url
+
+        Returns:
+            Response: The HTTP response object containing the test code, title, and description of the generated scenario.
+
+        """
         tenant_id = self.request.tenant.uid
         url = request.query_params.get('url')
         access_token = request.headers.get('Authorization')
@@ -814,7 +946,33 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=['GET'], detail=False, url_path="get-tests-by-bot")
     def get_tests_by_bot(self, request, *args, **kwargs):
+        """
+        Retrieves tests filtered by the provided bot name.
 
+        Args:
+            request (HttpRequest): The HTTP request object.
+            bot_id (str): The name of the bot to filter the tests. eg: aravsharma-0023
+
+        Returns:
+            HttpResponse: The HTTP response object containing the filtered tests data.
+
+        Example:
+            GET /api/tests/get-tests-by-bot?bot_id=example_bot
+
+            Response:
+            [
+                {
+                    "title": "Test 1",
+                    "description": "This is test 1",
+                    "test_code": "ABC123"
+                },
+                {
+                    "title": "Test 2",
+                    "description": "This is test 2",
+                    "test_code": "DEF456"
+                }
+            ]
+        """
         bot_name = request.query_params.get("bot_id",None)
 
         tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,bot_name=bot_name)
@@ -825,7 +983,10 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-tests-by-competency")
     def get_tests_by_competency(self, request, *args, **kwargs):
-
+        """
+        Retrives tests by competencies.
+        Output: {"comp1" : [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type }],}
+        """
         competencies = request.query_params.get("competencies",None)
 
         logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
@@ -846,6 +1007,36 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path="get-requested-tests")
     def get_requested_tests(self, request, *args, **kwargs):
+        """
+        Retrieves the requested tests for a specific user.
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            user_id (str): The ID of the user for whom the tests are requested.
+
+        Returns:
+            HttpResponse: The HTTP response object containing the requested tests data.
+
+        Raises:
+            ValueError: If the user_id is not provided.
+
+        Example Usage:
+            GET /api/tests/get-requested-tests?user_id=123456
+
+            Response:
+            [
+                {
+                    "title": "Test 1",
+                    "description": "This is test 1",
+                    "test_code": "TST001"
+                },
+                {
+                    "title": "Test 2",
+                    "description": "This is test 2",
+                    "test_code": "TST002"
+                }
+            ]
+        """
         user_id = request.query_params.get("user_id",None)
 
         if not user_id:
@@ -858,7 +1049,58 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
     def get_tests_by_tab_category(self,request,*args, **kwargs):
+        """
+        Retrieves tests based on the tab category.
 
+        This method is used to retrieve tests based on the tab category. It filters the tests based on the tenant ID and checks if the tab category is not null. It organizes the tests into a nested dictionary, where the keys are the tab categories and the values are dictionaries containing area domains and a list of tests. Each test in the list contains the title, description, test code, and test type.
+
+        Returns:
+            Response: The HTTP response object containing the nested dictionary of tests organized by tab category.
+
+        Raises:
+            Exception: If an error occurs while retrieving the tests.
+
+        Example Usage:
+            GET /api/tests/get-tests-by-tab-category
+
+            Response:
+            {
+                "Tab Category 1": {
+                    "Area Domain 1": [
+                        {
+                            "title": "Test 1",
+                            "description": "Description of Test 1",
+                            "test_code": "ABC123",
+                            "test_type": "Type 1"
+                        },
+                        {
+                            "title": "Test 2",
+                            "description": "Description of Test 2",
+                            "test_code": "DEF456",
+                            "test_type": "Type 2"
+                        }
+                    ],
+                    "Area Domain 2": [
+                        {
+                            "title": "Test 3",
+                            "description": "Description of Test 3",
+                            "test_code": "GHI789",
+                            "test_type": "Type 3"
+                        }
+                    ]
+                },
+                "Tab Category 2": {
+                    "Area Domain 3": [
+                        {
+                            "title": "Test 4",
+                            "description": "Description of Test 4",
+                            "test_code": "JKL012",
+                            "test_type": "Type 4"
+                        }
+                    ]
+                }
+            }
+        """
         try:
             tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
             test_dict = defaultdict(lambda: defaultdict(list))
