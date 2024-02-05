@@ -111,6 +111,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         created_date = datetime.datetime.utcnow()
         )
     
+    save_user_action_info(tenant_id,user_id,"session_notes_count")
     
     if access_token:
         context = json.dumps({"title":"","data":{"information":context}})
@@ -238,13 +239,37 @@ def get_fitness_analysis_score(coach_data, conversation_data):
     return response
 
 
-def save_user_action_info(tenant,user_id,for_):
+def save_user_action_info(tenant_id,user_id,for_,bot_id=None):
+    """
+    Save user action information.
+
+    Parameters:
+    - tenant_id (str): The tenant_id.
+    - user_id (str): The user ID.
+    - for_ (str): The field to update in the UserActionInfo model.
+    - bot_id (str, optional): The bot ID. Defaults to None.
+    if bot_id then text value will be save.
+
+    Returns:
+    None
+
+    """
     action_info, is_created = UserActionInfo.objects.get_or_create(
-                    tenant_id = tenant.uid,
+                    tenant_id = tenant_id,
                     user_id = user_id,
                 )
+    if bot_id:
+        value = getattr(action_info, for_)
+        bot_ids = bot_id
+        if value:
+            bot_ids = value + f",{bot_id}"
+            bot_ids = set(bot_ids.split(","))
+            bot_ids = ",".join(bot_ids)
+            
+        setattr(action_info, for_, bot_ids )
+    else:
+        setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
 
-    setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
     action_info.save(update_fields=[for_])
 
 def extract_fields(data:dict):
