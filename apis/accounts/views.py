@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
-from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer
+from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer, CoachCoacheeConnectionSerializer
 from apis.accounts.serializers import SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer, SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
@@ -18,7 +18,7 @@ from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes
-from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute
+from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
 from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
@@ -1080,3 +1080,100 @@ class AccountsViewSet(ApiViewSet,
                 return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['GET','POST','PATCH'],detail=False, url_path="coach-coachee-connections")
+    def coach_coachee_connections(self, request, *args, **kwargs):
+        if request.method == 'GET':
+            connection_id = request.query_params.get('connection_id',None)
+            user_id = request.query_params.get('user_id',None)
+            coach_id = request.query_params.get('coach_id',None)
+            coachee_id = request.query_params.get('coachee_id',None)
+            if coach_id:
+                try:
+                    connection = CoachCoacheeConnection.objects.filter(deleted=False,user_id=user_id, tenant_id=self.request.tenant.uid)
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
+            if connection_id:
+                try:
+                    connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id)
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
+                
+            if coachee_id:
+                try:
+                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
+            
+            
+            connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=self.request.tenant.uid)
+            return Response({"data": CoachCoacheeConnectionSerializer(connections,many=True).data },status=status.HTTP_200_OK)
+
+        if request.method == 'PATCH':
+            connection_id = request.data.get('connection_id',None)
+            coach_id = request.data.get('coach_id',None)
+            coachee_id = request.data.get('coachee_id',None)
+
+            if connection_id:
+                connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id)
+                data = request.data.copy()
+                serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+            
+            if coach_id and coachee_id:
+                connection = CoachCoacheeConnection.objects.get(deleted=False,coach_id=coach_id,coachee_id=coachee_id)
+                data = request.data.copy()
+                serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+
+
+        if request.method == 'POST':
+            coach_id = request.data.get('coach_id',None)
+            coachee_id = request.data.get('coachee_id',None)
+
+            logger.info(f"***************** request data: {request.data}")
+
+            if None in [coach_id,coachee_id]:
+                return Response({"error":"coach_id and coachee_id are required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=coach_id)
+                bot_ids = coach.bot_ids.split(',')
+                if len(bot_ids) == 0:
+                    return Response({"error":"coach doesn't have any bot"},status=status.HTTP_400_BAD_REQUEST)
+                
+                avatar_bot_id = None
+                for bot_id in bot_ids:
+                    bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
+                    if bot.bot_type == BotTypeChoice.avatar_bot:
+                        avatar_bot_id = bot.bot_id
+
+                if avatar_bot_id is None:
+                    return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
+
+
+            except Exception as e:
+                logger.exception(e)
+                return Response({"error":"coach not found"},status=status.HTTP_404_NOT_FOUND)
+
+            data = request.data.copy()
+            data['tenant_id'] = self.request.tenant.uid
+            data['coach_avatar_bot_id'] = avatar_bot_id
+            serializer = CoachCoacheeConnectionSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            created_connection = serializer.save()
+            return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
+            
+            
+

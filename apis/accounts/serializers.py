@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo
 
@@ -82,4 +82,11 @@ class UserIDPSerializers(serializers.ModelSerializer):
 class DirectoryInfoSErializer(serializers.ModelSerializer):
     class Meta:
         model = DirectoryPageInfo
+        fields = '__all__'
+
+
+
+class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachCoacheeConnection
         fields = '__all__'

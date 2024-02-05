@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice
+from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
 
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
@@ -192,3 +192,25 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
         db_table = "coach_coachee_mentor_mentee_profile"
 
         unique_together = (("tenant_id", "uid"),)
+
+
+
+class CoachCoacheeConnection(TenantAwareModel):
+    coach_id = models.CharField(max_length=64,null=True, blank=True, default=None)
+    coachee_id = models.CharField(max_length=64,null=True, blank=True, default=None)
+    mentor_id = models.CharField(max_length=64,null=True, blank=True, default=None)
+    mentee_id = models.CharField(max_length=64,null=True, blank=True, default=None)
+    connection_type = models.CharField(max_length=255, null=True, blank=True,default=None)
+    status = models.CharField(max_length=255, null=True, blank=True, choices=CoachCoacheeConnectionStatusChoice, default='pending')
+    is_approved = models.BooleanField(null=True, default=False)
+    is_rejected = models.BooleanField(null=True, default=False)
+    is_blocked = models.BooleanField(null=True, default=False)
+    is_deleted = models.BooleanField(null=True, default=False)
+    is_removed = models.BooleanField(null=True, default=False)
+    coach_avatar_bot_id = models.CharField(max_length=255, null=True, blank=True, default=None)
+
+
+    class Meta:
+        db_table = "coach_coachee_connection"
+
+        unique_together = (("tenant_id", "coach_id", "coachee_id"), ("tenant_id", "mentor_id", "mentee_id"))
