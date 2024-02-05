@@ -696,8 +696,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()} {user_email}"""
         tenant = self.request.tenant
-        save_user_action_info(tenant,participant_id,"transcript_email_sent") # saving action point
-        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_recieved")
+        save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
+        save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
 
         # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
         sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
@@ -759,7 +759,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
-            save_user_action_info(tenant,user_id,"feedback_recieved")
+            save_user_action_info(tenant.uid,user_id,"feedback_recieved")
             bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
@@ -1104,7 +1104,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
                 for_ = request.query_params.get('for',None)
-                save_user_action_info(tenant,user_id,for_)
+                save_user_action_info(tenant.uid,user_id,for_)
 
                 data['message'] = "Action point increased."
 
