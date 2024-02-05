@@ -26,3 +26,12 @@ class BotTypeChoice(DjangoChoices):
     feedback_bot = ChoiceItem("feedback_bot")
     subject_matter_bot = ChoiceItem("subject_matter_bot")
     helper_bot = ChoiceItem("helper_bot")
+
+
+
+class CoachCoacheeConnectionStatusChoice(DjangoChoices):
+    pending = ChoiceItem("pending")
+    accepted = ChoiceItem("accepted")
+    rejected = ChoiceItem("rejected")
+    blocked = ChoiceItem("blocked")
+    removed = ChoiceItem("removed")
