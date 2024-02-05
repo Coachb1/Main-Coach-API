@@ -24,6 +24,7 @@ from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping
 from users.choices import ProfileTypeChoice
+from users.choices import BotTypeChoice
 
 logger = logging.getLogger(__name__)
 
@@ -350,9 +351,17 @@ def continue_coaching_conversation(tenant: Tenant,
     if is_signature_bot:
         
         current_conversation = CoachingConversation.objects.filter(deleted=0,tenant_id=tenant.uid,test_attempt_session_id=test_attempt_session.uid).count()
-        if current_conversation == 5: # increasing action point if conversation contain five chat
-            save_user_action_info(tenant,test_attempt_session.participant_id,"chat_attempted")
-            
+        if current_conversation == 2 : # increasing action point if conversation contain two chat
+            save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
+
+        if current_conversation == 3 :
+            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_ids",bot_id=signature_bot.bot_id)
+
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
