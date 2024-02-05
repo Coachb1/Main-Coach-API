@@ -38,6 +38,7 @@ from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
 from coaching_conversations.helpers import avatar_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
+from utilities.models import UserActionInfo
 
 logger = logging.getLogger(__name__)
 
@@ -1045,3 +1046,31 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in directory information api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False,url_path="participant-leader-board-report")
+    def participant_leader_board_report(self,request, *args, **kwargs):
+
+        try:
+            if request.method == "GET":
+                user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                data = []
+                for user_action in user_actions:
+                    user = get_user_by_id(user_action.user_id)
+                    temp = {
+                        "name": get_user_display_name(user),
+                        "avatar_bot_count": user_action.avatar_bot_count,
+                        "subject_matter_count": user_action.subject_matter_bot_count,
+                        "total_bots": user_action.avatar_bot_count + user_action.subject_matter_bot_count,
+                        "total_simulations": user_action.interaction_attempted,
+                        "total_bot_interactions": user_action.chat_attempted,
+                        "session_notes_count": user_action.session_notes_count,
+                    }
+                    temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
+                    data.append(temp)
+                    
+                data = sorted(data, key=lambda x: x['total_score'], reverse=True)
+
+                return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)

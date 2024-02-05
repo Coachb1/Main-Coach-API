@@ -64,6 +64,11 @@ class UserActionInfo(TenantAwareModel):
     transcript_email_recieved = models.IntegerField(null=True,blank=True,default=0)
     chat_attempted = models.IntegerField(null=True,blank=True,default=0)
     interaction_attempted = models.IntegerField(null=True,blank=True,default=0)
+    avatar_bot_count = models.IntegerField(null=True,blank=True,default=0)
+    subject_matter_bot_count = models.IntegerField(null=True,blank=True,default=0)
+    session_notes_count = models.IntegerField(null=True,blank=True,default=0)
+    avatar_ids = models.TextField(null=True,blank=True,default=None)
+    subject_matter_bot_ids = models.TextField(null=True,blank=True,default=None)
 
     class Meta:
         db_table = "user_action_info"
