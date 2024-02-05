@@ -1065,7 +1065,13 @@ class AccountsViewSet(ApiViewSet,
                         "total_simulations": user_action.interaction_attempted,
                         "total_bot_interactions": user_action.chat_attempted,
                         "session_notes_count": user_action.session_notes_count,
+                        "profile_type": "coachee"
                     }
+                    profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user.uid)
+                    for p in profiles:
+                        if p.profile_type == ProfileTypeChoice.coach:
+                            temp['profile_type'] = p.profile_type
+
                     temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
                     data.append(temp)
                     
