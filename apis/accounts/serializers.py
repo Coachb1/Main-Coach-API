@@ -90,3 +90,16 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachCoacheeConnection
         fields = '__all__'
+
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try:
+            coach = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coach_id)
+            coachee = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coachee_id)
+            data['coach_name'] = coach.name
+            data['coachee_name'] = coachee.name
+        except:
+            data['coach_name'] = None
+            data['coachee_name'] = None
+
+        return data
