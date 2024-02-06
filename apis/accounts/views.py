@@ -23,7 +23,7 @@ from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
-from users.choices import StatusChoice, ProfileTypeChoice
+from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
 
 
 from identities.models import Identity
@@ -33,7 +33,7 @@ from users.db import get_user_by_id,get_user_display_name
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-from email_sender.helpers import send_generic_email
+from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
 from coaching_conversations.helpers import avatar_bot_default_prompt
@@ -1085,14 +1085,14 @@ class AccountsViewSet(ApiViewSet,
             coachee_id = request.query_params.get('coachee_id',None)
             if coach_id:
                 try:
-                    connection = CoachCoacheeConnection.objects.filter(deleted=False,user_id=user_id, tenant_id=self.request.tenant.uid)
+                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=coach_id, tenant_id=self.request.tenant.uid)
                     return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
             if connection_id:
                 try:
-                    connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id)
+                    connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id,tenant_id=self.request.tenant.uid)
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
@@ -1117,24 +1117,72 @@ class AccountsViewSet(ApiViewSet,
 
             if connection_id:
                 connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id)
+                
                 data = request.data.copy()
-                serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=connection.coach_id)
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=connection.coachee_id)
+                
+                coach_name = coach.name
+                coachee_name = coachee.name
+                coachee_email = coachee.email
+                # serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
+                # serializer.is_valid(raise_exception=True)
+                # serializer.save()
+                connection.status = CoachCoacheeConnectionStatusChoice.accepted
+                connection.save(update_fields=['status'])
+                subject = "Connection Approved"
+                html = f"""
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                            <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
+
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            </td>
+                            </tr>
+                    </table>
+                    """
+
+                send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
                 return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
             
             if coach_id and coachee_id:
                 connection = CoachCoacheeConnection.objects.get(deleted=False,coach_id=coach_id,coachee_id=coachee_id)
                 data = request.data.copy()
-                serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+                # serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
+                # serializer.is_valid(raise_exception=True)
+                # serializer.save()
+                connection.status = CoachCoacheeConnectionStatusChoice.accepted
+                connection.save(update_fields=['status'])
+                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
+                
+                coach_name = coach.name
+                coachee_name = coachee.name
+                coachee_email = coachee.email
+                subject = "Connection Approved"
+                html = f"""
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                            <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
+
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            </td>
+                            </tr>
+                    </table>
+                    """
+
+                send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
                 return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
 
         if request.method == 'POST':
             coach_id = request.data.get('coach_id',None)
             coachee_id = request.data.get('coachee_id',None)
+            profile_url = request.data.get('profile_page_url')
 
             logger.info(f"***************** request data: {request.data}")
 
@@ -1167,6 +1215,27 @@ class AccountsViewSet(ApiViewSet,
             serializer = CoachCoacheeConnectionSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             created_connection = serializer.save()
+            coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
+            coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
+            
+            coach_name = coach.name
+            coachee_name = coachee.name
+            coachee_email = coachee.email
+            subject = "Connection Approved"
+            html = f"""
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                        <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Dear {coach_name},  One of the participants has requested to confirm connecrtion. You can do so via visiting your profile page here. <a href={profile_url} >Profile page </a> . Thanks! </p>
+
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                        </td>
+                        </tr>
+                </table>
+                """
+
+            send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email)
             return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
             
             
