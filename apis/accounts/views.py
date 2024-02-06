@@ -1128,24 +1128,30 @@ class AccountsViewSet(ApiViewSet,
                 # serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
                 # serializer.is_valid(raise_exception=True)
                 # serializer.save()
-                connection.status = CoachCoacheeConnectionStatusChoice.accepted
-                connection.save(update_fields=['status'])
-                subject = "Connection Approved"
-                html = f"""
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                            <tr>
-                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
 
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                            </td>
-                            </tr>
-                    </table>
-                    """
+                if data.get('status') == CoachCoacheeConnectionStatusChoice.accepted:
+                    connection.status = CoachCoacheeConnectionStatusChoice.accepted
+                    connection.save(update_fields=['status'])
+                    subject = "Connection Approved"
+                    html = f"""
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                <tr>
+                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
 
-                send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
-                return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                </td>
+                                </tr>
+                        </table>
+                        """
+
+                    send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+                else:
+                    connection.status = CoachCoacheeConnectionStatusChoice.rejected
+                    connection.save(update_fields=['status'])
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
             
             if coach_id and coachee_id:
                 connection = CoachCoacheeConnection.objects.get(deleted=False,coach_id=coach_id,coachee_id=coachee_id)
@@ -1153,31 +1159,36 @@ class AccountsViewSet(ApiViewSet,
                 # serializer = CoachCoacheeConnectionSerializer(connection,data=data,partial=True)
                 # serializer.is_valid(raise_exception=True)
                 # serializer.save()
-                connection.status = CoachCoacheeConnectionStatusChoice.accepted
-                connection.save(update_fields=['status'])
-                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
-                coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
-                
-                coach_name = coach.name
-                coachee_name = coachee.name
-                coachee_email = coachee.email
-                subject = "Connection Approved"
-                html = f"""
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                            <tr>
-                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
 
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                            </td>
-                            </tr>
-                    </table>
-                    """
+                if data.get('status') == CoachCoacheeConnectionStatusChoice.accepted:
+                    connection.status = CoachCoacheeConnectionStatusChoice.accepted
+                    connection.save(update_fields=['status'])
+                    coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
+                    coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
+                    
+                    coach_name = coach.name
+                    coachee_name = coachee.name
+                    coachee_email = coachee.email
+                    subject = "Connection Approved"
+                    html = f"""
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                <tr>
+                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
 
-                send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
-                return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                </td>
+                                </tr>
+                        </table>
+                        """
 
+                    send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
+                else:
+                    connection.status = CoachCoacheeConnectionStatusChoice.rejected
+                    connection.save(update_fields=['status'])
+                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
         if request.method == 'POST':
             coach_id = request.data.get('coach_id',None)
@@ -1221,7 +1232,7 @@ class AccountsViewSet(ApiViewSet,
             coach_name = coach.name
             coachee_name = coachee.name
             coachee_email = coachee.email
-            subject = "Connection Approved"
+            subject = "you have a connection request"
             html = f"""
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                         <tr>
