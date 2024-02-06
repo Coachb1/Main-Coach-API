@@ -222,7 +222,7 @@ def send_email_with_html_template(subject, html_content, to_email = 'info@coachb
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = FROM_EMAIL_DISPLAY
+    msg['From'] = "Coachbots Notification <mail@coachbots.com>"
     msg['To'] = to_email
 
     html_body = email_body_templete(html_content=html_content)
