@@ -6,6 +6,9 @@ from rest_framework.response import Response
 import logging
 from django.db.models import Subquery
 from django.utils import timezone
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
@@ -24,6 +27,7 @@ from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
+from tests.helpers import scrape_article_data
 
 
 from identities.models import Identity
@@ -699,6 +703,7 @@ class AccountsViewSet(ApiViewSet,
                 media_data = data.get('media_data')
                 bot_details = data.get('bot_details',{})
                 additional_data = data.get('additional_data')
+                coach_data = data.get('coach_data')
 
                 bot_details["is_login_required"] = False
                 bot_details["is_strict_login_required"] = False
@@ -706,12 +711,25 @@ class AccountsViewSet(ApiViewSet,
 
                 all_data = {}
 
+                all_data['coach_data'] = coach_data
+
+                extracted_media_data = {}
+
                 if additional_data:
                     all_data['additional_data'] = additional_data
 
                 print("################# media_data: ",media_data)
 
-                if media_data and bot_type != BotTypeChoice.feedback_bot:
+                if 'attatched_pdfs' in request.data:
+                    if media_data is None:
+                        media_data = {}
+                    media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
+                    logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
+                extracted_media_data = {}
+
+                logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
+
+                if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     if 'youtube_links' in media_data:
                         youtube_links = media_data['youtube_links']
                         youtube_links = [link.strip() for link in youtube_links.split(',')]
@@ -719,22 +737,49 @@ class AccountsViewSet(ApiViewSet,
                         print("################# youtube_links: ",youtube_links)
 
                         #* save these links in bot attributes
-
+                        extracted_from_youtube = {}
                         for link in youtube_links:
+                            
                             if link != '':
                                 transcript_data = download_and_transcribe_audio(link)
-                                all_data[link] = transcript_data
+                                extracted_from_youtube[link] = transcript_data
+                        
+                        extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
 
-                    # if 'pdf_links' in media_data:
-                    #     pdf_links = media_data['pdf_links']
-                    #     pdf_links = [link.strip() for link in pdf_links.split(',')]
+                    if 'article_links' in media_data:
+                        article_links = media_data['article_links']
+                        article_links = [link.strip() for link in article_links.split(',')]
 
-                    #     #* save these links in bot attributes
+                        logger.info(f"******************* article_links: {article_links}")
+                        #* save these links in bot attributes
+                        extracted_from_article = {}
+                        for link in article_links:
+                            
+                            if link != '':
+                                transcript_data = scrape_article_data(link).get('article_content',None)
+                                extracted_from_article[link] = transcript_data
+                        
+                        # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                        extracted_media_data['extracted_from_article'] = extracted_from_article
 
-                    #     for link in pdf_links:
-                    #         transcript_data = extract_text_from_pdf(link)
-                    #         all_data[link] = transcript_data
 
+                    if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                        attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
+                        pdf_names = []
+                        extracted_from_pdf = {}
+
+                        for file in attatched_pdfs:
+                            # logger.info(f"file name : {file.name}, {file.read()}")
+                            pdf_names.append(file.name)
+                            path = default_storage.save(file.name, ContentFile(file.read()))
+                            pdf_content = extract_text_from_pdf(path)
+                            default_storage.delete(path)
+                            extracted_from_pdf[file.name] = pdf_content
+
+                        extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+
+                all_data['media_data'] = extracted_media_data
 
                 signature_bot = SignatureBot.objects.create(
                     bot_id=bot_id,
@@ -833,7 +878,7 @@ class AccountsViewSet(ApiViewSet,
                         bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
 
                     bot_snippet = f"""
-                                <div class="deep-chat-poc2" data-bot-id="{bot_id}">jiks</div>
+                                <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
                                 <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
                                     """
                     coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
@@ -934,6 +979,79 @@ class AccountsViewSet(ApiViewSet,
                     updated_fields.append("feedback_questions")
                 
                 bot_att.save(update_fields=updated_fields)
+
+            media_data = data.get('media_data')
+            if 'attatched_pdfs' in request.data:
+                if media_data is None:
+                    media_data = {}
+                media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
+                logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
+            extracted_media_data = {}
+
+            logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
+
+            if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                if 'youtube_links' in media_data:
+                    youtube_links = media_data['youtube_links']
+                    youtube_links = [link.strip() for link in youtube_links.split(',')]
+
+                    print("################# youtube_links: ",youtube_links)
+
+                    #* save these links in bot attributes
+                    extracted_from_youtube = {}
+                    for link in youtube_links:
+                        
+                        if link != '':
+                            transcript_data = download_and_transcribe_audio(link)
+                            extracted_from_youtube[link] = transcript_data
+                    
+                    extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
+
+                if 'article_links' in media_data:
+                    article_links = media_data['article_links']
+                    article_links = [link.strip() for link in article_links.split(',')]
+
+                    logger.info(f"******************* article_links: {article_links}")
+                    #* save these links in bot attributes
+                    extracted_from_article = {}
+                    for link in article_links:
+                        
+                        if link != '':
+                            transcript_data = scrape_article_data(link).get('article_content',None)
+                            extracted_from_article[link] = transcript_data
+                    
+                    # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                    extracted_media_data['extracted_from_article'] = extracted_from_article
+
+
+                if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                    attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
+                    pdf_names = []
+                    extracted_from_pdf = {}
+
+                    """ logger.info(f"******************* attatched_pdfs: {attatched_pdfs}") """
+
+                    for file in attatched_pdfs:
+                        # logger.info(f"file name : {file.name}, {file.read()}")
+                        pdf_names.append(file.name)
+                        
+                        path = default_storage.save(file.name, ContentFile(file.read()))
+
+                        pdf_content = extract_text_from_pdf(path)
+
+                        default_storage.delete(path)
+                        extracted_from_pdf[file.name] = pdf_content
+
+                
+
+                    extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+                    # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
+
+                logger.info(f"######### extracted media data : {extracted_media_data}")
+
+                signature_bot.data['media_data'] = extracted_media_data
+                signature_bot.save()
 
             # if updated_data:
             #     # Update the instance with the new data
