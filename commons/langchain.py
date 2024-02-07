@@ -283,9 +283,9 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     pdf = open(pdf_path, 'rb')
     pdfReader = PyPDF2.PdfReader(pdf)
     text_data = ""
-    for i in range(pdfReader.numPages):
-        page = pdfReader.getPage(i)
-        text = page.extractText()
+    for i in range(len(pdfReader.pages)):
+        page = pdfReader.pages[i]
+        text = page.extract_text()
         text_data += " ".join(text.split("\t"))
 
     return text_data
