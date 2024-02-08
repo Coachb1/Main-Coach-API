@@ -3,6 +3,7 @@ import re
 import openai
 import requests
 import anthropic
+import time
 
 from pytube.exceptions import VideoUnavailable
 from urllib.parse import urlparse, parse_qs
@@ -178,6 +179,8 @@ def download_and_transcribe_audio(url: str):
         
         loader = TextLoader(transcript_filepath, encoding='utf8')
         documents = loader.load()
+
+        time.sleep(5)
 
         print("*"*50, "DOCUMENTS: \n", documents, "*"*50)
 
