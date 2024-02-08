@@ -963,7 +963,7 @@ class AccountsViewSet(ApiViewSet,
                 updated_fields = []
 
                 if fitment_answer:
-                    bot_att.fitment_answers = fitment_answer.split(",")
+                    bot_att.fitment_answers = {"mentor_answer":fitment_answer.split(",")}
                     updated_fields.append("fitment_answers")
                 if email:
                     bot_att.coach_email = email
