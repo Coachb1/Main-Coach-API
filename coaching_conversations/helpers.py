@@ -176,7 +176,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                 if signature_bot.bot_type == 'avatar_bot':
                     try:
-                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id,profile_type=ProfileTypeChoice.coachee)
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
                         highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
@@ -199,7 +199,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                     )
                 elif signature_bot.bot_type == 'helper_bot':
                     try:
-                        personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id,profile_type=ProfileTypeChoice.coachee)
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
                         highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
@@ -495,7 +495,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee)
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -520,7 +520,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         elif bot_type == 'helper_bot':
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee)
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -701,15 +701,19 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     """
     bot_user = get_user_by_id(bot.user_id)
     logger.info(f"user_id: {user.uid}")
-    user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).first()
+    user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid)
     logger.info(f"bot_user_Id: {bot.user_id}")
     bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id,profile_type=ProfileTypeChoice.coach)
-    user_email = user_profile.email or get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
     bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
-    user_name = user_profile.name or user.name
     bot_user_name = bot_user_profile.name or bot_user.name
-    user_mob_no = user_profile.mob_number
     bot_user_mob_no = bot_user_profile.mob_number
+
+    user_email = get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
+    user_name = user.name
+    user_mob_no = None
+    if user_profile.count() > 0:
+        user_profile = user_profile.first()
+        user_mob_no = user_profile.mob_number
 
     bot_user_mapping, is_created = BotAndUserMapping.objects.get_or_create(
         tenant_id=user.tenant_id,

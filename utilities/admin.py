@@ -41,19 +41,24 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
     # Send email when is_approved is changed to True
     bot_id = instance.avatar_bot_id
-    signature_bot = SignatureBot.objects.get(bot_id=bot_id)
+    signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
     if instance.is_approved:
 
         subject = 'Your profile has been approved'
-        bot_owner = get_user_by_id(signature_bot.user_id)
-        bot_owner_name = get_user_display_name(bot_owner)
-        bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
-        emails = ["info@coachbots.com",bot_owner_email]
+        emails = ["info@coachbots.com"]
+        if signature_bot.count() > 0:
+            bot = signature_bot.first()
+            bot_owner = get_user_by_id(bot.user_id)
+            bot_owner_name = get_user_display_name(bot_owner)
+            bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
+            emails.append(bot_owner_email)
+
+
         html_content = f"""
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {bot_owner_name}</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Congratulations! Your profile has been approved. </p>
 
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
@@ -64,15 +69,16 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         for email in emails:
             send_email_with_html_template(subject=subject,html_content=html_content,to_email=email)
         
-
-    is_approved = instance.is_approved
-    
-    feedback_bot = SignatureBot.objects.filter(user_id=signature_bot.user_id,bot_type="feedback_bot")
-    signature_bot.is_approved = is_approved
-    signature_bot.save(update_fields=["is_approved"])
-    for feed in feedback_bot:
-        feed.is_approved = is_approved
-        feed.save(update_fields=["is_approved"])
+    if signature_bot.count() > 0:
+        signature_bot = signature_bot.first()
+        is_approved = instance.is_approved
+        
+        feedback_bot = SignatureBot.objects.filter(user_id=signature_bot.user_id,bot_type="feedback_bot")
+        signature_bot.is_approved = is_approved
+        signature_bot.save(update_fields=["is_approved"])
+        for feed in feedback_bot:
+            feed.is_approved = is_approved
+            feed.save(update_fields=["is_approved"])
 
     try:
         coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
