@@ -8,6 +8,7 @@ from django.db.models import Subquery
 from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+import threading
 
 
 from apis.accounts.aggregator import create_user_account
@@ -631,6 +632,30 @@ class AccountsViewSet(ApiViewSet,
             return Response({"data": data},status=status.HTTP_200_OK)
         else:
             return Response({"data": [bot.bot_id for bot in all_bots]},status=status.HTTP_200_OK)
+        
+
+    #************* utility methods ***************
+    def process_and_store_youtube_transcript(self,youtube_links,signature_bot):
+        extracted_from_youtube = {}
+        extracted_media_data = {}
+
+        logger.info(f"*************** youtube_links in process_and_store : {youtube_links}")
+
+        for link in youtube_links:
+            if link != '':
+                print("################# link: ",link)
+                try:
+                    transcript_data = download_and_transcribe_audio(link)
+                    extracted_from_youtube[link] = transcript_data
+                except Exception as e:
+                    logger.exception(e)
+                    extracted_from_youtube[link] = {"error": "error in extracting transcript"}
+            
+        # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
+        signature_bot.data['media_data']['extracted_from_youtube'] = extracted_from_youtube
+        signature_bot.save(update_fields=["data"])
+        return transcript_data
+
     
     @action(methods=['POST','PATCH'],detail=False, url_path="create-bot-by-details")
     def create_bot_by_details(self,request,*args, **kwargs):
@@ -669,7 +694,7 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
                 bot_id = "-".join([bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-")])
-                existing_bots = SignatureBot.objects.filter(bot_id=bot_id)
+                existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                 if existing_bots.count() > 0:
                     return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
 
@@ -729,22 +754,35 @@ class AccountsViewSet(ApiViewSet,
 
                 logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
+                
+                signature_bot = SignatureBot.objects.create(
+                    bot_id=bot_id,
+                    tenant_id=self.request.tenant.uid,
+                    user_id=participant_id,
+                    bot_type=bot_type,
+                )
+
+
+                #******** process media data ********
+
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     if 'youtube_links' in media_data:
                         youtube_links = media_data['youtube_links']
                         youtube_links = [link.strip() for link in youtube_links.split(',')]
 
-                        print("################# youtube_links: ",youtube_links)
 
                         #* save these links in bot attributes
-                        extracted_from_youtube = {}
+                        """ extracted_from_youtube = {}
                         for link in youtube_links:
                             
                             if link != '':
                                 transcript_data = download_and_transcribe_audio(link)
                                 extracted_from_youtube[link] = transcript_data
                         
-                        extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
+                        extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
+
+                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
+
 
                     if 'article_links' in media_data:
                         article_links = media_data['article_links']
@@ -781,12 +819,9 @@ class AccountsViewSet(ApiViewSet,
 
                 all_data['media_data'] = extracted_media_data
 
-                signature_bot = SignatureBot.objects.create(
-                    bot_id=bot_id,
-                    tenant_id=self.request.tenant.uid,
-                    user_id=participant_id,
-                    bot_type=bot_type,
-                )
+
+
+
                 bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
                                                     bot_id=signature_bot.uid,
                                                     bot_name=bot_name,
@@ -992,20 +1027,24 @@ class AccountsViewSet(ApiViewSet,
 
             if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                 if 'youtube_links' in media_data:
+                    # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
                     youtube_links = media_data['youtube_links']
                     youtube_links = [link.strip() for link in youtube_links.split(',')]
 
                     print("################# youtube_links: ",youtube_links)
 
                     #* save these links in bot attributes
-                    extracted_from_youtube = {}
+                    """ extracted_from_youtube = {}
                     for link in youtube_links:
                         
                         if link != '':
                             transcript_data = download_and_transcribe_audio(link)
                             extracted_from_youtube[link] = transcript_data
                     
-                    extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
+                    extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
+                   
+                    threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
+
 
                 if 'article_links' in media_data:
                     article_links = media_data['article_links']
@@ -1048,7 +1087,7 @@ class AccountsViewSet(ApiViewSet,
 
                     # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
 
-                logger.info(f"######### extracted media data : {extracted_media_data}")
+                # logger.info(f"######### extracted media data : {extracted_media_data}")
 
                 signature_bot.data['media_data'] = extracted_media_data
                 signature_bot.save()
