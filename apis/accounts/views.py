@@ -951,7 +951,7 @@ class AccountsViewSet(ApiViewSet,
                 except Exception as e:
                     logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
                 
-                return Response({"bot_id":signature_bot.bot_id },status=status.HTTP_200_OK)
+                return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
             
             except Exception as e:
                 logger.exception("Got error while creating bot: {e}")
