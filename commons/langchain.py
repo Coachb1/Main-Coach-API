@@ -160,9 +160,22 @@ def transcribe_audio(file_path, video_id):
             for i in range(chunk_no):
                 os.remove(f"tmp/{chunk_name}_{i}.mp3")
 
-
+def convert_youtube_link(youtube_link):
+    # Check if the input is a valid YouTube link
+    if "youtu.be" in youtube_link:
+        # Extract the video ID from the input link
+        video_id = youtube_link.split("/")[-1].split("?")[0]
+        
+        # Construct the new YouTube link format
+        converted_link = f"https://www.youtube.com/watch?v={video_id}"
+        
+        return converted_link
+    else:
+        return youtube_link
+    
 def download_and_transcribe_audio(url: str):
     # Extract the video_id from the url
+    url = convert_youtube_link(url)
     query = urlparse(url).query
     params = parse_qs(query)
     video_id = params["v"][0]
