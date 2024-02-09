@@ -570,12 +570,12 @@ class AccountsViewSet(ApiViewSet,
 
         if request.method == 'PATCH':
             profile_id = request.query_params.get('profile_id',None)
+            print("*"*100)
+            logger.info(f"data : {request.data}")
+            data = {"tenant_id" : self.request.tenant.uid}
+            data.update(request.data)
+            print(data)
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
-            try:
-                data = request.data.copy()
-            except Exception as e:
-                data = request.data
-            data['tenant_id'] = self.request.tenant.uid
             serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
