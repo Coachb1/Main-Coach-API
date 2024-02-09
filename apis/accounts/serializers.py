@@ -39,7 +39,7 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
     profile_image = serializers.FileField(required=False)
     class Meta:
         model = CoachCoacheeMentorMenteeProfile
-        fields = ['uid','profile_type','name', 'email', 'status', 'speciality', 'experience', 'location','profile_image',
+        fields = ['uid','tenant_id','profile_type','name', 'email', 'status', 'speciality', 'experience', 'location','profile_image',
                 'favourite_simulation_codes', 'about', 'department', 'unique_id', 'user_id', 'bot_ids', 'bot_urls', 'profile_image_url','hard_skill_areas',
                 'area_domain','provided_links','low_rating_characteristics','high_rating_characteristics','mentoring_preferences',
                 'mentoring_frameworks','dominant_point_of_view','problem_solving_approach','admired_leaders','voice_sample','coaching_for_fitment','coaching_level',
