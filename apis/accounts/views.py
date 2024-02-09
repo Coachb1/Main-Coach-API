@@ -805,6 +805,14 @@ class AccountsViewSet(ApiViewSet,
                         extracted_media_data['extracted_from_article'] = extracted_from_article
 
 
+                    if 'pdf_data' in media_data:
+                        pdf_data = media_data['pdf_data']
+                        # pdf_data = json.loads(pdf_data)
+                        logger.info(f"******************* pdf_data: {pdf_data}")
+                        # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
+                        extracted_media_data['pdf_data'] = pdf_data
+
+
                     if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
                         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
                         pdf_names = []
@@ -1066,6 +1074,14 @@ class AccountsViewSet(ApiViewSet,
                     
                     # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                     extracted_media_data['extracted_from_article'] = extracted_from_article
+
+
+                if 'pdf_data' in media_data:
+                    pdf_data = media_data['pdf_data']
+                    # pdf_data = json.loads(pdf_data)
+                    logger.info(f"******************* pdf_data: {pdf_data}")
+                    # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
+                    extracted_media_data['pdf_data'] = pdf_data
 
 
                 if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
