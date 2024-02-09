@@ -2,6 +2,7 @@ import logging
 
 from django.utils import timezone
 from rest_framework import serializers
+from commons.google_search import get_searched_links_contents, scrape_article_data
 
 from coaching_conversations.choices import CoachingConversationChoices
 from coaching_conversations.models import CoachingConversation
@@ -515,7 +516,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 coach_info = coach_info,
                 conversation_history = conversation_history,
                 context = initial_que_ans,
-                user_personality = personality
+                user_personality = personality if signature_bot.use_personality_context else None
             )
 
         elif bot_type == 'helper_bot':
@@ -549,14 +550,24 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             for que, ans in faqs.items():
                 faqs_text += f"Question: {que} Answer: {ans}\n"
 
-            conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
-            conversation.extend(current_conv)
+            if signature_bot.bot_type != 'subject_matter_bot':
+                conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
+                conversation.extend(current_conv)
+
+            articles_contents = ""
+            if signature_bot.use_google_context:
+                if 'article_links' in signature_bot.data:
+                    logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data['article_links']}")
+                    for link in signature_bot.data['article_links'].split(","):
+                        contents = scrape_article_data(link).get('article_content',"\n")
+                        if contents:
+                            articles_contents += contents
 
             prompt = Template(prompt).substitute(
                             conversation_history = conversation,
-                            user_personality = personality,
-                            articles = coach_info + " General FAQs: " + faqs_text,
-                            google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                            user_personality =  personality if signature_bot.use_personality_context else None,
+                            articles = articles_contents if signature_bot.use_google_context else coach_info + " General FAQs: " + faqs_text,
+                            google_search =  get_searched_links_contents(candidate_data_str) if signature_bot.use_google_context else "" # TODO: Add functionality for extacting googlesearch result
                         )
 
             
@@ -575,11 +586,26 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
             conversation.extend(current_conv)
+
+            logger.info(f"####################33 use_google_context: {signature_bot.use_google_context}")
+
+            articles_contents = ""
+            if signature_bot.use_google_context:
+                logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data.get('article_links')}")
+                for link in signature_bot.data['article_links'].split(","):
+                    contents = scrape_article_data(link).get('article_content',"\n")
+                    if contents:
+                        articles_contents += contents
+
+            google_search_results = ""
+            if signature_bot.use_google_context:
+                google_search_results = get_searched_links_contents(candidate_data_str)
+                logger.info(f"############################### google_search_results: {google_search_results}")
             
             prompt = Template(prompt).substitute(
                             conversation_history = conversation,
-                            articles = coach_info + " General FAQs: " + faqs_text,
-                            google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                            articles = articles_contents if signature_bot.use_google_context else coach_info + " General FAQs: " + faqs_text,
+                            google_search =  google_search_results # TODO: Add functionality for extacting googlesearch result
                         )
 
 
