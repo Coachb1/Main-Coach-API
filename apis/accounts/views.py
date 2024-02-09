@@ -751,6 +751,7 @@ class AccountsViewSet(ApiViewSet,
                 if 'attatched_pdfs' in request.data:
                     if media_data is None:
                         media_data = {}
+                    media_data = json.loads(media_data)
                     media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
                     logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
                 extracted_media_data = {}
@@ -1022,6 +1023,7 @@ class AccountsViewSet(ApiViewSet,
             if 'attatched_pdfs' in request.data:
                 if media_data is None:
                     media_data = {}
+                media_data = json.loads(media_data)
                 media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
                 logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
             extracted_media_data = {}
@@ -1088,7 +1090,7 @@ class AccountsViewSet(ApiViewSet,
 
                     extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
-                    # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
+                    logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
 
                 # logger.info(f"######### extracted media data : {extracted_media_data}")
 
