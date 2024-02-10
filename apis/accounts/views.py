@@ -499,7 +499,7 @@ class AccountsViewSet(ApiViewSet,
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
                 
-                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid)
+                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
                 msg_data = []
                 for feed in feedback_data:
                     participant_name = get_user_display_name(
