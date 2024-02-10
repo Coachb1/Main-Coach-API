@@ -44,6 +44,9 @@ from commons.langchain import download_and_transcribe_audio, extract_text_from_p
 from coaching_conversations.helpers import avatar_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
 from utilities.models import UserActionInfo
+                    
+from itertools import groupby
+from operator import attrgetter
 
 logger = logging.getLogger(__name__)
 
@@ -464,6 +467,7 @@ class AccountsViewSet(ApiViewSet,
         Args:
             request (object): The HTTP request object.
             method (string): The method to perform, either "get" or "post".
+            feedback_type(string):  nagetive then fetches only critical msg.
             bot_id (string): The ID of the bot for which to retrieve or create feedback data.
             user_id (string): The ID of the user for whom to create feedback data (only required for "post" method).
             qna (string): The question and answer data for the feedback (only required for "post" method).
@@ -479,6 +483,7 @@ class AccountsViewSet(ApiViewSet,
         try:
             method = request.query_params.get('method',None)
             bot_id = request.query_params.get('bot_id',None)
+            feedback_type = request.query_params.get("feedback_type",None)
             data = {}
             try:
                 signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
@@ -495,18 +500,29 @@ class AccountsViewSet(ApiViewSet,
                 #     return Response(data,status=status.HTTP_200_OK)
                 
                 feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid)
-                positive_msg_data = []
+                msg_data = []
                 for feed in feedback_data:
                     participant_name = get_user_display_name(
                         get_user_by_id(feed.participant_id))
-                    if feed.is_positive:
-                        positive_msg_data.append({
-                            "participant_name": participant_name,
-                            "date": feed.created,
-                            "msg": feed.participant_qna
-                        })
-                
-                data['positive_msgs'] = positive_msg_data
+                    
+                    if feedback_type == "negative":
+                        if not feed.is_positive:
+                            msg_data.append({
+                                "participant_name": participant_name,
+                                "date": feed.created,
+                                "msg": feed.participant_qna
+                            })
+                    else:
+                        if feed.is_positive:
+                            msg_data.append({
+                                "participant_name": participant_name,
+                                "date": feed.created,
+                                "msg": feed.participant_qna
+                            })
+                if feedback_type == "negative":
+                    data['critical_msgs'] = msg_data
+                else:
+                    data['positive_msgs'] = msg_data
 
             elif method.lower() == 'post':
                 participant_id = request.query_params.get('user_id',None)
@@ -1322,7 +1338,7 @@ class AccountsViewSet(ApiViewSet,
                                 <tr>
                                 <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} has approved your connection request.</p>
 
                                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                                 </td>
@@ -1434,4 +1450,52 @@ class AccountsViewSet(ApiViewSet,
             return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
             
             
+    @action(methods=['GET'],detail=False,url_path="feedback-leaderboard-report")
+    def feedback_leader_board(self,request, *args, **kwargs):
+        """
+        This method generates a feedback leaderboard report for bots. It retrieves all the BotQnA objects 
+        related to feedback for the current tenant, groups them by bot_id, and counts the positive and negative feedbacks.
+        It then retrieves the bot name and owner name for each bot, and returns a sorted list of dictionaries, 
+        each containing the bot name, owner name, positive feedback count, and negative feedback count. 
+        The list is sorted in descending order of positive feedback count.
 
+        Args:
+            request (HttpRequest): The HTTP request object, which should contain the tenant information.
+
+        Returns:
+            Response: A Django Rest Framework Response object. The data part of the response contains a list of dictionaries.
+            Each dictionary contains the bot name, owner name, positive feedback count, and negative feedback count.
+            The status of the response is HTTP 200 OK if the operation is successful, or HTTP 400 BAD REQUEST if an error occurs.
+        """
+        try:
+            if request.method == "GET":
+                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback')
+
+                # Sort the queryset by bot_id
+                bot_qnas = sorted(bot_qnas, key=lambda x: x.bot_id)
+
+                # Group the sorted queryset by bot_id
+                grouped_bot_qnas = groupby(bot_qnas, key=attrgetter('bot_id'))
+                formatted_data = []
+                for bot_id, group in grouped_bot_qnas:
+                    positive_count = sum(1 for item in group if item.is_positive)
+                    negative_count = sum(1 for item in group if not item.is_positive)
+                    signature_bot = SignatureBot.objects.get(uid=bot_id)
+                    bot_name = BotAttribute.objects.get(bot_id=bot_id).bot_name
+                    owner_name = get_user_display_name(get_user_by_id(signature_bot.user_id))
+
+                    formatted_entry = {
+                        "bot_name": bot_name,
+                        "owner_name": owner_name,
+                        "positive_feedback_count": positive_count,
+                        "negative_feedback_count": negative_count
+                    }
+                    formatted_data.append(formatted_entry)
+
+
+                formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
+
+                return Response({'group': formatted_data},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return  Response({"Error": f"Got Error in Feedback-leaderboard-report : {e}"},status=status.HTTP_400_BAD_REQUEST)
