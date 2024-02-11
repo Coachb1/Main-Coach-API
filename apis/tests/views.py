@@ -35,6 +35,8 @@ from skills.helpers import json_extraction
 from commons.langchain import download_and_transcribe_audio
 import json
 from collections import defaultdict
+from commons.youtube_utils import get_youtube_transcript
+from documents.utils import get_summary
 
 
 import logging
@@ -931,7 +933,15 @@ class TestViewSet(ApiViewSet,
 
         raw_scenario_data = ''
         if 'youtube' in url:
-            raw_scenario_data = download_and_transcribe_audio(url)
+            for i in range(2):
+                transcript = get_youtube_transcript(url)
+                if transcript is not None:
+                    break
+            if transcript is None:
+                transcript = download_and_transcribe_audio(url)
+
+            summary = get_summary(transcript)
+            raw_scenario_data = summary
         else:
             raw_scenario_data = scrape_article_data(url).get('article_content',None)
 

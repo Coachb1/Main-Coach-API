@@ -77,6 +77,6 @@ pytube==15.0.0
 pypdf2==3.0.1
 pydub==0.25.1
 readability-lxml==0.8.1
-
+youtube-transcript-api==0.6.2
 
 
