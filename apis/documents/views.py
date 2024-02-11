@@ -9,6 +9,9 @@ from commons.viewset import ApiViewSet
 from documents.helpers import create_document, get_document_url
 from documents.models import Document
 from rest_framework import mixins
+from commons.langchain import download_and_transcribe_audio
+from documents.utils import get_summary
+from commons.youtube_utils import get_youtube_transcript
 
 
 class DocumentViewSet(ApiViewSet,
@@ -39,3 +42,22 @@ class DocumentViewSet(ApiViewSet,
         doc = self.get_object()
         url = get_document_url(doc)
         return Response({"url": url})
+
+    @action(methods=["GET"], detail=False, url_path="get-summary")
+    def get_summary(self, request, *args, **kwargs):
+        youtube_link = request.query_params.get("youtube_link")
+        if youtube_link is None or youtube_link == "":
+            return Response({"error": "Youtube link is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        choice = request.query_params.get("choice")
+
+        for i in range(2):
+            transcript = get_youtube_transcript(youtube_link)
+            if transcript is not None:
+                break
+
+        if transcript is None:
+            transcript = download_and_transcribe_audio(youtube_link)
+
+        summary = get_summary(transcript,choice)
+        return Response({"summary": summary})
