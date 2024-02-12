@@ -821,19 +821,30 @@ class AccountsViewSet(ApiViewSet,
                         extracted_media_data['extracted_from_article'] = extracted_from_article
 
 
-                    if 'pdf_data' in media_data:
-                        pdf_data = media_data['pdf_data']
-                        # pdf_data = json.loads(pdf_data)
-                        logger.info(f"******************* pdf_data: {pdf_data}")
-                        # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
-                        extracted_media_data['pdf_data'] = pdf_data
+                    if 'pdf_data' in data:
+                        pdf_data = data.getlist('pdf_data')
+                        extracted_from_pdf = {}
+                        logger.info(f"******************* pdf_data: {doc_data}")
 
-                    if 'doc_data' in media_data:
-                        doc_data = media_data['doc_data']
-                        # doc_data = json.loads(doc_data)
+                        if len(pdf_data) > 0:
+                            for index, pdf in enumerate(pdf_data):
+                                extracted_from_pdf[index+1] = pdf
+                        logger.info(f"******************* pdf_data: {extracted_from_pdf}")
+                        extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+                    if 'doc_data' in data:
+                        doc_data = data.getlist('doc_data')
+                        extracted_from_doc = {}
+
+
                         logger.info(f"******************* doc_data: {doc_data}")
-                        # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
-                        extracted_media_data['doc_data'] = doc_data
+                        if len(doc_data) > 0:
+                            for index, doc in enumerate(doc_data):
+                                extracted_from_doc[index+1] = doc
+
+                        logger.info(f"******************* doc_data: {extracted_from_doc}")
+                        extracted_media_data['extracted_from_doc'] = extracted_from_doc
+
 
                     if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
                         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
@@ -1116,25 +1127,26 @@ class AccountsViewSet(ApiViewSet,
                 if 'pdf_data' in data:
                     pdf_data = data.getlist('pdf_data')
                     extracted_from_pdf = {}
+                    logger.info(f"******************* pdf_data: {doc_data}")
 
                     if len(pdf_data) > 0:
                         for index, pdf in enumerate(pdf_data):
                             extracted_from_pdf[index+1] = pdf
-                        logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                        extracted_media_data['pdf_data'] = extracted_from_pdf
+                    logger.info(f"******************* pdf_data: {extracted_from_pdf}")
+                    extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
                 if 'doc_data' in data:
                     doc_data = data.getlist('doc_data')
                     extracted_from_doc = {}
 
 
+                    logger.info(f"******************* doc_data: {doc_data}")
                     if len(doc_data) > 0:
-                        logger.info(f"******************* doc_data: {doc_data}")
                         for index, doc in enumerate(doc_data):
                             extracted_from_doc[index+1] = doc
 
-                        logger.info(f"******************* pdf_data: {extracted_from_doc}")
-                        extracted_media_data['doc_data'] = extracted_from_doc
+                    logger.info(f"******************* doc_data: {extracted_from_doc}")
+                    extracted_media_data['extracted_from_doc'] = extracted_from_doc
 
                 if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
                     attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
@@ -1175,7 +1187,7 @@ class AccountsViewSet(ApiViewSet,
 
                     logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
 
-                # logger.info(f"######### extracted media data : {extracted_media_data}")
+                logger.info(f"######### extracted media data : {extracted_media_data}")
 
                 signature_bot.data['media_data'] = extracted_media_data
                 signature_bot.save()
