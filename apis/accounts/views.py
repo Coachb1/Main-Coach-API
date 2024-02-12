@@ -1244,7 +1244,42 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="participant-leader-board-report")
     def participant_leader_board_report(self,request, *args, **kwargs):
+        """
+        Generates a leaderboard report for participants based on their activities.
 
+        This method retrieves all user actions for the current tenant that are not marked as deleted. For each user action, 
+        it fetches the corresponding user and constructs a dictionary containing the user's display name, counts of different 
+        types of bots, total simulations, total bot interactions, session notes count, and profile type. If the user has a 
+        'coach' profile, it updates the profile type in the dictionary.
+
+        The total score for each user is calculated as the sum of total bots, session notes count, total simulations, and 
+        total bot interactions. The data is then sorted in descending order of total score to generate the leaderboard.
+
+        Args:
+            request (HttpRequest): The HTTP request object. The tenant ID is extracted from this request.
+
+        Returns:
+            Response: A HTTP response object containing a list of dictionaries. Each dictionary represents a user and contains 
+            the following keys: 'name', 'avatar_bot_count', 'subject_matter_count', 'total_bots', 'total_simulations', 
+            'total_bot_interactions', 'session_notes_count', 'profile_type', 'total_score'.
+
+            Example:
+            [
+                {
+                    "name": "John Doe",
+                    "avatar_bot_count": 5,
+                    "subject_matter_count": 3,
+                    "total_bots": 8,
+                    "total_simulations": 10,
+                    "total_bot_interactions": 15,
+                    "session_notes_count": 2,
+                    "profile_type": "coachee",
+                    "total_score": 35
+                },
+                ...
+            ]
+
+        """
         try:
             if request.method == "GET":
                 user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid)
@@ -1278,6 +1313,39 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET','POST','PATCH'],detail=False, url_path="coach-coachee-connections")
     def coach_coachee_connections(self, request, *args, **kwargs):
+        """
+        This method handles GET, POST, and PATCH requests for coach-coachee connections.
+
+        For GET requests, it retrieves coach-coachee connections based on the provided query parameters: 'connection_id', 'user_id', 'coach_id', and 'coachee_id'. 
+        If no parameters are provided, it returns all connections for the current tenant.
+
+        For POST requests, it creates a new coach-coachee connection. It requires 'coach_id', 'coachee_id', and 'profile_page_url' in the request data. 
+        After creating the connection, it sends an email to the coach with a connection request.
+
+        For PATCH requests, it updates an existing coach-coachee connection. It requires 'connection_id' or both 'coach_id' and 'coachee_id' in the request data. 
+        It also updates the connection status and sends an email to the coachee if the status is 'accepted'.
+
+        Input:
+            request: A Django HttpRequest object. Contains metadata about the request.
+                For GET, it may contain query parameters 'connection_id', 'user_id', 'coach_id', 'coachee_id'.
+                For POST, it must contain 'coach_id', 'coachee_id', and 'profile_page_url' in request.data.
+                For PATCH, it must contain 'connection_id' or both 'coach_id' and 'coachee_id' in request.data.
+
+        Output:
+            A Django HttpResponse object. Contains the serialized data of the coach-coachee connections or an error message.
+
+        Example:
+            GET /coach-coachee-connections?coach_id=1
+            Response: {"data": [{"connection_id": 1, "coach_id": 1, "coachee_id": 2, "status": "accepted"}]}
+
+            POST /coach-coachee-connections
+            Request data: {"coach_id": 1, "coachee_id": 2, "profile_page_url": "http://example.com/profile"}
+            Response: {"data": {"connection_id": 1, "coach_id": 1, "coachee_id": 2, "status": "pending"}}
+
+            PATCH /coach-coachee-connections
+            Request data: {"connection_id": 1, "status": "accepted"}
+            Response: {"data": {"connection_id": 1, "coach_id": 1, "coachee_id": 2, "status": "accepted"}}
+        """
         if request.method == 'GET':
             connection_id = request.query_params.get('connection_id',None)
             user_id = request.query_params.get('user_id',None)
