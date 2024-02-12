@@ -306,6 +306,19 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 
     return text_data
 
+def extract_text_from_doc(file_path: str) -> str:
+    from docx import Document
+    doc = Document(file_path)
+    text_data = ""
+    # Extract and print text from each paragraph
+    for paragraph in doc.paragraphs:
+        print(paragraph.text)
+        text_data += " ".join(paragraph.text.split("\t"))
+    print(f"############################ text: {text_data} #####################")
+    return text_data
+
+
+
 def generate_answer_from_text_anthropic(text_path: str, question: str) -> str:
     # anthropic.anthropic_api_key = api_key  # Set Anthropic API key
     ANTHROPIC_KEY = settings.ANTHROPIC_KEY
