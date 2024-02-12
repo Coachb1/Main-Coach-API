@@ -40,7 +40,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
-from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf
+from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import avatar_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
 from utilities.models import UserActionInfo
@@ -835,6 +835,21 @@ class AccountsViewSet(ApiViewSet,
                         # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
                         extracted_media_data['doc_data'] = doc_data
 
+                    if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                        attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
+                        doc_names = []
+                        extracted_from_doc = {}
+
+                        for file in attached_docs:
+                            # logger.info(f"file name : {file.name}, {file.read()}")
+                            doc_names.append(file.name)
+                            path = default_storage.save(file.name, ContentFile(file.read()))
+                            doc_content = extract_text_from_doc(path)
+                            default_storage.delete(path)
+                            extracted_from_doc[file.name] = doc_content
+
+                        extracted_media_data['extracted_from_doc'] = extracted_from_doc
+
 
                     if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
                         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
@@ -1113,7 +1128,21 @@ class AccountsViewSet(ApiViewSet,
                     # logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
                     extracted_media_data['doc_data'] = doc_data
 
+                if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                    attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
+                    doc_names = []
+                    extracted_from_doc = {}
 
+                    for file in attached_docs:
+                        # logger.info(f"file name : {file.name}, {file.read()}")
+                        doc_names.append(file.name)
+                        path = default_storage.save(file.name, ContentFile(file.read()))
+                        doc_content = extract_text_from_doc(path)
+                        default_storage.delete(path)
+                        extracted_from_doc[file.name] = doc_content
+
+                    extracted_media_data['extracted_from_doc'] = extracted_from_doc
+                    
                 if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
                     attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
                     pdf_names = []
