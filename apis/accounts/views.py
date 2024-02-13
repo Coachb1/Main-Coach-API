@@ -44,6 +44,7 @@ from commons.langchain import download_and_transcribe_audio, extract_text_from_p
 from coaching_conversations.helpers import avatar_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
 from utilities.models import UserActionInfo
+from commons.utils import extract_file_and_text
                     
 from itertools import groupby
 from operator import attrgetter
@@ -1123,15 +1124,17 @@ class AccountsViewSet(ApiViewSet,
                     
                     # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                     extracted_media_data['extracted_from_article'] = extracted_from_article
-
+            
+            if signature_bot.bot_type != BotTypeChoice.feedback_bot:
                 if 'pdf_data' in data:
                     pdf_data = data.getlist('pdf_data')
                     extracted_from_pdf = {}
-                    logger.info(f"******************* pdf_data: {doc_data}")
+                    logger.info(f"******************* pdf_data: {pdf_data}")
 
                     if len(pdf_data) > 0:
                         for index, pdf in enumerate(pdf_data):
-                            extracted_from_pdf[index+1] = pdf
+                            file_name, text = extract_file_and_text(pdf)
+                            extracted_from_pdf[file_name] = text
                     logger.info(f"******************* pdf_data: {extracted_from_pdf}")
                     extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
@@ -1143,12 +1146,13 @@ class AccountsViewSet(ApiViewSet,
                     logger.info(f"******************* doc_data: {doc_data}")
                     if len(doc_data) > 0:
                         for index, doc in enumerate(doc_data):
-                            extracted_from_doc[index+1] = doc
+                            file_name, text = extract_file_and_text(doc)
+                            extracted_from_doc[file_name] = text
 
                     logger.info(f"******************* doc_data: {extracted_from_doc}")
                     extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-                if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                
+                if (media_data and 'attached_docs' in media_data) or 'attached_docs' in request.FILES:
                     attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
                     doc_names = []
                     extracted_from_doc = {}
@@ -1163,7 +1167,7 @@ class AccountsViewSet(ApiViewSet,
 
                     extracted_media_data['extracted_from_doc'] = extracted_from_doc
                     
-                if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
                     attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
                     pdf_names = []
                     extracted_from_pdf = {}
@@ -1189,6 +1193,7 @@ class AccountsViewSet(ApiViewSet,
 
                 logger.info(f"######### extracted media data : {extracted_media_data}")
 
+            if extracted_media_data:
                 signature_bot.data['media_data'] = extracted_media_data
                 signature_bot.save()
 
