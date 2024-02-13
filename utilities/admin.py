@@ -44,30 +44,35 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
     if instance.is_approved:
 
-        subject = 'Your profile has been approved'
-        emails = ["info@coachbots.com"]
-        if signature_bot.count() > 0:
-            bot = signature_bot.first()
-            bot_owner = get_user_by_id(bot.user_id)
-            bot_owner_name = get_user_display_name(bot_owner)
-            bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
-            emails.append(bot_owner_email)
+        try:
+            subject = 'Your profile has been approved'
+            emails = ["info@coachbots.com"]
+            if signature_bot.count() > 0:
+                bot = signature_bot.first()
+                bot_owner = get_user_by_id(bot.user_id)
+                bot_owner_name = get_user_display_name(bot_owner)
+                bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
+                emails.append(bot_owner_email)
 
 
-        html_content = f"""
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Congratulations! Your profile has been approved. </p>
+            html_content = f"""
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                            <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Congratulations! Your profile has been approved. </p>
 
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td>
-                        </tr>
-                    </table>
-                """
-        for email in emails:
-            send_email_with_html_template(subject=subject,html_content=html_content,to_email=email)
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            </td>
+                            </tr>
+                        </table>
+                    """
+            for email in emails:
+                logger.info(f"Sending email to {email}")
+                send_email_with_html_template(subject=subject,html_content=html_content,to_email=email)
+                logger.info(f"Email sent to {email}")
+        except Exception as e:
+            logger.info(f"failed to send email: {e}")
         
     if signature_bot.count() > 0:
         signature_bot = signature_bot.first()
