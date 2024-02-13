@@ -291,6 +291,7 @@ class CoachingConversationViewSet(ApiViewSet,
         tenant = self.request.tenant
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
+        user_bot_id = request.query_params.get('bot_id', None)
 
         if mode == 'admin':
             try:
@@ -309,21 +310,32 @@ class CoachingConversationViewSet(ApiViewSet,
                     bot_sessions = sessions.filter(participant_id=participant_id)
                     data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
                     data_cov['bot_name'] = bot_att.bot_name
+                    data_cov['bot_id'] = bot.bot_id
                     data.append(data_cov)
 
             return Response(data, status=status.HTTP_200_OK)
 
         elif mode == 'user':
-            bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
+            bot_ids = []
+            if user_bot_id:
+                bot_ids = [SignatureBot.objects.get(bot_id=user_bot_id).uid]
+            else:
+                bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
             data = []
-
+            
             for b_id in bot_ids:
-                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                
                 sessions = TestAttemptSession.objects.filter(deleted=0, tenant_id=tenant.uid, test_id=b_id,
                                                               participant_id=user_id)
+                if sessions.count() == 0:
+                    continue
+
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                signature_bot = SignatureBot.objects.get(uid=b_id)
                 data_conv = get_bot_conversation_data_user(sessions, tenant, user_id)
                 if len(data_conv['results']) > 0:
                     data_conv['bot_name'] = bot_att.bot_name
+                    data_conv['bot_id'] = signature_bot.bot_id
                     data.append(data_conv)
             return Response(data, status=status.HTTP_200_OK)
 

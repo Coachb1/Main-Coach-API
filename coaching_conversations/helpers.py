@@ -355,6 +355,7 @@ def continue_coaching_conversation(tenant: Tenant,
         if current_conversation == 2 : # increasing action point if conversation contain two chat
             save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
 
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         if current_conversation == 3 :
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
@@ -363,7 +364,6 @@ def continue_coaching_conversation(tenant: Tenant,
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_ids",bot_id=signature_bot.bot_id)
 
-        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
@@ -657,7 +657,8 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
                     "participant_message_text": conversation.participant_message_text,
                     "status": conversation.status,
                     "created": conversation.created,
-                    "updated": conversation.updated
+                    "updated": conversation.updated,
+                    "session_id": session.uid
                 }
 
                 results.append(temp)
