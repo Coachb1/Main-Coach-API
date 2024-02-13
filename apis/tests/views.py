@@ -905,7 +905,8 @@ class TestViewSet(ApiViewSet,
 
         data = {
             "matching_tests": json.loads(json_response),
-            "created_scenario": {scenario['test_code']: scenario['title']}
+            "created_scenario": {scenario['test_code']: scenario['title']},
+            "success": True,
         }
         
 
