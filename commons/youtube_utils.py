@@ -1,5 +1,6 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
+from commons.timeit import timeit
 
 
 def format_youtube_link(youtube_link):
@@ -12,7 +13,7 @@ def format_youtube_link(youtube_link):
     else:
         return youtube_link
 
-
+@timeit
 def get_youtube_transcript(url):
     try:
         url = format_youtube_link(url)

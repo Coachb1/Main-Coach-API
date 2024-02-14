@@ -1,6 +1,8 @@
 from commons.anthropic import anthropic_completion
+from commons.timeit import timeit
 
 
+@timeit
 def get_summary(transcript, choice = "short"):
     short_summary_prompt = f"""
     Transcript : ${transcript}

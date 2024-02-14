@@ -21,6 +21,7 @@ from langchain.llms import OpenAI
 from datetime import datetime
 from pydub import AudioSegment
 from django.conf import settings
+from commons.timeit import timeit
 
 
 
@@ -173,7 +174,8 @@ def convert_youtube_link(youtube_link):
         return converted_link
     else:
         return youtube_link
-    
+
+@timeit  
 def download_and_transcribe_audio(url: str):
     # Extract the video_id from the url
     url = convert_youtube_link(url)
