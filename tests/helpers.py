@@ -5698,7 +5698,7 @@ def get_improved_title(title):
     title = title.split(':')[-1]
     return title
 
-
+@timeit
 def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None):
     """
     This function generates a scenario based on the meta information of a given URL.
