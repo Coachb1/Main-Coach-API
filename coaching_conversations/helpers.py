@@ -20,12 +20,13 @@ from users.db import get_user_display_name, get_user_by_id
 from string import Template
 from utilities.helpers import save_user_action_info
 import json
-from utilities.models import BotQnA
+from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
+from apis.accounts.serializers import UserIDPSerializers
 
 logger = logging.getLogger(__name__)
 
@@ -160,8 +161,9 @@ def initialize_coaching_conversation(tenant: Tenant,
             if custom_prompt:
                 
                 initial_que_ans = ''
-                for que, ans in qna.items():
-                    initial_que_ans += f"Question: {que} Answer: {ans} \n"
+                if signature_bot.bot_type != BotTypeChoice.subject_matter_bot:
+                    for que, ans in qna.items():
+                        initial_que_ans += f"Question: {que} Answer: {ans} \n"
 
                 
 
@@ -169,7 +171,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                 for key,val in signature_bot.data.items():
                     coach_info += f"{key}:{val}\n"
 
-                sessions = TestAttemptSession.objects.filter(tenant_id = tenant.uid, test_id = signature_bot.uid)
+                sessions = TestAttemptSession.objects.filter(uid=test_attempt_session.uid)
 
                 conversation_data= get_bot_conversation_data_user(sessions,tenant,test_attempt_session.participant_id,only_converation=True)
                 conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
@@ -196,7 +198,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                         coach_info = coach_info,
                         conversation_history = conversation_history,
                         context = initial_que_ans,
-                        user_personality = personality
+                        user_personality = personality if signature_bot.use_personality_context else None
                     )
                 elif signature_bot.bot_type == 'helper_bot':
                     try:
@@ -221,11 +223,35 @@ def initialize_coaching_conversation(tenant: Tenant,
                     for que, ans in faqs.items():
                         faqs_text += f"Question: {que} Answer: {ans}\n"
 
+                    idp_data = {}
+                    if signature_bot.use_idp:
+                        idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,success=True)
+                        if idp.count() > 0:
+                            idp = idp.first()
+                            idp_data = {
+                                "strengths": idp.strengths,
+                                "weakness": idp.weakness,
+                                "opportunities": idp.opportunities,
+                                "threats": idp.threats,
+                                "key_focus_areas": idp.key_focus_areas,
+                                "goals": idp.goals,
+                                "priorities": idp.priorities,
+                                "learning_histories": idp.learning_histories,
+                                "key_skills": idp.key_skills,
+                                "skill_gap_for_development": idp.skill_gap_for_development,
+                                "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                                "book_recommendations": idp.book_recommendations,
+                                "course_recommendations": idp.course_recommendations,
+                                "recommended_ted_talk": idp.recommended_ted_talk,
+                                "recommended_scenarios": idp.recommended_scenarios,
+                            }
+
                     custom_prompt = Template(custom_prompt).substitute(
                                     conversation_history = initial_que_ans,
-                                    user_personality = personality,
+                                    user_personality = personality if signature_bot.use_personality_context else None,
                                     articles = coach_info + " General FAQs: " + faqs_text,
-                                    google_search = ""  # TODO: Add functionality for extacting googlesearch result
+                                    google_search = "" , # TODO: Add functionality for extacting googlesearch result
+                                    idp_data = idp_data
                                 )
                     
                 # elif signature_bot.bot_type == 'subject_matter_bot':
@@ -492,7 +518,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             coach_info += f"{key}: {val}\n"
             
         if bot_type == 'avatar_bot':
-            
+            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
+                                                        uid=test_attempt_session_id,
+                                                        deleted=0
+                                                        )
+            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
 
 
             try:
@@ -514,7 +546,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = conversation_history,
+                conversation_history = current_conv,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None
             )
@@ -554,20 +586,45 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
                 conversation.extend(current_conv)
 
-            articles_contents = ""
-            if signature_bot.use_google_context:
-                if 'article_links' in signature_bot.data:
-                    logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data['article_links']}")
-                    for link in signature_bot.data['article_links'].split(","):
-                        contents = scrape_article_data(link).get('article_content',"\n")
-                        if contents:
-                            articles_contents += contents
+            # articles_contents = ""
+            # if signature_bot.use_google_context:
+            #     if 'article_links' in signature_bot.data:
+            #         logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data['article_links']}")
+            #         for link in signature_bot.data['article_links'].split(","):
+            #             contents = scrape_article_data(link).get('article_content',"\n")
+            #             if contents:
+            #                 articles_contents += contents
+
+
+            idp_data = {}
+            if signature_bot.use_idp:
+                idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=participant_id,success=True)
+                if idp.count() > 0:
+                    idp = idp.first()
+                    idp_data = {
+                        "strengths": idp.strengths,
+                        "weakness": idp.weakness,
+                        "opportunities": idp.opportunities,
+                        "threats": idp.threats,
+                        "key_focus_areas": idp.key_focus_areas,
+                        "goals": idp.goals,
+                        "priorities": idp.priorities,
+                        "learning_histories": idp.learning_histories,
+                        "key_skills": idp.key_skills,
+                        "skill_gap_for_development": idp.skill_gap_for_development,
+                        "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                        "book_recommendations": idp.book_recommendations,
+                        "course_recommendations": idp.course_recommendations,
+                        "recommended_ted_talk": idp.recommended_ted_talk,
+                        "recommended_scenarios": idp.recommended_scenarios,
+                    }
 
             prompt = Template(prompt).substitute(
                             conversation_history = conversation,
                             user_personality =  personality if signature_bot.use_personality_context else None,
-                            articles = articles_contents if signature_bot.use_google_context else coach_info + " General FAQs: " + faqs_text,
-                            google_search =  get_searched_links_contents(candidate_data_str) if signature_bot.use_google_context else "" # TODO: Add functionality for extacting googlesearch result
+                            articles = coach_info + " General FAQs: " + faqs_text,
+                            google_search =  get_searched_links_contents(candidate_data_str) if signature_bot.use_google_context else "" ,# TODO: Add functionality for extacting googlesearch result
+                            idp_data = idp_data
                         )
 
             
@@ -584,18 +641,18 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             for que, ans in faqs.items():
                 faqs_text += f"Question: {que} Answer: {ans}\n"
 
-            conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
-            conversation.extend(current_conv)
+            # conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
+            # conversation.extend(current_conv)
 
             logger.info(f"####################33 use_google_context: {signature_bot.use_google_context}")
 
-            articles_contents = ""
-            if signature_bot.use_google_context:
-                logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data.get('article_links')}")
-                for link in signature_bot.data['article_links'].split(","):
-                    contents = scrape_article_data(link).get('article_content',"\n")
-                    if contents:
-                        articles_contents += contents
+            # articles_contents = ""
+            # if signature_bot.use_google_context:
+            #     logger.info(f"###################################### signature_bot.data['article_links']: {signature_bot.data.get('article_links')}")
+            #     for link in signature_bot.data['article_links'].split(","):
+            #         contents = scrape_article_data(link).get('article_content',"\n")
+            #         if contents:
+            #             articles_contents += contents
 
             google_search_results = ""
             if signature_bot.use_google_context:
@@ -603,8 +660,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 logger.info(f"############################### google_search_results: {google_search_results}")
             
             prompt = Template(prompt).substitute(
-                            conversation_history = conversation,
-                            articles = articles_contents if signature_bot.use_google_context else coach_info + " General FAQs: " + faqs_text,
+                            conversation_history = current_conv,
+                            articles = coach_info + " General FAQs: " + faqs_text,
                             google_search =  google_search_results # TODO: Add functionality for extacting googlesearch result
                         )
 

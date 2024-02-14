@@ -75,6 +75,7 @@ class SignatureBot(TenantAwareModel):
     is_sample_bot = models.BooleanField(null=True,default=False)
     use_google_context = models.BooleanField(null=True,default=False)
     use_personality_context = models.BooleanField(null=True,default=False)
+    use_idp = models.BooleanField(null=True,default=False)
     
 
     class Meta:
