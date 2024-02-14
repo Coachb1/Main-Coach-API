@@ -890,10 +890,15 @@ class TestViewSet(ApiViewSet,
         user_input: {context}
         test_data: {tests_data}
 
-        based on {{user_input}} pick the best test from the {{test_data}}
+        Based on {{user_input}} pick the best test from the {{test_data}}. Based on {{user_input}} give me the scenario from {{test_data}} that best suits the user's needs and requirements. The scenario should be directly linked to the skills or areas identified in {{user_input}}.
 
-        NOTE: just give me test_code and title in json format like {"{"}Q78TYZ : python skills improvement{"}"}
+        NOTE : Output format : {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
+        NOTE: just give me test_code and title in json format like {"{"}"Q78TYZ" : "python skills improvement"{"}"}
+
         NOTE: do not provide any other information
+
+        NOTE : Do not provide any kind of explanation in the output.
 
         \n\nAssistant:
         """
