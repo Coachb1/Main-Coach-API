@@ -829,8 +829,10 @@ class TestViewSet(ApiViewSet,
         tenant_id = self.request.tenant.uid
         context = request.query_params.get('context')
         mode = request.query_params.get('for',None)
+        creator_user_id = request.query_params.get('creator_user_id')
+        test_type = request.query_params.get('test_type',None)
 
-        logger.info(f">>>>>>>>>>>>>>>>>>> request data : {request.data},  access_token : { request.headers.get('Authorization')}")
+        logger.info(f">>>>>>>>>>>>>>>>>>> request data : {request.data}, test_type: {test_type},  access_token : { request.headers.get('Authorization')}")
         access_token = request.headers.get('Authorization')
 
         if not context:
@@ -844,15 +846,21 @@ class TestViewSet(ApiViewSet,
         for test in all_tests:
             tests_data += f"{test.test_code} : {test.title}\n"
 
-        logger.info(f">>>>>>>>>>>>>>>>>>> tests_data : {tests_data}")
+        # logger.info(f">>>>>>>>>>>>>>>>>>> tests_data : {tests_data}")
 
         prompt = ""
         scenario = ''
+        type_of_test=TestTypeChoices.test
+
+        if test_type == "dynamic":
+            type_of_test=TestTypeChoices.dynamic_discussion_thread
+
+        logger.info(f">>>>>>>>>>>>>>> Type of test : {type_of_test}")
 
         if mode == "feedback_bot":
-            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}),is_feedback_bot=True)
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}),is_feedback_bot=True,  type_of_test=type_of_test, creator_user_id=creator_user_id)
         else:
-            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}))
+            scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information':context}}), creator_user_id=creator_user_id, type_of_test=type_of_test)
         logger.info(f">>>>>>>>>>>>>>>>>>> scenario : {scenario}")
 
         if mode == 'feedback_bot':
@@ -899,7 +907,7 @@ class TestViewSet(ApiViewSet,
         """
             
         response = anthropic_completion(prompt,5000)
-        logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
+        # logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
         json_response = json_extraction(response)
         logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}")
 
