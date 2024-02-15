@@ -48,6 +48,7 @@ from commons.utils import extract_file_and_text
                     
 from itertools import groupby
 from operator import attrgetter
+from commons.youtube_utils import get_youtube_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -669,12 +670,17 @@ class AccountsViewSet(ApiViewSet,
 
         logger.info(f"*************** youtube_links in process_and_store : {youtube_links}")
 
+        transcript = None
         for link in youtube_links:
             if link != '':
-                print("################# link: ",link)
                 try:
-                    transcript_data = download_and_transcribe_audio(link)
-                    extracted_from_youtube[link] = transcript_data
+                    for i in range(2):
+                        transcript = get_youtube_transcript(link)
+                        if transcript is not None:
+                            break
+                    if transcript is None:
+                        transcript = download_and_transcribe_audio(link)
+                    extracted_from_youtube[link] = transcript
                 except Exception as e:
                     logger.exception(e)
                     extracted_from_youtube[link] = {"error": "error in extracting transcript"}
@@ -682,7 +688,7 @@ class AccountsViewSet(ApiViewSet,
         # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
         signature_bot.data['media_data']['extracted_from_youtube'] = extracted_from_youtube
         signature_bot.save(update_fields=["data"])
-        return transcript_data
+        return transcript
 
     
     @action(methods=['POST','PATCH'],detail=False, url_path="create-bot-by-details")
