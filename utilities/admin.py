@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -30,9 +30,14 @@ class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ("uid","user_id","success")
     list_editable = ("strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","success")
 
+
+class ScenarioCreationDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','creator_id','status','input','output','reason_of_failure')
+
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
 admin.site.register(DirectoryPageInfo, DirectoryAdmin)
 admin.site.register(UserIDP, IDPAdmin)
+admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):

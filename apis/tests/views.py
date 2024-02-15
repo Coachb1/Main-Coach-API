@@ -912,7 +912,7 @@ class TestViewSet(ApiViewSet,
         """
             
         response = anthropic_completion(prompt,5000)
-        # logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
+        logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
         json_response = json_extraction(response)
         logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}")
 
