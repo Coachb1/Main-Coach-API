@@ -1368,6 +1368,7 @@ class AccountsViewSet(ApiViewSet,
                     user = get_user_by_id(user_action.user_id)
                     temp = {
                         "name": get_user_display_name(user),
+                        "user_id": user.uid,
                         "avatar_bot_count": user_action.avatar_bot_count,
                         "subject_matter_count": user_action.subject_matter_bot_count,
                         "total_bots": user_action.avatar_bot_count + user_action.subject_matter_bot_count,
@@ -1385,6 +1386,8 @@ class AccountsViewSet(ApiViewSet,
                     data.append(temp)
                     
                 data = sorted(data, key=lambda x: x['total_score'], reverse=True)
+                for i, item in enumerate(data, start=1):
+                    item['rating'] = i
 
                 return Response(data, status=status.HTTP_200_OK)
         except Exception as e:

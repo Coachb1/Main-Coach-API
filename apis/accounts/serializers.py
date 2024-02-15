@@ -97,9 +97,17 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
             coach = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coach_id)
             coachee = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coachee_id)
             data['coach_name'] = coach.name
+            data['coach_user_id'] = coach.user_id
+            data['coach_email'] = coach.email
+            data['coachee_email'] = coachee.email
+            data['coachee_user_id'] = coachee.user_id
             data['coachee_name'] = coachee.name
         except:
             data['coach_name'] = None
             data['coachee_name'] = None
+            data['coach_user_id'] = None
+            data['coachee_user_id'] = None
+            data['coach_email'] = None
+            data['coachee_email'] = None
 
         return data
