@@ -78,7 +78,7 @@ def speech_to_text(url):
         raise e
     
 @timeit
-def text_bison_compeletion(prompt):
+def text_bison_compeletion(prompt,model="text-bison@001"):
     """
     Generates text completions based on a given prompt using the TextGenerationModel from the vertexai.language_models module.
 
@@ -107,7 +107,7 @@ def text_bison_compeletion(prompt):
     while True:
         try:
             logger.info({"**** text_bison_compeletion":f"trying text_bison_compeletion for {retry} time"})
-            model = TextGenerationModel.from_pretrained("text-bison@001")
+            model = TextGenerationModel.from_pretrained(model)
             response = model.predict(
                 prompt,
                 **parameters
