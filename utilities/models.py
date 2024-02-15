@@ -125,3 +125,14 @@ class DirectoryPageInfo(models.Model):
 
 
     
+class ScenarioCreationDetails(models.Model):
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    creator_id = models.CharField(max_length=255)
+    input = models.TextField(null=True,blank=True,default=None)
+    output = models.TextField(null=True,blank=True,default=None)
+    status = models.CharField(max_length=255)
+    reason_of_failure = models.TextField(null=True,blank=True,default=None)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "scenario_creation_details"
