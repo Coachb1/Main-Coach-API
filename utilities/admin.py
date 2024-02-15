@@ -43,7 +43,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     bot_id = instance.avatar_bot_id
 
     coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
-    coach_profile.is_approved = is_approved
+    coach_profile.is_approved = instance.is_approved
     coach_profile.save(update_fields=["is_approved"])
 
     signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
@@ -80,13 +80,12 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         
     if signature_bot.count() > 0:
         signature_bot = signature_bot.first()
-        is_approved = instance.is_approved
         
         feedback_bot = SignatureBot.objects.filter(user_id=signature_bot.user_id,bot_type="feedback_bot")
-        signature_bot.is_approved = is_approved
+        signature_bot.is_approved = instance.is_approved
         signature_bot.save(update_fields=["is_approved"])
         for feed in feedback_bot:
-            feed.is_approved = is_approved
+            feed.is_approved = instance.is_approved
             feed.save(update_fields=["is_approved"])
 
         
