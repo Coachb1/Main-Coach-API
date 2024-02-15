@@ -5315,7 +5315,7 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     questions_match = question_pattern.search(text)
     rating_match = rating_pattern.search(text)
         
-    if not (title_match and description_match and rating_match and question_pattern.findall(text)):
+    if not (title_match and description_match and question_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
 
     title = title_match.group(1).strip()
@@ -5439,7 +5439,7 @@ def extract_information(text):
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
-    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
 
     title = title_match.group(1)
@@ -5762,30 +5762,56 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             title, description, question_info, skill_to_evalaute = "","","",""
             orchestrated_details = ""
             rating = 0 
-            for i in range(3):
-                logger.info(f'trying scenario creation palm for {i +1} time')
+            for i in range(1):
+                
                 
                 try:
+                    #### generate scenario using anthropic
+                    """ logger.info(f'trying scenario creation anthropic for {i +1} time')
                     scenario = anthropic_completion(prompt,5000)
-                    print("anthropic",scenario)
-                    print("#"*100)
+                    logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
                     
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                         title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                     else:
+                        title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
+                    
+                    ### generate scenario using palm
+                    logger.info(f'trying scenario creation bison for {i +1} time')
+                    scenario = text_bison_compeletion(prompt)
+                    logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
+
+                    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                    else:
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
+
+
                 except Exception as e:
-                    logger.info(f"{'#'*100}  failed to extract information from anthropic scenario {'#'*100} : {e} ")
+                    logger.info(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
                     scd = ScenarioCreationDetails.objects.create(
                             tenant_id=tenant_id,
                             creator_id = creator_user_id if creator_user_id else "system",
                             input = f"{title} : {des}",
                             output = scenario,
                             status = "failed",
-                            reason_of_failure = f"failed to extract information from anthropic scenario : {e}"
+                            reason_of_failure = f"failed to extract information from bison. Reason : {e}"
                         )
-                    logger.info(f"{'#'*100}  failed to generate scenario from anthropic, trying bison {'#'*100} ")
+                    logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
                     try:
+                        
+                        #### generate scenario using anthropic
+                        """  logger.info(f'trying scenario creation anthropic for {i +1} time')
+                        scenario = anthropic_completion(prompt,5000)
+                        logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
+                        
+                        if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                        else:
+                            title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
+                        
+                        ### generate scenario using palm
+                        logger.info(f'**retrying scenario creation bison for {i +1} time')
                         scenario = text_bison_compeletion(prompt)
                         logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
@@ -5793,9 +5819,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
+                    
 
                     except Exception as e:
-                        print('garbage scenario :',scenario)
+                        # print('garbage scenario :',scenario)
                         garbage_scenarios.append(scenario)
                         rating = 0
                         logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
@@ -5805,13 +5832,12 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                 input = f"{title} : {des}",
                                 output = scenario,
                                 status = "failed",
-                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                                reason_of_failure = f"failed to generate scenario for following reason : {e}"
                             )
 
 
 
-                if scenario == 'failed to generate scenario' or rating <= 6:
-                    logger.info(f"{'#'*100}  failed to generate scenario because of low rating {'#'*100} ")
+                if scenario == 'failed to generate scenario':
                     # print(rating,"failed")
                     # if i+1 == 3:
                     #     for i in range(3):
