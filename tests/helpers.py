@@ -75,6 +75,7 @@ from skills.helpers import evaluate_rating_for_process_training , evaluate_compe
 from readability import Document
 from test_bulk_upload.constants import get_skills
 from django.db.models import Q
+from utilities.models import ScenarioCreationDetails
 
 
 logger = logging.getLogger(__name__)
@@ -5783,6 +5784,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             scenario = ''
             title, description, question_info, skill_to_evalaute = "","","",""
             orchestrated_details = ""
+            rating = 0 
             for i in range(3):
                 logger.info(f'trying scenario creation palm for {i +1} time')
                 
@@ -5790,25 +5792,49 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     scenario = anthropic_completion(prompt,5000)
                     print("anthropic",scenario)
                     print("#"*100)
+                    
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                         title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                     else:
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
-                except:
+                except Exception as e:
+                    logger.info(f"{'#'*100}  failed to extract information from anthropic scenario {'#'*100} : {e} ")
+                    scd = ScenarioCreationDetails.objects.create(
+                            tenant_id=tenant_id,
+                            creator_id = creator_user_id if creator_user_id else "system",
+                            input = f"{title} : {des}",
+                            output = scenario,
+                            status = "failed",
+                            reason_of_failure = f"failed to extract information from anthropic scenario : {e}"
+                        )
+                    logger.info(f"{'#'*100}  failed to generate scenario from anthropic, trying bison {'#'*100} ")
                     try:
                         scenario = text_bison_compeletion(prompt)
-                        print("palm",scenario)
-                        print("#"*100)
+                        logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
+
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
-                    except:
+
+                    except Exception as e:
                         print('garbage scenario :',scenario)
                         garbage_scenarios.append(scenario)
                         rating = 0
+                        logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                        scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{title} : {des}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                            )
+
+
 
                 if scenario == 'failed to generate scenario' or rating <= 6:
+                    logger.info(f"{'#'*100}  failed to generate scenario because of low rating {'#'*100} ")
                     # print(rating,"failed")
                     # if i+1 == 3:
                     #     for i in range(3):
@@ -5823,7 +5849,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
                     #         break
                     # else:
-                        continue
+                    continue
                 break
 
             # key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
@@ -5885,11 +5911,28 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
-                
+                scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{title} : {des}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                            )
                 raise e
 
         except Exception as e:
-            logger.error(e,exc_info=True)
+            logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+            scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{context}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                            )
+
+
             if i+1 == max_retry:
                 logger.info(f"{'!'*100}  failed outer {max_retry} times  {'!'*100}")
                 # TODO: send email to user if creator_user_id is not None
