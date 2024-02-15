@@ -911,13 +911,13 @@ class TestViewSet(ApiViewSet,
         \n\nAssistant:
         """
             
-        response = anthropic_completion(prompt,5000)
+        """  response = anthropic_completion(prompt,5000)
         logger.info(f">>>>>>>>>>>>>>>>>>> response : {response}")
         json_response = json_extraction(response)
-        logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}")
+        logger.info(f">>>>>>>>>>>>>>>>>>> json_response : {json_response}, json_data : {json.loads(json_response)}") """
 
         data = {
-            "matching_tests": json.loads(json_response),
+            "matching_tests": {"xyz123": "Test 1"},
             "created_scenario": {scenario['test_code']: scenario['title']},
             "success": True,
         }
