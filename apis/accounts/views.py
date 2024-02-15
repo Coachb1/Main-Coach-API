@@ -368,14 +368,16 @@ class AccountsViewSet(ApiViewSet,
             for i in coach_profile:
                 data["coaching_for_fitment"] = i.coaching_for_fitment.lower() if i.coaching_for_fitment else None
 
-            if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
-                data['owner_profile_image'] = coach_profile[0].profile_image_url
-
+            
             feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=signature_bot.user_id,bot_type=BotTypeChoice.feedback_bot).first()
             if feedback_bot:
                 data['feedback_id'] = feedback_bot.bot_id
             else:
                 data['feedback_id'] = None
+
+            if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
+                if coach_profile.count() > 0:
+                    data['owner_profile_image'] = coach_profile.first().profile_image_url
             
         except Exception as e:
             logger.exception(e)
