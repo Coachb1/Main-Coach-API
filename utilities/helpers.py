@@ -20,7 +20,7 @@ from tests.helpers import create_one_question_scenario_from_context, create_scen
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
-from users.models import User, CoachCoacheeConnection
+from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
 
@@ -85,10 +85,13 @@ def get_sid(email):
 
 def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
-    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=mentor_id,coachee_id=user_id)
+    coach = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=mentor_id).first()
+    coachee = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id).first()
+    
+    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coach.uid,coachee_id=coachee.uid)
 
     if connections.count() == 0:
-        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=user_id,coachee_id=mentor_id)
+        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coachee.uid,coachee_id=coach.uid)
 
     if connections.count() == 0:
         return [],{"error": "This user is not in your connection list" } 
@@ -122,13 +125,14 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     save_user_action_info(tenant_id,user_id,"session_notes_count")
     
     if access_token:
-        context = json.dumps({"title":"","data":{"information":context}})
-        try:
-            recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
-            session_notes.recommendations = recomm['test_code']
-            session_notes.save(update_fields=['recommendations'])
-        except Exception as e:
-            logger.error({"Error":e},exc_info=True)
+        if coach.profile_type != "coach":
+            context = json.dumps({"title":"","data":{"information":context}})
+            try:
+                recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
+                session_notes.recommendations = recomm['test_code']
+                session_notes.save(update_fields=['recommendations'])
+            except Exception as e:
+                logger.error({"Error":e},exc_info=True)
 
 
     # sending email 
