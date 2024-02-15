@@ -85,13 +85,13 @@ def get_sid(email):
 
 def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
-    coach_id = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=mentor_id).first().uid
-    coachee_id = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id).first().uid
+    coach = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=mentor_id).first()
+    coachee = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id).first()
     
-    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coach_id,coachee_id=coachee_id)
+    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coach.uid,coachee_id=coachee.uid)
 
     if connections.count() == 0:
-        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coachee_id,coachee_id=coach_id)
+        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coachee.uid,coachee_id=coach.uid)
 
     if connections.count() == 0:
         return [],{"error": "This user is not in your connection list" } 
@@ -125,13 +125,14 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     save_user_action_info(tenant_id,user_id,"session_notes_count")
     
     if access_token:
-        context = json.dumps({"title":"","data":{"information":context}})
-        try:
-            recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
-            session_notes.recommendations = recomm['test_code']
-            session_notes.save(update_fields=['recommendations'])
-        except Exception as e:
-            logger.error({"Error":e},exc_info=True)
+        if coach.profile_type != "coach":
+            context = json.dumps({"title":"","data":{"information":context}})
+            try:
+                recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
+                session_notes.recommendations = recomm['test_code']
+                session_notes.save(update_fields=['recommendations'])
+            except Exception as e:
+                logger.error({"Error":e},exc_info=True)
 
 
     # sending email 
