@@ -6630,3 +6630,38 @@ def testing_palm_models():
     # write_to_csv(success_output_file,results)
     # You can choose to write failure results to a different file or combine them as needed.
     # write_to_csv(failure_output_file, results)
+
+
+def write_to_csv_v2(output_file, results):
+    import csv
+    #is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)
+    with open(output_file, 'a', newline='') as csvfile:  # Use 'a' for append mode
+        fieldnames = ['Model','Failed Scenarios', 'Test', 'Status', 'Output', 'Reason', 'Time']
+        
+        # Check if the file is empty, and write header only if it's empty
+        file_empty = csvfile.tell() == 0
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if file_empty:
+            writer.writeheader()
+
+        for model_name, test_results in results.items():
+            for test_num, (status,failed,output, reason, time) in enumerate(test_results, start=1):
+                writer.writerow({'Model': model_name,'Failed Scenarios': failed ,'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
+
+
+def test_scenario():
+    end_result = {}
+    results = []
+    context = "discussing next steps in career ladder & career development stretegies"
+
+    # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
+    for _ in range(20):
+        scenario = ''
+        start_time = time.time()
+        is_created, failed_scenarios, test_scenario, reasons = create_scenario_from_site_context('',"Basic MDU2MTUwZWYtYjliYS00NTRlLTkzYTYtMDliZDdjNzFlYjNiOjFkOWMwZGJhLTI0OTAtNDZmYS1hMTNiLTU3Yjg5NDdhNjMwMg==", "627ded98-8585-42a4-9497-ae6db7f31020",'{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }')
+        results.append((is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)))
+    
+    end_result[f'text-bison@001'] = results
+    
+        
+    write_to_csv_v2("testing_create_scenario_palm_models.csv", end_result)

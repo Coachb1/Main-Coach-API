@@ -370,6 +370,12 @@ class AccountsViewSet(ApiViewSet,
 
             if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
                 data['owner_profile_image'] = coach_profile[0].profile_image_url
+
+            feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=signature_bot.user_id,bot_type=BotTypeChoice.feedback_bot).first()
+            if feedback_bot:
+                data['feedback_id'] = feedback_bot.bot_id
+            else:
+                data['feedback_id'] = None
             
         except Exception as e:
             logger.exception(e)
