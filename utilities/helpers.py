@@ -20,7 +20,7 @@ from tests.helpers import create_one_question_scenario_from_context, create_scen
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
-from users.models import User, CoachCoacheeConnection
+from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
 
@@ -85,10 +85,13 @@ def get_sid(email):
 
 def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
-    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=mentor_id,coachee_id=user_id)
+    coach_id = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=mentor_id).first().uid
+    coachee_id = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id).first().uid
+    
+    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coach_id,coachee_id=coachee_id)
 
     if connections.count() == 0:
-        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=user_id,coachee_id=mentor_id)
+        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coachee_id,coachee_id=coach_id)
 
     if connections.count() == 0:
         return [],{"error": "This user is not in your connection list" } 
