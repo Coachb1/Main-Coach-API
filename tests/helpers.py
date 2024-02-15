@@ -5418,29 +5418,57 @@ def extract_scenarios_info_for_three_question(text):
 
     return scenarios_info
 
+def extract_text_only(input_text):
+    # Remove digits from the text
+    text_without_digits = re.sub(r'\d', '', input_text)
+    
+    # Remove extra whitespaces
+    cleaned_text = ' '.join(text_without_digits.replace("."," ").strip().split())
+    
+    return cleaned_text
+
 def extract_information(text):
     # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
     text = text.replace("KLS", "Skills")
-    # Replace KLP with Takeaway
     text = text.replace("KLP", "Takeaway")
     text = text.replace("Custom prompt", "Prompt")
 
-
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
-    question_pattern = re.compile(r'Question\s*(\d+)\s*:\s*(.+)')
-    prompt_pattern = re.compile(r'Prompt\s*(\d+)\s*:\s*(.+)')
-    takeaway_pattern = re.compile(r'Takeaway\s*(\d+)\s*:\s*(.+)')
-    skills_pattern = re.compile(r'Skills\s*(\d+)\s*:\s*(.+)')
+    question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
+    prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
+    takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
+    skills_pattern = re.compile(r'Skills\s*(\d*)\s*:\s*(.+)')
     rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
-    
 
     # Extracting information using regular expressions
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
+
     if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
+
+    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+        invalid_fields = []
+
+        if not title_match:
+            invalid_fields.append("title")
+        if not description_match:
+            invalid_fields.append("description")
+        if not rating_match:
+            invalid_fields.append("rating")
+        if not question_pattern.findall(text):
+            invalid_fields.append("question pattern")
+        if not prompt_pattern.findall(text):
+            invalid_fields.append("prompt pattern")
+        if not takeaway_pattern.findall(text):
+            invalid_fields.append("takeaway pattern")
+        if not skills_pattern.findall(text):
+            invalid_fields.append("skills pattern")
+
+        raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
+
 
     title = title_match.group(1)
     description = description_match.group(1)
@@ -5448,7 +5476,7 @@ def extract_information(text):
 
     questions = []
     for match in question_pattern.finditer(text):
-        question_number = int(match.group(1))
+        question_number = match.group(1) if match.group(1) else len(questions) + 1
         question_text = match.group(2)
         prompt_match = prompt_pattern.search(text, match.end())
         takeaway_match = takeaway_pattern.search(text, prompt_match.end())
@@ -5464,37 +5492,35 @@ def extract_information(text):
             'skills': skills_text
         }
         questions.append(question_data)
-        
 
-    informations =  {
+    informations = {
         'title': title,
         'description': description,
         'rating': rating,
         'questions': questions
     }
-    
+
     title = informations['title']
     description = informations['description']
 
     question_info = []
-    skill_to_evalaute = ''
+    skill_to_evaluate = set()
     for que in informations['questions']:
         question_info.append({
             "question": que["text"],
             "question_type": "subjective",
             "gpt_prompt_override": que["prompt"],
             "subjective_answer": "",
-            "key_learning_point": que['takeaway'],
-            "key_learning_skills": que['skills'].strip()
+            "key_learning_point": extract_text_only(que['takeaway']),
+            "key_learning_skills": extract_text_only(que['skills'])
         })
-        skills_to_eva = set()
+
         for skill in que['skills'].split(','):
-            skills_to_eva.add(skill.strip().capitalize())
+            skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
 
-        for skill in skills_to_eva:
-            skill_to_evalaute += skill +", "
+    skill_to_evaluate = ', '.join(skill_to_evaluate)
 
-    return title, description, question_info, skill_to_evalaute, rating
+    return title, description, question_info, skill_to_evaluate, rating
 
 def extract_info_gpt(scenario):
     scenario = scenario.replace("KLS", "Skills")
@@ -5673,6 +5699,8 @@ def get_one_scenario_prompt(site_information,prompt_type):
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                
+                NOTE: "Rating" must be included.
                 
                 NOTE : Make sure the simulation is very advanced and tough.
                 
@@ -6622,3 +6650,92 @@ def scrape_article_data(url):
     else:
         logger.error("Failed to retrieve the page.")
         return {}
+
+
+### these three funciton is for testing purpose only
+def test_model(model_name, num_tests=50):
+    results = []
+    context = "discussing next steps in career ladder & career development stretegies"
+
+    # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
+    prompt = get_one_scenario_prompt(site_information=context,prompt_type=TestTypeChoices.dynamic_discussion_thread)
+    for _ in range(num_tests):
+        scenario = ''
+        start_time = time.time()
+        try:
+            scenario = text_bison_compeletion(prompt,model_name)
+            print(scenario)
+            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+            print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
+            results.append((True, scenario,"",(time.time()-start_time)))
+        except Exception as e:
+            results.append((False, scenario,f"{e}",(time.time()-start_time)))
+    
+    return results
+
+def write_to_csv(output_file, results):
+    import csv
+    
+    with open(output_file, 'a', newline='') as csvfile:  # Use 'a' for append mode
+        fieldnames = ['Model', 'Test', 'Status', 'Output', 'Reason', 'Time']
+        
+        # Check if the file is empty, and write header only if it's empty
+        file_empty = csvfile.tell() == 0
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if file_empty:
+            writer.writeheader()
+
+        for model_name, test_results in results.items():
+            for test_num, (status, output, reason, time) in enumerate(test_results, start=1):
+                writer.writerow({'Model': model_name, 'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
+
+def testing_palm_models():
+    model_list = ['text-bison@001']  # Add your model names to test
+    num_tests = 20
+
+    results = {}
+    for model_name in model_list:
+        results[model_name] = test_model(model_name, num_tests)
+
+    success_output_file = 'success_output.csv'
+    failure_output_file = 'failure_output.csv'
+
+    write_to_csv("testing_palm_models.csv", results)
+    # write_to_csv(success_output_file,results)
+    # You can choose to write failure results to a different file or combine them as needed.
+    # write_to_csv(failure_output_file, results)
+
+
+def write_to_csv_v2(output_file, results):
+    import csv
+    #is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)
+    with open(output_file, 'a', newline='') as csvfile:  # Use 'a' for append mode
+        fieldnames = ['Model','Failed Scenarios', 'Test', 'Status', 'Output', 'Reason', 'Time']
+        
+        # Check if the file is empty, and write header only if it's empty
+        file_empty = csvfile.tell() == 0
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if file_empty:
+            writer.writeheader()
+
+        for model_name, test_results in results.items():
+            for test_num, (status,failed,output, reason, time) in enumerate(test_results, start=1):
+                writer.writerow({'Model': model_name,'Failed Scenarios': failed ,'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
+
+
+def test_scenario():
+    end_result = {}
+    results = []
+    context = "discussing next steps in career ladder & career development stretegies"
+
+    # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
+    for _ in range(20):
+        scenario = ''
+        start_time = time.time()
+        is_created, failed_scenarios, test_scenario, reasons = create_scenario_from_site_context('',"Basic MDU2MTUwZWYtYjliYS00NTRlLTkzYTYtMDliZDdjNzFlYjNiOjFkOWMwZGJhLTI0OTAtNDZmYS1hMTNiLTU3Yjg5NDdhNjMwMg==", "627ded98-8585-42a4-9497-ae6db7f31020",'{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }')
+        results.append((is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)))
+    
+    end_result[f'text-bison@001'] = results
+    
+        
+    write_to_csv_v2("testing_create_scenario_palm_models.csv", end_result)
