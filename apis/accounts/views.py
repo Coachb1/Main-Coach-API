@@ -1643,6 +1643,7 @@ class AccountsViewSet(ApiViewSet,
 
                     formatted_entry = {
                         "bot_name": bot_name,
+                        "user_id": signature_bot.user_id,
                         "owner_name": owner_name,
                         "positive_feedback_count": positive_count,
                         "negative_feedback_count": negative_count
@@ -1651,6 +1652,8 @@ class AccountsViewSet(ApiViewSet,
 
 
                 formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
+                for rating, item in enumerate(formatted_data,start=1):
+                    item['rating'] = rating
 
                 return Response({'group': formatted_data},status=status.HTTP_200_OK)
         except Exception as e:
