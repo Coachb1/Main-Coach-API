@@ -125,7 +125,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     save_user_action_info(tenant_id,user_id,"session_notes_count")
     
     if access_token:
-        if coach.profile_type != "coach":
+        if coachee.profile_type != "coach":
             context = json.dumps({"title":"","data":{"information":context}})
             try:
                 recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
