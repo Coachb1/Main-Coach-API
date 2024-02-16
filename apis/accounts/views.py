@@ -350,6 +350,7 @@ class AccountsViewSet(ApiViewSet,
         data['is_strict_fitment'] = signature_bot.is_strict_fitment
         data['is_sample_bot'] = signature_bot.is_sample_bot
         data['is_system_bot'] = signature_bot.is_system_bot
+        data['additional_data'] = signature_bot.data.get('additional_data',None)
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
