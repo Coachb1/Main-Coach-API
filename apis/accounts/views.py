@@ -637,7 +637,7 @@ class AccountsViewSet(ApiViewSet,
                     experience=created_profile.experience,
                     expertise=created_profile.area_domain,
                     status=StatusChoice.available,
-                    skills=created_profile.hard_skill_areas,
+                    skills=created_profile.high_rating_characteristics,
                     is_visible= True,
                     is_approved = False,
                     )
@@ -1366,7 +1366,13 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             if request.method == "GET":
-                user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                email = request.query_params.get('email')
+                client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+                emails = client.member_emails.split(',')
+                emails = [email.strip() for email in emails]
+                user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+                user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
                 data = []
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
@@ -1624,7 +1630,14 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             if request.method == "GET":
-                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback')
+                email = request.query_params.get('email')
+                client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+                emails = client.member_emails.split(',')
+                emails = [email.strip() for email in emails]
+                user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+                user_ids_list = list(user_ids.values_list('user_id', flat=True))
+
+                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',participant_id__in=user_ids_list)
 
                 # Sort the queryset by bot_id
                 bot_qnas = sorted(bot_qnas, key=lambda x: x.bot_id)
