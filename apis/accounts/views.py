@@ -716,7 +716,7 @@ class AccountsViewSet(ApiViewSet,
                 if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                     return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                 
-                if profile_id is None or profile_id == '':
+                if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot :
                     return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1036,10 +1036,13 @@ class AccountsViewSet(ApiViewSet,
             
             except Exception as e:
                 logger.exception("Got error while creating bot: {e}")
-                coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
-                coach_profile.deleted = True
-                coach_profile.save(update_fields=["deleted"])
-                DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
+                try:
+                    coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                    coach_profile.deleted = True
+                    coach_profile.save(update_fields=["deleted"])
+                    DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
+                except Exception as e:
+                    logger.error(f"Got error in crating bot : profile_id is missing")
 
                 return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
 
