@@ -85,30 +85,30 @@ def get_sid(email):
 
 def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
-    coach = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=mentor_id).first()
-    coachee = CoachCoacheeMentorMenteeProfile.objects.filter(user_id=user_id).first()
+    commentor = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=mentor_id).first()
+    reciever = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).first()
+    logger.info(f"coach: {commentor.uid}, coachee: {reciever.uid}")
+    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=commentor.uid,coachee_id=reciever.uid)
     
-    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coach.uid,coachee_id=coachee.uid)
-
     if connections.count() == 0:
-        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=coachee.uid,coachee_id=coach.uid)
+        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=reciever.uid,coachee_id=commentor.uid)
 
     if connections.count() == 0:
         return [],{"error": "This user is not in your connection list" } 
     
     mentor, is_created = MentorDetails.objects.get_or_create(mentor_id=mentor_id,tenant_id=tenant_id)
 
-    mentees_ids = ""
-    if mentor.mentee_ids :
-        ids = mentor.mentee_ids.split(',')
-        # ids.append(user_id)
-        # ids = set(ids)
-        # mentees_ids = ",".join(list(ids))
+    # mentees_ids = ""
+    # if mentor.mentee_ids :
+    #     ids = mentor.mentee_ids.split(',')
+    #     # ids.append(user_id)
+    #     # ids = set(ids)
+    #     # mentees_ids = ",".join(list(ids))
         
-        if user_id not in ids:
-            return [],{"error": "this user is not in your mentee list" } 
-    else:
-        return [], {"error": "no users in your mentee list"}
+    #     if user_id not in ids:
+    #         return [],{"error": "this user is not in your mentee list" } 
+    # else:
+    #     return [], {"error": "no users in your mentee list"}
         
     # mentor.mentee_ids = mentees_ids
     # mentor.save(update_fields = ['mentee_ids'])
@@ -125,7 +125,9 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
     save_user_action_info(tenant_id,user_id,"session_notes_count")
     
     if access_token:
-        if coachee.profile_type != "coach":
+        logger.info(f"commentor: {commentor.profile_type},reciever:{reciever.profile_type}")
+        if reciever.profile_type != "coach":
+
             context = json.dumps({"title":"","data":{"information":context}})
             try:
                 recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
