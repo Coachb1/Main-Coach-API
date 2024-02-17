@@ -1286,7 +1286,40 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET','POST','PATCH'],detail=False, url_path="get_or_create_idp")
     def get_or_create_idp(self,request,*args, **kwargs):
-        
+        """
+        This method is used to get or create an Individual Development Plan (IDP) based on the HTTP method in the request.
+
+        The method supports GET, POST, and PATCH HTTP methods. 
+
+        For a GET request, it retrieves an existing IDP. The 'user_id' and 'idp_id' are expected to be provided as query parameters. 
+        If 'idp_id' is provided, it tries to fetch the IDP with that ID. If not, it fetches the IDP for the provided 'user_id'. 
+
+        For a POST request, it creates a new IDP. The 'user_id' and 'idp_data' are expected to be provided in the request data. 
+        The 'idp_data' should contain the necessary information to create the IDP.
+
+        For a PATCH request, it regenerates the IDP or scenarios. The 'idp_id' is expected to be provided in the request data.
+
+        Args:
+            request (HttpRequest): The HTTP request object. Depending on the HTTP method, it should contain:
+                - GET: 'user_id' and optionally 'idp_id' as query parameters.
+                - POST: 'user_id' and 'idp_data' in the request data.
+                - PATCH: 'idp_id' in the request data.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            HttpResponse: The HTTP response object containing the IDP data and HTTP status. 
+            If the operation is successful, it returns the IDP data with HTTP status 200. 
+            If not, it returns an error message with HTTP status 404 for GET and POST, and 400 for exceptions.
+
+        Example:
+            For a GET request:
+            Request: GET /get_or_create_idp?user_id=123
+            Response: {
+                "idp_data": {...},
+                "status": "completed"
+            }, status=200
+        """
         try:
             access_token = request.headers.get('Authorization')
 
@@ -1327,7 +1360,47 @@ class AccountsViewSet(ApiViewSet,
           
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
     def get_directory_informations(self,request,*args, **kwargs):
+        """
+        Retrieves directory information based on the provided email in the request query parameters.
 
+        This method first checks if an email is provided in the request query parameters. If an email is provided, it fetches the client information associated with the email. 
+        It then retrieves all identities associated with the emails of the client and fetches the profiles associated with these identities. 
+        If the client has accessed any bots, it also fetches the profiles associated with these bots. 
+        Finally, it retrieves all directory information that is visible, approved, and associated with these profiles.
+
+        If no email is provided, it simply retrieves all directory information that is visible and approved.
+
+        Args:
+            request (HttpRequest): The HTTP request object. The request query parameters may contain an 'email' key with the email as the value.
+
+        Returns:
+            HttpResponse: The HTTP response object containing the serialized directory information data. 
+            The data is a list of dictionaries where each dictionary represents a directory information. 
+            Each dictionary contains keys like 'id', 'name', 'description', etc. representing the directory information attributes.
+
+        Raises:
+            HTTP_400_BAD_REQUEST: If there is any error during the process, an error message is returned with a status of 400.
+
+        Example:
+            Input: 
+                request.query_params = {'email': 'test@example.com'}
+            Output: 
+                [
+                    {
+                        'id': 1,
+                        'name': 'Directory 1',
+                        'description': 'This is directory 1',
+                        ...
+                    },
+                    {
+                        'id': 2,
+                        'name': 'Directory 2',
+                        'description': 'This is directory 2',
+                        ...
+                    },
+                    ...
+                ]
+        """
         try:
             email = request.query_params.get('email')
             if email:
@@ -1362,40 +1435,50 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'],detail=False,url_path="participant-leader-board-report")
     def participant_leader_board_report(self,request, *args, **kwargs):
         """
-        Generates a leaderboard report for participants based on their activities.
+        Retrieves a leaderboard report for participants based on their activities.
 
-        This method retrieves all user actions for the current tenant that are not marked as deleted. For each user action, 
-        it fetches the corresponding user and constructs a dictionary containing the user's display name, counts of different 
-        types of bots, total simulations, total bot interactions, session notes count, and profile type. If the user has a 
-        'coach' profile, it updates the profile type in the dictionary.
-
-        The total score for each user is calculated as the sum of total bots, session notes count, total simulations, and 
-        total bot interactions. The data is then sorted in descending order of total score to generate the leaderboard.
+        This method fetches the client information based on the provided email in the request query parameters.
+        It then retrieves all the users associated with the client and fetches their action information.
+        The method constructs a report for each user, including their name, user_id, counts of different bot interactions,
+        total simulations, session notes count, and profile type. If a user has a 'coach' profile type, it is updated in the report.
+        The total score is calculated as the sum of total bots, session notes count, total simulations, and total bot interactions.
+        If a user does not have any action information, a report is still created for them with all counts as zero.
+        Finally, the method sorts the data based on the total score in descending order and assigns a rating to each user based on their position in the sorted list.
 
         Args:
-            request (HttpRequest): The HTTP request object. The tenant ID is extracted from this request.
+            request (object): The HTTP request object. The request query parameters should include an 'email' field.
 
         Returns:
-            Response: A HTTP response object containing a list of dictionaries. Each dictionary represents a user and contains 
-            the following keys: 'name', 'avatar_bot_count', 'subject_matter_count', 'total_bots', 'total_simulations', 
-            'total_bot_interactions', 'session_notes_count', 'profile_type', 'total_score'.
+            Response: A list of dictionaries, each containing the following fields:
+                - name: The display name of the user.
+                - user_id: The unique identifier of the user.
+                - avatar_bot_count: The count of avatar bot interactions.
+                - subject_matter_count: The count of subject matter bot interactions.
+                - total_bots: The total count of bot interactions.
+                - total_simulations: The total count of simulations attempted.
+                - total_bot_interactions: The total count of bot interactions attempted.
+                - session_notes_count: The count of session notes.
+                - profile_type: The profile type of the user, either 'coachee' or 'coach'.
+                - total_score: The total score calculated as the sum of total bots, session notes count, total simulations, and total bot interactions.
+                - rating: The rating of the user based on their total score.
 
-            Example:
+        Example:
             [
                 {
                     "name": "John Doe",
+                    "user_id": "123",
                     "avatar_bot_count": 5,
                     "subject_matter_count": 3,
                     "total_bots": 8,
-                    "total_simulations": 10,
-                    "total_bot_interactions": 15,
-                    "session_notes_count": 2,
-                    "profile_type": "coachee",
-                    "total_score": 35
+                    "total_simulations": 2,
+                    "total_bot_interactions": 10,
+                    "session_notes_count": 4,
+                    "profile_type": "coach",
+                    "total_score": 24,
+                    "rating": 1
                 },
                 ...
             ]
-
         """
         try:
             if request.method == "GET":
@@ -1683,19 +1766,54 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'],detail=False,url_path="feedback-leaderboard-report")
     def feedback_leader_board(self,request, *args, **kwargs):
         """
-        This method generates a feedback leaderboard report for bots. It retrieves all the BotQnA objects 
-        related to feedback for the current tenant, groups them by bot_id, and counts the positive and negative feedbacks.
-        It then retrieves the bot name and owner name for each bot, and returns a sorted list of dictionaries, 
-        each containing the bot name, owner name, positive feedback count, and negative feedback count. 
-        The list is sorted in descending order of positive feedback count.
+        Generates a feedback leaderboard report for a given client.
+
+        This method retrieves the client's information using the email provided in the request's query parameters.
+        It then fetches all the identities associated with the client's member emails and retrieves all the feedback 
+        provided by these users from the BotQnA model. The feedback is grouped by bot_id and for each bot, the number 
+        of positive and negative feedback is calculated. The bot's name and owner's name are also retrieved. All this 
+        information is then formatted and appended to a list. The list is sorted in descending order based on the number 
+        of positive feedback. Finally, a rating is assigned to each bot based on its position in the sorted list.
 
         Args:
-            request (HttpRequest): The HTTP request object, which should contain the tenant information.
+            request (HttpRequest): The HTTP request object. The request's query parameters should contain an 'email' field 
+            which is the email of the client for whom the report is to be generated.
 
         Returns:
-            Response: A Django Rest Framework Response object. The data part of the response contains a list of dictionaries.
-            Each dictionary contains the bot name, owner name, positive feedback count, and negative feedback count.
-            The status of the response is HTTP 200 OK if the operation is successful, or HTTP 400 BAD REQUEST if an error occurs.
+            HttpResponse: The HTTP response object containing the feedback leaderboard report. The report is a list of 
+            dictionaries where each dictionary contains the following keys:
+                - 'bot_name': The name of the bot.
+                - 'user_id': The user id of the bot's owner.
+                - 'owner_name': The display name of the bot's owner.
+                - 'positive_feedback_count': The number of positive feedback for the bot.
+                - 'negative_feedback_count': The number of negative feedback for the bot.
+                - 'rating': The bot's rating based on the number of positive feedback. The bot with the highest number 
+                of positive feedback has a rating of 1.
+
+        Example:
+            Request: GET /feedback-leaderboard-report?email=client@example.com
+            Response: 
+            {
+                "group": [
+                    {
+                        "bot_name": "Bot 1",
+                        "user_id": 1,
+                        "owner_name": "Owner 1",
+                        "positive_feedback_count": 10,
+                        "negative_feedback_count": 2,
+                        "rating": 1
+                    },
+                    {
+                        "bot_name": "Bot 2",
+                        "user_id": 2,
+                        "owner_name": "Owner 2",
+                        "positive_feedback_count": 8,
+                        "negative_feedback_count": 3,
+                        "rating": 2
+                    },
+                    ...
+                ]
+            }
         """
         try:
             if request.method == "GET":
