@@ -453,7 +453,11 @@ class AccountsViewSet(ApiViewSet,
                         "monthly_conversation_limit": u.number_of_conversation_per_month,
                         "required_form_details": extract_fields(u.required_form_fields) if u.required_form_fields else None,
                         "is_restricted": restricted,
-                        "is_demo_user": demo_user
+                        "is_demo_user": demo_user,
+                        "accessed_bot_ids": u.accessed_bot_ids,
+                        "coach_skills": u.coach_skills,
+                        "coach_expertise": u.coach_expertise,
+                        "departments": u.departments,
                     })
 
                 if len(user_info) == 0:
@@ -1325,8 +1329,30 @@ class AccountsViewSet(ApiViewSet,
     def get_directory_informations(self,request,*args, **kwargs):
 
         try:
-            directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
-            serializer = DirectoryInfoSErializer(directories,many=True)
+            email = request.query_params.get('email')
+            if email:
+                client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+                emails = client.member_emails.split(',')
+                emails = [email.strip() for email in emails]
+                user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+                user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=0,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list("uid",flat=True))
+                
+                if client.accessed_bot_ids:
+                    bot_ids = client.accessed_bot_ids.split(',')
+                    bot_profile_ids = []
+                    for bot_id in bot_ids:
+                        bot_profile_ids.extend(list(CoachCoacheeMentorMenteeProfile.objects.filter(bot_ids__contains=bot_id).values_list("uid",flat=True)))
+                    profile_ids.extend(bot_profile_ids)
+                    profile_ids = list(set(profile_ids))
+                    logger.info(f"accessed_bots: {bot_ids},bot_profile_ids: {bot_profile_ids}, profile_ids: {profile_ids}")
+
+                directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True,profile_id__in = profile_ids)
+                serializer = DirectoryInfoSErializer(directories,many=True)
+            else:
+                directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
+                serializer = DirectoryInfoSErializer(directories,many=True)
+                
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception({"got error in directory information api": e})
@@ -1401,6 +1427,30 @@ class AccountsViewSet(ApiViewSet,
 
                     temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
                     data.append(temp)
+
+                existing_user_ids = set(user_action.user_id for user_action in user_actions)
+                # Iterate through user_ids and include those not present in user_actions
+                for user_id in user_ids_list:
+                    if user_id not in existing_user_ids:
+                        user = get_user_by_id(user_id)
+                        temp = {
+                            "name": get_user_display_name(user),
+                            "user_id": user.uid,
+                            "avatar_bot_count": 0, 
+                            "subject_matter_count": 0,
+                            "total_bots": 0,
+                            "total_simulations": 0,
+                            "total_bot_interactions": 0,
+                            "session_notes_count": 0,
+                            "profile_type": "coachee",
+                            'total_score': 0
+                        }
+                        profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id=user.uid)
+                        for p in profiles:
+                            if p.profile_type == ProfileTypeChoice.coach:
+                                temp['profile_type'] = p.profile_type
+
+                        data.append(temp)
                     
                 data = sorted(data, key=lambda x: x['total_score'], reverse=True)
                 for i, item in enumerate(data, start=1):

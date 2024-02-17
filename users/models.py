@@ -6,6 +6,32 @@ from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, Coac
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
 
+def get_default_values(choice:str):
+    text = ''
+    if choice == 'skills':
+        # skills = []
+        # text = ",".join(skills)
+        text = None
+    elif choice == 'department':
+        department = [
+              "Sales & Marketing",
+              "Production",
+              "Design",
+              "Engineering",
+              "HR & Training"]
+        text = ",".join(department)
+
+    elif choice == "expertise":
+        expertise =  [
+              "Career Management",
+              "Work Life Banlance",
+              "Project Management",
+              "Lateral Transfers",
+           ]
+        text = ",".join(expertise)
+
+    return text
+    
 
 
 class User(TenantAwareModel):
@@ -138,6 +164,10 @@ class ClientUserInfo(TenantAwareModel):
     required_form_fields = models.JSONField(null=True, blank=True, default=None)
     restricted_ids = models.TextField(null=True, blank=True, default=None)
     demo_ids = models.TextField(null=True, blank=True, default=None)
+    accessed_bot_ids = models.TextField(null=True, blank=True, default=None)
+    coach_skills = models.TextField(null=True, blank=True, default=get_default_values("skills"))
+    coach_expertise = models.TextField(null=True, blank=True, default=get_default_values('expertise'))
+    departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
 
 
 
