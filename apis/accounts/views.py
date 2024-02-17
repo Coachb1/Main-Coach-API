@@ -48,6 +48,7 @@ from commons.utils import extract_file_and_text
                     
 from itertools import groupby
 from operator import attrgetter
+from django.db.models import Q
 from commons.youtube_utils import get_youtube_transcript
 
 logger = logging.getLogger(__name__)
@@ -638,7 +639,7 @@ class AccountsViewSet(ApiViewSet,
                     experience=created_profile.experience,
                     expertise=created_profile.area_domain,
                     status=StatusChoice.available,
-                    skills=created_profile.hard_skill_areas,
+                    skills=created_profile.high_rating_characteristics,
                     is_visible= True,
                     is_approved = False,
                     )
@@ -1372,7 +1373,13 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             if request.method == "GET":
-                user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                email = request.query_params.get('email')
+                client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+                emails = client.member_emails.split(',')
+                emails = [email.strip() for email in emails]
+                user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+                user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
                 data = []
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
@@ -1467,8 +1474,20 @@ class AccountsViewSet(ApiViewSet,
                     logger.exception(e)
                     return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
             
-            
-            connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=self.request.tenant.uid)
+            # sending only that client members data
+            email = request.query_params.get('email')
+            client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+            emails = client.member_emails.split(',')
+            emails = [email.strip() for email in emails]
+            user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+            user_ids_list = list(user_ids.values_list('user_id', flat=True))
+            profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list('uid', flat=True))
+            logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+
+            connections = CoachCoacheeConnection.objects.filter(Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
+                                                                deleted=False,
+                                                                tenant_id=self.request.tenant.uid,
+                                                                )
             return Response({"data": CoachCoacheeConnectionSerializer(connections,many=True).data },status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
@@ -1630,7 +1649,14 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             if request.method == "GET":
-                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback')
+                email = request.query_params.get('email')
+                client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+                emails = client.member_emails.split(',')
+                emails = [email.strip() for email in emails]
+                user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+                user_ids_list = list(user_ids.values_list('user_id', flat=True))
+
+                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',participant_id__in=user_ids_list)
 
                 # Sort the queryset by bot_id
                 bot_qnas = sorted(bot_qnas, key=lambda x: x.bot_id)
