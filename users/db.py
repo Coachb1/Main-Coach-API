@@ -1,5 +1,6 @@
 from users.helpers import get_user_attribute
 from users.models import User
+import re
 
 
 def get_user_by_id(user_id) -> User:
@@ -24,5 +25,6 @@ def get_user_display_name(user: User):
 
     if not name:
         name = user.name
+        name = re.sub(r'[_-]+', ' ', name).capitalize()
 
     return name

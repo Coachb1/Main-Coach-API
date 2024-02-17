@@ -6739,3 +6739,95 @@ def test_scenario():
     
         
     write_to_csv_v2("testing_create_scenario_palm_models.csv", end_result)
+
+
+
+# def create_feedback_bot(name,profile_id,email,user_id,bio,project):
+    
+#     json_data = {
+#     "bot_type": "feedback_bot",
+#     "bot_name": name,
+#     "profile_id": profile_id,
+#     "email": email,
+#     "attributes": {
+#       "heading": "welcome to feedback bot",
+#       "feedback_questions": {
+#         "1": "As witnessed by you what would be some of my strengths and/or weaknesses, that you have come across?",
+#         "2": "Regarding workplace team management skills, how would you rate my skills?",
+#         "3": "I am trying to improve my project management skills. In the past quarter have you seen any examples? Examples would be great.",
+#         "4": "How would like to see me implement the feedback you have provided so far?"
+#       }
+#     },
+#     "feedback_questions": {
+#       "1": "As witnessed by you what would be some of my strengths and/or weaknesses, that you have come across?",
+#       "2": "Regarding workplace team management skills, how would you rate my skills?",
+#       "3": "I am trying to improve my project management skills. In the past quarter have you seen any examples? Examples would be great.",
+#       "4": "How would like to see me implement the feedback you have provided so far?"
+#     },
+#     "participant_id": user_id,
+#     "additional_data": {
+#       "short_profile_bio": bio,
+#       "current_projects": project,
+#       "suggested_projects": ""
+#     },
+#     "bot_base_url": "https://playground.coachbots.com"
+#   }
+
+#     import requests
+#     import json
+
+#     url = "http://localhost:8001/api/v1/accounts/create-bot-by-details/"
+
+#     payload = json.dumps(json_data)
+#     headers = {
+#     'Authorization': 'Basic Yzc3MjFmZGItYTllMC00YTYxLWEzMTYtNDRhODA1N2VkMjY0OjhjNWNlZWZlLTY2Y2QtNDliZi04MTY5LTBhNjMwMmU5NmZlMA==',
+#     'Content-Type': 'application/json'
+#     }
+
+#     response = requests.request("POST", url, headers=headers, data=payload)
+
+#     print(response.text)
+#     data = response.json()
+    
+
+#     return data['bot_id']
+
+
+# from users.models import CoachCoacheeMentorMenteeProfile
+
+# def create_feed():
+#     user_ids = [
+#         {'user_id': '2bc1aae5-0044-4091-ab06-b0415b0f460d'}, 
+#                 ]
+#     result = []
+
+#     for i in user_ids:
+#         user_id = i['user_id']
+        
+#         user = get_user_by_id(user_id)
+#         name = user.name
+#         profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=user_id)
+
+#         email = profile.email
+#         profile_id = profile.uid
+#         bio = profile.about
+#         project = ""
+
+#         result.append(create_feedback_bot(name,profile_id,email,user_id,bio,project))
+
+#     print(result)
+
+
+# def save_record(bot):
+#     ids = [bot
+#     ]
+
+#     for i in ids:
+#         si = SignatureBot.objects.get(bot_id=i)
+#         profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=si.user_id)
+#         about = profile.about
+#         si.bot_details['info'] = about
+#         si.bot_details['coach_name'] = profile.name
+#         si.save()
+
+
