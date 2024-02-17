@@ -48,6 +48,7 @@ from commons.utils import extract_file_and_text
                     
 from itertools import groupby
 from operator import attrgetter
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -1467,8 +1468,20 @@ class AccountsViewSet(ApiViewSet,
                     logger.exception(e)
                     return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
             
-            
-            connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=self.request.tenant.uid)
+            # sending only that client members data
+            email = request.query_params.get('email')
+            client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
+            emails = client.member_emails.split(',')
+            emails = [email.strip() for email in emails]
+            user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
+            user_ids_list = list(user_ids.values_list('user_id', flat=True))
+            profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list('uid', flat=True))
+            logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+
+            connections = CoachCoacheeConnection.objects.filter(Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
+                                                                deleted=False,
+                                                                tenant_id=self.request.tenant.uid,
+                                                                )
             return Response({"data": CoachCoacheeConnectionSerializer(connections,many=True).data },status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
