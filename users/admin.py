@@ -28,8 +28,15 @@ class BotUserMappingAdmin(admin.ModelAdmin):
     search_fields = ('bot_owner_name','bot_id')
     ordering = ('-uid',)
 
+class ClientUserInfoAdmin(admin.ModelAdmin):
+    list_display = ('id','client_name','member_emails','member_mob_numbers','avatar_bot_creation','feedback_bot_creation','subject_matter_bot_creation','number_of_conversation_per_month','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments')
+    list_filter = ('client_name',)
+    search_fields = ('client_name',)
+    list_editable = ('client_name','member_emails','member_mob_numbers','avatar_bot_creation','feedback_bot_creation','subject_matter_bot_creation','number_of_conversation_per_month','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments')
+    ordering = ('-uid',)
+
 admin.site.register(CoachCoacheeMentorMenteeProfile, CoachCoacheeMentorMenteeProfileAdmin)
 admin.site.register(BotAttribute)
 admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
-admin.site.register(ClientUserInfo)
+admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
