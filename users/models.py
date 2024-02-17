@@ -117,7 +117,6 @@ class BotAttribute(TenantAwareModel):
     coach_email = models.CharField(max_length=255)
     attached_data = models.TextField(null=True, blank=True, default=None)    
     attached_links = models.TextField(null=True, blank=True, default=None)
-    attached_links = models.TextField(null=True, blank=True, default=None)
     client_name = models.CharField(max_length=255,null=True, blank=True, default=None)
     conversations_per_month = models.IntegerField(null=True, blank=True, default=None)
     fitment_answers = models.JSONField(null=True, blank=True, default=None)
