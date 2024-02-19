@@ -11,6 +11,7 @@ from .constants import get_skills
 from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
+from users.models import  ClientUserInfo
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -150,6 +151,13 @@ def format_test_orchestrated_conversation(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
+                    logger.info(f"###########################Matching Client info: {client_info}")
+                except ClientUserInfo.DoesNotExist:
+                    available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
+                    logger.info(f"###########################Available Client info: {available_clients}")
+                    return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -623,6 +631,13 @@ def format_test_data_slack(raw_data):
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
+                    logger.info(f"###########################Matching Client info: {client_info}")
+                except ClientUserInfo.DoesNotExist:
+                    available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
+                    logger.info(f"###########################Available Client info: {available_clients}")
+                    return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -1162,6 +1177,12 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     if "unmatched_skills" in json_data:
                         return {
                             "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
+                            "exception": True,
+                        }
+                    
+                    elif "error" in json_data:
+                        return {
+                            "errors": [json_data["error"]],
                             "exception": True,
                         }
                         

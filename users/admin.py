@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping
+from .models import BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_display = ('uid','profile_type','name', 'email', 'is_approved',)
