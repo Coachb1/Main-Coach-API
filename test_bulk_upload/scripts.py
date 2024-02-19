@@ -157,7 +157,7 @@ def format_test_orchestrated_conversation(raw_data):
                 except ClientUserInfo.DoesNotExist:
                     available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
                     logger.info(f"###########################Available Client info: {available_clients}")
-                    return {"error": "Client does not exist", "available_clients": available_clients}, False
+                    return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
