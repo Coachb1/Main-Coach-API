@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -38,6 +38,7 @@ admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmi
 admin.site.register(DirectoryPageInfo, DirectoryAdmin)
 admin.site.register(UserIDP, IDPAdmin)
 admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
+admin.site.register(UserActionInfo)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
