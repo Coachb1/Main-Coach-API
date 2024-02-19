@@ -1078,59 +1078,57 @@ class TestViewSet(ApiViewSet,
     @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
     def get_tests_by_tab_category(self,request,*args, **kwargs):
         """
-        Retrieves tests based on the tab category.
+        Retrieves tests based on the tab category and optionally the client name.
 
-        This method is used to retrieve tests based on the tab category. It filters the tests based on the tenant ID and checks if the tab category is not null. It organizes the tests into a nested dictionary, where the keys are the tab categories and the values are dictionaries containing area domains and a list of tests. Each test in the list contains the title, description, test code, and test type.
+        This method fetches all the tests that are not deleted, belong to the current tenant, and have a non-null tab category.
+        If a client name is provided in the request parameters, it further filters the tests to include only those associated with the given client name.
+
+        The tests are then organized into a nested dictionary where the first level keys are the tab categories, the second level keys are the area domains, and the values are lists of tests. Each test is represented as a dictionary containing its title, description, test code, and test type.
+
+        Parameters:
+        request (Request): The request object. It may contain a query parameter 'client_name' to filter tests by client.
 
         Returns:
-            Response: The HTTP response object containing the nested dictionary of tests organized by tab category.
+        Response: A response object with the status and the nested dictionary of tests. The dictionary structure is as follows:
+        {
+            "tab_category1": {
+                "area_domain1": [
+                    {
+                        "title": "test1",
+                        "description": "description1",
+                        "test_code": "code1",
+                        "test_type": "type1"
+                    },
+                    ...
+                ],
+                ...
+            },
+            ...
+        }
 
-        Raises:
-            Exception: If an error occurs while retrieving the tests.
+        In case of an error, it returns a response with status 400 and an error message.
 
-        Example Usage:
-            GET /api/tests/get-tests-by-tab-category
-
-            Response:
-            {
-                "Tab Category 1": {
-                    "Area Domain 1": [
-                        {
-                            "title": "Test 1",
-                            "description": "Description of Test 1",
-                            "test_code": "ABC123",
-                            "test_type": "Type 1"
-                        },
-                        {
-                            "title": "Test 2",
-                            "description": "Description of Test 2",
-                            "test_code": "DEF456",
-                            "test_type": "Type 2"
-                        }
-                    ],
-                    "Area Domain 2": [
-                        {
-                            "title": "Test 3",
-                            "description": "Description of Test 3",
-                            "test_code": "GHI789",
-                            "test_type": "Type 3"
-                        }
-                    ]
-                },
-                "Tab Category 2": {
-                    "Area Domain 3": [
-                        {
-                            "title": "Test 4",
-                            "description": "Description of Test 4",
-                            "test_code": "JKL012",
-                            "test_type": "Type 4"
-                        }
-                    ]
-                }
+        Example:
+        Request: GET /api/tests/get-tests-by-tab-category?client_name=client1
+        Response: {
+            "tab_category1": {
+                "area_domain1": [
+                    {
+                        "title": "test1",
+                        "description": "description1",
+                        "test_code": "code1",
+                        "test_type": "type1"
+                    }
+                ]
             }
+        }
         """
         try:
-            tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
+            client_name = request.query_params.get("client_name",None)
+            if client_name:
+                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False,client_name=client_name)
+            else:
+                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
             test_dict = defaultdict(lambda: defaultdict(list))
 
             # Organizing tests into the nested dictionary
