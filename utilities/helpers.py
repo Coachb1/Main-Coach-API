@@ -308,14 +308,14 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
     if only_data:
         if idp_id:
             try:
-                user_idp = UserIDP.objects.get(tenant_id=tenant_id, uid=idp_id, success=True)
+                user_idp = UserIDP.objects.get(deleted=False,tenant_id=tenant_id, uid=idp_id, success=True)
                 serializer = UserIDPSerializers(user_idp)
                 return serializer.data, True
             except Exception as e:
                 logger.error({"Error":e},exc_info=True)
                 return {"error": "IDP not found"}, False
 
-        user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id, success=True)
+        user_idps = UserIDP.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id, success=True)
         if user_idps.count() < 1:
             return {"error": "No IDPs found"}, False
         serializer = UserIDPSerializers(user_idps,many=True)

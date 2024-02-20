@@ -1516,6 +1516,7 @@ class AccountsViewSet(ApiViewSet,
                 for user_id in user_ids_list:
                     if user_id not in existing_user_ids:
                         user = get_user_by_id(user_id)
+                        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).first()
                         temp = {
                             "name": get_user_display_name(user),
                             "user_id": user.uid,
@@ -1525,7 +1526,7 @@ class AccountsViewSet(ApiViewSet,
                             "total_simulations": 0,
                             "total_bot_interactions": 0,
                             "session_notes_count": 0,
-                            "profile_type": "coachee",
+                            "profile_type": profile.profile_type if profile else 'coachee',
                             'total_score': 0
                         }
                         profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id=user.uid)
