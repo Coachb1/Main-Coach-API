@@ -1823,30 +1823,48 @@ class AccountsViewSet(ApiViewSet,
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
-
-                bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',participant_id__in=user_ids_list)
+                feedback_bots = SignatureBot.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list,bot_type=BotTypeChoice.feedback_bot)
+                # bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',participant_id__in=user_ids_list)
 
                 # Sort the queryset by bot_id
-                bot_qnas = sorted(bot_qnas, key=lambda x: x.bot_id)
+                # bot_qnas = sorted(bot_qnas, key=lambda x: x.bot_id)
 
                 # Group the sorted queryset by bot_id
-                grouped_bot_qnas = groupby(bot_qnas, key=attrgetter('bot_id'))
+                # grouped_bot_qnas = groupby(bot_qnas, key=attrgetter('bot_id'))
                 formatted_data = []
-                for bot_id, group in grouped_bot_qnas:
-                    positive_count = sum(1 for item in group if item.is_positive)
-                    negative_count = sum(1 for item in group if not item.is_positive)
-                    signature_bot = SignatureBot.objects.get(uid=bot_id)
+                for bot in feedback_bots:
+                    bot_id = bot.uid
+                    bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',bot_id=bot_id)
+                    positive_count = sum(1 for item in bot_qnas if item.is_positive)
+                    negative_count = sum(1 for item in bot_qnas if not item.is_positive)
                     bot_name = BotAttribute.objects.get(bot_id=bot_id).bot_name
-                    owner_name = get_user_display_name(get_user_by_id(signature_bot.user_id))
+                    owner_name = get_user_display_name(get_user_by_id(bot.user_id))
 
                     formatted_entry = {
                         "bot_name": bot_name,
-                        "user_id": signature_bot.user_id,
+                        "user_id": bot.user_id,
                         "owner_name": owner_name,
                         "positive_feedback_count": positive_count,
                         "negative_feedback_count": negative_count
                     }
                     formatted_data.append(formatted_entry)
+                    
+                    
+                # for bot_id, group in grouped_bot_qnas:
+                #     positive_count = sum(1 for item in group if item.is_positive)
+                #     negative_count = sum(1 for item in group if not item.is_positive)
+                #     signature_bot = SignatureBot.objects.get(uid=bot_id)
+                #     bot_name = BotAttribute.objects.get(bot_id=bot_id).bot_name
+                #     owner_name = get_user_display_name(get_user_by_id(signature_bot.user_id))
+
+                #     formatted_entry = {
+                #         "bot_name": bot_name,
+                #         "user_id": signature_bot.user_id,
+                #         "owner_name": owner_name,
+                #         "positive_feedback_count": positive_count,
+                #         "negative_feedback_count": negative_count
+                #     }
+                #     formatted_data.append(formatted_entry)
 
 
                 formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
