@@ -546,7 +546,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = current_conv,
+                conversation_history = conversation_history,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None
             )

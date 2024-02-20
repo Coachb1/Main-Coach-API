@@ -23,6 +23,7 @@ from settings import FRONTEND_BASE_URL
 from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
+from users.db import get_user_by_id, get_user_display_name
 
 
 
@@ -174,18 +175,17 @@ def get_session_notes(user_id,mentor_id):
             "recommendations": session_note.recommendations,
         }
         if user_id:
+            
             mentor = UserAttribute.objects.get(user_id=session_note.mentor_id)
             email = mentor.attributes.get("email",None)
-            name = mentor.attributes.get('name',None)
             note['mentor_email_id'] = email
-            note['mentor_name'] = name
+            note['mentor_name'] = get_user_display_name(get_user_by_id(user_id=mentor.user_id))
 
         elif mentor_id:
             mentee = UserAttribute.objects.get(user_id=session_note.mentee_id)
             email = mentee.attributes.get("email",None)
-            name = mentee.attributes.get('name',None)
             note['mentee_email_id'] = email
-            note['mentee_name'] = name
+            note['mentee_name'] = get_user_display_name(get_user_by_id(user_id=mentee.user_id))
             
         data.append(note)
 
