@@ -99,6 +99,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = serializer.validated_data["participant_id"]
         test_invite_id = serializer.validated_data.get("test_invite_id")
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+        is_idp_discussion_opted = serializer.validated_data.get("is_idp_discussion_opted")
 
         print("is_signature_bot =========>", is_signature_bot)
 
@@ -107,7 +108,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             test_id=test_id,
             test_invite_id=test_invite_id,
             participant_id=participant_id,
-            is_signature_bot=is_signature_bot
+            is_signature_bot=is_signature_bot,
+            is_idp_discussion_opted = is_idp_discussion_opted
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
