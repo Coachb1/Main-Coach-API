@@ -525,7 +525,26 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
-
+            user_recent_idp = None
+            if session.is_idp_discussion_opted:
+                idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created_at').first()
+                user_recent_idp = {
+                        "strengths": idp.strengths,
+                        "weakness": idp.weakness,
+                        "opportunities": idp.opportunities,
+                        "threats": idp.threats,
+                        "key_focus_areas": idp.key_focus_areas,
+                        "goals": idp.goals,
+                        "priorities": idp.priorities,
+                        "learning_histories": idp.learning_histories,
+                        "key_skills": idp.key_skills,
+                        "skill_gap_for_development": idp.skill_gap_for_development,
+                        "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                        "book_recommendations": idp.book_recommendations,
+                        "course_recommendations": idp.course_recommendations,
+                        "recommended_ted_talk": idp.recommended_ted_talk,
+                        "recommended_scenarios": idp.recommended_scenarios,
+                    }
 
             try:
                 personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
@@ -548,7 +567,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 coach_info = coach_info,
                 conversation_history = conversation_history,
                 context = initial_que_ans,
-                user_personality = personality if signature_bot.use_personality_context else None
+                user_personality = personality if signature_bot.use_personality_context else None,
+                idp_report_data = user_recent_idp
             )
 
         elif bot_type == 'helper_bot':
