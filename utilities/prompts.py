@@ -259,3 +259,19 @@ def get_priority_prompt(priorities, type):
     if type == "dynamic":
         return dynamic_prompt
     return simulation_prompt
+
+
+
+def get_intake_summary_prompt(user_intake):
+    prompt = f"""
+    User Input : ${user_intake}
+
+    A coachee is sharing their issues and challenges in the User Input. Please summarize the problems the coachee might be facing based on the given information and context. Do not leave out any important information. Please use a conversational tone in the summary and refer to the coachee directly.
+
+    NOTE: The summary should not be more than 100 words.
+    NOTE: Never start with any kind of introductory sentences. Start directly with the summary.
+    NOTE: Do not provide a solution to the problems. 
+    NOTE: Refer to the coachee directly as you in the summary.
+    """
+
+    return prompt
