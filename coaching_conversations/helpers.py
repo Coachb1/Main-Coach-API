@@ -225,9 +225,8 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     idp_data = {}
                     if signature_bot.use_idp:
-                        idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,success=True)
-                        if idp.count() > 0:
-                            idp = idp.first()
+                        idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,success=True).order_by("-created").first()
+                        if idp:
                             idp_data = {
                                 "strengths": idp.strengths,
                                 "weakness": idp.weakness,
@@ -598,9 +597,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             idp_data = {}
             if signature_bot.use_idp:
-                idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=participant_id,success=True)
-                if idp.count() > 0:
-                    idp = idp.first()
+                idp = UserIDP.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=participant_id,success=True).order_by('-created').first()
+                if idp:
                     idp_data = {
                         "strengths": idp.strengths,
                         "weakness": idp.weakness,
