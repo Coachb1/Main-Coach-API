@@ -150,7 +150,7 @@ def format_test_orchestrated_conversation(raw_data):
                     
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
-                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                output_dict['client_name'] = input_dict[CLIENT].strip()
                 try:
                     client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
                     logger.info(f"###########################Matching Client info: {client_info}")
@@ -630,7 +630,7 @@ def format_test_data_slack(raw_data):
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
-                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                output_dict['client_name'] = input_dict[CLIENT].strip()
                 try:
                     client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
                     logger.info(f"###########################Matching Client info: {client_info}")
