@@ -1167,10 +1167,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         elif test.scenario_case == ScenarioCaseChoices.english_support:
             prompt = get_english_support_feedback_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
                     test_title=test.title,
                     test_description=test.description,
                     question=question.question,
-                    question_context=question.subjective_answer,
                     candidate_reply=test_question_response.response_text,
                     user_feedback_prompt=user_feedback_prompt
             )
@@ -1247,13 +1247,13 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                             
                         elif test.scenario_case == ScenarioCaseChoices.english_support:
                                     prompt = get_english_support_feedback_prompt(
-                                            test_title=test.title,
-                                            test_description=test.description,
-                                            question=question.question,
-                                            question_context=question.subjective_answer,
-                                            candidate_reply=test_question_response.response_text,
-                                            user_feedback_prompt=user_feedback_prompt
-                                    )
+                                                            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                                            test_title=test.title,
+                                                            test_description=test.description,
+                                                            question=question.question,
+                                                            candidate_reply=test_question_response.response_text,
+                                                            user_feedback_prompt=user_feedback_prompt
+                                                    )
                         else:
                             if question.gpt_prompt_override or test.gpt_prompt_override:
                                 prompt = get_overridden_prompt(
@@ -4661,23 +4661,26 @@ def get_overridden_prompt(prompt_template: str,
     
 
 @timeit
-def get_english_support_feedback_prompt(test_title: str,
-                          test_description: str,
-                          question: str,
-                          question_context: str,
-                          candidate_reply: str,
-                          user_feedback_prompt:str):
-    if question_context:
+def get_english_support_feedback_prompt(prompt_template: str,
+                        test_title: str,
+                        test_description: str,
+                        question: str,
+                        candidate_reply: str,
+                        user_feedback_prompt:str):
         template = Template(
             """
             \n\nHuman:
             Title: ${test_title}. 
             Test Description: ${test_description}
             Customer question:  ${question} 
-            Expert Suggestions:  ${question_context}
+            Evaluation Criteria: ${prompt_template} 
             Candidate answer:  ${candidate_reply}
 
-            Please provide feedback on the English speaking proficiency of a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on areas such as grammar, vocabulary usage, fluency, and overall clarity of communication. Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance the English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
+            Please provide feedback on the English speaking proficiency of a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on areas such as grammar, vocabulary usage, fluency, and overall clarity of communication. 
+
+            Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. 
+
+            Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
 
             - Key insights to improve the response
 
@@ -4685,7 +4688,9 @@ def get_english_support_feedback_prompt(test_title: str,
 
             - What did not work ?
 
-            - A sample candidate answer
+            - A sample candidate answer 
+
+            NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
 
             NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
 
@@ -4703,55 +4708,14 @@ def get_english_support_feedback_prompt(test_title: str,
             \n\nAssistant:
             """
         )
-        return template.substitute(test_title=test_title,
-                                   test_description=test_description,
-                                   question=question,
-                                   question_context=question_context,
-                                   candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
+        template.substitute(test_title=test_title,
+                            test_description=test_description,
+                            question=question,
+                            prompt_template=prompt_template,
+                            candidate_reply=candidate_reply,
+                            user_feedback_prompt=user_feedback_prompt)
 
-    else:
-        template = Template(
-            """
-            \n\nHuman:
-            Title: ${test_title}. 
-            Test Description: ${test_description}
-            Customer question:  ${question} 
-            Candidate answer:  ${candidate_reply}
     
-            Please provide feedback on the English speaking proficiency of a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on areas such as grammar, vocabulary usage, fluency, and overall clarity of communication. Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Please provide feedback which specifically help enhance the English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
-
-            - Key insights to improve the response
-
-            - What went well ?
-
-            - What did not work ?
-
-            - A sample candidate answer
-
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
-
-            NOTE: Only provide feedback on the English proficiency of the candidate.
-
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-
-            ${user_feedback_prompt}
-            \n\nAssistant:
-            """
-        )
-        return template.substitute(test_title=test_title,
-                                   test_description=test_description,
-                                   question=question,
-                                   candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
-    
-
 @timeit
 def emplyee_feedback_prompt(prompt_template: str,
                           test_title: str,
