@@ -52,6 +52,7 @@ from django.db.models import Q
 from commons.youtube_utils import get_youtube_transcript
 from utilities.prompts import get_intake_summary_prompt
 from commons.anthropic import anthropic_completion
+from utilities.helpers import custom_sort_reverse
 
 logger = logging.getLogger(__name__)
 
@@ -1547,7 +1548,8 @@ class AccountsViewSet(ApiViewSet,
 
                         data.append(temp)
                     
-                data = sorted(data, key=lambda x: x['total_score'], reverse=True)
+                # data = sorted(data, key=lambda x: x['total_score'], reverse=True)
+                data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i
 
@@ -1879,7 +1881,8 @@ class AccountsViewSet(ApiViewSet,
                 #     formatted_data.append(formatted_entry)
 
 
-                formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
+                # formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
+                formatted_data = custom_sort_reverse(data=formatted_data,first_sort_filed="positive_feedback_count",second_sort_field="owner_name")
                 for rating, item in enumerate(formatted_data,start=1):
                     item['rating'] = rating
 

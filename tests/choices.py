@@ -37,6 +37,7 @@ class ScenarioCaseChoices(DjangoChoices):
     mcq = ChoiceItem('mcq')
     pms = ChoiceItem('pms')
     process_training = ChoiceItem('process_training')
+    english_support = ChoiceItem('english_support')
 
 
 class InteractionModeChoices(DjangoChoices):
