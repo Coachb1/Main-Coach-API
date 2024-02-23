@@ -4708,7 +4708,8 @@ def get_english_support_feedback_prompt(prompt_template: str,
             \n\nAssistant:
             """
         )
-        template.substitute(test_title=test_title,
+        
+        return template.substitute(test_title=test_title,
                             test_description=test_description,
                             question=question,
                             prompt_template=prompt_template,
