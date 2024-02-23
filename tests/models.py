@@ -167,6 +167,8 @@ class TestAttemptSession(TenantAwareModel):
     mcq_summary = models.TextField(null=True,blank=True, default=None)
     competency_data = models.JSONField(null=True, blank=True,default=None)
     language_skills = models.TextField(null=True, blank=True, default=None)
+    is_idp_discussion_opted = models.BooleanField(
+        null=True, blank=True, default=False)
 
 
     

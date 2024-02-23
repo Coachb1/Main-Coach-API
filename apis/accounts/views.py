@@ -50,6 +50,8 @@ from itertools import groupby
 from operator import attrgetter
 from django.db.models import Q
 from commons.youtube_utils import get_youtube_transcript
+from utilities.prompts import get_intake_summary_prompt
+from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
 
 logger = logging.getLogger(__name__)
@@ -515,6 +517,10 @@ class AccountsViewSet(ApiViewSet,
                 #     logger.exception(f"Feedback bot not found {e}")
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
+                qna_type = request.query_params.get("qna_type",None)
+                if qna_type and qna_type.lower() == 'intake':
+                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='intake').order_by('-created').first()
+                    return Response({"intake_summary": recent_intake_data.intake_summary},status=status.HTTP_200_OK)
                 
                 feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
                 msg_data = []
@@ -547,6 +553,10 @@ class AccountsViewSet(ApiViewSet,
                 is_positive = request.query_params.get('is_positive',None)
                 qna_type = request.query_params.get('qna_type',None)
 
+
+                intake_summary_prompt = get_intake_summary_prompt(feedback_qna)
+                intake_summary = anthropic_completion(intake_summary_prompt,50000)
+
                 BotQnA.objects.create(
                     tenant_id = self.request.tenant.uid,
                     participant_id = participant_id,
@@ -554,6 +564,7 @@ class AccountsViewSet(ApiViewSet,
                     is_positive = is_positive,
                     bot_id = signature_bot.uid,
                     qna_type = qna_type,
+                    intake_summary = intake_summary
                 )
                 data['message'] = "created"
 

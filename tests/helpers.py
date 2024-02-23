@@ -313,7 +313,8 @@ def create_test_question_answer_session(tenant: Tenant,
                                         test_id: str,
                                         test_invite_id: str,
                                         participant_id: str,
-                                        is_signature_bot: bool) -> TestAttemptSession:
+                                        is_signature_bot: bool,
+                                        is_idp_discussion_opted:bool) -> TestAttemptSession:
     try:
         if not is_signature_bot:
             test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
@@ -366,6 +367,7 @@ def create_test_question_answer_session(tenant: Tenant,
         started_at=now,
         expires_at=now + datetime.timedelta(minutes=30),
         is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
+        is_idp_discussion_opted=is_idp_discussion_opted
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
