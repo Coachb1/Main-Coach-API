@@ -151,13 +151,13 @@ def initialize_coaching_conversation(tenant: Tenant,
             qna = json.loads(initial_qna)
             custom_prompt = signature_bot.custom_prompt
             # saving initial_qna
-            BotQnA.objects.create(
-                tenant_id = tenant.uid,
-                bot_id = signature_bot.uid,
-                participant_id = test_attempt_session.participant_id,
-                participant_qna = qna,
-                qna_type = 'initial_qna'
-            )
+            # BotQnA.objects.create(
+            #     tenant_id = tenant.uid,
+            #     bot_id = signature_bot.uid,
+            #     participant_id = test_attempt_session.participant_id,
+            #     participant_qna = qna,
+            #     qna_type = 'initial_qna'
+            # )
             if custom_prompt:
                 
                 initial_que_ans = ''
@@ -181,23 +181,24 @@ def initialize_coaching_conversation(tenant: Tenant,
                     user_recent_idp = None
                     if test_attempt_session.is_idp_discussion_opted:
                         idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=test_attempt_session.participant_id, deleted=0).order_by('-created').first()
-                        user_recent_idp = {
-                                "strengths": idp.strengths,
-                                "weakness": idp.weakness,
-                                "opportunities": idp.opportunities,
-                                "threats": idp.threats,
-                                "key_focus_areas": idp.key_focus_areas,
-                                "goals": idp.goals,
-                                "priorities": idp.priorities,
-                                "learning_histories": idp.learning_histories,
-                                "key_skills": idp.key_skills,
-                                "skill_gap_for_development": idp.skill_gap_for_development,
-                                "leadership_skill_focus_area": idp.leadership_skill_focus_area,
-                                "book_recommendations": idp.book_recommendations,
-                                "course_recommendations": idp.course_recommendations,
-                                "recommended_ted_talk": idp.recommended_ted_talk,
-                                "recommended_scenarios": idp.recommended_scenarios,
-                            }
+                        if idp:
+                            user_recent_idp = {
+                                    "strengths": idp.strengths,
+                                    "weakness": idp.weakness,
+                                    "opportunities": idp.opportunities,
+                                    "threats": idp.threats,
+                                    "key_focus_areas": idp.key_focus_areas,
+                                    "goals": idp.goals,
+                                    "priorities": idp.priorities,
+                                    "learning_histories": idp.learning_histories,
+                                    "key_skills": idp.key_skills,
+                                    "skill_gap_for_development": idp.skill_gap_for_development,
+                                    "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                                    "book_recommendations": idp.book_recommendations,
+                                    "course_recommendations": idp.course_recommendations,
+                                    "recommended_ted_talk": idp.recommended_ted_talk,
+                                    "recommended_scenarios": idp.recommended_scenarios,
+                                }
                     try:
                         personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
                         highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
@@ -549,23 +550,24 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             latest_session = session.order_by('-created').first()
             if latest_session.is_idp_discussion_opted:
                 idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created_at').first()
-                user_recent_idp = {
-                        "strengths": idp.strengths,
-                        "weakness": idp.weakness,
-                        "opportunities": idp.opportunities,
-                        "threats": idp.threats,
-                        "key_focus_areas": idp.key_focus_areas,
-                        "goals": idp.goals,
-                        "priorities": idp.priorities,
-                        "learning_histories": idp.learning_histories,
-                        "key_skills": idp.key_skills,
-                        "skill_gap_for_development": idp.skill_gap_for_development,
-                        "leadership_skill_focus_area": idp.leadership_skill_focus_area,
-                        "book_recommendations": idp.book_recommendations,
-                        "course_recommendations": idp.course_recommendations,
-                        "recommended_ted_talk": idp.recommended_ted_talk,
-                        "recommended_scenarios": idp.recommended_scenarios,
-                    }
+                if idp:
+                    user_recent_idp = {
+                            "strengths": idp.strengths,
+                            "weakness": idp.weakness,
+                            "opportunities": idp.opportunities,
+                            "threats": idp.threats,
+                            "key_focus_areas": idp.key_focus_areas,
+                            "goals": idp.goals,
+                            "priorities": idp.priorities,
+                            "learning_histories": idp.learning_histories,
+                            "key_skills": idp.key_skills,
+                            "skill_gap_for_development": idp.skill_gap_for_development,
+                            "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                            "book_recommendations": idp.book_recommendations,
+                            "course_recommendations": idp.course_recommendations,
+                            "recommended_ted_talk": idp.recommended_ted_talk,
+                            "recommended_scenarios": idp.recommended_scenarios,
+                        }
 
             try:
                 personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
