@@ -518,8 +518,8 @@ class AccountsViewSet(ApiViewSet,
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
                 qna_type = request.query_params.get("qna_type",None)
-                if qna_type and qna_type.lower() == 'intake':
-                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='intake').order_by('-created').first()
+                if qna_type and qna_type.lower() == 'initial_qna':
+                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna').order_by('-created').first()
                     return Response({"intake_summary": recent_intake_data.intake_summary},status=status.HTTP_200_OK)
                 
                 feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
