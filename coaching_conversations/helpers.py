@@ -145,7 +145,12 @@ def initialize_coaching_conversation(tenant: Tenant,
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
         user = User.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.participant_id)
         get_or_create_bot_user_mapping(signature_bot,user)
-        
+
+        if test_attempt_session.intake_id:
+            bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=test_attempt_session.intake_id).order_by('-created').first()
+            if bot_qna:
+                initial_qna = bot_qna.participant_qna
+                
         if initial_qna:
 
             qna = json.loads(initial_qna)
