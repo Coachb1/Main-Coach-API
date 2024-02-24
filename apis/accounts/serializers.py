@@ -79,6 +79,27 @@ class UserIDPSerializers(serializers.ModelSerializer):
         model = UserIDP
         fields = '__all__'
 
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        chars_to_remove = '*'
+
+        fields_to_clean = [ 'strengths','weaknesses','opportunities',
+                            'threats','key_focus_areas','goals',
+                            'priorities','learning_histories',
+                            'key_skills','skill_gap_for_development',
+                            'leadership_skill_focus_areas','book_recommendations',
+                            'course_recommendations','recommended_hbr','recommended_ted_talk',
+                            'learning_communities']
+        for key in fields_to_clean:
+            if key in data:
+                print(f"######################## key: {key} value: {data[key]}")
+                content = data.get(key,' ')
+                if content:
+                    data[key] = content.replace(chars_to_remove, '')
+
+
+        return data
+
 class DirectoryInfoSErializer(serializers.ModelSerializer):
     class Meta:
         model = DirectoryPageInfo
