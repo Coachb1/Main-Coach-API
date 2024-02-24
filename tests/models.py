@@ -169,6 +169,7 @@ class TestAttemptSession(TenantAwareModel):
     language_skills = models.TextField(null=True, blank=True, default=None)
     is_idp_discussion_opted = models.BooleanField(
         null=True, blank=True, default=False)
+    intake_id = models.CharField(max_length=255, null=True, blank=True, default=None)
 
 
     
