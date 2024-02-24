@@ -94,6 +94,7 @@ class UserIDP(TenantAwareModel):
     recommended_hbr = models.TextField(null=True,blank=True,default=None)
     recommended_ted_talk = models.TextField(null=True,blank=True,default=None)
     recommended_scenarios = models.JSONField(null=True,blank=True,default=None)
+    learning_communities = models.TextField(null=True,blank=True,default=None)
     report = models.TextField(null=True,blank=True,default=None)
     success = models.BooleanField(default=False, null=True,blank=True)
     total_scenarios_created = models.IntegerField(null=True, blank=True, default=0)

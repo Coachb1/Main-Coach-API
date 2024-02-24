@@ -367,10 +367,13 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
                 hbr_recomm = get_recommendation("hbr",hard_soft_skills)
                 tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
+                learning_communities = get_learning_communities_recommendation(hard_skills,soft_skills)
+
                 user_idp.book_recommendations = book_recomm
                 user_idp.recommended_hbr = hbr_recomm
                 user_idp.recommended_ted_talk = tedtalk_recomm
                 user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
+                user_idp.learning_communities = learning_communities
 
                 user_idp.course_recommendations = course_recomm
 
@@ -762,6 +765,26 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
     return data
 
+
+def get_learning_communities_recommendation(hard_skills, soft_skills):
+    prompt = f"""
+        {{skill_gaps}}: ${hard_skills, soft_skills}
+        Please provide learning communities to improve these skills {{skill_gaps}}. Provide the name of the learning community, the hosting site and a small description of 80 words.
+        Output Format:
+        1. Skill1 - Name, the hosting site and description.
+        2. Skill2 - Name, the hosting site and description.
+        3. Skill3 - Name, the hosting site and description.
+        4. Skill4 - Name, the hosting site and description.
+
+        Always give the output in the given format.
+        Do not include any introductory sentence or any conclusion.
+        If the skills does not have any online community, please respond with "No learning communities found."
+    """
+
+    data = generic_completion(prompt=prompt)
+    logger.info(f"Learning Communities: {data}")
+    return data
+
 def get_course_recommendation(learning_history,existing_skills,hard_soft_skills):
     prompt = """
     \n\nHuman:
@@ -771,10 +794,10 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
 
     This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please provide courses from Coursera to improve these skills {skill_gaps}. Provide the name of the course.
     Output Format :
-    1. Skill1 - Course name
-    2. Skill2 - Course name
-    3. Skill3 - Course name
-    4. Skill4 - Course name
+    1. Skill1 - Course name, source of the course and description.
+    2. Skill2 - Course name, source of the course  and description.
+    3. Skill3 - Course name, source of the course and description.
+    4. Skill4 - Course name, source of the course  and description.
 
     Always give the output in the given format.
     Do not include any introductory sentence or any conclusion.
