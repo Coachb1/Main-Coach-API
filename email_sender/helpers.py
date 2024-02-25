@@ -12,6 +12,37 @@ APP_PASSWORD = "daD4QnY3OJBGMVEj"
 
 
 def send_email(to_email, subject, data):
+    """
+    Sends an email to a specified recipient with a given subject and data.
+
+    This function creates an email with a multipart MIME format with the 'alternative' subtype. 
+    It sets the subject, sender, and recipient of the email. The body of the email is created 
+    using the 'get_html_body' function, which takes in the candidate's real name, username, 
+    test name, and report URL from the 'data' dictionary. The email body is then attached to 
+    the email as a MIME text with the 'html' subtype. 
+
+    The function then logs into the SMTP server using the LOGIN_EMAIL and APP_PASSWORD constants, 
+    and sends the email from the FROM_EMAIL to the 'to_email' recipient.
+
+    Parameters:
+    to_email (str): The email address of the recipient.
+    subject (str): The subject of the email.
+    data (dict): A dictionary containing the following keys:
+        - 'real_name' (str): The real name of the candidate.
+        - 'candidate_name' (str): The username of the candidate.
+        - 'test_name' (str): The name of the test.
+        - 'report_url' (str): The URL of the report.
+
+    Returns:
+    None
+
+    Example:
+    send_email('test@example.com', 'Test Subject', 
+               {'real_name': 'John Doe', 
+                'candidate_name': 'jdoe', 
+                'test_name': 'Test 1', 
+                'report_url': 'http://example.com/report'})
+    """
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 

@@ -20,6 +20,24 @@ logger = logging.getLogger(__name__)
 
 
 def add_line_breaks(text, max_length=10):
+    """
+    This function breaks a given text into multiple lines with a specified maximum length. 
+
+    The function works by splitting the input text into words and then iteratively adding these words to a line until the maximum length is reached. If a word itself is longer than the maximum length, it is broken into parts with hyphens. The last part does not have a trailing hyphen. 
+
+    Parameters:
+    text (str): The input text that needs to be broken into lines. It should be a string.
+    max_length (int, optional): The maximum length of a line. It defaults to 10.
+
+    Returns:
+    str: The input text broken into lines with a maximum length of 'max_length'. Each line is separated by a newline character.
+
+    Example:
+    >>> add_line_breaks("This is a test", 5)
+    'This \nis a \ntest'
+    >>> add_line_breaks("Supercalifragilisticexpialidocious", 5)
+    'Super-\ncalif-\nragil-\nistice-\nxpial-\nidoci-\nous'
+    """
     words = text.split()
     lines = []
     current_line = ""
@@ -42,7 +60,31 @@ def add_line_breaks(text, max_length=10):
 
 
 def get_mindmap_url_from_test(test: Test, only_data=False):
+    """
+    This function retrieves the URL of the mindmap document associated with a given test.
 
+    The function first checks if the 'only_data' flag is set to True. If it is, the function returns the mindmap document ID 
+    associated with the test by calling the 'get_mindmap_doc_id_from_test' function. 
+
+    If the 'only_data' flag is set to False, the function retrieves the mindmap document ID associated with the test, and then 
+    retrieves the URL of the document by calling the 'get_document_url_from_doc_id' function.
+
+    Args:
+        test (Test): The test object for which the mindmap document URL is to be retrieved.
+        only_data (bool, optional): A flag that determines whether to return only the mindmap document ID or the URL. 
+                                     Defaults to False.
+
+    Returns:
+        str: If 'only_data' is True, returns the mindmap document ID associated with the test.
+             If 'only_data' is False, returns the URL of the mindmap document associated with the test.
+
+    Example:
+        >>> test = Test.objects.get(id=1)
+        >>> get_mindmap_url_from_test(test)
+        'http://example.com/document/1234'
+        >>> get_mindmap_url_from_test(test, only_data=True)
+        '1234'
+    """
     if only_data:
         return get_mindmap_doc_id_from_test(test, only_data=only_data)
 
@@ -53,6 +95,44 @@ def get_mindmap_url_from_test(test: Test, only_data=False):
 
 
 def get_mindmap_doc_id_from_test(test: Test, only_data=False):
+    """
+    Retrieves or generates a mindmap document ID for a given test.
+
+    This function checks if a mindmap document ID already exists for the test. If it does and `only_data` is False, it returns the existing ID. If not, it generates a new mindmap document.
+
+    The mindmap document is created as follows:
+    - It retrieves the tenant from the test's tenant ID.
+    - It retrieves the test's title and questions.
+    - It constructs a data dictionary containing the test's name and content (questions, ideal answers, and learnings).
+    - If `only_data` is True, it returns this data dictionary.
+    - If `only_data` is False, it creates a temporary PDF file and generates a mindmap using the data dictionary.
+    - It then creates a new document in the database using the temporary PDF file and updates the test's mindmap document ID.
+
+    Args:
+        test (Test): The test object for which the mindmap document ID is to be retrieved or generated.
+        only_data (bool, optional): If True, the function will return the data dictionary instead of the mindmap document ID. Defaults to False.
+
+    Returns:
+        str or dict: If `only_data` is False, it returns the mindmap document ID (str). If `only_data` is True, it returns the data dictionary (dict).
+
+    Example:
+        >>> test = Test.objects.get(uid='test_uid')
+        >>> get_mindmap_doc_id_from_test(test)
+        'mindmap_doc_id'
+        >>> get_mindmap_doc_id_from_test(test, only_data=True)
+        {
+            "test_name": "Test 1",
+            "content": [
+                {
+                    "question": "What is the capital of France?",
+                    "ideal_answer": "The capital of France is Paris.",
+                    "learnings": ["France", "Paris", "capital"]
+                },
+                ...
+            ]
+        }
+    """
+    
     if test.mindmap_doc_id and not only_data:
         return test.mindmap_doc_id
 
@@ -103,6 +183,60 @@ def get_mindmap_doc_id_from_test(test: Test, only_data=False):
 
 
 def create_mindmap(data, file_ptr):
+    """
+    Creates a mindmap from the given data and saves it as a PDF file.
+
+    This function takes a dictionary of test data and a file pointer. It uses the NetworkX and Matplotlib libraries to create a directed graph (mindmap) based on the test data. The mindmap is then saved as a PDF file using the provided file pointer.
+
+    The mindmap is created as follows:
+    - A central node is created for the test.
+    - For each question in the test, an ideal answer node is created and connected to the test node.
+    - For each learning point in the ideal answer, a learning node is created and connected to the ideal answer node.
+    - The nodes are color-coded based on their type (test, question, ideal answer, learning).
+    - The edges are color-coded based on their source node type.
+    - The node labels are set to the content of the nodes, with line breaks added for readability.
+    - The node sizes are set based on the length of the labels.
+    - The node positions are set using the 'neato' layout from Graphviz.
+    - The figure size is set based on the number of nodes.
+    - A title and a logo are added to the figure.
+
+    Args:
+        data (dict): A dictionary containing the test data. The dictionary should have the following structure:
+            {
+                "test_name": str,  # The name of the test
+                "content": [  # A list of dictionaries, each representing a question
+                    {
+                        "question": str,  # The question text
+                        "ideal_answer": str,  # The ideal answer text
+                        "learnings": list  # A list of learning points
+                    },
+                    ...
+                ]
+            }
+        file_ptr (file object): A file pointer to which the mindmap PDF will be saved.
+
+    Returns:
+        bool: True if the mindmap was successfully created and saved, False otherwise.
+
+    Raises:
+        Exception: If an error occurs during the creation or saving of the mindmap.
+
+    Example:
+        data = {
+            "test_name": "Test 1",
+            "content": [
+                {
+                    "question": "What is the capital of France?",
+                    "ideal_answer": "The capital of France is Paris.",
+                    "learnings": ["France", "Paris", "capital"]
+                },
+                ...
+            ]
+        }
+        with open("mindmap.pdf", "wb") as f:
+            create_mindmap(data, f)
+    """
+
     try:
         graph = nx.DiGraph()
 

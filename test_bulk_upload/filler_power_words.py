@@ -7,6 +7,24 @@ import os
 from pathlib import Path
 
 def filler_power_word(response):
+    """
+    This function identifies and returns the power words and filler words from a given text.
+
+    The function first downloads the 'stopwords' from nltk corpus and filters out these stopwords from the input text.
+    It then reads a CSV file named 'filler_power_word.csv' from the same directory as this script, and extracts power words and filler words from it.
+    The function checks the input text against these power and filler words, and returns any matches.
+
+    Parameters:
+    response (str): The input text to be analyzed. It should be a string of English words.
+
+    Returns:
+    tuple: A tuple of two sets. The first set contains the power words found in the input text, and the second set contains the filler words found in the input text.
+
+    Example:
+    >>> filler_power_word("This is a test sentence with some power words and filler words.")
+    (set(['test', 'power']), set(['some', 'and']))
+    """
+
     nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
     
