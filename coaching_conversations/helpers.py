@@ -145,7 +145,12 @@ def initialize_coaching_conversation(tenant: Tenant,
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
         user = User.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.participant_id)
         get_or_create_bot_user_mapping(signature_bot,user)
-        
+
+        if test_attempt_session.intake_id:
+            bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=test_attempt_session.intake_id).order_by('-created').first()
+            if bot_qna:
+                initial_qna = bot_qna.participant_qna
+                
         if initial_qna:
 
             qna = json.loads(initial_qna)
@@ -530,7 +535,19 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
     if signature_bot.custom_prompt:
         prompt = signature_bot.custom_prompt
-        initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
+        session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
+                                                        uid=test_attempt_session_id,
+                                                        deleted=0
+                                                        )
+        
+        initial_qna = ""
+        if session.intake_id:
+            bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
+            if bot_qna:
+                initial_qna = bot_qna.participant_qna
+        else:
+            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
+
         logger.info(f"************************************************ initial_qna: {initial_qna}")
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
         initial_que_ans = initial_qna.participant_qna
@@ -539,10 +556,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             coach_info += f"{key}: {val}\n"
             
         if bot_type == 'avatar_bot':
-            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
-                                                        uid=test_attempt_session_id,
-                                                        deleted=0
-                                                        )
+            
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
