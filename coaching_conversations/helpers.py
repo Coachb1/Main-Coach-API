@@ -541,12 +541,16 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                                                         )
         
         initial_qna = ""
-        if session.first().intake_id:
-            bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
-            if bot_qna:
-                initial_qna = bot_qna.participant_qna
+        if bot_type == BotTypeChoice.avatar_bot:
+            if session.first().intake_id:
+                bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
+                if bot_qna:
+                    initial_qna = bot_qna.participant_qna
+            else:
+                initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+
         else:
-            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id')[0]
+            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
 
         logger.info(f"************************************************ initial_qna: {initial_qna}")
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
