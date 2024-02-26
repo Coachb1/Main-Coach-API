@@ -405,7 +405,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
-                    send_email_with_html_template(subject=subject,html_content=html,to_email='ansariaadil611@gmail.com')
+                    # send_email_with_html_template(subject=subject,html_content=html,to_email='ansariaadil611@gmail.com')
                     return {"error": "in book recommendation, skills etc couldn't generate"}, False
                 continue
 
