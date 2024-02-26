@@ -541,7 +541,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                                                         )
         
         initial_qna = ""
-        if session.intake_id:
+        if session.first().intake_id:
             bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
             if bot_qna:
                 initial_qna = bot_qna.participant_qna
