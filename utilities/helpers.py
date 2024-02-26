@@ -382,15 +382,21 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 user_idp.save()
                 break
             except Exception as e:
-                logger.exception(f"Failed to fetch recommendations and soft and hard skills: {e}")
+                logger.exception(f"Failed to fetch recommendations and soft and hard skills: {e} for {i+1} time")
                 if i+1 == 2:
                     subject = "Failed to generate IDP"
+                    try:
+                        user_attribute = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id)
+                        user_email = user_attribute.attributes.get("email",None)
+                    except Exception as e:
+                        logger.error({"Error":e},exc_info=True)
+                        user_email = ""
                     html = f"""
                         <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                                 <tr>
                                 <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}, user_email: {user_email} </p>
 
                                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                                 </td>
@@ -399,6 +405,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
+                    send_email_with_html_template(subject=subject,html_content=html,to_email='ansariaadil611@gmail.com')
                     return {"error": "in book recommendation, skills etc couldn't generate"}, False
                 continue
 
