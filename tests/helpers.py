@@ -92,6 +92,27 @@ def add_prefix(prefix, value):
 
 @timeit
 def get_unique_test_code(tenant: Tenant) -> str:
+    """
+    Generate a unique test code for a given tenant.
+
+    This function generates a random string of a specified length, using uppercase ASCII characters and digits. 
+    The generated string is prefixed with 'Q'. The function then checks if a test with the same code already exists 
+    for the given tenant. If such a test exists, the function retries the generation process up to a maximum number 
+    of retries. If the maximum number of retries is reached, the length of the test code is increased by one and 
+    the retry count is reset to zero. This process continues until a unique test code is generated.
+
+    Parameters:
+    tenant (Tenant): The tenant for which the test code is being generated. This should be an instance of the Tenant model.
+
+    Returns:
+    str: A unique test code for the given tenant. The test code is a string starting with 'Q', followed by a combination 
+    of uppercase ASCII characters and digits.
+
+    Example:
+    >>> tenant = Tenant.objects.get(name='example_tenant')
+    >>> get_unique_test_code(tenant)
+    'Q3FZ7A'
+    """
     global TEST_CODE_LENGTH
 
     test_code = get_random_string(
@@ -166,6 +187,123 @@ def create_test(tenant: Tenant,
                 competency_group: str,
                 area_domain:str,
                 tab_category:str) -> tuple[Test, list[TestQuestion]]:
+    """
+    This function creates a new test and its associated questions in the database.
+
+    The function first validates the creator_id, then creates a new Test object with the provided parameters.
+    It then iterates over the list of questions, creating a new TestQuestion object for each one and appending it to the test_questions list.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        creator_id (str): The unique identifier of the test creator.
+        title (str): The title of the test.
+        description (str): The description of the test.
+        candidate_type (str): The type of candidate for the test.
+        email_address_list (str): The list of email addresses to send the test to.
+        max_test_allowed (int): The maximum number of tests allowed.
+        send_only_to_email (bool): Flag to determine if the test should only be sent to the email.
+        interaction_mode (str): The mode of interaction for the test.
+        test_type (str): The type of the test.
+        gpt_prompt_override (str): The GPT prompt override for the test.
+        email_candidate (bool): Flag to determine if the candidate should be emailed.
+        test_related_context (str): The context related to the test.
+        orchestrated_conversation_details (dict): The details of the orchestrated conversation.
+        description_media (str): The media description of the test.
+        is_single_bot (bool): Flag to determine if the test is a single bot.
+        is_checkin_type (bool): Flag to determine if the test is a checkin type.
+        skills_to_evaluate (str): The skills to evaluate in the test.
+        tedtalk_and_hbr_case (str): The TED Talk and HBR case for the test.
+        is_learner_path (bool): Flag to determine if the test is a learner path.
+        is_email_type (bool): Flag to determine if the test is an email type.
+        scenario_case (str): The scenario case for the test.
+        is_game_type (bool): Flag to determine if the test is a game type.
+        is_free (bool): Flag to determine if the test is free.
+        is_micro (bool): Flag to determine if the test is micro.
+        image_url (str): The URL of the image for the test.
+        rating (str): The rating of the test.
+        source (str): The source of the test.
+        client_name (str): The name of the client.
+        questions (list): The list of questions for the test.
+        goals (str): The goals of the test.
+        course (str): The course of the test.
+        industry (str): The industry of the test.
+        exp_level (str): The experience level of the test.
+        total_question (int): The total number of questions in the test.
+        certificate_details (dict): The details of the certificate for the test.
+        ui_information (dict): The UI information for the test.
+        is_self_created (bool): Flag to determine if the test is self created.
+        is_logged_in (bool): Flag to determine if the user is logged in.
+        is_immersive (bool): Flag to determine if the test is immersive.
+        media_props (dict): The media properties for the test.
+        is_transcript_only (bool): Flag to determine if the test is transcript only.
+        is_pitch (bool): Flag to determine if the test is a pitch.
+        articles (str): The articles for the test.
+        bot_name (str): The name of the bot for the
+        creator_user_id (str): The unique identifier of the user who created the test.
+        competency_group (str): The competency group for the test.
+        area_domain (str): The area domain for the test.
+        tab_category (str): The tab category for the test.
+
+    Returns:
+        tuple: A tuple containing the created Test object and a list of created TestQuestion objects.
+
+    Raises:
+        serializers.ValidationError: If the creator_id does not exist in the database.
+
+    Example:
+        >>> tenant = Tenant(uid='123')
+        >>> creator_id = 'abc'
+        >>> title = 'Test Title'
+        >>> description = 'Test Description'
+        >>> candidate_type = 'Type1'
+        >>> email_address_list = 'test@example.com'
+        >>> max_test_allowed = 10
+        >>> send_only_to_email = False
+        >>> interaction_mode = 'Mode1'
+        >>> test_type = 'Type2'
+        >>> gpt_prompt_override = 'Override1'
+        >>> email_candidate = True
+        >>> test_related_context = 'Context1'
+        >>> orchestrated_conversation_details = {}
+        >>> description_media = 'Media1'
+        >>> is_single_bot = True
+        >>> is_checkin_type = False
+        >>> skills_to_evaluate = 'Skill1, Skill2'
+        >>> tedtalk_and_hbr_case = 'Case1'
+        >>> is_learner_path = False
+        >>> is_email_type = True
+        >>> scenario_case = 'Case2'
+        >>> is_game_type = False
+        >>> is_free = True
+        >>> is_micro = False
+        >>> image_url = 'http://example.com/image.jpg'
+        >>> rating = '5'
+        >>> source = 'Source1'
+        >>> client_name = 'Client1'
+        >>> questions = ['Question1', 'Question2']
+        >>> goals = 'Goal1, Goal2'
+        >>> course = 'Course1'
+        >>> industry = 'Industry1'
+        >>> exp_level = 'Level1'
+        >>> total_question = 2
+        >>> certificate_details = {}
+        >>> ui_information = {}
+        >>> is_self_created = True
+        >>> is_logged_in = True
+        >>> is_immersive = False
+        >>> media_props = {}
+        >>> is_transcript_only = False
+        >>> is_pitch = True
+        >>> articles = 'Article1, Article2'
+        >>> bot_name = 'Bot1'
+        >>> creator_user_id = 'abc'
+        >>> competency_group = 'Group1'
+        >>> area_domain = 'Domain1'
+        >>> tab_category = 'Category1'
+        >>> create_test(tenant, creator_id, title, description, candidate_type, email_address_list, max_test_allowed, send_only_to_email, interaction_mode, test_type, gpt_prompt_override, email_candidate, test_related_context, orchestrated_conversation_details, description_media, is_single_bot, is_checkin_type, skills_to_evaluate, tedtalk_and_hbr_case, is_learner_path, is_email_type, scenario_case, is_game_type, is_free, is_micro, image_url, rating, source, client_name, questions, goals, course, industry, exp_level, total_question, certificate_details, ui_information, is_self_created, is_logged_in, is_immersive, media_props, is_transcript_only, is_pitch, articles, bot_name, creator_user_id, competency_group, area_domain, tab_category)
+        (<Test: Test object (1)>, [<TestQuestion: TestQuestion object (1)>, <TestQuestion: TestQuestion object (2)>])
+    """
+
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -281,6 +419,30 @@ def create_test_invite(tenant: Tenant,
                        test_id: str,
                        participant_id: str,
                        expires_at: str) -> TestInvite:
+    """
+    This function creates a new test invitation in the database.
+
+    The function first validates the test_id and participant_id by checking if they exist in the database. 
+    If either does not exist, it raises a ValidationError. 
+    If both exist, it creates a new TestInvite object with the provided parameters and returns it.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        test_id (str): The unique identifier of the test.
+        participant_id (str): The unique identifier of the participant.
+        expires_at (str): The expiration date of the invitation in string format (YYYY-MM-DD HH:MM:SS).
+
+    Returns:
+        TestInvite: The newly created TestInvite object.
+
+    Raises:
+        serializers.ValidationError: If the test_id or participant_id does not exist.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant1')
+        >>> create_test_invite(tenant, 'test1', 'participant1', '2022-12-31 23:59:59')
+        <TestInvite: TestInvite object (1)>
+    """
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
     except Test.DoesNotExist as e:
@@ -316,6 +478,36 @@ def create_test_question_answer_session(tenant: Tenant,
                                         is_signature_bot: bool,
                                         is_idp_discussion_opted:bool,
                                         intake_id: str) -> TestAttemptSession:
+    """
+    Creates a test question answer session for a participant.
+
+    This function is responsible for creating a new test attempt session for a given participant. It first checks if the participant is not a signature bot and if the test has not exceeded the maximum allowed attempts. If the test has a limit on the number of attempts and it's not zero, it decreases the count by one. 
+
+    If a test invite ID is provided, it validates the existence of the test invite. It also validates the existence of the participant. 
+
+    If the participant is a signature bot, it retrieves the signature bot object and assigns its UID to the test ID. 
+
+    Finally, it creates a new TestAttemptSession object with the provided details and the current time as the start time. The session is set to expire 30 minutes from the start time.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        test_id (str): The ID of the test.
+        test_invite_id (str): The ID of the test invite.
+        participant_id (str): The ID of the participant.
+        is_signature_bot (bool): Indicates if the participant is a signature bot.
+        is_idp_discussion_opted (bool): Indicates if the participant opted for IDP discussion.
+
+    Returns:
+        TestAttemptSession: The created test question answer session object.
+
+    Raises:
+        serializers.ValidationError: If the test ID, test invite ID, or participant ID is invalid, or if the maximum number of test attempts has been exceeded.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant1')
+        >>> create_test_question_answer_session(tenant, 'test1', 'invite1', 'participant1', False, False)
+        <TestAttemptSession: TestAttemptSession object (1)>
+    """
     try:
         if not is_signature_bot:
             test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
@@ -384,6 +576,34 @@ def create_test_question_answer(tenant: Tenant,
                                 response_file: str = None,
                                 response_text: str = None,
                                 is_whatsapp: bool = False) -> TestQuestionResponse:
+    """
+    Creates a TestQuestionResponse object for a given test attempt session and question.
+
+    This function first retrieves the TestAttemptSession and TestQuestion objects using the provided IDs. 
+    If the question is for the user and no response file or text is provided, it raises a ValidationError. 
+    It then attempts to create a TestQuestionResponse object with the provided details. 
+    If the creation fails, it retrieves the first existing TestQuestionResponse object with the same test_attempt_session_id and question_id. 
+    Depending on the test type and the question for, it processes the response differently.
+
+    Args:
+        tenant (Tenant): The Tenant object for which the TestQuestionResponse is to be created.
+        test_attempt_session_id (str): The unique identifier of the TestAttemptSession.
+        question_id (str): The unique identifier of the TestQuestion.
+        response_file (str, optional): The response file. Defaults to None.
+        response_text (str, optional): The response text. Defaults to None.
+        is_whatsapp (bool, optional): A flag indicating whether the response is from WhatsApp. Defaults to False.
+
+    Raises:
+        serializers.ValidationError: If the TestAttemptSession or TestQuestion does not exist, or if the question is for the user and no response file or text is provided.
+
+    Returns:
+        TestQuestionResponse: The created or retrieved TestQuestionResponse object.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant_uid')
+        >>> create_test_question_answer(tenant, 'test_attempt_session_id', 'question_id', response_text='This is a response')
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     try:
         test_attempt_session = TestAttemptSession.objects.get(
             tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
@@ -438,14 +658,32 @@ def create_test_question_answer(tenant: Tenant,
 
 
 def delete_test_response(test_response):
+    """
+    it soft delete test response
+    """
     test_response.deleted = test_response.deleted + 1
     test_response.save()
 
 
 
 #*********************** Process MCQ response start *******************************
-
+@timeit
 def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes the response of a multiple-choice question (MCQ) from a test session.
+
+    The function retrieves the test question and test session related to the response. It then generates a comment on the user's decision using a generic completion function. The selected skill from the MCQ options is also identified and saved. The function updates the evaluation status of the test question response to 'success'. If the processed question is the last one in the test session, the function marks the session as completed and generates a summary of the user's decisions throughout the test. It also updates the SkillsRating object related to the participant.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object that needs to be processed.
+    is_whatsapp (bool, optional): A flag indicating if the test was taken on WhatsApp. Defaults to False.
+
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+
+    Example:
+    Given a TestQuestionResponse object with uid '123', question_id '456', test_attempt_session_id '789', and response_text 'Option A', the function will update the feedback_text, mcq_skill, and evaluation_status fields of the object. If this is the last question in the test session, the function will also update the status and finished_at fields of the related TestAttemptSession object, and update the total_questions_attempted and total_tests_attempted fields of the related SkillsRating object.
+    """
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -559,8 +797,32 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
 
 #*********************** Process Dynamic MCQ response start *******************************
-
+@timeit
 def extract_mcq_options_from_response(text):
+    """
+    This function extracts multiple choice question (MCQ) options from a given text.
+
+    The function uses regular expressions to search for a specific pattern in the text. The pattern is defined as follows:
+    "Situation:(.*?)Choice 1:(.*?)Choice 2:", where (.*?) is a non-greedy match for any characters. 
+
+    The function then extracts the matched groups and assigns them to the variables 'next_question', 'choice1', and 'choice2'. 
+    The 'next_question' and 'choice1' are extracted directly from the regex match, while 'choice2' is extracted by splitting the text on "Choice 2:" and taking the second part.
+
+    If the pattern is not found in the text, the function logs an error message.
+
+    Args:
+        text (str): The input text from which to extract the MCQ options. The text should be formatted as follows: 
+        "Situation: <situation text> Choice 1: <choice 1 text> Choice 2: <choice 2 text>"
+
+    Returns:
+        dict: A dictionary containing the next situation and the two choices. The keys of the dictionary are 'next_situation', 'option_a', and 'option_b'. 
+        If the pattern is not found in the text, the function returns None.
+
+    Example:
+        >>> extract_mcq_options_from_response("Situation: You see a cat. Choice 1: Pet the cat. Choice 2: Ignore the cat.")
+        {'next_situation': 'You see a cat.', 'option_a': 'Pet the cat.', 'option_b': 'Ignore the cat.'}
+        
+    """
     pattern = re.compile(r"Situation:(.*?)Choice 1:(.*?)Choice 2:", re.DOTALL)
 
     # Search for the pattern in the text
@@ -580,7 +842,33 @@ def extract_mcq_options_from_response(text):
     else:
         logger.error(f"Pattern not found in the text ==> {text}")
 
+@timeit
 def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes the response of a dynamic multiple-choice question (MCQ) in a test session.
+
+    The function retrieves the related test question and test attempt session from the database. It checks if the test session is already completed, and if so, it returns the test question response without further processing. 
+
+    The function then updates the metadata of the test question response with the question from the test attempt session's feedback summary. It also retrieves the related test from the database.
+
+    The function generates a comment on the user's decision using the `generic_completion` function and updates the test question response with this comment. It also sets the `mcq_skill` field to 'NA' and the `evaluation_status` field to 'success'.
+
+    If the current question is the last question in the test, the function marks the test session as completed and generates a summary of the user's decisions throughout the test. It also generates a list of skills using the `get_dynamic_mcq_skills_prompt` and `generic_completion` functions.
+
+    The function then generates a session report link and updates the `SkillsRating` object related to the participant with the total number of questions attempted and total tests attempted.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object to be processed.
+    is_whatsapp (bool, optional): A flag indicating whether the test is conducted on WhatsApp. Defaults to False.
+
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+
+    Example:
+    >>> process_dynamic_mcq_response(test_question_response_obj)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """    
+    
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -706,6 +994,36 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
 
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes a test question response and updates the test attempt session status if the question is the last one.
+
+    The function first retrieves the question and test attempt session associated with the given test question response. 
+    If the test attempt session is already completed, the function returns the test question response without any further processing.
+
+    If the question is the last one in the test, the function enters a loop where it waits for all previous questions to be processed. 
+    This is done by checking the count of not yet evaluated test responses. If all previous questions are processed or a time limit is reached, 
+    the loop is exited.
+
+    If the question is the last one and the test type is not 'dynamic_mcq', the function attempts to update the test attempt session status to 'completed'. 
+    If the update is successful, the function calls the '__process_test_response' function to further process the test question response.
+
+    Finally, the function refreshes the test question response from the database to reflect any changes made during the processing and returns it.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response to be processed.
+        is_whatsapp (bool, optional): A flag indicating whether the response is from WhatsApp. Defaults to False.
+
+    Returns:
+        TestQuestionResponse: The processed test question response.
+
+    Raises:
+        ValueError: If unable to evaluate response within the time limit.
+        Exception: If there is an error while updating the test attempt session status.
+
+    Example:
+        >>> process_test_response(test_question_response_obj, is_whatsapp=True)
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -793,6 +1111,32 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
 @timeit
 def evaluate_relevence_thread(question, test_question_response, test, test_attempt_session):
+    """
+    This function evaluates the relevance of a test question response.
+
+    The function uses the `evaluate_relevacy` helper function to determine the relevance score of the response to the question.
+    If the evaluation fails, the test question response is marked as failed and deleted. If the evaluation is successful, the relevance score is saved in the `relevance` field of the `test_question_response` object.
+
+    Parameters:
+    question (Question): The Question object that the response is for.
+    test_question_response (TestQuestionResponse): The TestQuestionResponse object that contains the response to be evaluated.
+    test (Test): The Test object that the question and response are part of.
+    test_attempt_session (TestAttemptSession): The TestAttemptSession object that represents the session of the test attempt.
+
+    Returns:
+    None. The function updates the `relevance` field of the `test_question_response` object in-place.
+
+    Raises:
+    ValueError: If the evaluation fails and a relevance score cannot be obtained.
+
+    Example:
+    >>> question = Question.objects.get(id=1)
+    >>> test_question_response = TestQuestionResponse.objects.get(id=1)
+    >>> test = Test.objects.get(id=1)
+    >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+    >>> evaluate_relevence_thread(question, test_question_response, test, test_attempt_session)
+    """
+
     relevancy_score = {}
     relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                         question.question,
@@ -819,6 +1163,31 @@ def evaluate_relevence_thread(question, test_question_response, test, test_attem
 
 @timeit
 def evaluate_rating_thread(question, test_question_response, test, test_attempt_session):
+    """
+    Evaluates the rating for a given response to a test question during a training process in a separate thread.
+
+    This function uses the `evaluate_rating_for_process_training` function to evaluate the candidate's response to a test question. 
+    The evaluation is based on a comparison between the candidate's answer and the correct answer. 
+    If the evaluation is successful, the rating is saved in the `test_question_response` object. 
+    If the evaluation fails, the `test_question_response` object is marked as failed and deleted.
+
+    Args:
+        question (object): The test question object.
+        test_question_response (object): The test question response object.
+        test (object): The test object.
+        test_attempt_session (object): The test attempt session object.
+
+    Raises:
+        ValueError: If the evaluation fails.
+
+    Example:
+        >>> question = TestQuestion.objects.get(id=1)
+        >>> test_question_response = TestQuestionResponse.objects.get(id=1)
+        >>> test = Test.objects.get(id=1)
+        >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+        >>> evaluate_rating_thread(question, test_question_response, test, test_attempt_session)
+        # This will evaluate the rating for the given response and save it in the `test_question_response` object.
+    """
     raiting_score = {}
     raiting_score, is_evaluated = evaluate_rating_for_process_training(test_question_response,
                                         question.question,
@@ -846,6 +1215,18 @@ def evaluate_rating_thread(question, test_question_response, test, test_attempt_
 
 @timeit
 def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session,competency_skill):
+    """ 
+    This function evaluates the competency data for a given test attempt session. It constructs a conversation string from the provided test question responses and then calls the evaluate_competency_data function to evaluate the competency data based on the test description, the constructed conversation, the test attempt session, and the competency skills. The evaluated competency data is then saved to the test attempt session.
+
+    Args: question (obj): The question object. test_question_response (list): A list of test question response objects. test (obj): The test object. test_attempt_session (obj): The test attempt session object. competency_skill (list): A list of competency skills to be evaluated.
+
+    Returns: None. The function saves the evaluated competency data to the test attempt session.
+
+    Example: >>> evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session, ["skill1", "skill2"]) # This will evaluate the competency data for the given test attempt session and save it to the test attempt session.
+
+    Note: This function does not return any value. The evaluated competency data is directly saved to the test attempt session. 
+    
+    """
     competency_data = {}
     conversation = ""
     count = 1
@@ -880,6 +1261,28 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
 
 @timeit
 def set_language_skills_in_thread(user_response,test_attempt_session):
+    """
+    This function is used to evaluate the English language ability of a user based on their response. 
+    It uses the Anthropic API to generate a language ability score on a scale of 1 to 10.
+
+    The function constructs a prompt that includes the user's response and sends it to the Anthropic API. 
+    The API then generates a completion based on the prompt, which is interpreted as the language ability score. 
+    This score is then saved in the `language_skills` field of the `test_attempt_session` object.
+
+    Args:
+        user_response (str): The user's response that needs to be evaluated. It should be a string of the user's speech.
+        test_attempt_session (TestAttemptSession): The test attempt session object where the language skills score will be stored.
+
+    Returns:
+        None. The function doesn't return anything but updates the `language_skills` field of the `test_attempt_session` object.
+
+    Example:
+        >>> user_response = "Hello, my name is John Doe. I am a software engineer."
+        >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+        >>> set_language_skills_in_thread(user_response, test_attempt_session)
+        # This will update the `language_skills` field of the `test_attempt_session` object with the score generated by the Anthropic API.
+    """
+
     language_skills_prompt = f"""
     \n\nHuman:
     Please provide an English language ability score (on a scale of 1 to 10) to a person based on the below recorded speech.
@@ -899,15 +1302,105 @@ def set_language_skills_in_thread(user_response,test_attempt_session):
 
 @timeit
 def speech_metrics_in_thread(test_question_response, transcript):
+    """
+    Calculate speech metrics for a test question response in a separate thread.
+
+    This function calculates the speech metrics for a given test question response in a separate thread. It uses the CoachMetricApi to get the speech metrics from the audio file associated with the test question response. The calculated speech metrics are then saved to the test question response object.
+
+    Parameters:
+    - test_question_response (TestQuestionResponse): The test question response object for which to calculate the speech metrics.
+    - transcript (str): The transcript of the audio file associated with the test question response.
+
+    Returns:
+    None
+
+    Example Usage:
+    speech_metrics_in_thread(test_question_response, transcript)
+    """
     speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
     test_question_response.speech_metrics = speech_met
     test_question_response.save(update_fields=["speech_metrics"])
 
-
+@timeit
 def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession,
                             test_question_response: TestQuestionResponse, is_whatsapp: bool = False,
                             last_question_number: int = 0):
+    """
+    Process the test response for a given question in a test attempt session.
+
+    Args:
+        question (TestQuestion): The question object for which the response is being processed.
+        test (Test): The test object to which the question belongs.
+        test_attempt_session (TestAttemptSession): The test attempt session object for the participant.
+        test_question_response (TestQuestionResponse): The response object to be processed.
+        is_whatsapp (bool, optional): Indicates if the response is from WhatsApp. Defaults to False.
+        last_question_number (int, optional): The question number of the last question in the test. Defaults to 0.
+
+    Returns:
+        TestQuestionResponse or None: The processed response object or None if the response is view-only.
+
+    Raises:
+        ValueError: If the relevancy score cannot be obtained for the response.
+
+    Description:
+        This function processes the test response for a given question in a test attempt session. It performs the following steps:
+
+        1. Logs the start of the process.
+        2. Refreshes the test attempt session from the database.
+        3. Checks the test type and calls the appropriate processing function.
+        4. Updates the current and next question indices in the test attempt session.
+        5. Saves the updated fields in the test attempt session.
+        6. If the question is view-only, sets the evaluation status to success and saves the response.
+        7. If the interaction mode is not text, processes the response based on the interaction mode.
+        8. Generates a transcription for audio or video responses using the GPT Whisper API or the Speech-to-Text API.
+        9. If the test is not free and not transcript-only, and the scenario case is not process training, calculates speech metrics for the response.
+        10. Saves the updated fields in the test question response.
+        11. If the response text is empty, saves the response again.
+        12. If the scenario case is not feedback_role_play, generates the feedback prompt based on the test type and scenario case.
+        13. If the test is an email type or employee feedback or English support, generates the feedback using the appropriate prompt template.
+        14. If the prompt is overridden, generates the feedback using the overridden prompt.
+        15. If the prompt is not overridden, generates the feedback using the chat conversation prompt.
+        16. If the response length is too low, sets the feedback text to indicate that no feedback can be generated.
+        17. If the scenario case is process_training or the test is transcript-only, sets the feedback text to indicate no feedback.
+        18. Generates the feedback using the appropriate model (Anthropic Completion, TextBison Completion, or GPT-3 Completion).
+        19. If the feedback text does not meet the criteria, repeats steps 15-18 up to 3 times.
+        20. Sets the metadata and feedback text in the test question response.
+        21. If the test is pitch-based, sets the language skills in a separate thread.
+        22. Sets the evaluation status to success and saves the updated fields in the test question response.
+        23. If the evaluation status is not success, saves the response again.
+        24. If the test attempt session is completed, updates the finished_at field and calculates the skills rating.
+        25. Generates the session report URL.
+        26. If the test is free, generates the summary feedback session report URL.
+        27. Sends the report link via email if email addresses are provided.
+        28. Sends the report link via WhatsApp if the response is from WhatsApp and the test type is not interview.
+        29. Logs the end of the process.
+
+    Examples:
+        # Example 1: Processing an MCQ response
+        question = TestQuestion.objects.get(id=1)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=1)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns the processed response object
+
+        # Example 2: Processing a dynamic MCQ response
+        question = TestQuestion.objects.get(id=2)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=2)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns the processed response object
+
+        # Example 3: Processing a view-only response
+        question = TestQuestion.objects.get(id=3)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=3)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns None
+    """
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
     logger.info(f"{test_attempt_session.uid} - start __process_test_response")
@@ -1514,6 +2007,33 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
 @timeit
 def process_orchestrated_test_response_by_user(test_question_response: TestQuestionResponse):
+    """
+    Process the orchestrated test response by the user.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object.
+
+    Returns:
+        TestQuestionResponse: The updated test question response object.
+
+    Raises:
+        Exception: If there is an error while generating the transcription or speech metrics.
+
+    This function processes the test question response provided by the user. It updates the current and next question status
+    in the test attempt session, generates the transcript for the response, and calculates the speech metrics if applicable.
+    For dynamic discussion tests, it generates feedback, evaluates relevance, and extracts key learnings and key learning points.
+
+    The function takes a TestQuestionResponse object as input, which contains the response file, response text, and other relevant information.
+
+    Example:
+        test_question_response = TestQuestionResponse(
+            test_attempt_session_id="123",
+            question_id="456",
+            response_file="audio.wav",
+            response_text="This is my response."
+        )
+        processed_response = process_orchestrated_test_response_by_user(test_question_response)
+    """
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
@@ -1841,6 +2361,9 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
 @timeit
 def get_transcript(test_question_response):
+    """
+    fetches transcript from a response url
+    """
     transcript_length = 0
     transcript = ""
     try:
@@ -1865,6 +2388,9 @@ def get_transcript(test_question_response):
 
 @timeit
 def get_speech_metrics(test_question_response,transcript):
+    """
+    To generate speech metrics  from a response_url and transcript.
+    """
     max_tries = 2
     retry = 0
     while True:
@@ -1885,7 +2411,29 @@ def get_speech_metrics(test_question_response,transcript):
 
 
 @timeit
-def get_feedback(question, test_question_response,question_text,test):
+def get_feedback(question, test_question_response, question_text, test):
+    """
+    This function generates feedback for a given test question response.
+
+    The function first checks if the test conversation should start with a user message. If so, it generates a dynamic discussion prompt. If not, it checks if there is a background context. If there is, it generates an interview feedback prompt. If there is no background context, it checks if there is a gpt prompt override either at the question level or at the test level. If there is, it generates an overridden prompt. If there is no gpt prompt override, it generates a chat conversation prompt.
+
+    The generated prompt is then passed to the `generic_completion` function to generate the feedback text. The feedback text is then saved to the `feedback_text` field of the `test_question_response` object.
+
+    Args:
+        question (Question): The Question object for which feedback is to be generated.
+        test_question_response (TestQuestionResponse): The TestQuestionResponse object for which feedback is to be generated.
+        question_text (str): The text of the question.
+        test (Test): The Test object for which feedback is to be generated.
+
+    Returns:
+        None. The function saves the generated feedback text to the `feedback_text` field of the `test_question_response` object.
+
+    Example:
+        >>> get_feedback(question_obj, test_question_response_obj, "What is your name?", test_obj)
+        # This will generate feedback for the given question and save it to the `feedback_text` field of the `test_question_response_obj`.
+    """
+    # function implementation
+    
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     background = test.orchestrated_conversation_details.get('background')
 
@@ -1924,6 +2472,27 @@ def get_feedback(question, test_question_response,question_text,test):
 
 @timeit
 def get_relevency_kls_klp(test_question_response, question_text, test):
+    """
+    This function evaluates the relevance of a test question response, and generates key learning and skills (KLS) and key learning points (KLP) for the question.
+
+    The function first calls the `evaluate_relevacy` function to get a relevance score for the test question response. The relevance score is then saved to the `relevance` field of the `test_question_response` object.
+
+    Next, the function generates a KLS prompt and uses the `generic_completion` function to get the KLS for the question. The KLS is then saved to the `kls_klp` field of the `test_question_response` object.
+
+    Finally, the function generates a KLP prompt and uses the `generic_completion` function to get the KLP for the question. The KLP is then saved to the `kls_klp` field of the `test_question_response` object.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object to evaluate.
+        question_text (str): The text of the question.
+        test (Test): The test object that the question belongs to.
+
+    Returns:
+        None. The function updates the `relevance` and `kls_klp` fields of the `test_question_response` object in-place.
+
+    Example:
+        >>> get_relevency_kls_klp(test_question_response, "What is the capital of France?", test)
+        # This will update the `relevance` and `kls_klp` fields of the `test_question_response` object.
+    """
     update_fields = []
     relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                             question_text,
@@ -1961,6 +2530,32 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
 
 @timeit
 def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
+    """
+    This function processes the response of a user in a dynamic thread test scenario. It updates the test attempt session's 
+    current and next question status, calculates speech metrics if the interaction mode is audio or video, and generates 
+    feedback and relevancy scores for the response. If it's the last response in the test, it also updates the test attempt 
+    session status to 'completed' and generates a report.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): An instance of the TestQuestionResponse model. This represents the 
+    user's response to a test question.
+
+    Process:
+    1. Fetches the related test attempt session and test.
+    2. Updates the current and next question indices in the test attempt session.
+    3. Checks if the current response is the last response in the test.
+    4. If the interaction mode is audio or video, it generates a transcript of the response and calculates speech metrics.
+    5. If the test type is 'dynamic_discussion_thread', it generates feedback and relevancy scores for the response.
+    6. If it's the last response in the test, it updates the test attempt session status to 'completed', calculates group 
+       discussion report metrics, and generates a report.
+
+    Returns:
+    test_question_response (TestQuestionResponse): The updated TestQuestionResponse instance.
+
+    Example:
+    >>> process_dynamic_threads_response_by_user(test_question_response)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
@@ -2120,8 +2715,34 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
 @timeit
 def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
     """
-       bot_llm response is always a text;; ignore test mode or question response type
-   """
+    bot_llm response is always a text;; ignore test mode or question response type
+
+    This function processes the response of a bot to a test question in an orchestrated test scenario. 
+
+    The function first checks if the bot already has a response. If it does, the function updates the evaluation status to 'success' and saves the response. If not, it retrieves the question, test attempt session, and test details. It then updates the current and next question indices in the test attempt session.
+
+    The function generates a prompt for the test, test attempt session, and question. It then tries to retrieve previous bot responses. If there are no previous responses, it sets an empty list.
+
+    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and text_bison_compeletion for the third. 
+
+    It then checks the similarity between the current and previous bot responses. If the similarity is over 80%, it logs the information and continues to the next iteration. If the similarity is less than or equal to 80%, it logs the information and breaks the loop.
+
+    If no bot response is generated, it increments the 'deleted' field of the test question response, saves it, and raises a ValueError. If a bot response is generated, it updates the metadata, response text, and evaluation status of the test question response, and saves it.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object that needs to be processed.
+        is_whatsapp (bool, optional): A flag indicating whether the test is being conducted over WhatsApp. Defaults to False.
+
+    Returns:
+        TestQuestionResponse: The updated test question response object.
+
+    Raises:
+        ValueError: If no bot response is generated after three attempts.
+
+    Example:
+        >>> process_orchestrated_test_response_by_bot_llm(test_question_response_obj, is_whatsapp=True)
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """    
 
     # ignore processing if bot already has a response; useful in case of initial messages
     if test_question_response.response_text:
@@ -2222,6 +2843,29 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
 @timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This function calculates the metrics for a group discussion test attempt.
+
+    It first retrieves the user persona and objective from the test details, and then gets the chat conversation.
+    The function then evaluates the cultural skills rating and the skills rating for the group discussion.
+    If the score for any skill is greater than 8.5, it is trimmed to 8.5. If it's less than 1.5, it is set to 1.5.
+    The function then calculates the average skills rating and updates the skills rating if the scores are the same.
+    It also calculates the test score and average score.
+    If the test is not free, it also gets the meeting summary and areas of improvement.
+    Finally, it updates the SkillsRating object for the participant with the new scores and saves it.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): The test attempt session object for which the metrics are to be calculated.
+    test (Test): The test object which contains the details of the test.
+
+    Returns:
+    TestAttemptSession: The updated test attempt session object with the calculated metrics.
+
+    Example:
+    >>> test_attempt_session = TestAttemptSession.objects.get(uid='some-uid')
+    >>> test = Test.objects.get(uid='some-uid')
+    >>> updated_test_attempt_session = calc_group_discussion_report_metrics(test_attempt_session, test)
+    """
 
     temp_rating = {}
     skills_count = {}
@@ -2422,6 +3066,60 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
 @timeit
 def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
+    """
+    This function generates a comprehensive report from a test attempt session.
+
+    The function takes a TestAttemptSession object as an input and processes the data related to the test attempt session. 
+    It retrieves the participant's information, test details, chat conversation, and other relevant data. 
+    It also calculates the average speech metrics if the test type is dynamic discussion or dynamic discussion thread. 
+    The function then organizes all this information into a dictionary and returns it.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): An instance of the TestAttemptSession model. This object contains all the information related to a specific test attempt session.
+
+    Returns:
+    dict: A dictionary containing the following keys:
+        - participant_name: The name of the participant.
+        - date: The date when the test was started.
+        - title: The title of the test.
+        - objective: The objective of the test.
+        - chat_conversation: A list of chat conversations.
+        - meeting_summary: The summary of the meeting.
+        - areas_of_improvement: Areas where the participant can improve.
+        - culture_skills: The rating of the participant's culture skills.
+        - feedback_summary: The summary of the feedback.
+        - skill_summary: The summary of the skills.
+        - start_with_user: A boolean indicating whether the conversation started with the user.
+        - speech_metrics_avg: The average speech metrics.
+        - response_relevance: A boolean indicating whether the response was relevant.
+        - flashcards: A list of flashcards (only if the test type is dynamic discussion or dynamic discussion thread).
+        - mindmap_data: A dictionary containing the test name and content for the mindmap (only if the test type is dynamic discussion or dynamic discussion thread).
+        - skills_rating: The rating of the participant's skills.
+        - certificate_details: The details of the certificate.
+        - ui_information: The UI information of the test.
+
+    Example:
+    {
+        'participant_name': 'John Doe',
+        'date': '01 January 2022',
+        'title': 'Test Title',
+        'objective': 'Test Objective',
+        'chat_conversation': [{'user_name': 'John Doe', 'message': 'Hello', 'is_bot': False}],
+        'meeting_summary': 'Summary of the meeting',
+        'areas_of_improvement': 'Area of improvement',
+        'culture_skills': {'Communication': 4},
+        'feedback_summary': 'Summary of the feedback',
+        'skill_summary': 'Summary of the skills',
+        'start_with_user': True,
+        'speech_metrics_avg': {'Fluency Percentage': 95.0},
+        'response_relevance': True,
+        'flashcards': [{'text': 'Key learning point'}],
+        'mindmap_data': {'test_name': 'Test Title', 'content': [{'question': 'Question', 'ideal_answer': 'Ideal answer', 'learnings': ['Learning 1', 'Learning 2']}]},
+        'skills_rating': {'Communication': 4},
+        'certificate_details': 'Certificate details',
+        'ui_information': 'UI information'
+    }
+    """    
     test_attempt_session_id = test_attempt_session.uid
 
     participant_id = test_attempt_session.participant_id
@@ -2624,6 +3322,26 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
 @timeit
 def get_group_discussion_summary(objective: str, chat_conversation: str):
+    """
+    This function generates a summary of a group discussion based on the provided objective and conversation.
+
+    The function constructs a prompt using the objective and conversation, and then uses the `generic_completion` function to generate a summary. If the `generic_completion` function fails to generate a summary, it retries once before defaulting to "Could not generate".
+
+    The function is decorated with the `timeit` decorator, which logs the time taken to execute the function.
+
+    Args:
+        objective (str): The objective of the group discussion. This should be a string describing the purpose or goal of the discussion.
+        chat_conversation (str): The conversation of the group discussion. This should be a string containing the entire conversation text.
+
+    Returns:
+        str: A string containing the summary of the group discussion. If the summary cannot be generated, the function returns "Could not generate".
+
+    Example:
+        >>> objective = "Discuss the new product launch"
+        >>> chat_conversation = "Alice: I think we should launch next month. Bob: I agree, but we need to sort out the marketing first."
+        >>> get_group_discussion_summary(objective, chat_conversation)
+        'The group discussed the new product launch and agreed to schedule it for next month after sorting out the marketing.'
+    """
     prompt = f"""
     \n\nHuman:
     [Objective of Discussion]: {objective};
@@ -2654,6 +3372,29 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
 
 @timeit
 def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
+    """
+    This function generates areas of improvement for a given user persona based on a chat conversation and an objective.
+
+    The function constructs a prompt using the objective, chat conversation, and user persona. This prompt is then passed to the `anthropic_completion` function, which generates a response using the Anthropic API. The response is expected to be an analysis of the efficiency and efficacy of the meeting in relation to the predefined areas of improvement. 
+
+    If the `anthropic_completion` function fails to generate a response, a default response indicating that generation was not possible is returned.
+
+    Args:
+        objective (str): The objective of the discussion.
+        chat_conversation (str): The conversation that took place during the meeting.
+        user_persona (str): The persona for which the areas of improvement are to be evaluated.
+
+    Returns:
+        dict: A dictionary where the keys are the areas of improvement and the values are the generated responses. If the response generation fails, the values will be "Could not generate".
+
+    Example:
+        >>> get_areas_of_improvement("Increase sales", "We discussed various strategies...", "Sales Manager")
+        {
+            "Sticking to Agenda": "The Sales Manager was able to...",
+            "Driving to decision": "The Sales Manager could improve...",
+            "Sticking to Positive behavior": "The Sales Manager demonstrated..."
+        }
+    """
     areas_of_improvement = ["Sticking to Agenda",
                             "Driving to decision", "Sticking to Positive behavior"]
 
@@ -2701,6 +3442,31 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 @timeit
 def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str,
                                            is_report: bool = False):
+    """
+    This function retrieves the conversation of a group discussion from a test attempt session.
+
+    The function iterates over the responses in the test attempt session, and for each response, it checks the responder type.
+    If the responder is a user, it appends the user's persona and response text to the conversation.
+    If the responder is not a user, it appends the responder's display name and response text to the conversation.
+    The function then checks if the conversation is for a report. If it is, it returns the conversation as a list of strings.
+    If it's not for a report, it returns the conversation as a single string.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): The test attempt session object from which to retrieve the conversation.
+    test_user_persona (str): The persona of the user in the test attempt session.
+    is_report (bool): A flag indicating whether the conversation is for a report. Default is False.
+
+    Returns:
+    If is_report is True, it returns a list of strings where each string is a line of the conversation.
+    If is_report is False, it returns a single string that contains the entire conversation.
+
+    Example:
+    >>> get_group_discussion_chat_conversation(test_attempt_session, "User1", True)
+    ['User1: Hello', 'Bot: Hi', 'User1: How are you?', 'Bot: I am fine.']
+
+    >>> get_group_discussion_chat_conversation(test_attempt_session, "User1", False)
+    'User1: Hello\nBot: Hi\nUser1: How are you?\nBot: I am fine.'
+    """
     current_conversation = ''
     conversation_list = []
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
@@ -2729,9 +3495,19 @@ def calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
 @timeit
 def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
-    """
-    This function calculates the score for the test attempt session and update the skills_rating field in this object
-    Also it uses these skills rating to update the skills table
+    """ 
+    This function _calc_score calculates the score for a given test attempt session and updates the skills_rating field in the TestAttemptSession object. It also uses these skills ratings to update the skills table.
+
+    Parameters: test_attempt_session (TestAttemptSession): An instance of the TestAttemptSession model. This represents a single attempt of a test by a participant. test (Test): An instance of the Test model. This represents the test that the participant is attempting.
+
+    Process: The function first retrieves all the responses for the participant in the test attempt session. It then calculates various scores and ratings based on these responses, such as the average score, speech score, and skills rating. If the test is not free, it also calculates the speech metrics and feedback text. The function then calculates the skills rating for each response and updates the skills_rating field in the TestAttemptSession object. If the test has a speech metric, it also updates the speech_score field. The function finally updates the SkillsRating table with the calculated skills ratings.
+
+    Input Requirements: The test_attempt_session parameter must be an instance of the TestAttemptSession model, and the test parameter must be an instance of the Test model.
+
+    Output: The function does not return any value. However, it updates the skills_rating, test_score, avg_score, finished_at, and speech_score fields in the TestAttemptSession object. It also updates the SkillsRating table with the calculated skills ratings.
+
+    Example: Let's assume we have a TestAttemptSession instance tas and a Test instance t. We can call the function as follows: _calc_score(tas, t) This will update the tas object and the SkillsRating table based on the responses in the tas object for the test t. 
+
     """
 
     logger.info(f"{test_attempt_session.uid} - start last response calculation")
@@ -3004,6 +3780,28 @@ def round_off_rating(number):
 
 @timeit
 def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
+    """
+    This function is designed to increment the average score of a participant's skills rating based on their past successful sessions.
+
+    The function first retrieves the total number of successful sessions for the participant excluding the current one. If the total successful sessions are only one, it returns the current skills rating and average score without any modification.
+
+    If there are more than one successful sessions, it calculates the average score of the last 5 sessions. If the average score is less than 5, it returns the current skills rating and average score without any modification.
+
+    If the average score is 5 or more, it increments the skills rating by a certain percentage (up to 10%) based on the total number of successful sessions. The incremented skills rating is then used to calculate the new average score.
+
+    Parameters:
+    skills_rating (dict): A dictionary where keys are skill names and values are the corresponding ratings. Each rating should be a float.
+    avg_score (float): The current average score of the participant.
+    participant_id (str): The ID of the participant.
+    test_attempt_session (TestAttemptSession): The current test attempt session object.
+
+    Returns:
+    tuple: A tuple containing the updated skills rating dictionary and the new average score.
+
+    Example:
+    Given a skills_rating = {'skill1': 7.5, 'skill2': 8.0}, avg_score = 7.75, participant_id = '123', and a valid test_attempt_session,
+    the function might return ({'skill1': 8.25, 'skill2': 8.8}, 8.525) assuming there were 10 successful past sessions and the average score of the last 5 sessions was 5 or more.
+    """
     # Get number of interactions for that candidate which are completed but are not the current one
     total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
                                                                   status=TestAttemptSessionStatusChoices.completed,
@@ -3055,6 +3853,10 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
 
 @timeit
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This method generate session report link save it in testattemptsession.report_url
+    """
+
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3084,6 +3886,9 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
 @timeit
 def generate_summary_feedback_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This method generate summary_feedback_session_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3105,6 +3910,9 @@ def generate_summary_feedback_session_report_link(test_attempt_session: TestAtte
 
 @timeit
 def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
+    """
+    This method generate meeting_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3127,6 +3935,9 @@ def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
 
 @timeit
 def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSession):
+    """
+    This method generate dynamic_discussion_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3150,6 +3961,30 @@ def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSes
 
 @timeit
 def modify_skills_rating_if_same(skills):
+    """
+    This function modifies the skill ratings to ensure uniqueness and a multiple of 0.25. 
+    It is designed to handle situations where multiple skills have the same rating, which can cause issues in further analysis.
+
+    The function works by iterating over the skills dictionary, which is sorted by the rating value. 
+    For each skill, it checks if the rating is already present in the `value_counts` dictionary (which keeps track of the frequency of each rating). 
+    If the rating is not unique (i.e., it appears more than once), the function will increment or decrement the rating by 0.25 until it becomes unique. 
+    The increment or decrement is chosen randomly. 
+    The function also ensures that the final rating is between 0 and 9 (inclusive).
+
+    If the function takes more than 2 seconds to find a unique rating, it will log a message and break out of the loop.
+
+    Parameters:
+    skills (dict): A dictionary where the keys are skill names (str) and the values are their corresponding ratings (float). 
+                   The ratings should be between 0 and 10 (inclusive).
+
+    Returns:
+    modified_skills (dict): A dictionary with the same keys as the input, but the values may be modified to ensure uniqueness. 
+                            The values will be rounded to 2 decimal places.
+
+    Example:
+    Input: {'skill1': 5.0, 'skill2': 5.0, 'skill3': 6.0}
+    Output: {'skill1': 5.0, 'skill2': 5.25, 'skill3': 6.0}
+    """
     logger.info(f"skills before: {skills}")
     modified_skills = {}
     value_counts = {}
@@ -3307,6 +4142,32 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 @timeit
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
+    """
+    Sends a report link via email to a participant and a list of other recipients.
+
+    This function first checks if the report has already been sent to the participant's email. If it has, the function returns immediately.
+    It retrieves the participant's attributes, including their name and email, and the list of additional email recipients from the test object.
+    It then prepares the data for the email, including the report URL, test name, and participant's name.
+    The email subject is formatted to include the test name, participant's name, and the date the test was completed.
+    If the test object indicates that the participant should receive the email, the function attempts to send the email to the participant.
+    It then sends the email to each of the additional recipients.
+    Finally, it logs a success message and updates the 'is_report_sent_to_email' field of the test attempt session object to True.
+
+    Parameters:
+    test (Test): The test object, which contains information about the test and the list of additional email recipients.
+    test_attempt_session (TestAttemptSession): The test attempt session object, which contains information about the participant and the test attempt.
+    report_url (str): The URL of the report to be sent.
+    is_whatsapp (bool, optional): A flag indicating whether the participant is using WhatsApp. Defaults to False.
+
+    Returns:
+    None
+
+    Raises:
+    Exception: If there is an error sending the email to the participant, an exception is raised and logged.
+
+    Example:
+    send_report_link_to_email(test_object, test_attempt_session_object, 'http://example.com/report')
+    """
     if test_attempt_session.is_report_sent_to_email:
         return
 
@@ -3424,6 +4285,9 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
 @timeit
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    """
+    This method send report link to whatsapp
+    """
     if test_attempt_session.is_report_sent_to_whatsapp:
         return
 
@@ -3465,6 +4329,34 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
 
 @timeit
 def calc_culture_skills_rating(test_attempt_session, responses, test):
+    """ 
+    This function calc_culture_skills_rating is used to calculate the cultural skills rating for a given test attempt session.
+
+    It takes three parameters:
+
+    test_attempt_session: This is an instance of a TestAttemptSession model. It represents a specific attempt of a test by a user.
+    responses: This is a list of response objects. Each response object should have a question_id attribute which corresponds to the ID of a question in the TestQuestion model, and a response_text attribute which is the text of the user's response to that question.
+    test: This is an instance of the Test model. It represents the test that the user is attempting.
+    The function first constructs a conversation string by iterating over the responses. For each response, it fetches the corresponding question from the TestQuestion model and appends the question and response text to the conversation string.
+
+    Then, it calls the evaluate_conversation function to evaluate the conversation. If the test is free, it passes True for the is_free parameter of evaluate_conversation, otherwise it passes False.
+
+    The evaluate_conversation function returns a dictionary where the keys are the names of the cultural skills and the values are the ratings for those skills. If the evaluation fails, evaluate_conversation returns None and calc_culture_skills_rating also returns None.
+
+    Finally, the function trims any skill ratings that are outside the range 1.5 to 8.5 and returns the dictionary of cultural skills ratings.
+
+    Example:
+
+    test_attempt_session = TestAttemptSession.objects.get(uid='some-uid')
+    responses = [
+        {'question_id': 'q1', 'response_text': 'This is my response to question 1'},
+        {'question_id': 'q2', 'response_text': 'This is my response to question 2'},
+    ]
+    test = Test.objects.get(test_code='some-test-code')
+
+    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+    # Returns: {'hierarchy': 8.5, 'consensual': 7.0, 'indirect negative feedback': 6.5, 'relationship-based': 5.0, 'high context communication': 4.5, 'Persuasion': 4.0, 'argumentative': 3.5}
+    """
     culture_skills_rating = {}
 
     conversation = ""
@@ -3507,6 +4399,30 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
 @timeit
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
+    """
+    This function calculates the skills rating for a test attempt session based on the responses provided by the user.
+
+    The function first constructs a conversation string by iterating over the responses. Each response is associated with a question from the test, and the conversation string is formed by concatenating the question and response texts. 
+
+    The conversation string, along with other test details and skills, is then passed to the `evaluate_response_skill` function, which evaluates the conversation based on the specified skills. If the test is free, the `evaluate_response_skill` function is called with an additional flag set to True.
+
+    Parameters:
+    test_attempt_session (object): The test attempt session object.
+    responses (list): A list of response objects. Each response object should have a `question_id` and `response_text` attribute.
+    test (object): The test object. It should have `title`, `description`, `test_code`, and `is_free` attributes.
+    skills (list): A list of skills to be evaluated.
+    user_skill_prompt (str): The user skill prompt.
+
+    Returns:
+    dict: A dictionary where each key is a skill and the corresponding value is the rating for that skill. If the evaluation is not successful, the function returns None.
+
+    Raises:
+    Exception: If the evaluation is not successful.
+
+    Example:
+    >>> calc_skills_rating(test_attempt_session, responses, test, ["skill1", "skill2"], "User Skill Prompt")
+    {'skill1': 4.5, 'skill2': 9.0}
+    """
     skills_rating = {}
 
     conversation = ""
@@ -3541,6 +4457,9 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
 @timeit
 def get_interview_feedback(title,description,background, question_text,candidate_comment):
+    """
+    to get interview feedback prompt
+    """
     prompt = Template("""
             \n\nHuman:
 
@@ -3609,6 +4528,9 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     candidate_reply: str,
                                     user_feedback_prompt:str,
                                     articles:str = None):
+    """
+    this method used to get prompt for feedback.
+    """
     article_information = ''
     if articles:
         for url in articles.split(','):
@@ -3779,6 +4701,30 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
 @timeit
 def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
+    """
+    Generate a dynamic discussion prompt for providing feedback on manager, team member, or sales rep comments.
+
+    Parameters:
+    - scenario (str): Type of scenario, possible values: 'manager-team', 'team-manager', 'sales-customer', 'customer-sales'.
+    - test_title (str): Title of the test.
+    - test_description (str): Description of the test.
+    - comment (str): Manager, team member, or sales rep comment.
+    - bot_response (str): Bot response (applicable for 'team-manager' and 'customer-sales' scenarios).
+    - question_number (int): Question number, used to determine the structure of the prompt.
+
+    Returns:
+    - str: Generated discussion prompt.
+
+    Examples:
+    >>> get_user_first_dynamic_discussion_prompt('manager-team', 'Leadership Skills Test', 'Evaluate the manager’s leadership skills.', 'The manager's comment is...', '', 1)
+    # Returns the generated discussion prompt for providing feedback on a manager's comment.
+
+    >>> get_user_first_dynamic_discussion_prompt('team-manager', 'Team Collaboration Test', 'Assess the team member’s collaboration skills.', 'The team member's comment is...', 'The bot response is...', 2)
+    # Returns the generated discussion prompt for providing feedback on a team member's comment along with the bot response.
+
+    >>> get_user_first_dynamic_discussion_prompt('sales-customer', 'Sales Pitch Test', 'Evaluate the sales rep’s pitch.', 'The sales rep's comment is...', '', 1)
+    # Returns the generated discussion prompt for providing feedback on a sales rep's comment.
+    """
     match scenareo:
         case 'manager-team':
             if question_number == 1:
@@ -4320,6 +5266,30 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 def get_orchestrated_test_conversation_prompt(test: Test,
                                               test_attempt_session: TestAttemptSession,
                                               question: TestQuestion):
+    """
+    This function generates a conversation prompt for an orchestrated test.
+
+    The function first retrieves the main context, user persona, initial messages, and other details from the test. It then constructs the current conversation based on these details and the responses from the test attempt session. If a response text is not immediately available, the function waits for it to be populated, with a maximum wait time of 30 seconds.
+
+    The function then generates a prompt based on the test type and other conditions. The prompt is a string that includes the main context, current conversation, and the question text, formatted according to specific rules.
+
+    Parameters:
+    - test (Test): The test object. It should have an 'orchestrated_conversation_details' attribute which is a dictionary containing details about the test.
+    - test_attempt_session (TestAttemptSession): The test attempt session object. It is used to retrieve the responses for the test.
+    - question (TestQuestion): The question object. The question text is included in the prompt.
+
+    Returns:
+    - str: The generated prompt. The prompt includes the main context, current conversation, and the question text, formatted according to specific rules.
+
+    Example:
+    >>> test = Test.objects.get(id=1)
+    >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+    >>> question = TestQuestion.objects.get(id=1)
+    >>> prompt = get_orchestrated_test_conversation_prompt(test, test_attempt_session, question)
+    >>> print(prompt)
+    'Human: Main context : This is the main context. Current conversation : This is the current conversation. Candidate response : This is the question text. NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response. Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem. Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before. NOTE: The question should not be more than 25 words. NOTE: Do not show the word count. NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question. Assistant:'
+    """
+
     test_main_context = test.orchestrated_conversation_details.get(
         "test_main_context")
     test_user_persona = test.orchestrated_conversation_details.get(
@@ -4763,6 +5733,20 @@ def emplyee_feedback_prompt(prompt_template: str,
 @timeit
 def get_question_key_learning_point(test_title,
                                     test_question):
+    """
+    Generate a prompt to extract a key learning point from an ideal answer to a given question.
+
+    Parameters:
+    - test_title (str): Title of the test.
+    - test_question (str): Text of the question.
+
+    Returns:
+    - str: Extracted key learning point.
+
+    Examples:
+    >>> get_question_key_learning_point('Leadership Skills Test', 'What qualities make a great leader?')
+    # Returns the extracted key learning point from an ideal answer to the given question.
+    """
     prompt = Template(
         """
         \n\nHuman:
@@ -4797,6 +5781,21 @@ def get_question_key_learning_point(test_title,
 @timeit
 def get_question_key_learning_skills(test_title,
                                      test_question):
+    """
+    Generate a prompt to extract key learning skills from an ideal answer to a given question.
+
+    Parameters:
+    - test_title (str): Title of the test.
+    - test_question (str): Text of the question.
+
+    Returns:
+    - str: Extracted key learning skills, separated by commas.
+
+    Examples:
+    >>> get_question_key_learning_skills('Leadership Skills Test', 'What qualities make a great leader?')
+    # Returns the extracted key learning skills from an ideal answer to the given question.
+    """
+
     skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
@@ -4844,6 +5843,39 @@ Output:
 
 @timeit
 def get_test_report(test: Test, only_data=False):
+    """
+    Generates a test report for a given test.
+
+    This function retrieves all completed test attempt sessions for a given test, 
+    calculates the scores for each participant, and sorts them in descending order. 
+    It then counts the total number of questions in the test. 
+    If the `only_data` flag is set to True, it returns a dictionary containing the test name, 
+    total number of questions, total number of test attempts, test scores, and test code. 
+    If the `only_data` flag is set to False, it generates a PDF report using the test data, 
+    saves it as a document in the system, and returns the URL of the document.
+
+    Args:
+        test (Test): The test object for which the report is to be generated.
+        only_data (bool, optional): A flag to determine whether to return only the test data 
+                                     or to generate a PDF report. Defaults to False.
+
+    Returns:
+        str or dict: If `only_data` is True, returns a dictionary containing the test data. 
+                     If `only_data` is False, returns a string representing the URL of the generated PDF report.
+
+    Example:
+        >>> get_test_report(test_object, only_data=True)
+        {
+            'test_name': 'Sample Test',
+            'total_questions': 10,
+            'total_tests_attempts': 5,
+            'test_scores': [{'score': 80, 'avg_score': 80, 'speech_score': 80, 'participant': 'John Doe'}, ...],
+            'test_code': 'TEST123'
+        }
+
+        >>> get_test_report(test_object, only_data=False)
+        'https://example.com/document/test_report_123.pdf'
+    """
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
         test_id=test.uid,
@@ -4920,6 +5952,9 @@ def get_test_report(test: Test, only_data=False):
 
 @timeit
 def generate_test_from_objective_anthropic(objective: str):
+    """
+    this method used to create scenario format using anthropic 
+    """
     skills_name_list = [skill['name'] for skill in skills]
 
     prompt = f"""
@@ -5007,6 +6042,20 @@ def generate_test_from_objective_anthropic(objective: str):
 
 @timeit
 def categorize_skills(skill_dict, skills_object):
+    """
+    Categorize skills based on their scores and descriptions.
+
+    Parameters:
+    - skill_dict (dict): Dictionary containing skills as keys and their scores as values.
+    - skills_object (dict): Dictionary containing skills as keys and their descriptions as values.
+
+    Returns:
+    - list: List of dictionaries containing categorized skills, scores, and descriptions.
+
+    Example:
+    >>> categorize_skills({'communication': 0.8, 'leadership': 0.9}, {'Communication': 'Effective communication...', 'Leadership': 'Ability to lead...'})
+    # Returns a list of dictionaries with categorized skills, scores, and descriptions.
+    """
     categorized_skills = []
     skill_list = [skill.capitalize() for skill in skills_object.keys()]
 
@@ -5026,6 +6075,48 @@ def categorize_skills(skill_dict, skills_object):
 
 @timeit
 def get_skills_tracker_data(participant_id):
+    """
+    This function retrieves and processes skills tracking data for a given participant.
+
+    The function first filters the TestAttemptSession objects based on the provided participant_id and orders them by id in descending order. If the count of these sessions is more than 15, it limits the sessions to the latest 15. If there are no sessions, it returns None.
+
+    For each TestAttemptSession, it retrieves the corresponding Test object and extracts the candidate_type. If the candidate_type is None, it defaults to 'Manager'. It also retrieves the participant's name and the skills rating for the session.
+
+    The function then categorizes the skills ratings into four categories: People, Partnership, Process, and Personality, based on the candidate_type. It returns a dictionary containing the participant's name, the interaction date, and a list of dictionaries for each category with the category name and the categorized skills.
+
+    Args:
+        participant_id (str): The id of the participant for whom to retrieve and process the skills tracking data.
+
+    Returns:
+        dict: A dictionary containing the participant's name, the interaction date, and a list of dictionaries for each category with the category name and the categorized skills. Returns None if there are no TestAttemptSession objects for the given participant_id.
+
+    Example:
+        >>> get_skills_tracker_data('123')
+        {
+            'data': {
+                'participant_name': 'John Doe',
+                'interaction_date': '01 Jan 2022',
+                'mylist': [
+                    {
+                        'chart_name': 'People',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Partnership',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Process',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Personality',
+                        'trends': {...}
+                    }
+                ]
+            }
+        }
+    """
     # Filter the test_attempt_session with the given participant_id and ordered by created
     test_attempt_sessions = TestAttemptSession.objects.filter(
         is_checkin_type=1, participant_id=participant_id, deleted=0).order_by("-id")
@@ -5152,6 +6243,16 @@ def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,t
 
 @timeit
 def update_prompt_user_attributes(user_id, var_dict):
+    """
+    Update user attributes for the given user_id in the UserAttribute model.
+
+    Parameters:
+    - user_id (str): Unique identifier for the user.
+    - var_dict (dict): Dictionary containing attribute names as keys and their updated values as values.
+
+    Example:
+    >>> update_prompt_user_attributes('123456', {'attribute1': 'value1', 'attribute2': 'value2'})
+    """
     # Retrieve the UserAttribute object for the given user_id
     user_att = UserAttribute.objects.filter(user_id=user_id).first()
 
@@ -5177,6 +6278,27 @@ def submit_feedback(
         question_id,
         response_file,
 ):
+    """
+    This function is used to submit feedback for a given test question response. It first fetches the relevant test, question, and test attempt session objects based on the provided session_id, tenant_id, and question_id. It then creates or retrieves a TestQuestionResponse object and updates it with the response file and its transcript.
+
+    Based on the difficulty level of the user, it appends the appropriate feedback prompts. If the test is of email type or employee feedback scenario, it generates a specific prompt. Otherwise, it generates a prompt based on whether there is a gpt_prompt_override or not.
+
+    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the text_bison_compeletion function and if that fails too, it uses the anthropic_completion function.
+
+    Finally, it updates the TestQuestionResponse object with the generated feedback and the metadata related to the gpt prompt and response, and saves it.
+
+    Args:
+        session_id (str): The unique identifier of the test attempt session.
+        tenant_id (str): The unique identifier of the tenant.
+        question_id (str): The unique identifier of the question.
+        response_file (str): The path to the response file.
+
+    Returns:
+        str: The feedback text generated for the response.
+
+    Example:
+        >>> submit_feedback('session123', 'tenant123', 'question123', 'path/to/response/file')
+    """
     test_attempt_session = TestAttemptSession.objects.filter(tenant_id=tenant_id,uid=session_id,deleted=0).first()
     question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
     test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
@@ -5358,6 +6480,20 @@ def submit_feedback(
     return test_question_response.feedback_text
 
 def scrape_meta_info(url):
+    """
+    Scrape meta information (title and description) from a given URL.
+
+    Parameters:
+    - url (str): The URL to scrape meta information from.
+
+    Returns:
+    - tuple: A tuple containing the title and description extracted from the meta tags.
+             If an error occurs, the tuple contains an error message.
+
+    Example:
+    >>> scrape_meta_info('https://example.com')
+    # Returns a tuple with the title and description extracted from the meta tags of the given URL.
+    """
     try:
         # Send an HTTP GET request to the URL
         response = requests.get(url)
@@ -5384,6 +6520,21 @@ def scrape_meta_info(url):
         return "Error: " + str(e), ""
 
 def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager"):
+    """
+    Extract information from a dynamic scenario text.
+
+    Parameters:
+    - text (str): The dynamic scenario text to extract information from.
+    - is_dynamic (bool): Indicates whether the scenario is dynamic.
+    - candidate_type (str): Type of candidate (e.g., 'Manager', 'Team Member').
+
+    Returns:
+    - tuple: A tuple containing title, description, question_info, rating, evaluation_skill_list, and orchestrated_conversation_details.
+
+    Example:
+    >>> extract_information_dynamic_scenario('Title: Test Title\nDescription: Test Description\nQuestion: What is your approach to leadership?\nRating: 5', is_dynamic=True, candidate_type='Manager')
+    # Returns a tuple with extracted information from the dynamic scenario text.
+    """
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
     question_pattern = re.compile(r'Question\s*:\s*(.+)')
@@ -5451,6 +6602,19 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     return title,description,question_info,rating
 
 def extract_scenarios_info_for_one_question(text):
+    """
+    Extract information from multiple scenarios in a text containing scenarios for one question.
+
+    Parameters:
+    - text (str): The text containing scenarios for one question.
+
+    Returns:
+    - list: A list of dictionaries containing extracted information for each scenario.
+
+    Example:
+    >>> extract_scenarios_info_for_one_question('Title: Test 1\nDescription: Description 1\nQuestions: Question 1\nRating: 5\nTitle: Test 2\nDescription: Description 2\nQuestions: Question 2\nRating: 4')
+    # Returns a list of dictionaries with extracted information for each scenario.
+    """
     # Define a regular expression pattern for extracting scenarios
     text = text.replace("Questions","Question")
     pattern = re.compile(r"""
@@ -5510,6 +6674,19 @@ def extract_text_only(input_text):
     return cleaned_text
 
 def extract_information(text):
+    """
+    Extract information from a given text containing details about a scenario.
+
+    Parameters:
+    - text (str): The text containing information about a scenario.
+
+    Returns:
+    - tuple: A tuple containing title, description, question_info, skill_to_evaluate, and rating.
+
+    Example:
+    >>> extract_information('Title: Test\nDescription: Test Description\nQuestion: What is your approach to leadership?\nPrompt: Provide your leadership style.\nTakeaway: Effective communication is key.\nSkills: Communication, Leadership\nRating: 5')
+    # Returns a tuple with extracted information from the scenario text.
+    """
     # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
     text = text.replace("KLS", "Skills")
     text = text.replace("KLP", "Takeaway")
@@ -5605,6 +6782,24 @@ def extract_information(text):
     return title, description, question_info, skill_to_evaluate, rating
 
 def extract_info_gpt(scenario):
+    """
+    Extracts information from a given scenario string and formats it into a structured output.
+
+    Args:
+        scenario (str): The input scenario string containing information about the title, description,
+                       questions, prompts, takeaways, and skills.
+
+    Returns:
+        tuple: A tuple containing the following elements:
+            - str: Title extracted from the scenario.
+            - str: Description extracted from the scenario.
+            - list of dict: Information about each question in the scenario, including question text,
+                            question type, GPT prompt override, subjective answer, key learning point,
+                            and key learning skills.
+            - str: Skills to evaluate, formatted as a comma-separated string.
+            - int: Rating extracted from the scenario.
+    """
+
     scenario = scenario.replace("KLS", "Skills")
     # Replace KLP with Takeaway
     scenario = scenario.replace("KLP", "Takeaway")
@@ -6664,6 +7859,9 @@ def get_dynamic_mcq_skills_prompt(situation_decision_map, num_decisions):
 
 
 def calculate_similarity(sentence1, sentence2):
+    """
+    This method gives similarity percentage b/w two sentences.
+    """
     # Tokenize and remove stopwords
     stop_words = set(stopwords.words('english'))
     words1 = [word.lower() for word in word_tokenize(sentence1) if word.isalpha() and word.lower() not in stop_words]
@@ -6704,7 +7902,34 @@ def calculate_similarity(sentence1, sentence2):
 
 
 @timeit
+@timeit
 def scrape_article_data(url):
+    """
+    This function is designed to scrape the title and content of an article from a given URL.
+
+    The function sends a GET request to the provided URL and checks the response status. If the status code is 200, 
+    indicating a successful request, it proceeds to parse the HTML content using BeautifulSoup and the readability's Document module. 
+    The Document module is used to extract the title and the summary of the HTML content. BeautifulSoup is then used to further parse 
+    the summary content and extract the text within the 'div' tag and all 'p' tags, which are assumed to contain the main article content.
+
+    Parameters:
+    url (str): The URL of the web page to scrape. This should be a string containing a valid URL.
+
+    Returns:
+    dict: A dictionary containing the title and content of the article. The dictionary has the following structure:
+        {
+            'title': 'The title of the article',
+            'article_content': 'The content of the article'
+        }
+    If the GET request fails, the function logs an error message and returns an empty dictionary.
+
+    Example:
+    >>> scrape_article_data('https://example.com/article')
+    {
+        'title': 'Example Article',
+        'article_content': 'This is an example article...'
+    }
+    """
     # Send a GET request to fetch the HTML content
     response = requests.get(url)
     
@@ -6734,6 +7959,26 @@ def scrape_article_data(url):
         return {}
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=============================================================================================================
 ### these three funciton is for testing purpose only
 def test_model(model_name, num_tests=50):
     results = []
