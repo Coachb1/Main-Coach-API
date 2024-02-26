@@ -503,6 +503,8 @@ class AccountsViewSet(ApiViewSet,
             method = request.query_params.get('method',None)
             bot_id = request.query_params.get('bot_id',None)
             feedback_type = request.query_params.get("feedback_type",None)
+            participant_id = request.query_params.get('user_id',None)
+
             data = {}
             try:
                 signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
@@ -518,10 +520,17 @@ class AccountsViewSet(ApiViewSet,
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
                 qna_type = request.query_params.get("qna_type",None)
-                if qna_type and qna_type.lower() == 'initial_qna':
-                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna').order_by('-created').first()
-                    return Response({"intake_summary": recent_intake_data.intake_summary},status=status.HTTP_200_OK)
+
+                # to get latest botqna for a user using participant_id
+                if participant_id:
+                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
+                    if recent_intake_data:
+                        return Response({"intake_summary": recent_intake_data.intake_summary,"intake_id":recent_intake_data.uid},status=status.HTTP_200_OK)
+                    else:
+                        return Response({"error": "No Intake found for user."},status=status.HTTP_400_BAD_REQUEST)
                 
+
+                # to get feedback bot's feedback msg using bot_id
                 feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
                 msg_data = []
                 for feed in feedback_data:
@@ -548,7 +557,6 @@ class AccountsViewSet(ApiViewSet,
                     data['positive_msgs'] = msg_data
 
             elif method.lower() == 'post':
-                participant_id = request.query_params.get('user_id',None)
                 feedback_qna = request.query_params.get('qna',None)
                 is_positive = request.query_params.get('is_positive',None)
                 qna_type = request.query_params.get('qna_type',None)
