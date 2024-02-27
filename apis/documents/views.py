@@ -11,7 +11,7 @@ from documents.models import Document
 from rest_framework import mixins
 from commons.langchain import download_and_transcribe_audio
 from documents.utils import get_summary
-from commons.youtube_utils import get_youtube_transcript
+from commons.youtube_utils import get_youtube_transcript, repidapi_stt
 
 
 class DocumentViewSet(ApiViewSet,
@@ -56,6 +56,9 @@ class DocumentViewSet(ApiViewSet,
             if transcript is not None:
                 break
 
+        if transcript is None:
+            transcript = repidapi_stt(youtube_link)
+            
         if transcript is None:
             transcript = download_and_transcribe_audio(youtube_link)
 
