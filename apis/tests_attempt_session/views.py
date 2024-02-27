@@ -233,7 +233,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id =  request.query_params.get("user_id")
 
         # Filter the test_attempt_session with the given participant_id 
-        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed)
+        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
         checkin_type_sessions_count = test_attempt_sessions.filter(is_checkin_type=1).count()
 
         test_codes = set()
