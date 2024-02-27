@@ -1,6 +1,7 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
 from commons.timeit import timeit
+import requests
 
 
 def format_youtube_link(youtube_link):
@@ -57,4 +58,26 @@ def get_youtube_transcript(url):
         complete_transcript = ' '.join([x['text'] for x in transcript])
         return complete_transcript
     except:
+        return None
+    
+
+def repidapi_stt(url):
+    url =format_youtube_link(url)
+    query = urlparse(url).query
+    params = parse_qs(query)
+    video_id = params["v"][0]
+
+    url2 = f'https://youtube-transcriptor.p.rapidapi.com/transcript?video_id={video_id}&lang=en'
+    headers = {
+        'X-RapidAPI-Key': '80c2437ae0msh8b10a7096d8c152p1e04f2jsn9e113e29af91',
+        'X-RapidAPI-Host': 'youtube-transcriptor.p.rapidapi.com'
+    }
+    transcript = ""
+    try:
+        response = requests.get(url2, headers=headers)
+        result = response.json()
+        for resp in result[0].get('transcription'):
+            transcript += resp['subtitle'] + " "
+        return  transcript
+    except Exception as error:
         return None
