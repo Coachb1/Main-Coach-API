@@ -154,4 +154,6 @@ def get_total_actions_on_platform_over_week(tenant_id):
     
 
 
-        
+def testing():
+    send_email_with_html_template(subject="scheduler working",html_content="Hye sceduler is working",to_email='bagoriarajan@gmail.com')
+
