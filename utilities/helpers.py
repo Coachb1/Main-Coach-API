@@ -85,6 +85,29 @@ def get_sid(email):
 
 
 def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
+    """
+    This function is used to save session notes and recommendations for a specific mentor-mentee pair.
+
+    The function first checks if the mentor and mentee are connected. If they are not, an error message is returned.
+    If they are connected, a new SessionNotesRecommendations object is created with the provided session notes.
+    The function then increments the session_notes_count for the user.
+    If an access token is provided, the function generates a scenario from the session notes and saves it as a recommendation.
+    Finally, the function attempts to send an email to the mentor and mentee with the session notes.
+
+    Parameters:
+    - user_id (str): The ID of the user (mentee).
+    - mentor_id (str): The ID of the mentor.
+    - tenant_id (str): The ID of the tenant.
+    - context (str): The session notes to be saved.
+    - access_token (str): The access token for authentication.
+
+    Returns:
+    - A list containing a dictionary with the session notes, creation date, update date, and recommendations, if successful.
+    - An empty list and a dictionary containing an error message, if unsuccessful.
+
+    Example Usage:
+    save_session_notes("user123", "mentor123", "tenant123", "These are the session notes.", "access_token")
+    """
 
     commentor = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=mentor_id).first()
     reciever = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).first()
@@ -159,6 +182,32 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
     
 def get_session_notes(user_id,mentor_id):
+    """
+    Fetches session notes and recommendations for a specific user or mentor.
+
+    This function retrieves session notes and recommendations from the SessionNotesRecommendations model. 
+    It filters the data based on either the user_id (mentee) or mentor_id provided as input. 
+    For each session note, it also fetches the corresponding mentor or mentee's email and display name from the UserAttribute model.
+
+    Args:
+        user_id (str): The unique identifier of the user (mentee). If provided, the function will fetch session notes where the user is the mentee.
+        mentor_id (str): The unique identifier of the mentor. If provided, the function will fetch session notes where the user is the mentor.
+
+    Note: At least one of user_id or mentor_id must be provided. If both are provided, the function will prioritize the user_id.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a session note. Each dictionary contains the following keys:
+            - 'context': The session note text.
+            - 'date': The date the session note was created.
+            - 'updated': The date the session note was last updated.
+            - 'recommendations': The recommendations text.
+            - 'mentor_email_id' or 'mentee_email_id': The email of the mentor or mentee, depending on whether user_id or mentor_id was provided.
+            - 'mentor_name' or 'mentee_name': The display name of the mentor or mentee, depending on whether user_id or mentor_id was provided.
+
+    Example:
+        >>> get_session_notes(user_id='123', mentor_id=None)
+        [{'context': 'Session note 1', 'date': datetime.datetime(2022, 1, 1, 0, 0), 'updated': datetime.datetime(2022, 1, 2, 0, 0), 'recommendations': 'Recommendation 1', 'mentor_email_id': 'mentor@example.com', 'mentor_name': 'Mentor Name'}]
+    """
 
     if user_id:
         session_notes = SessionNotesRecommendations.objects.filter(mentee_id = user_id)
@@ -193,6 +242,34 @@ def get_session_notes(user_id,mentor_id):
 
 
 def get_session_notes_data(tenant_id):
+    """
+    Fetches session notes and recommendations for a specific tenant.
+
+    This function retrieves session notes and recommendations from the SessionNotesRecommendations model. 
+    It filters the data based on the tenant_id provided as input. 
+    For each session note, it also fetches the corresponding mentor and mentee's email and name from the UserAttribute model.
+
+    Args:
+        tenant_id (str): The unique identifier of the tenant. The function will fetch session notes associated with this tenant.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a session note. Each dictionary contains the following keys:
+            - 'id': The unique identifier of the session note.
+            - 'created': The date the session note was created.
+            - 'updated': The date the session note was last updated.
+            - 'context': The session note text.
+            - 'recommendations': The recommendations text.
+            - 'mentor_name': The name of the mentor.
+            - 'mentor_email': The email of the mentor.
+            - 'mentee_name': The name of the mentee.
+            - 'mentee_email': The email of the mentee.
+
+    Note: If the function fails to fetch the mentor or mentee's attributes, it logs the exception and continues to the next session note.
+
+    Example:
+        >>> get_session_notes_data(tenant_id='123')
+        [{'id': 1, 'created': datetime.datetime(2022, 1, 1, 0, 0), 'updated': datetime.datetime(2022, 1, 2, 0, 0), 'context': 'Session note 1', 'recommendations': 'Recommendation 1', 'mentor_name': 'Mentor Name', 'mentor_email': 'mentor@example.com', 'mentee_name': 'Mentee Name', 'mentee_email': 'mentee@example.com'}]
+    """
 
     session_notes = SessionNotesRecommendations.objects.filter(tenant_id=tenant_id)
     data = []
@@ -221,6 +298,7 @@ def get_session_notes_data(tenant_id):
     return data
 
 def update_session_notes(session_note_id,recommendations):
+    "it updates recommendations into session_notes"
 
     session_note = SessionNotesRecommendations.objects.get(id=session_note_id)
 
@@ -232,6 +310,22 @@ def update_session_notes(session_note_id,recommendations):
 
 
 def get_fitness_analysis_score(coach_data, conversation_data):
+    """
+    This function is designed to analyze the compatibility between a coach and a coachee based on their conversation data and the coach's information. 
+
+    The function constructs a prompt that includes the coach's data and the conversation data. The prompt is then passed to the `anthropic_completion` function, which is expected to return a fitment score in JSON format. The score is a measure of the compatibility between the coach and the coachee, based on their values, personality, ideas, experiences, and expectations.
+
+    Parameters:
+    coach_data (str): A string containing the coach's information.
+    conversation_data (str): A string containing the conversation data between the coach and the coachee.
+
+    Returns:
+    str: A string in JSON format containing the fitment score. The score is a number between 0 and 10, with 10 indicating the highest compatibility. The JSON string should be in the format: {"Fitment score":"<score>"}
+
+    Example:
+    >>> get_fitness_analysis_score("Coach Info", "Conversation Info")
+    '{"Fitment score":"7"}'
+    """
     prompt = f"""
     {{Coach_Information}} - {coach_data}
     Conversation: {conversation_data}
@@ -303,7 +397,61 @@ def extract_fields(data:dict):
     return extracted_fields
 
 def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id = None):
+    """
+    Process the Individual Development Plan (IDP) for a user.
 
+    Args:
+        idp_data (dict): A dictionary containing the IDP data.
+        user_id (str): The ID of the user.
+        tenant_id (str): The ID of the tenant.
+        access_token (str): The access token for authentication.
+        only_data (bool, optional): If True, only return the IDP data. Defaults to False.
+        idp_id (str, optional): The ID of the IDP. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing the processed IDP data and a boolean indicating success.
+
+    Raises:
+        Exception: If any error occurs during the processing.
+
+    Detailed Explanation:
+    This function is responsible for processing the Individual Development Plan (IDP) for a user. It takes in the IDP data,
+    user ID, tenant ID, access token, and optional parameters. The IDP data is a dictionary containing various fields such as
+    strengths, weaknesses, opportunities, threats, key focus areas, goals, priorities, learning histories, key skills, and user name.
+
+    If the `only_data` parameter is True, the function will return the IDP data as a serialized object. If the `idp_id` parameter
+    is provided, it will try to fetch the IDP object from the database and return its serialized data. If the IDP is not found,
+    it will return an error message.
+
+    If the `only_data` parameter is False, the function will create a new IDP object in the database with the provided data.
+    It will then try to fetch recommendations for books, skills, and other resources based on the IDP data. If any error occurs
+    during the recommendation fetching process, it will log the error and send an email notification. If the required number
+    of scenarios are not generated, it will log the error and send an email notification.
+
+    Finally, it will save the IDP object with the recommendations and scenarios, and send an email notification to the user
+    with a link to view the IDP report.
+
+    Example:
+    >>> idp_data = {
+    ...     'strengths': 'communication, leadership',
+    ...     'weakness': 'time management',
+    ...     'opportunities': 'networking',
+    ...     'threats': 'competition',
+    ...     'key_focus_areas': 'project management',
+    ...     'goals': 'career advancement',
+    ...     'priorities': 'personal growth',
+    ...     'learning_histories': 'online courses',
+    ...     'key_skills': 'problem solving',
+    ...     'user_name': 'John Doe'
+    ... }
+    >>> user_id = '12345'
+    >>> tenant_id = '67890'
+    >>> access_token = 'abcdef'
+    >>> only_data = False
+    >>> idp_id = None
+    >>> process_idp(idp_data, user_id, tenant_id, access_token, only_data, idp_id)
+    ({'id': 1, 'tenant_id': '67890', 'user_id': '12345', 'strengths': 'communication, leadership', 'weakness': 'time management', 'opportunities': 'networking', 'threats': 'competition', 'key_focus_areas': 'project management', 'goals': 'career advancement', 'priorities': 'personal growth', 'learning_histories': 'online courses', 'key_skills': 'problem solving', 'user_name': 'John Doe', 'book_recommendations': 'book1,book2', 'recommended_hbr': 'hbr1,hbr2', 'recommended_ted_talk': 'tedtalk1,tedtalk2', 'report': 'https://example.com/idpReport?uid=1', 'learning_communities': 'community1,community2', 'course_recommendations': 'course1,course2', 'recommended_scenarios': {'communication': {'dynamic': {'title': 'Communication Dynamic Discussion', 'data': {'information': 'communication'}}}, 'leadership': {'simulation': {'title': 'Leadership Simulation', 'data': {'information': 'leadership'}}}}, 'total_scenarios_created': 2, 'success': True}, True)
+    """
     logger.info(f"*********************************************** idp_id: {idp_id}, user_id: {user_id}, tenant_id: {tenant_id}")
     if only_data:
         if idp_id:
@@ -367,7 +515,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
                 hbr_recomm = get_recommendation("hbr",hard_soft_skills)
                 tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
-                learning_communities = get_learning_communities_recommendation(hard_skills,soft_skills)
+                learning_communities = get_recommendation("learning_communities",hard_soft_skills)
 
                 user_idp.book_recommendations = book_recomm
                 user_idp.recommended_hbr = hbr_recomm
@@ -549,7 +697,28 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
         return UserIDPSerializers(user_idp).data, True
     
-def regenerate_idp_or_scenarios(idp_id,access_token,tenant_id,):
+def regenerate_idp_or_scenarios(idp_id, access_token, tenant_id):
+    """
+    This function regenerates Individual Development Plan (IDP) or scenarios for a user based on the user's IDP details.
+
+    Parameters:
+    - idp_id (str): The unique identifier of the user's IDP.
+    - access_token (str): The access token for authentication.
+    - tenant_id (str): The tenant identifier.
+
+    The function performs the following steps:
+    1. Retrieves the user's IDP based on the provided idp_id.
+    2. Extracts the key focus areas, goals, priorities, soft skills, hard skills, and recommended scenarios from the user's IDP.
+    3. Identifies the scenarios that failed to be created in the previous run.
+    4. For each failed scenario, it attempts to create a new scenario. If the scenario is related to a skill, it creates a dynamic discussion and a simulation scenario. If the scenario is related to focus areas, goals areas, or priority areas, it creates a custom scenario based on the respective prompt.
+    5. Updates the user's IDP with the newly created scenarios.
+
+    Returns:
+    - A tuple containing the serialized data of the updated user's IDP and a boolean indicating the success of the operation.
+
+    Example Usage:
+    regenerate_idp_or_scenarios("1234", "access_token", "tenant_id")
+    """
 
     user_idp = UserIDP.objects.get(uid=idp_id)
     key_focus_areas = user_idp.key_focus_areas
@@ -640,6 +809,7 @@ def regenerate_idp_or_scenarios(idp_id,access_token,tenant_id,):
 
 
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    """Generates Hard skill using generic completion method."""
     prompt = """
             \n\nHuman:
             {Key Focus areas}: ${focus_areas}
@@ -673,6 +843,8 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     return data
 
 def get_soft_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    """Generates Soft skill using generic completion method."""
+
     prompt = """
             \n\nHuman:
             {Key Focus areas}: ${focus_areas}
@@ -707,7 +879,24 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     return data
 
 def get_recommendation(prompt_type,hard_soft_skills):
-    prompt = ""
+    """
+    This function generates a recommendation for resources (books, HBR articles, or TED Talks) to improve certain skills.
+
+    The function first determines the type of resource based on the `prompt_type` parameter. It then constructs a prompt string that requests recommendations for improving the skills specified in `hard_soft_skills`. This prompt is passed to the `generic_completion` function, which generates a text completion based on the prompt.
+
+    Args:
+        prompt_type (str): The type of resource for which recommendations are requested. This should be one of the following: 'book', 'hbr', or 'ted_talk'.
+        hard_soft_skills (str): A string containing the skills for which improvement resources are requested. The skills should be listed in a comma-separated format.
+
+    Returns:
+        str: A string containing the generated recommendations. The recommendations are formatted as a list, with each item in the list corresponding to a skill and the recommended resource for improving that skill.
+
+    Example:
+        >>> get_recommendation('book', 'communication, leadership')
+        '1. Communication - Book name and description.
+         2. Leadership - Book name and description.'
+    """
+    # function body here    prompt = ""
     if prompt_type == "book":
         prompt = """
         \n\nHuman:
@@ -757,19 +946,11 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             \n\nAssistant:
             """
-
-    prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
-
-    data = generic_completion(prompt=prompt)
-    print(data)
-
-    return data
-
-
-def get_learning_communities_recommendation(hard_skills, soft_skills):
-    prompt = f"""
-        {{skill_gaps}}: ${hard_skills, soft_skills}
-        Please provide learning communities to improve these skills {{skill_gaps}}. Provide the name of the learning community, the hosting site and a small description of 80 words.
+        
+    elif prompt_type == 'learning_communities':
+        prompt = """
+        {skill_gaps}: ${hard_soft_skills}
+        Please provide learning communities to improve these skills {skill_gaps}. Provide the name of the learning community, the hosting site and a small description of 80 words.
         Output Format:
         1. Skill1 - Name, the hosting site and description.
         2. Skill2 - Name, the hosting site and description.
@@ -779,10 +960,15 @@ def get_learning_communities_recommendation(hard_skills, soft_skills):
         Always give the output in the given format.
         Do not include any introductory sentence or any conclusion.
         If the skills does not have any online community, please respond with "No learning communities found."
-    """
+        """
+
+    prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
 
     data = generic_completion(prompt=prompt)
-    logger.info(f"Learning Communities: {data}")
+
+    logger.info(f"{prompt_type.replace('_',' ').capitalize()} : {data}")
+
+
     return data
 
 def get_course_recommendation(learning_history,existing_skills,hard_soft_skills):
@@ -843,7 +1029,26 @@ def extract_topics_info(text):
     return topics_info
 
 
-def custom_sort_reverse(data:list,first_sort_filed:str,second_sort_field:str):
+def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
+    """
+    This function sorts a list of dictionaries in descending order based on two fields. 
+
+    The function uses a modified version of the bubble sort algorithm. It first sorts the data based on the 'first_sort_field'. 
+    If two dictionaries have the same 'first_sort_field', it then sorts them based on the 'second_sort_field'. 
+
+    Parameters:
+    data (list): A list of dictionaries that needs to be sorted. Each dictionary should contain the keys specified by 'first_sort_field' and 'second_sort_field'.
+    first_sort_filed (str): The primary key based on which the data should be sorted.
+    second_sort_field (str): The secondary key which is used for sorting when the 'first_sort_field' is the same for two dictionaries.
+
+    Returns:
+    list: A sorted list of dictionaries in descending order. The primary sorting is done based on 'first_sort_field' and secondary sorting is done based on 'second_sort_field'.
+
+    Example:
+    >>> data = [{'name': 'John', 'age': 30}, {'name': 'Jane', 'age': 30}, {'name': 'Doe', 'age': 25}]
+    >>> custom_sort_reverse(data, 'age', 'name')
+    [{'name': 'Jane', 'age': 30}, {'name': 'John', 'age': 30}, {'name': 'Doe', 'age': 25}]
+    """
     n = len(data)
     
     for i in range(n):
