@@ -27,6 +27,7 @@ from users.models import BotAndUserMapping
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
+from utilities.models import SessionNotesRecommendations
 
 logger = logging.getLogger(__name__)
 
@@ -140,18 +141,18 @@ def initialize_coaching_conversation(tenant: Tenant,
         question = TestQuestion.objects.get(
             tenant_id=tenant.uid, test_id=test.uid, deleted=0)
         
-    signature_bot_question = "what do you want to ask ?"
+    signature_bot_question = "what would you like to discuss today?"
     if is_signature_bot:
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
         user = User.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.participant_id)
         get_or_create_bot_user_mapping(signature_bot,user)
 
-        if test_attempt_session.intake_id:
-            bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=test_attempt_session.intake_id).order_by('-created').first()
-            if bot_qna:
-                initial_qna = bot_qna.participant_qna
-                
         if initial_qna:
+            if test_attempt_session.intake_id:
+                bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=test_attempt_session.intake_id).order_by('-created').first()
+                if bot_qna:
+                    initial_qna = bot_qna.participant_qna
+                
 
             qna = json.loads(initial_qna)
             custom_prompt = signature_bot.custom_prompt
@@ -183,6 +184,14 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    if qna_block:
+                        qna_block_text = ''
+                        for que, ans in qna_block.items():
+                            qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                        coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+
                     user_recent_idp = None
                     if test_attempt_session.is_idp_discussion_opted:
                         idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=test_attempt_session.participant_id, deleted=0).order_by('-created').first()
@@ -218,14 +227,15 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     except Exception as e:
                         logger.exception(f"got error: {e}")
-                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                        personality = None
             
                     custom_prompt = Template(custom_prompt).substitute(
                         coach_info = coach_info,
                         conversation_history = conversation_history,
                         context = initial_que_ans,
                         user_personality = personality if signature_bot.use_personality_context else None,
-                        idp_report_data = user_recent_idp
+                        idp_report_data = user_recent_idp,
+                        session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id,tenant_id=test_attempt_session.tenant_id)
                     )
                 elif signature_bot.bot_type == 'helper_bot':
                     try:
@@ -242,7 +252,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     except Exception as e:
                         logger.exception(f"got error: {e}")
-                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                        personality = None
             
                     bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
                     faqs = bot_att.attached_faqs_context
@@ -295,9 +305,84 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 
-                logger.info(f"signature  bot prompt  {custom_prompt}")
-                if signature_bot.bot_type != 'subject_matter_bot':
-                    signature_bot_question = anthropic_completion(custom_prompt,50000)
+            else:
+                initial_que_ans = ''
+                if signature_bot.bot_type != BotTypeChoice.subject_matter_bot:
+                    for que, ans in qna.items():
+                        initial_que_ans += f"Question: {que} Answer: {ans} \n"
+
+                
+
+                coach_info = ""
+                for key,val in signature_bot.data.items():
+                    coach_info += f"{key}:{val}\n"
+
+                sessions = TestAttemptSession.objects.filter(uid=test_attempt_session.uid)
+
+                conversation_data= get_bot_conversation_data_user(sessions,tenant,test_attempt_session.participant_id,only_converation=True)
+                conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
+
+
+                if signature_bot.bot_type == 'avatar_bot':
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    if qna_block:
+                        qna_block_text = ''
+                        for que, ans in qna_block.items():
+                            qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                        coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+
+                    user_recent_idp = None
+                    if test_attempt_session.is_idp_discussion_opted:
+                        idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=test_attempt_session.participant_id, deleted=0).order_by('-created').first()
+                        if idp:
+                            user_recent_idp = {
+                                    "strengths": idp.strengths,
+                                    "weakness": idp.weakness,
+                                    "opportunities": idp.opportunities,
+                                    "threats": idp.threats,
+                                    "key_focus_areas": idp.key_focus_areas,
+                                    "goals": idp.goals,
+                                    "priorities": idp.priorities,
+                                    "learning_histories": idp.learning_histories,
+                                    "key_skills": idp.key_skills,
+                                    "skill_gap_for_development": idp.skill_gap_for_development,
+                                    "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                                    "book_recommendations": idp.book_recommendations,
+                                    "course_recommendations": idp.course_recommendations,
+                                    "recommended_ted_talk": idp.recommended_ted_talk,
+                                    "recommended_scenarios": idp.recommended_scenarios,
+                                }
+                    try:
+                        personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
+                        highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                        lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                        low_char_prompt = ""
+                        for l in lowest_charactersic_prompt:
+                            low_char_prompt += f"{l} "
+                        high_char_prompt = ""
+                        for l in highest_charactersic_prompt:
+                            high_char_prompt += f"{l} "
+                        personality = low_char_prompt + " " + high_char_prompt
+
+                    except Exception as e:
+                        logger.exception(f"got error: {e}")
+                        personality = None
+            
+                    custom_prompt = Template(avatar_bot_default_prompt()).substitute(
+                        coach_info = coach_info,
+                        conversation_history = conversation_history,
+                        context = initial_que_ans,
+                        user_personality = personality if signature_bot.use_personality_context else None,
+                        idp_report_data = user_recent_idp,
+                        session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id,tenant_id=test_attempt_session.tenant_id)
+                    )
+
+            logger.info(f"signature  bot prompt  {custom_prompt}")
+
+            if signature_bot.bot_type != 'subject_matter_bot':
+                signature_bot_question = anthropic_completion(custom_prompt,50000)
+
 
 
     next_conversation = CoachingConversation.objects.create(
@@ -560,9 +645,17 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             coach_info += f"{key}: {val}\n"
             
         if bot_type == 'avatar_bot':
-            
+
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            if qna_block:
+                qna_block_text = ''
+                for que, ans in qna_block.items():
+                    qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
 
             user_recent_idp = None
             latest_session = session.order_by('-created').first()
@@ -601,7 +694,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             except Exception as e:
                 logger.exception(f"got error: {e}")
-                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                personality = None
             
 
             prompt = Template(prompt).substitute(
@@ -609,7 +702,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 conversation_history = conversation_history,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None,
-                idp_report_data = user_recent_idp
+                idp_report_data = user_recent_idp,
+                session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id,tenant_id=tenant.uid)
             )
 
         elif bot_type == 'helper_bot':
@@ -627,7 +721,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             except Exception as e:
                 logger.exception(f"got error: {e}")
-                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                personality = None
             
 
             session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
@@ -736,7 +830,93 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             
         logger.info(f"custom Prompt: {prompt}")
         
+    else:
+        session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
+                                                        uid=test_attempt_session_id,
+                                                        deleted=0
+                                                        )
+        
+        initial_qna = ""
+        if bot_type == BotTypeChoice.avatar_bot:
+            if session.first().intake_id:
+                bot_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
+                if bot_qna:
+                    initial_qna = bot_qna.participant_qna
+            else:
+                initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+
+        else:
+            initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+
+        logger.info(f"************************************************ initial_qna: {initial_qna}")
+        # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
+        initial_que_ans = initial_qna.participant_qna
+        coach_info = ""
+        for key,val in signature_bot.data.items():
+            coach_info += f"{key}: {val}\n"
             
+        if bot_type == 'avatar_bot':
+            prompt = avatar_bot_default_prompt()
+
+            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            if qna_block:
+                qna_block_text = ''
+                for que, ans in qna_block.items():
+                    qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+                
+            user_recent_idp = None
+            latest_session = session.order_by('-created').first()
+            if latest_session.is_idp_discussion_opted:
+                idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created_at').first()
+                if idp:
+                    user_recent_idp = {
+                            "strengths": idp.strengths,
+                            "weakness": idp.weakness,
+                            "opportunities": idp.opportunities,
+                            "threats": idp.threats,
+                            "key_focus_areas": idp.key_focus_areas,
+                            "goals": idp.goals,
+                            "priorities": idp.priorities,
+                            "learning_histories": idp.learning_histories,
+                            "key_skills": idp.key_skills,
+                            "skill_gap_for_development": idp.skill_gap_for_development,
+                            "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+                            "book_recommendations": idp.book_recommendations,
+                            "course_recommendations": idp.course_recommendations,
+                            "recommended_ted_talk": idp.recommended_ted_talk,
+                            "recommended_scenarios": idp.recommended_scenarios,
+                        }
+
+            try:
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
+                highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                low_char_prompt = ""
+                for l in lowest_charactersic_prompt:
+                    low_char_prompt += f"{l} "
+                high_char_prompt = ""
+                for l in highest_charactersic_prompt:
+                    high_char_prompt += f"{l} "
+                personality = low_char_prompt + " " + high_char_prompt
+
+            except Exception as e:
+                logger.exception(f"got error: {e}")
+                personality = None
+            
+
+            prompt = Template(prompt).substitute(
+                coach_info = coach_info,
+                conversation_history = conversation_history,
+                context = initial_que_ans,
+                user_personality = personality if signature_bot.use_personality_context else None,
+                idp_report_data = user_recent_idp,
+                session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id,tenant_id=tenant.uid)
+            )
 
     return prompt
 
@@ -801,34 +981,57 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
 
 
 def avatar_bot_default_prompt():
-    return """\n\nHuman:
+    return """
+    \n\nHuman:
     {Information} - ${coach_info}
     Conversation History : ${conversation_history}
     Context : ${context}
     Personality: ${user_personality}
+    IDP: ${idp_report_data}
+    Action Plan & Session Notes: ${session_notes}
 
-    Read this {information} thoroughly and understand it deeply. The information contains detailed insights into a coach's background, personality, philosophies, and coaching style. Act as the coach whose information is provided here and respond to the coachee. 
+    Read this {Information} thoroughly and understand it deeply. Act as the individual described in the provided information, mimicking their personality traits, speech patterns, and values throughout the responses. Understand the given instructions before creating a response. ALWAYS follow these instructions to generate the responses :
+    1. Act as the person whose information is given here {Information}. Include details about their background, achievements, and notable personality traits.
+    2. Analyze the personal stories, or responses given in {Information} to identify the person's speech patterns, vocabulary, and storytelling style. Utilize this information to generate conversational responses that reflect the user's natural language and tone.
+    3. Analyze the "Speech Patterns" and vocabulary of the person from the given FAQs given here {Information} and model it when creating the response. Pay attention to their tone, expressions, and commonly used phrases to ensure authenticity.
+    4. Use their "Values and Beliefs" given here {Information} to ensure that generated response aligns with their worldview and perspectives.
+    5. Integrate their "Frequently Used Phrases" given here {Information} while generating the responses.  Weave these phrases seamlessly into the responses, ensuring they feel natural and consistent with the individual's communication style.
+    6. Analyze the "Emotional Expressions" from the given FAQs  given here {Information} to mimic emotional nuances while generating the responses, ensuring that the response reflects the person's emotional range and communication style accurately.
+    7. Analyze the "Life Experiences" given here {Information} . Draw on these experiences when crafting personalized narratives or offering advice, creating a deeper connection with the coachee and enhancing the realism of the responses.
+    8. Analyze and imitate the "Problem-Solving Approach" given here {Information} to generate a response that reflects the person's decision-making style and problem-solving approach to resolve situations.
+    Use all the information provided here {Information} to act as the coach and respond to the coachee. 
 
-    Conduct a session with a coachee who is sharing their concern in this context {Context}. Understand the coachee's concern and problem before providing any advice or solution in the response. The response should be directly related to the concern shared by the coachee.  The personality of the coachee is given here {Personality}. Understand the coachee's personality and always tailor your response accordingly.
+    Conduct a session with a coachee who is sharing their concern in this context {candidate_data_str}. Understand the coachee's concern and problem before providing any advice or solution in the response. The response should be directly related to the concern shared by the coachee.  The personality of the coachee is given here {Personality}. Understand the coachee's personality and always tailor your response accordingly.
     Understand the coachee's perspective to the question and provide the information they want. 
-    Offer general advice, coaching, and mentoring based on the coach's style. Consider any other relevant information to provide comprehensive coaching advice. 
+    Offer advice, coaching, and mentoring based on the coach's style and character traits given in {Information}. Consider any other relevant information to provide comprehensive coaching advice. 
     Provide a response based on all the information you have on the coach. Always provide accurate information about yourself as the coach when asked by the coachee. 
     The response should always be directly related to the question. 
+    If the coachees' Individual Development Plan is given in the IDP, make sure the response is based on that information.
+    If the coachees' Action Plan is given in Action Plan, make sure the response is based on the plan provided and it should be short and precise.
     Consider the prior conversation given in Conversation History when providing the response.
-    Offer actionable advice or solutions to the coachee's potential challenges.
+    Offer actionable advice or solutions to the coachee’s potential challenges.
     Break down complex ideas into practical steps.
     Pose questions to the coachee to create engagement.
     Encourage self-reflection or thought-provoking moments.
     Maintain a tone that feels friendly and approachable.
     Use the Custom Knowledge base here {Information}. Always refer to {Information} first, before providing a response. 
+    Never provide any answer about a subject the coach is not familiar with. If the user asks any questions about a subject that is not mentioned in  {Information} as Areas of expertise, please respond that you are not familiar with the topic.
 
     Always provide the response in a first-person tone.
     Always ask a contextual question at the end to further understand the details.
     Always respond as the coach.
+    NEVER give visual cues like smiles warmly etc.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
+    NOTE : Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.
 
-    \n\nAssistant:"""
+    NOTE: Make sure to keep the response short. Get straight to the point without unnecessary elaboration or repetition. Eliminate redundant phrases or ideas that don't add value to the response. Choose words and phrases that convey your message clearly and directly. Make sure to give short answers but do not miss out any necessary information.
+
+    NOTE: Provide concise responses without exceeding a brief length constraint. Aim for brevity while delivering complete information and answers.
+
+    \n\nAssistant:
+
+    """
 
 
 @timeit
@@ -874,3 +1077,36 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     bot_user_mapping.save()
 
     return bot_user_mapping
+
+
+def get_latest_session_notes_coach_coachee(coach_user_id,coachee_user_id,tenant_id):
+    
+    session_notes = SessionNotesRecommendations.objects.filter(tenant_id=tenant_id,mentor_id=coach_user_id,mentee_id=coachee_user_id).order_by('-created_date')
+
+    if session_notes:
+        session_note = session_notes.first()
+        return session_note.session_notes
+    else:
+        return None
+
+
+def get_qna_block_for_coach_mentor(coach_user_id,participant_id):
+    try:
+        participant_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=coach_user_id)
+        result = None
+        coach_mentor_qna = coach_profile.qna_for_coach_mentor
+        if coach_mentor_qna:
+            if participant_profile.profile_type == ProfileTypeChoice.coachee:
+                result = coach_mentor_qna.get('coach',None)
+            elif participant_profile.profile_type == ProfileTypeChoice.mentee:
+                result = coach_mentor_qna.get('mentor',None)
+
+        return result
+                
+        
+
+    except Exception as e:
+        logger.exception(f"Got Error while fetching qna block from coach or mentor : {e}")
+        return None
+
