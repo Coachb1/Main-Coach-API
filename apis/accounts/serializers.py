@@ -3,7 +3,7 @@ from rest_framework import serializers
 from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection
 from commons.cloudinary import upload_image
-from utilities.models import UserIDP, DirectoryPageInfo
+from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
@@ -134,3 +134,10 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
             data['coachee_email'] = None
 
         return data
+    
+
+
+class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachCoacheeJoiningPreviledge
+        fields = '__all__'
