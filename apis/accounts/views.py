@@ -1924,15 +1924,24 @@ class AccountsViewSet(ApiViewSet,
                 if user_email:
                     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
                     if client:
-                        coach_mentor_previledge = client.coach_menor_previledge
-                        if coach_mentor_previledge:
-                            coach_mentor_previledge = [email.strip() for email in coach_mentor_previledge.split(",")]
-                            if user_email in coach_mentor_previledge:
-                                can_join_as = 'coach'
+                        if client.is_coach_mentor_previledge:
+                            coach_mentor_previledge = client.coach_mentor_previledge
+                            if coach_mentor_previledge:
+                                coach_mentor_previledge = [email.strip() for email in coach_mentor_previledge.split(",")]
+                                if user_email in coach_mentor_previledge:
+                                    can_join_as = 'coach'
+                                else:
+                                    previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                                    previledges = previledges.filter(email=user_email.strip().lower()).first()
+                                    can_join_as = previledges.can_join_as
                             else:
                                 previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
                                 previledges = previledges.filter(email=user_email.strip().lower()).first()
                                 can_join_as = previledges.can_join_as
+                        else:
+                            previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                            previledges = previledges.filter(email=user_email.strip().lower()).first()
+                            can_join_as = previledges.can_join_as
                     
                 return Response({"can_join_as": can_join_as},status=status.HTTP_200_OK)
             except Exception as e:
