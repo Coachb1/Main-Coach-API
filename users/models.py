@@ -215,6 +215,8 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     bot_snippets = models.JSONField(null=True, blank=True, default=None)
     mob_number = models.CharField(max_length=255, null=True, blank=True, default=None)
     allow_coachee_to_create_session = models.BooleanField(null=True, blank=True, default=False)
+    is_mentor = models.BooleanField(null=True, blank=True, default=False)
+    qna_for_coach_mentor = models.JSONField(null=True, blank=True, default=None)
 
 
     

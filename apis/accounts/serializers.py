@@ -50,7 +50,10 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'is_approved',  
                 'other_details',
                 'mob_number',
-                'allow_coachee_to_create_session']
+                'allow_coachee_to_create_session',
+                'is_mentor',
+                'qna_for_coach_mentor'
+                ]
 
         extra_kwargs = {
             'uid': {'read_only': True},
