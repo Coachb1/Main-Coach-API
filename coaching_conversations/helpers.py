@@ -184,6 +184,14 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    if qna_block:
+                        qna_block_text = ''
+                        for que, ans in qna_block.items():
+                            qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                        coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+
                     user_recent_idp = None
                     if test_attempt_session.is_idp_discussion_opted:
                         idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=test_attempt_session.participant_id, deleted=0).order_by('-created').first()
@@ -219,7 +227,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     except Exception as e:
                         logger.exception(f"got error: {e}")
-                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                        personality = None
             
                     custom_prompt = Template(custom_prompt).substitute(
                         coach_info = coach_info,
@@ -244,7 +252,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     except Exception as e:
                         logger.exception(f"got error: {e}")
-                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                        personality = None
             
                     bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
                     faqs = bot_att.attached_faqs_context
@@ -316,6 +324,14 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    if qna_block:
+                        qna_block_text = ''
+                        for que, ans in qna_block.items():
+                            qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                        coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+
                     user_recent_idp = None
                     if test_attempt_session.is_idp_discussion_opted:
                         idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=test_attempt_session.participant_id, deleted=0).order_by('-created').first()
@@ -351,7 +367,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
                     except Exception as e:
                         logger.exception(f"got error: {e}")
-                        personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                        personality = None
             
                     custom_prompt = Template(avatar_bot_default_prompt()).substitute(
                         coach_info = coach_info,
@@ -368,7 +384,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                 signature_bot_question = anthropic_completion(custom_prompt,50000)
 
 
-                
+
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
@@ -633,6 +649,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            if qna_block:
+                qna_block_text = ''
+                for que, ans in qna_block.items():
+                    qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+
             user_recent_idp = None
             latest_session = session.order_by('-created').first()
             if latest_session.is_idp_discussion_opted:
@@ -670,7 +694,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             except Exception as e:
                 logger.exception(f"got error: {e}")
-                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                personality = None
             
 
             prompt = Template(prompt).substitute(
@@ -697,7 +721,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             except Exception as e:
                 logger.exception(f"got error: {e}")
-                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                personality = None
             
 
             session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
@@ -837,6 +861,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            if qna_block:
+                qna_block_text = ''
+                for que, ans in qna_block.items():
+                    qna_block_text += f"Question: {que} Answer: {ans}\n"
+
+                coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
+                
             user_recent_idp = None
             latest_session = session.order_by('-created').first()
             if latest_session.is_idp_discussion_opted:
@@ -874,7 +906,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             except Exception as e:
                 logger.exception(f"got error: {e}")
-                personality = "The person is highly flexible. This may lead to challenges such as difficulty setting boundaries, indecision, and susceptibility to manipulation. They may grapple with assertiveness, find it hard to maintain stability, and experience issues related to personal and professional relationships. Please provide a response that offers gentle guidance on establishing healthy boundaries, encourages confident decision-making, and promotes assertiveness."
+                personality = None
             
 
             prompt = Template(prompt).substitute(
@@ -1057,4 +1089,24 @@ def get_latest_session_notes_coach_coachee(coach_user_id,coachee_user_id,tenant_
     else:
         return None
 
+
+def get_qna_block_for_coach_mentor(coach_user_id,participant_id):
+    try:
+        participant_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=coach_user_id)
+        result = None
+        coach_mentor_qna = coach_profile.qna_for_coach_mentor
+        if coach_mentor_qna:
+            if participant_profile.profile_type == ProfileTypeChoice.coachee:
+                result = coach_mentor_qna.get('coach',None)
+            elif participant_profile.profile_type == ProfileTypeChoice.mentee:
+                result = coach_mentor_qna.get('mentor',None)
+
+        return result
+                
+        
+
+    except Exception as e:
+        logger.exception(f"Got Error while fetching qna block from coach or mentor : {e}")
+        return None
 
