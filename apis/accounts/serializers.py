@@ -49,7 +49,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'time_commitment',
                 'is_approved',  
                 'other_details',
-                'mob_number']
+                'mob_number',
+                'allow_coachee_to_create_session']
 
         extra_kwargs = {
             'uid': {'read_only': True},
@@ -123,6 +124,7 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
             data['coachee_email'] = coachee.email
             data['coachee_user_id'] = coachee.user_id
             data['coachee_name'] = coachee.name
+            data['allow_coachee_to_create_session'] = coach.allow_coachee_to_create_session
         except:
             data['coach_name'] = None
             data['coachee_name'] = None
