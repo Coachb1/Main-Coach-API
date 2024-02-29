@@ -1606,9 +1606,11 @@ class AccountsViewSet(ApiViewSet,
             user_id = request.query_params.get('user_id',None)
             coach_id = request.query_params.get('coach_id',None)
             coachee_id = request.query_params.get('coachee_id',None)
+            logger.info(f"**************** connection_id: {connection_id},  coach_id: {coach_id},  coachee_id: {coachee_id}, tenant_id: {self.request.tenant.uid}")
             if coach_id:
                 try:
                     connection = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=coach_id, tenant_id=self.request.tenant.uid)
+                    logger.info(f"#########################  coach connection: {connection}")
                     return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
@@ -1616,6 +1618,7 @@ class AccountsViewSet(ApiViewSet,
             if connection_id:
                 try:
                     connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id,tenant_id=self.request.tenant.uid)
+                    logger.info(f"#########################  connections: {connection}")
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
@@ -1624,6 +1627,7 @@ class AccountsViewSet(ApiViewSet,
             if coachee_id:
                 try:
                     connection = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
+                    logger.info(f"#########################  coachee connection: {connection}")
                     return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
