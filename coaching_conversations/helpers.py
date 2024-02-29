@@ -184,7 +184,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -324,7 +324,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -649,7 +649,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
@@ -861,7 +861,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id)
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
