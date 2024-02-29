@@ -167,6 +167,7 @@ class ClientUserInfo(TenantAwareModel):
     coach_skills = models.TextField(null=True, blank=True, default=get_default_values("skills"))
     coach_expertise = models.TextField(null=True, blank=True, default=get_default_values('expertise'))
     departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
+    coach_menor_previledge = models.TextField(null=True, blank=True, default=None)
 
 
 
