@@ -9,12 +9,16 @@ from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import threading
+import csv
+from io import TextIOWrapper
 
 
 from apis.accounts.aggregator import create_user_account
 from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer, CoachCoacheeConnectionSerializer
-from apis.accounts.serializers import SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer, SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer
+from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer,
+                                        SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
+                                        CoachCoacheeJoiningPreviledgeSerializer)
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -43,7 +47,7 @@ from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import avatar_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
-from utilities.models import UserActionInfo
+from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
                     
 from itertools import groupby
@@ -1902,3 +1906,43 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return  Response({"Error": f"Got Error in Feedback-leaderboard-report : {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    @action(methods=['GET','POST'],detail=False,url_path="user-can-join-as")
+    def user_can_join_as(self, request, *args, **kwargs):
+        if request.method == 'GET':
+            logger.info(f"***************** tenant_id: {request.tenant.uid}")
+            try:
+                previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                serializer = CoachCoacheeJoiningPreviledgeSerializer(previledges,many=True)
+                return Response(serializer.data,status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+            
+        if request.method == 'POST':
+            csv_file = request.FILES.get('csv_file')
+            logger.info(f"***************** csv_file: {csv_file}")
+        
+            csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
+            csv_reader = csv.DictReader(csv_text)
+
+            all_rows = list(csv_reader)
+
+            record_count = 0
+            errors = []
+            for row in all_rows:
+                logger.info(f"***************** row: {row}")
+                email, client_name, can_join_as = row['email'], row['client_name'], row['can_join_as']
+                try:
+                    CoachCoacheeJoiningPreviledge.objects.create(email=email,client_name=client_name,
+                                                                    can_join_as=can_join_as,
+                                                                    tenant_id=request.tenant.uid)
+                    record_count += 1
+                except Exception as e:
+                    logger.exception(e)
+                    errors.append(f"got error for {email}: {e}")
+                    continue
+
+
+            return Response({"msg":f"{record_count} records created","errors":errors},status=status.HTTP_200_OK)
