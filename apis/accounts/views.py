@@ -1918,10 +1918,25 @@ class AccountsViewSet(ApiViewSet,
         if request.method == 'GET':
             logger.info(f"***************** tenant_id: {request.tenant.uid}")
             try:
-                previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
-                serializer = CoachCoacheeJoiningPreviledgeSerializer(previledges,many=True)
-                return Response(serializer.data,status=status.HTTP_200_OK)
+                user_email = request.query_params.get('email',None)
+                tenant_id = self.request.tenant.uid
+                can_join_as = 'coachee'
+                if user_email:
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
+                    if client:
+                        coach_mentor_previledge = client.coach_menor_previledge
+                        if coach_mentor_previledge:
+                            coach_mentor_previledge = [email.strip() for email in coach_mentor_previledge.split(",")]
+                            if user_email in coach_mentor_previledge:
+                                can_join_as = 'coach'
+                            else:
+                                previledges = CoachCoacheeJoiningPreviledge.objects.filter(deleted=False,tenant_id=request.tenant.uid)
+                                previledges = previledges.filter(email=user_email.strip().lower()).first()
+                                can_join_as = previledges.can_join_as
+                    
+                return Response({"can_join_as": can_join_as},status=status.HTTP_200_OK)
             except Exception as e:
+                logger.exception({"error": f"got error in can-join-as {e}"})
                 return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
             
         if request.method == 'POST':
@@ -1937,7 +1952,7 @@ class AccountsViewSet(ApiViewSet,
             errors = []
             for row in all_rows:
                 logger.info(f"***************** row: {row}")
-                email, client_name, can_join_as = row['email'], row['client_name'], row['can_join_as']
+                email, client_name, can_join_as = row['email'].strip().lower(), row['client_name'], row['can_join_as']
                 try:
                     CoachCoacheeJoiningPreviledge.objects.create(email=email,client_name=client_name,
                                                                     can_join_as=can_join_as,

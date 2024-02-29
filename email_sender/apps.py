@@ -35,12 +35,12 @@ class EmailSenderConfig(AppConfig):
             minute=30,
             id='weekly_login_reminder',
         )
-        specific_date_time = datetime(2024, 2, 27, 15, 30)
-        scheduler.add_job(
-            testing,
-            trigger='date',
-            run_date=specific_date_time,
-            id='specific_date_time_job'
-        )
+        # specific_date_time = datetime(2024, 2, 27, 15, 30)
+        # scheduler.add_job(
+        #     testing,
+        #     trigger='date',
+        #     run_date=specific_date_time,
+        #     id='specific_date_time_job'
+        # )
 
         scheduler.start()
