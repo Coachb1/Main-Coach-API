@@ -1,6 +1,7 @@
 from django.db import models
 from tenants.models import TenantAwareModel
 from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice
+from utilities.choices import UserCanJoinAsChoices
 
 class JotUrlSession(models.Model):
     email = models.CharField(max_length=255)
@@ -138,3 +139,15 @@ class ScenarioCreationDetails(models.Model):
 
     class Meta:
         db_table = "scenario_creation_details"
+
+
+
+class CoachCoacheeJoiningPreviledge(TenantAwareModel):
+    email = models.CharField(max_length=255)
+    client_name = models.CharField(max_length=255)
+    can_join_as = models.CharField(max_length=255, choices=UserCanJoinAsChoices, default=UserCanJoinAsChoices.coachee)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "coach_coachee_joining_previledge"
+        unique_together = ('email', 'client_name', 'tenant_id')
