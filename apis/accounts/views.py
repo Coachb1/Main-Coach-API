@@ -652,13 +652,17 @@ class AccountsViewSet(ApiViewSet,
             # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
             #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
             #                    'aadil611ofc@gmail.com')
+            profile_type = created_profile.profile_type
+            if created_profile.is_mentor:
+                profile_type = ProfileTypeChoice.coach_mentor
+
             DirectoryPageInfo.objects.create(
                     name=created_profile.name,
                     profile_id=created_profile.uid,
                     department=created_profile.department,
                     bot_type=BotTypeChoice.feedback_bot,
                     profile_pic_url=created_profile.profile_image_url or "None",
-                    profile_type=created_profile.profile_type,
+                    profile_type=profile_type,
                     description=created_profile.about,
                     experience=created_profile.experience,
                     expertise=created_profile.area_domain,
@@ -967,13 +971,13 @@ class AccountsViewSet(ApiViewSet,
                     signature_bot.faqs = faqs
                     updated_fields.append("faqs")
 
-                if bot_type == BotTypeChoice.avatar_bot:
-                    try:
-                        prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
-                    except Exception as e:
-                        prompt = avatar_bot_default_prompt
-                    signature_bot.custom_prompt = prompt
-                    updated_fields.append("custom_prompt")
+                # if bot_type == BotTypeChoice.avatar_bot:
+                #     try:
+                #         prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
+                #     except Exception as e:
+                #         prompt = avatar_bot_default_prompt()
+                #     signature_bot.custom_prompt = prompt
+                #     updated_fields.append("custom_prompt")
 
                 if all_data:
                     signature_bot.data = all_data
