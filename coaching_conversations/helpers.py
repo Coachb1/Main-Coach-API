@@ -184,7 +184,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -324,7 +324,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -649,7 +649,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
@@ -681,7 +681,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                         }
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -861,7 +861,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
             current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
@@ -893,7 +893,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                         }
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -1050,7 +1050,7 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     logger.info(f"user_id: {user.uid}")
     user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid)
     logger.info(f"bot_user_Id: {bot.user_id}")
-    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id,profile_type=ProfileTypeChoice.coach)
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id)
     bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
     bot_user_name = bot_user_profile.name or bot_user.name
     bot_user_mob_no = bot_user_profile.mob_number
@@ -1090,10 +1090,10 @@ def get_latest_session_notes_coach_coachee(coach_user_id,coachee_user_id,tenant_
         return None
 
 
-def get_qna_block_for_coach_mentor(coach_user_id,participant_id):
+def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
     try:
-        participant_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
-        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=coach_user_id)
+        participant_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=participant_id).first()
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=coach_user_id).first()
         result = None
         coach_mentor_qna = coach_profile.qna_for_coach_mentor
         if coach_mentor_qna:
