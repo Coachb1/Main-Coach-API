@@ -708,8 +708,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
         conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
 
-        for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
-            send_bot_conversation_email(candidate_name, conv, email)
+        # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+            # send_bot_conversation_email(candidate_name, conv, recepients)
+        recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
+        # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
+        send_bot_conversation_email(candidate_name, conv, recepients, allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
