@@ -181,7 +181,7 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email):
+def send_bot_conversation_email(candidate_name, conversation, to_email, allow_reply = False):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 
@@ -189,7 +189,9 @@ def send_bot_conversation_email(candidate_name, conversation, to_email):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = f"Bot Conversation"
     msg['From'] = "Coachbots  <mail@coachbots.com>"
-    msg['To'] = to_email
+
+    if allow_reply:
+        msg['To'] = ', '.join(to_email)
 
     html_body = get_bot_conversation_email_body(candidate_name, conversation)
 
@@ -1071,6 +1073,7 @@ def get_bot_conversation_email_body(candidate_name,conversation):
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{candidate_name} interacted with bot </p>
+                            (NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly. Also after the email discussion is over, one participant should update the email discussion in the action items section of the platform.)
                             <table role="presentation" border="0" cellpadding="0" cellspacing="0" class=" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                             <tbody>
                                 <tr>
