@@ -52,7 +52,9 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'mob_number',
                 'allow_coachee_to_create_session',
                 'is_mentor',
-                'qna_for_coach_mentor'
+                'qna_for_coach_mentor',
+                'significant_challenges_and_solutions',
+                'common_phrases_and_expressions'
                 ]
 
         extra_kwargs = {
