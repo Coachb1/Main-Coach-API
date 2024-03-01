@@ -177,14 +177,14 @@ def initialize_coaching_conversation(tenant: Tenant,
                 for key,val in signature_bot.data.items():
                     coach_info += f"{key}:{val}\n"
 
-                sessions = TestAttemptSession.objects.filter(uid=test_attempt_session.uid)
+                sessions = TestAttemptSession.objects.filter(uid=test_attempt_session.uid) # current conversation
 
                 conversation_data= get_bot_conversation_data_user(sessions,tenant,test_attempt_session.participant_id,only_converation=True)
                 conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -237,6 +237,33 @@ def initialize_coaching_conversation(tenant: Tenant,
                         idp_report_data = user_recent_idp,
                         session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=test_attempt_session.participant_id,tenant_id=test_attempt_session.tenant_id)
                     )
+
+                elif signature_bot.bot_type == BotTypeChoice.coachbots:
+                    personality = None
+                    if signature_bot.use_personality_context:
+                        try:
+                            personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
+                            highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                            lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                            low_char_prompt = ""
+                            for l in lowest_charactersic_prompt:
+                                low_char_prompt += f"{l} "
+                            high_char_prompt = ""
+                            for l in highest_charactersic_prompt:
+                                high_char_prompt += f"{l} "
+                            personality = low_char_prompt + " " + high_char_prompt
+
+                        except Exception as e:
+                            logger.exception(f"got error: {e}")
+                            personality = None
+
+                    custom_prompt = Template(custom_prompt).substitute(
+                        user_intake = initial_que_ans,
+                        user_context = conversation_history,
+                        user_personality = personality
+
+                    )
+
                 elif signature_bot.bot_type == 'helper_bot':
                     try:
                         personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=test_attempt_session.participant_id).first()
@@ -324,7 +351,7 @@ def initialize_coaching_conversation(tenant: Tenant,
 
 
                 if signature_bot.bot_type == 'avatar_bot':
-                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id)
+                    qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
                         for que, ans in qna_block.items():
@@ -643,13 +670,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         coach_info = ""
         for key,val in signature_bot.data.items():
             coach_info += f"{key}: {val}\n"
+
+        current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+        current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
             
         if bot_type == 'avatar_bot':
-
-            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
-            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
-
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
+            
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
@@ -681,7 +709,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                         }
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -699,11 +727,36 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = conversation_history,
+                conversation_history = current_conv,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None,
                 idp_report_data = user_recent_idp,
                 session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id,tenant_id=tenant.uid)
+            )
+
+        elif signature_bot.bot_type == BotTypeChoice.coachbots:
+            personality = None
+            if signature_bot.use_personality_context:
+                try:
+                    personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
+                    highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
+                    lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
+                    low_char_prompt = ""
+                    for l in lowest_charactersic_prompt:
+                        low_char_prompt += f"{l} "
+                    high_char_prompt = ""
+                    for l in highest_charactersic_prompt:
+                        high_char_prompt += f"{l} "
+                    personality = low_char_prompt + " " + high_char_prompt
+
+                except Exception as e:
+                    logger.exception(f"got error: {e}")
+                    personality = None
+
+            custom_prompt = Template(custom_prompt).substitute(
+                user_intake = initial_que_ans,
+                user_context = current_conv,
+                user_personality = personality
             )
 
         elif bot_type == 'helper_bot':
@@ -724,12 +777,6 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 personality = None
             
 
-            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
-                                                        uid=test_attempt_session_id,
-                                                        deleted=0
-                                                        )
-            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
-            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
             bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
             faqs = bot_att.attached_faqs_context
@@ -783,12 +830,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             
         elif bot_type == 'subject_matter_bot':
-            session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
-                                                        uid=test_attempt_session_id,
-                                                        deleted=0
-                                                        )
-            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
-            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+            
             bot_att = BotAttribute.objects.get(bot_id = signature_bot.uid)
             faqs = bot_att.attached_faqs_context
             faqs_text = ""
@@ -854,14 +896,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         coach_info = ""
         for key,val in signature_bot.data.items():
             coach_info += f"{key}: {val}\n"
+
+        current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
+        current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
+
             
         if bot_type == 'avatar_bot':
             prompt = avatar_bot_default_prompt()
-
-            current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
-            current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
-
-            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id)
+            qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
                 for que, ans in qna_block.items():
@@ -893,7 +935,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                         }
 
             try:
-                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id,profile_type=ProfileTypeChoice.coachee).first()
+                personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
@@ -911,7 +953,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = conversation_history,
+                conversation_history = current_conv,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None,
                 idp_report_data = user_recent_idp,
@@ -1050,7 +1092,7 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     logger.info(f"user_id: {user.uid}")
     user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid)
     logger.info(f"bot_user_Id: {bot.user_id}")
-    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id,profile_type=ProfileTypeChoice.coach)
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id)
     bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
     bot_user_name = bot_user_profile.name or bot_user.name
     bot_user_mob_no = bot_user_profile.mob_number
@@ -1090,10 +1132,10 @@ def get_latest_session_notes_coach_coachee(coach_user_id,coachee_user_id,tenant_
         return None
 
 
-def get_qna_block_for_coach_mentor(coach_user_id,participant_id):
+def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
     try:
-        participant_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id)
-        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=coach_user_id)
+        participant_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=participant_id).first()
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=coach_user_id).first()
         result = None
         coach_mentor_qna = coach_profile.qna_for_coach_mentor
         if coach_mentor_qna:

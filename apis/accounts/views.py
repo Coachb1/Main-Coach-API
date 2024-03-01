@@ -374,7 +374,7 @@ class AccountsViewSet(ApiViewSet,
             if bot_att.initial_qnas:
                 data['initial_qna'] = bot_att.initial_qnas
 
-            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id,profile_type=ProfileTypeChoice.coach,bot_ids__icontains=bot_id)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id)
             for i in coach_profile:
                 data["coaching_for_fitment"] = i.coaching_for_fitment.lower() if i.coaching_for_fitment else None
 
@@ -1533,8 +1533,9 @@ class AccountsViewSet(ApiViewSet,
                     }
                     profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user.uid)
                     for p in profiles:
-                        if p.profile_type == ProfileTypeChoice.coach:
-                            temp['profile_type'] = p.profile_type
+                        temp['profile_type'] = p.profile_type
+                        temp['is_mentor'] = p.is_mentor
+
 
                     temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
                     data.append(temp)
@@ -1544,7 +1545,7 @@ class AccountsViewSet(ApiViewSet,
                 for user_id in user_ids_list:
                     if user_id not in existing_user_ids:
                         user = get_user_by_id(user_id)
-                        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).first()
+                        # profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).first()
                         temp = {
                             "name": get_user_display_name(user),
                             "user_id": user.uid,
@@ -1554,13 +1555,13 @@ class AccountsViewSet(ApiViewSet,
                             "total_simulations": 0,
                             "total_bot_interactions": 0,
                             "session_notes_count": 0,
-                            "profile_type": profile.profile_type if profile else 'coachee',
+                            "profile_type": 'coachee',
                             'total_score': 0
                         }
                         profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id=user.uid)
                         for p in profiles:
-                            if p.profile_type == ProfileTypeChoice.coach:
-                                temp['profile_type'] = p.profile_type
+                            temp['profile_type'] = p.profile_type
+                            temp['is_mentor'] = p.is_mentor
 
                         data.append(temp)
                     
