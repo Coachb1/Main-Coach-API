@@ -219,6 +219,8 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     allow_coachee_to_create_session = models.BooleanField(null=True, blank=True, default=False)
     is_mentor = models.BooleanField(null=True, blank=True, default=False)
     qna_for_coach_mentor = models.JSONField(null=True, blank=True, default=None)
+    significant_challenges_and_solutions = models.TextField(null=True, blank=True, default=None)
+    common_phrases_and_expressions = models.TextField(null=True, blank=True, default=None)
 
 
     
