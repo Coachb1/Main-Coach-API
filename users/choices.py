@@ -26,6 +26,8 @@ class BotTypeChoice(DjangoChoices):
     feedback_bot = ChoiceItem("feedback_bot")
     subject_matter_bot = ChoiceItem("subject_matter_bot")
     helper_bot = ChoiceItem("helper_bot")
+    coachbots = ChoiceItem("coachbots")
+    user_bot = ChoiceItem("user_bot")
 
 
 
