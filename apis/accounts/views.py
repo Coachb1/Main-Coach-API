@@ -45,7 +45,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import avatar_bot_default_prompt
+from coaching_conversations.helpers import signature_bot_default_prompt
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
@@ -1026,6 +1026,8 @@ class AccountsViewSet(ApiViewSet,
                         bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
                     elif bot_type == BotTypeChoice.helper_bot:
                         bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
+                    elif bot_type == BotTypeChoice.user_bot:
+                        bot_url = f"{bot_base_url}/custom-bot/{bot_id}"
 
                     bot_snippet = f"""
                                 <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
@@ -1046,9 +1048,9 @@ class AccountsViewSet(ApiViewSet,
 
                     coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
 
+                    directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid).first()
                     if bot_type == BotTypeChoice.avatar_bot:
-                        directories = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
-                        for directory in directories:
+                        if directory:
                             directory.avatar_bot_id = bot_id
                             directory.avatar_snippit = bot_snippet
                             directory.avatar_bot_url = bot_url
@@ -1056,11 +1058,14 @@ class AccountsViewSet(ApiViewSet,
 
                         
                     if bot_type == BotTypeChoice.feedback_bot:
-                        directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid)
+                        if directory:
+                            directory.feedback_wall = bot_url
+                            directory.save(update_fields=['feedback_wall'])
 
-                        for direc in directory:
-                            direc.feedback_wall = bot_url
-                            direc.save(update_fields=['feedback_wall'])
+                    if bot_type == BotTypeChoice.user_bot:
+                        if directory:
+                            directory.custom_user_bot_url = bot_url
+                            directory.save(update_fields=['custom_user_bot_url'])
 
                     
                 except Exception as e:
@@ -1070,13 +1075,15 @@ class AccountsViewSet(ApiViewSet,
             
             except Exception as e:
                 logger.exception("Got error while creating bot: {e}")
-                try:
-                    coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
-                    coach_profile.deleted = True
-                    coach_profile.save(update_fields=["deleted"])
-                    DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
-                except Exception as e:
-                    logger.error(f"Got error in crating bot : profile_id is missing")
+                bot_type = data.get('bot_type')
+                if bot_type == BotTypeChoice.avatar_bot:
+                    try:
+                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                        coach_profile.deleted = True
+                        coach_profile.save(update_fields=["deleted"])
+                        DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
+                    except Exception as e:
+                        logger.error(f"Got error in crating bot : profile_id is missing")
 
                 return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
 
