@@ -405,9 +405,10 @@ def initialize_coaching_conversation(tenant: Tenant,
                     )
 
                 elif signature_bot.bot_type == BotTypeChoice.user_bot:
-                    coach_info += "\n FAQS: \n"
-                    for que, ans in signature_bot.faqs.items():
-                        coach_info += f"Question: {que}, Answer: {ans}\n"
+                    if signature_bot.faqs:
+                        coach_info += "\n FAQS: \n"
+                        for que, ans in signature_bot.faqs.items():
+                            coach_info += f"Question: {que}, Answer: {ans}\n"
 
                     custom_prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.user_bot)).safe_substitute(
                         user_info = coach_info,
@@ -969,9 +970,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             )
 
         elif signature_bot.bot_type == BotTypeChoice.user_bot:
-            coach_info += "\n FAQS: \n"
-            for que, ans in signature_bot.faqs.items():
-                coach_info += f"Question: {que}, Answer: {ans}\n"
+            if signature_bot.faqs:
+                coach_info += "\n FAQS: \n"
+                for que, ans in signature_bot.faqs.items():
+                    coach_info += f"Question: {que}, Answer: {ans}\n"
 
             prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.user_bot)).safe_substitute(
                 user_info = coach_info,
