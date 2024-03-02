@@ -375,6 +375,7 @@ class AccountsViewSet(ApiViewSet,
                 data['initial_qna'] = bot_att.initial_qnas
 
             coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id)
+
             for i in coach_profile:
                 data["coaching_for_fitment"] = i.coaching_for_fitment.lower() if i.coaching_for_fitment else None
 
@@ -1975,3 +1976,36 @@ class AccountsViewSet(ApiViewSet,
 
 
             return Response({"msg":f"{record_count} records created","errors":errors},status=status.HTTP_200_OK)
+        
+
+
+    @action(methods=['GET'],detail=False,url_path="user-bot-connection-status")
+    def user_bot_connection_status(self, request, *args, **kwargs):
+        """
+        This method retrieves the connection status of a user with a bot.
+
+        Args:
+            request: A Django HttpRequest object. Contains metadata about the request.
+                The request query parameters should include 'user_id' and 'bot_id'.
+
+        Returns:
+            A Django HttpResponse object. Contains the connection status of the user with the bot.
+
+        Example:
+            GET /user-bot-connection-status?user_id=1&bot_id=2
+            Response: {"status": "connected"}
+        """
+        user_id = request.query_params.get('user_id',None)
+        coach_user_id = request.query_params.get('coach_user_id',None)
+        logger.info(f"****************** user_id: {user_id}, coach_user_id: {coach_user_id}, tenant_id: {request.tenant.uid}")
+        if None in [user_id,coach_user_id]:
+            return Response({"error":"user_id and coach_user_id are required"},status=status.HTTP_400_BAD_REQUEST)
+        try:
+            coachee_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=user_id, tenant_id=request.tenant.uid)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=coach_user_id, tenant_id=request.tenant.uid)
+            connection = CoachCoacheeConnection.objects.get(deleted=False,coachee_id=coachee_profile.uid,coach_id=coach_profile.uid,
+                                                            status=CoachCoacheeConnectionStatusChoice.accepted, tenant_id=request.tenant.uid)
+            return Response({"connected":True},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"connected":False, "error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
