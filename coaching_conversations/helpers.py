@@ -766,7 +766,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     logger.exception(f"got error: {e}")
                     personality = None
 
-            custom_prompt = Template(custom_prompt).safe_substitute(
+            prompt = Template(prompt).safe_substitute(
                 user_intake = initial_que_ans,
                 user_context = current_conv,
                 user_personality = personality

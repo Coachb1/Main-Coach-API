@@ -19,6 +19,7 @@ class ProfileTypeChoice(DjangoChoices):
     mentee = ChoiceItem("mentee")
     coach_mentor = ChoiceItem("coach-mentor") # it has "-" because it contains two profiletype
     skill_bot = ChoiceItem("skill_bot")
+    coachbots = ChoiceItem("coachbots")
 
 
 class BotTypeChoice(DjangoChoices):
