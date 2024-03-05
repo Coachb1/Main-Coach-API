@@ -6861,7 +6861,7 @@ def get_prompt_for_feedback_bot(site_information):
 
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. Keep the context Indian. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
 
-                Title - Give a specific and relevant title for this description. The title should not be less than 5 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
 
                 Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions. All the questions should be asked to the same person. If the situation is for team member only ask the questions from the team member.
 
@@ -6889,6 +6889,8 @@ def get_prompt_for_feedback_bot(site_information):
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
 
                 NOTE : Make sure the simulation is very advanced and tough.
@@ -6908,7 +6910,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
 
                         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-                        Title - Give a specific and relevant title for this description. The title should not be less than 5 words. The title should always be directly related to the given description. Make it very specific to the description.
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
                         Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
                         Output format - Manager name: Question
                         Prompts - As given in the output format. 
@@ -6938,6 +6940,8 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         Do not include any response.
                         Always provide the output in the given format. 
 
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
                         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
                         
                         NOTE : Make sure the situation is very advanced and tough.
@@ -6952,7 +6956,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
                 Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
 
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
-                Title - Give a specific and relevant title for this description. The title should not be less than 5 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
                 Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
                 Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
@@ -6975,6 +6979,9 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
+
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
                 
                 NOTE: "Rating" must be included.
@@ -7272,7 +7279,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         Read this {information} thoroughly. Now based on this information and your understanding create 5 advanced and detailed situations to practice the skills presented in the {information}. After creating the situation provide these:
 
         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description. The title should not be less than 5 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
         Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
         Output format - Manager name: Question
 
@@ -7288,6 +7295,8 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
 
         Do not include any response.
         Repeat for 5 scenarios.
+        
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
 
         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
@@ -7304,7 +7313,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between two team members to practice the skills presented in the {information}. After creating the situation provide these:
 
         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between two team members. Make the description specific based on data, industry, events, etc. Give the name of the team members. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description. The title should not be less than 5 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
         Questions - Give me the first question the team member will ask another team member based on the situation. The question should be deep, contextual and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
         Output format - Name: Question
 
@@ -7317,6 +7326,8 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         "Question:",
 
         Do not include any {responder} response.
+
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
 
         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
