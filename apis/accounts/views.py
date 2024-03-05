@@ -749,7 +749,7 @@ class AccountsViewSet(ApiViewSet,
                 if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                     return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                 
-                if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot :
+                if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot and bot_type != BotTypeChoice.user_bot:
                     return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1006,7 +1006,7 @@ class AccountsViewSet(ApiViewSet,
                     updated_fields.append("coach_email")
                 
 
-                if initial_qna and bot_type != BotTypeChoice.feedback_bot:
+                if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
                     bot_att.initial_qnas = initial_qna
                     updated_fields.append("initial_qnas")
 
