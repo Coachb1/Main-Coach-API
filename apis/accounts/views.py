@@ -957,7 +957,13 @@ class AccountsViewSet(ApiViewSet,
                                                     "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
                                                 }
                 
-                initial_qna = {"1": "Before we begin the session, hope you have checked the fitment. In any case, I would like to know more about you - as a person, your challenges, aspirations, and whatever you feel comfortable sharing.", "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.", "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?", "4": "Do you believe your solutions have worked so far? Why or why not?"}
+                initial_qna = {
+                        "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
+                        "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
+                        "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
+                        "4": "Do you believe your solutions have worked so far? Why or why not?",
+                        "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
+                    }
                 if initial_questions:
                     initial_qna = initial_questions
                 updated_fields = []
@@ -1446,17 +1452,15 @@ class AccountsViewSet(ApiViewSet,
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=0,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list("uid",flat=True))
-                
+                bot_ids = []
                 if client.accessed_bot_ids:
-                    bot_ids = client.accessed_bot_ids.split(',')
-                    bot_profile_ids = []
-                    for bot_id in bot_ids:
-                        bot_profile_ids.extend(list(CoachCoacheeMentorMenteeProfile.objects.filter(bot_ids__contains=bot_id).values_list("uid",flat=True)))
-                    profile_ids.extend(bot_profile_ids)
-                    profile_ids = list(set(profile_ids))
-                    logger.info(f"accessed_bots: {bot_ids},bot_profile_ids: {bot_profile_ids}, profile_ids: {profile_ids}")
+                    bot_ids = [bot_id.strip() for bot_id in client.accessed_bot_ids.split(',')]
+                logger.info(f"accessed_bots: {bot_ids}, profile_ids: {profile_ids}")
 
-                directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True,profile_id__in = profile_ids)
+                directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True,
+                                                                
+                                                            ).filter(Q(profile_id__in=profile_ids) | Q(avatar_bot_id__in = bot_ids))
+                
                 serializer = DirectoryInfoSErializer(directories,many=True)
             else:
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
