@@ -219,10 +219,10 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
 
     html_body= ''
     if type_of_email == 'like' or type_of_email == 'dislike':
-        msg = f"{candidate_name} Disliked Your Bot "
+        text = f"{candidate_name} Disliked Your Bot "
         if type_of_email == 'like':
-            msg = f"{candidate_name} Liked Your Bot "
-        html_body = get_like_dislike_email_body(msg)
+            text = f"{candidate_name} Liked Your Bot "
+        html_body = get_like_dislike_email_body(text)
     elif type_of_email == 'feedback_conv':
         html_body = get_feedback_conv_email_body(candidate_name, conversation)
 
