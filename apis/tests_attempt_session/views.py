@@ -766,7 +766,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
-            save_user_action_info(tenant.uid,user_id,"feedback_recieved")
             bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
@@ -777,6 +776,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         conv = []
         if  type_of_email == 'feedback_conv':
+            save_user_action_info(tenant.uid,user_id,"feedback_recieved")
             conversation = json.loads(conversation)
             for key, value in conversation.items():
                 conv.append({
