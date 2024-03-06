@@ -218,8 +218,11 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
 
 
     html_body= ''
-    if type_of_email == 'like_or_dislike':
-        html_body = get_like_dislike_email_body(candidate_name)
+    if type_of_email == 'like' or type_of_email == 'dislike':
+        text = f"{candidate_name} Disliked Your Bot "
+        if type_of_email == 'like':
+            text = f"{candidate_name} Liked Your Bot "
+        html_body = get_like_dislike_email_body(text)
     elif type_of_email == 'feedback_conv':
         html_body = get_feedback_conv_email_body(candidate_name, conversation)
 
@@ -584,7 +587,7 @@ def get_generic_email_body(content):
     """
 
 
-def get_like_dislike_email_body(candidate_name):
+def get_like_dislike_email_body(content):
     return f"""
     <!doctype html>
     <html>
@@ -703,7 +706,7 @@ def get_like_dislike_email_body(candidate_name):
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{candidate_name} Liked Your Bot </p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{content}</p>
                             
             
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
