@@ -1083,7 +1083,10 @@ class AccountsViewSet(ApiViewSet,
 
                     if bot_type == BotTypeChoice.user_bot:
                         if directory:
-                            directory.custom_user_bot_url = bot_url
+                            if directory.custom_user_bot_url:
+                                directory.custom_user_bot_url += f",{bot_url}"
+                            else:
+                                directory.custom_user_bot_url = bot_url
                             directory.save(update_fields=['custom_user_bot_url'])
 
                     
