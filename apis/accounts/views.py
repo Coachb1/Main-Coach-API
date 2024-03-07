@@ -775,7 +775,7 @@ class AccountsViewSet(ApiViewSet,
                 if bot_name is None or bot_name == '':
                     return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
-                bot_id = "-".join([bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-")])
+                bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-")])
                 existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                 if existing_bots.count() > 0:
                     return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
@@ -1046,7 +1046,7 @@ class AccountsViewSet(ApiViewSet,
                     elif bot_type == BotTypeChoice.helper_bot:
                         bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
                     elif bot_type == BotTypeChoice.user_bot:
-                        bot_url = f"{bot_base_url}/custom-bot/{bot_id}"
+                        bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
 
                     bot_snippet = f"""
                                 <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
