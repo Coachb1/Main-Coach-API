@@ -123,7 +123,7 @@ class DirectoryPageInfo(models.Model):
     is_approved = models.BooleanField(blank=True,default=False)
     avatar_snippit = models.TextField(default=None,null=True,blank=True)
     avatar_bot_url = models.TextField(default=None,null=True,blank=True)
-    custom_user_bot_url = models.CharField(max_length=120,null=True,blank=True,default=None)
+    custom_user_bot_url = models.TextField(null=True,blank=True,default=None)
     
     class Meta:
         db_table = "directory_information"
