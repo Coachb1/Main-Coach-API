@@ -1265,6 +1265,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         logger.info("Login successful")
         valid_rows = []
         response = None
+        occured_errors = []
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1351,19 +1352,28 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                 else:
                     if "unmatched_skills" in json_data:
-                        return {
-                            "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
-                            "exception": True,
-                        }
+                        occured_errors.append("Mismatching skills")
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                        # return {
+                        #     "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
+                        #     "exception": True,
+                        # }
                     
                     elif "error" in json_data:
-                        return {
-                            "errors": [json_data["error"]],
-                            "exception": True,
-                        }
-                        
-                    test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = "Not Created For This Title"
+                        occured_errors.append(json_data["error"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = json_data["error"]
+                        # return {
+                        #     "errors": [json_data["error"]],
+                        #     "exception": True,
+                        # }
+                    else:
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = "Not Created For This Title Because of it is not suiatable for checkin type test"
+                    
+                        occured_errors.append("Not Created For This Title Because of it is not suiatable for checkin type test")
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1382,12 +1392,21 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             # Delete the csv file
             os.remove('test_name_test_code_map.csv')
 
-            return {
-                "success": True,
+            print('occured', len(occured_errors))
+            if len(occured_errors)> 0:
+                return {
                 "message": "Test created successfully",
-                'errors': [],
+                'errors': occured_errors,
+                "exception": True,
                 'file_response': file_response,
             }
+            else:
+                return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
 
         except Exception as e:
             logger.error(e)
@@ -1455,6 +1474,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
         logger.info("Login successful")
         valid_rows = []
         response = None
+        occured_errors = []
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1528,17 +1548,27 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         raise Exception("API call failed")
                 else:
                     if "last_question_for_user" in json_data:
-                        return {
-                            "errors": [json_data['last_question_for_user']],
-                            "exception": True,
-                        }
+                        occured_errors.append(json_data['last_question_for_user'])
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = json_data['last_question_for_user']
+                        # return {
+                        #     "errors": [json_data['last_question_for_user']],
+                        #     "exception": True,
+                        # }
                     elif "error" in json_data:
-                        return {
-                            "errors": [json_data["error"]],
-                            "exception": True,
-                        }
-                    test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = "Not Created For This Title"
+                        occured_errors.append(json_data["error"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = json_data["error"]
+                        # return {
+                        #     "errors": [json_data["error"]],
+                        #     "exception": True,
+                        # }
+                    else:
+                        occured_errors.append("Not Created For This Title, Reason: Check-in type")
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = "Not Created For This Title, Reason: Check-in type"
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1557,12 +1587,21 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             # Delete the csv file
             os.remove('test_name_test_code_map.csv')
 
-            return {
-                "success": True,
+            print('occured', len(occured_errors))
+            if len(occured_errors)> 0:
+                return {
                 "message": "Test created successfully",
-                'errors': [],
+                'errors': occured_errors,
+                "exception": True,
                 'file_response': file_response,
             }
+            else:
+                return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
 
         except Exception as e:
             logger.error(e)
