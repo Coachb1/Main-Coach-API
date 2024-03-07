@@ -547,19 +547,32 @@ class AccountsViewSet(ApiViewSet,
                             msg_data.append({
                                 "participant_name": participant_name,
                                 "date": feed.created,
-                                "msg": feed.participant_qna
+                                "msg": feed.participant_qna,
+                                "participant_id": feed.participant_id
+
                             })
-                    else:
+                    elif feedback_type == 'positive':
                         if feed.is_positive:
                             msg_data.append({
                                 "participant_name": participant_name,
                                 "date": feed.created,
-                                "msg": feed.participant_qna
+                                "msg": feed.participant_qna,
+                                "participant_id": feed.participant_id
+
                             })
+                    else:
+                        msg_data.append({
+                            "participant_name": participant_name,
+                            "date": feed.created,
+                            "msg": feed.participant_qna,
+                            "participant_id": feed.participant_id
+                        })
                 if feedback_type == "negative":
                     data['critical_msgs'] = msg_data
-                else:
+                elif feedback_type == 'positive':
                     data['positive_msgs'] = msg_data
+                else:
+                    data['message'] = msg_data
 
             elif method.lower() == 'post':
                 feedback_qna = request.query_params.get('qna',None)
