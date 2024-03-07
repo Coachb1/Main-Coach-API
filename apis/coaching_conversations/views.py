@@ -180,7 +180,9 @@ class CoachingConversationViewSet(ApiViewSet,
         participant_message_url = serializer.validated_data.get(
             "participant_message_url")
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
-
+        is_prompt_only = serializer.validated_data.get("is_prompt_only", False)
+        
+        logger.info("************************** is_prompt_only: {}".format(is_prompt_only))
 
         next_conversation = continue_coaching_conversation(
             tenant=request.tenant,
@@ -188,6 +190,7 @@ class CoachingConversationViewSet(ApiViewSet,
             participant_message_text=participant_message_text,
             participant_message_url=participant_message_url,
             is_signature_bot=is_signature_bot,
+            is_prompt_only = is_prompt_only
         )
 
         return Response(

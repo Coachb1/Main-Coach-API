@@ -427,7 +427,8 @@ def continue_coaching_conversation(tenant: Tenant,
                                    reply_to_conversation: CoachingConversation,
                                    participant_message_text: str,
                                    participant_message_url: str,
-                                   is_signature_bot: bool) -> CoachingConversation:
+                                   is_signature_bot: bool,
+                                   is_prompt_only: bool) -> CoachingConversation:
     """
     Continues a coaching conversation by saving the participant's message, retrieving the test and session information,
     processing the participant's message based on the interaction mode, generating a response using OpenAI GPT-3.5,
@@ -531,7 +532,7 @@ def continue_coaching_conversation(tenant: Tenant,
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
-        response = anthropic_completion(prompt,50000)
+        response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
     else:
         question = TestQuestion.objects.get(
         tenant_id=tenant.uid, test_id=test_attempt_session.test_id, deleted=0)
@@ -549,14 +550,15 @@ def continue_coaching_conversation(tenant: Tenant,
                     "raw": gpt_feedback.raw,
                     "text": gpt_feedback.text,
                 }
-            }
+            },
+            "prompt": prompt,
         }
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=reply_to_conversation.test_attempt_session_id,
         coach_message_text=gpt_feedback.text if not is_signature_bot else response,
-        coach_message_metadata=coach_message_metadata if not is_signature_bot else None
+        coach_message_metadata=coach_message_metadata if not is_signature_bot else {"prompt": prompt}
     )
 
     return next_conversation
