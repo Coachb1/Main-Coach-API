@@ -1,5 +1,4 @@
 from django.shortcuts import render, HttpResponse
-from rest_framework.response import Response
 import json
 
 from test_bulk_upload.scripts import create_test_slack, create_test_web, create_test_orchestrated_conversation_slack
