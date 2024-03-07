@@ -49,7 +49,7 @@ def initialize_weekly_email_schedular():
         testing,
         trigger='cron',
         day_of_week='thu',
-        hour=18,
+        hour=19,
         minute=10,
         id='testing_job'
     )
