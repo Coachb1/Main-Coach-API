@@ -6,10 +6,8 @@ class EmailSenderConfig(AppConfig):
     name = 'email_sender'
 
     def ready(self) -> None:
-        from email_sender.jobs import initialize_weekly_email_schedular
-        print(os.environ.get('RUN_MAIN'))
-        if os.environ.get('RUN_MAIN'):
-            initialize_weekly_email_schedular()
+        from email_sender.jobs import initialize_weekly_email_schedular        
+        initialize_weekly_email_schedular()
 
 
 
