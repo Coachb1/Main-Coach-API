@@ -6,6 +6,9 @@ from rest_framework.response import Response
 import pytz
 import datetime
 import json
+from django.http import StreamingHttpResponse
+import time
+import anthropic
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
@@ -39,6 +42,7 @@ from utilities.models import UserActionInfo, BotQnA
 
 
 logger = logging.getLogger(__name__)
+ANTHROPIC_KEY = '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'
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -1208,4 +1212,39 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
         
+        
+    # @action(methods=['GET'],detail=False,url_path="stream")
+    
+def stream(request):
+    conv_id = request.GET.get('conv_id')
+    logger.info(f"################################### Conv ID: {conv_id}")
 
+    try:
+        conv = CoachingConversation.objects.get(uid=conv_id)
+    except Exception as e:
+        logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+        def event_stream():
+            yield 'data: %s\n\n' % "Conversation not found"
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    
+    logger.info(f"################################### Prompt: {conv.coach_message_metadata}")
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+
+    try:
+        prompt = conv.coach_message_metadata['prompt']
+    except Exception as e:
+        logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+        def event_stream():
+            yield 'data: %s\n\n' % "Error in generating response"
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    def event_stream():
+        with client.messages.stream(
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+            model="claude-2.1",
+        ) as stream:
+            for text in stream.text_stream:
+                yield 'data: %s\n\n' % text
+
+    return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
