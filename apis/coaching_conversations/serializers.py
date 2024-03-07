@@ -15,6 +15,7 @@ class ReplyCoachingConversationSerializer(serializers.Serializer):
     participant_message_url = serializers.CharField(
         required=False, default="", allow_null=True, allow_blank=True)
     is_signature_bot = serializers.BooleanField(default=False,required=False)
+    is_prompt_only = serializers.BooleanField(default=False,required=False)
 
     def validate(self, attrs):
         if not attrs.get("participant_message_url") and not attrs.get("participant_message_text"):
@@ -28,7 +29,7 @@ class CoachingConversationDisplaySerializer(serializers.ModelSerializer):
         model = CoachingConversation
         fields = ["uid",
                   "coach_message_text",
-                  "participant_message_text",
+                  "participant_message_text","coach_message_metadata",
                   "status",
                   "created",
                   "updated"]

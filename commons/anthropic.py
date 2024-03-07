@@ -5,6 +5,7 @@ from django.conf import settings
 import time
 import random
 from commons.timeit import timeit
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +27,19 @@ def anthropic_completion(prompt, max_tokens):
         Exception: If the maximum number of retries is reached and the API call still fails.
 
     """
-    client = anthropic.Client(ANTHROPIC_KEY)
+    client = anthropic.Client(api_key=ANTHROPIC_KEY)
 
     max_retries = 10
 
     while True:
         try:
             logger.info({"****evaluate_response ":f"trying anthropic for {10 - max_retries + 1} time"})
-            response = client.completion(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
+            response = client.completions.create(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
                                          model='claude-2', max_tokens_to_sample=max_tokens,
                                          stop_sequences=[anthropic.HUMAN_PROMPT])
             logger.info("anthropic_completion response %s", response)
-            return response['completion']
+            
+            return json.loads(response.json())['completion']
 
         except Exception as e:
             logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
