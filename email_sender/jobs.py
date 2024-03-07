@@ -12,10 +12,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def testing():
-    time.sleep(3)
-    print("running...")
-    send_email_with_html_template(subject="Testing",html_content="schdular working",to_email='bagoriarajan@gmail.com')
+# def testing():
+#     print("running...")
+#     send_email_with_html_template(subject="Testing",html_content="schdular working",to_email='bagoriarajan@gmail.com')
 
 
 def initialize_weekly_email_schedular():
@@ -45,12 +44,12 @@ def initialize_weekly_email_schedular():
         minute=30,
         id='weekly_login_reminder',
     )
-    
+
     scheduler.add_job(
         testing,
         trigger='cron',
         day_of_week='thu',
-        hour=17,
+        hour=18,
         minute=10,
         id='testing_job'
     )
@@ -201,5 +200,6 @@ def get_total_actions_on_platform_over_week(tenant_id):
 
 
 def testing():
+    print('printitiitiklsdfjkldslfjkjaskjfjsfjlsdsjj')
     send_email_with_html_template(subject="scheduler working",html_content="Hye sceduler is working",to_email='bagoriarajan@gmail.com')
 
