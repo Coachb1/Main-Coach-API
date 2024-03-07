@@ -3,13 +3,59 @@ from users.models import CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile
 from tests.models import TestAttemptSession
 from email_sender.helpers import send_email_with_html_template
 import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+import time
+
 
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+def testing():
+    time.sleep(3)
+    print("running...")
+    send_email_with_html_template(subject="Testing",html_content="schdular working",to_email='bagoriarajan@gmail.com')
 
+
+def initialize_weekly_email_schedular():
+    scheduler = BackgroundScheduler()
+    job_defaults = {
+                    'coalesce': False,
+                    'max_instances': 3,
+                    'replace_existing': True,
+                    'misfire_grace_time': 120
+                    }
+    scheduler.configure(job_defaults=job_defaults)
+    ## adding weekily email scheduler for touch point reminder for session 
+    scheduler.add_job(
+        touch_point_for_session_weekly,
+        trigger='cron',
+        day_of_week='mon',
+        hour=11,
+        minute=0,
+        id="touch_point"
+    )
+
+    scheduler.add_job(
+        weekly_remider_to_login,
+        trigger='cron',
+        day_of_week='mon',
+        hour=11,
+        minute=30,
+        id='weekly_login_reminder',
+    )
+    
+    scheduler.add_job(
+        testing,
+        trigger='cron',
+        day_of_week='thu',
+        hour=17,
+        minute=10,
+        id='testing_job'
+    )
+
+    scheduler.start()
 
 def touch_point_for_session_weekly():
     

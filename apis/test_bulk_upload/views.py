@@ -50,6 +50,9 @@ def process_slack_file(request):
         result = create_test_slack(file, email, password, subdomain_prefix)
 
         if (len(result['errors']) > 0):
+            if result.get('file_response'):
+                file_response_content = result['file_response'].content.decode('utf-8')
+                result['file_response'] = file_response_content
             return HttpResponse(content=json.dumps(result), status=400)
         else:
             return result['file_response']
@@ -63,6 +66,9 @@ def process_orchestrated_conversation_slack_file(request):
         result = create_test_orchestrated_conversation_slack(file, email, password, subdomain_prefix)
 
         if (len(result['errors']) > 0):
+            if result.get('file_response'):
+                file_response_content = result['file_response'].content.decode('utf-8')
+                result['file_response'] = file_response_content
             return HttpResponse(content=json.dumps(result), status=400)
         else:
             return result['file_response']
