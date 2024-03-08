@@ -374,6 +374,8 @@ class AccountsViewSet(ApiViewSet,
                 data['feedback_qna'] = bot_att.feedback_questions
             if bot_att.initial_qnas:
                 data['initial_qna'] = bot_att.initial_qnas
+            if bot_att.bot_name:
+                data['bot_name'] = bot_att.bot_name
 
             coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id)
 
