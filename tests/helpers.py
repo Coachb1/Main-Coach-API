@@ -8307,7 +8307,8 @@ NOTE: Start directly with the response and only provide the response.
             "intake": {
                 "1": "What are your current challenges?",
                 "2": "What outcomes do you wish to achieve?",
-            }
+            },
+            "about": "New Manager Bot specializes in providing practical guidance using proven general management frameworks. With a focus on simplicity and effectiveness, it offers valuable insights and actionable strategies to help new managers navigate challenges and maximize team performance. From communication techniques to decision-making processes, this bot equips managers with the essential tools needed to excel in their roles."
 
         },
         {
@@ -8394,7 +8395,8 @@ NOTE: Start directly with the response and only provide the response.
             "intake": {
                 "1":"What are your current challenges?",
                 "2":"What outcomes do you wish to achieve?"
-            }
+            },
+            "about": "The New Joinee bot offers tailored coaching using proven general management frameworks. It provides clear guidance and support for new team members, helping them quickly adapt and thrive in their roles. With a focus on simplicity and practicality, this bot ensures effective onboarding and empowers new employees to contribute confidently to their team's success."
 
         },
         {
@@ -8531,7 +8533,8 @@ NOTE: Start directly with the response and only provide the response.
             "intake": {
                 "1": "What are your current challenges?",
                 "2": "What outcomes do you wish to achieve?"
-            }
+            },
+            "about": "Promotion Advisor Bot utilizes proven general management frameworks to provide personalized coaching on advancing your career. With clear, straightforward guidance, it helps you navigate the complexities of promotion, offering practical strategies tailored to your unique circumstances. Whether you're seeking a raise, a new title, or increased responsibilities, this bot equips you with the tools and insights needed to confidently pursue your goals and achieve success in your professional journey."
 
         },
         {
@@ -8669,7 +8672,8 @@ NOTE: Start directly with the response and only provide the response.
                 "1": "What are your current challenges?",
                 "2": "What outcomes do you wish to achieve?",
 
-            }
+            },
+            "about": "Product Manager Bot offering coaching tailored to your needs. Utilizes proven project management frameworks to guide project execution strategies effectively. From ideation to launch, receive practical insights and actionable advice to drive product success. Whether you're a seasoned professional or new to project management, this bot provides invaluable support every step of the way. Trust its expertise to drive your projects forward effectively and efficiently."
 
         },
         
@@ -8680,7 +8684,7 @@ NOTE: Start directly with the response and only provide the response.
     result = []
     for bot in bots:
         bot_id = bot['bot_name'].lower().replace(" ","-")+ '-' + user_id[:5]
-        SignatureBot.objects.create(
+        singature_bot = SignatureBot.objects.create(
             tenant_id =tenant_id,
             bot_id = bot_id,
             user_id=user_id,
@@ -8692,20 +8696,21 @@ NOTE: Start directly with the response and only provide the response.
         )
 
         BotAttribute.objects.create(
-                                            tenant_id=tenant_id,
-                                            bot_id=bot_id,
-                                            bot_name=bot['bot_name'],
-                                            coach_name = "Coachbots",
-                                            coach_email = "mail@coachbots.com",
-                                            initial_qnas = bot['intake'] 
-                                            )
+                                    tenant_id=tenant_id,
+                                    bot_id=singature_bot.uid,
+                                    bot_name=bot['bot_name'],
+                                    coach_name = "Coachbots",
+                                    coach_email = "mail@coachbots.com",
+                                    initial_qnas = bot['intake'],
+                                    about = bot['about'],
+                                    )
         
         DirectoryPageInfo.objects.create(
             name = bot["bot_name"],
             department = 'HR',
             profile_pic_url = 'https://res.cloudinary.com/dtbl4jg02/image/upload/v1709723404/v6olyb3foi7a0l8rubk8.jpg',
             profile_type = 'coachbots',
-            description = 'About',
+            description = bot['about'],
             is_visible = True,
             is_approved = True,
             avatar_bot_id = bot_id,
