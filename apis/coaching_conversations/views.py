@@ -345,3 +345,19 @@ class CoachingConversationViewSet(ApiViewSet,
         else:
             return Response({"Error: For parameter doesn't exist, please check"}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(methods=["POST"], detail=False, url_path="save-ai-response")
+    def save_ai_response(self, request, *args, **kwargs):
+        conversation_id = request.data.get('conversation_id', None)
+        ai_response = request.data.get('ai_response', None)
+        
+        logger.info(f"************************** conversation_id: {conversation_id}, ai_response: {ai_response}")
+
+        try:
+            conversation = CoachingConversation.objects.get(uid=conversation_id, deleted=0, tenant_id=request.tenant.uid)
+        except Exception as e:
+            return Response({"Error: Conversation not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        conversation.coach_message_text = ai_response
+        conversation.save()
+        
+        return Response({"Success: AI response saved"}, status=status.HTTP_200_OK)
