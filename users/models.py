@@ -2,6 +2,7 @@ from django.db import models
 
 from tenants.models import TenantAwareModel
 from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
+from coaching_conversations.choices import BotScenarioCaseChoice
 
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
@@ -102,6 +103,7 @@ class SignatureBot(TenantAwareModel):
     use_google_context = models.BooleanField(null=True,default=False)
     use_personality_context = models.BooleanField(null=True,default=False)
     use_idp = models.BooleanField(null=True,default=False)
+    bot_scenario_case = models.CharField(max_length=255, null=True, blank=True, choices=BotScenarioCaseChoice, default=BotScenarioCaseChoice.general)
     
 
     class Meta:
@@ -126,6 +128,7 @@ class BotAttribute(TenantAwareModel):
     attached_files = models.FileField(null=True, blank=True, default=None)
     initial_qnas = models.JSONField(null=True, blank=True, default=None)
     is_audio_response = models.BooleanField(null=True,default=False)
+    about = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "bot_attributes"
