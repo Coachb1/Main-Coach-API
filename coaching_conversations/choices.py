@@ -5,3 +5,8 @@ class CoachingConversationChoices(DjangoChoices):
     bot_message_saved = ChoiceItem("bot_message_saved")
     participant_message_saved = ChoiceItem("participant_message_saved")
     conversation_finished = ChoiceItem("conversation_finished")
+
+class BotScenarioCaseChoice(DjangoChoices):
+    role_bot = ChoiceItem('role_bot')
+    skill_bot = ChoiceItem('skill_bot')
+    general = ChoiceItem('general')

@@ -57,6 +57,7 @@ from commons.youtube_utils import get_youtube_transcript
 from utilities.prompts import get_intake_summary_prompt
 from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
+from coaching_conversations.choices import BotScenarioCaseChoice
 
 logger = logging.getLogger(__name__)
 
@@ -2036,3 +2037,65 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"connected":False, "error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
+        
+
+
+    @action(methods=['GET'], detail=False, url_path='get-skill-and-role-bots')
+    def get_skill_and_role_bots(self, request, *args, **kwargs):
+        """
+        Retrieves a list of skill and role bots associated with the current tenant.
+
+        This method filters the SignatureBot objects to find those that are not marked as deleted and belong to the current tenant. It specifically looks for bots that are categorized under 'role_bot' or 'skill_bot' as defined in the BotScenarioCaseChoice. For each bot found, it fetches the corresponding BotAttribute to gather additional details about the bot. The method compiles a list of dictionaries, each representing a bot with its name, description, ID, type, and scenario case.
+
+        Args:
+            request (HttpRequest): The HTTP request object, which must include the tenant ID in `request.tenant.uid`.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Response: A DRF Response object containing a list of dictionaries, each representing a bot. The dictionary keys include 'bot_name', 'description', 'bot_id', 'bot_type', and 'scenario_case'. If successful, the response status is set to HTTP 200 OK. In case of an exception, it returns a response with an error message and HTTP 400 Bad Request status.
+
+        Example of expected output:
+            [
+                {
+                    "bot_name": "Leadership Coach",
+                    "description": "Helps develop leadership skills",
+                    "bot_id": "123",
+                    "bot_type": "role_bot",
+                    "scenario_case": "role_bot"
+                },
+                {
+                    "bot_name": "Communication Skill Enhancer",
+                    "description": "Improves communication skills",
+                    "bot_id": "456",
+                    "bot_type": "skill_bot",
+                    "scenario_case": "skill_bot"
+                }
+            ]
+
+        Raises:
+            Exception: Captures any exceptions that occur during the process, logs the exception, and returns an error message with HTTP 400 Bad Request status.
+        """
+        try:
+            bots = SignatureBot.objects.filter(
+                deleted = False,
+                tenant_id = request.tenant.uid,
+                bot_scenario_case__in = [BotScenarioCaseChoice.role_bot,BotScenarioCaseChoice.skill_bot]
+            )
+            data = []
+            for bot in bots:
+                att = BotAttribute.objects.get(bot_id=bot.uid)
+                data.append(
+                    {
+                        "bot_name": att.bot_name,
+                        "description": att.about,
+                        "bot_id": bot.bot_id,
+                        "bot_type": bot.bot_type,
+                        "scenario_case": bot.bot_scenario_case
+                    }
+                )
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Get skills and role bots failed with: {e}")
+            return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
