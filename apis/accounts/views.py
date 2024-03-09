@@ -514,13 +514,16 @@ class AccountsViewSet(ApiViewSet,
             bot_id = request.query_params.get('bot_id',None)
             feedback_type = request.query_params.get("feedback_type",None)
             participant_id = request.query_params.get('user_id',None)
+            qna_type = request.query_params.get('qna_type',None)
+
 
             data = {}
-            try:
-                signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
-            except Exception as e:
-                logger.exception(e)
-                return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
+            if qna_type != 'fitment':
+                try:
+                    signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
             if method.lower() == 'get':
                 # try:
                 #     feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
@@ -553,7 +556,8 @@ class AccountsViewSet(ApiViewSet,
                                 "participant_name": participant_name,
                                 "date": feed.created,
                                 "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id
+                                "participant_id": feed.participant_id,
+                                "is_anonymous": feed.is_anonymous,
 
                             })
                     elif feedback_type == 'positive':
@@ -562,7 +566,8 @@ class AccountsViewSet(ApiViewSet,
                                 "participant_name": participant_name,
                                 "date": feed.created,
                                 "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id
+                                "participant_id": feed.participant_id,
+                                "is_anonymous": feed.is_anonymous
 
                             })
                     else:
@@ -570,7 +575,8 @@ class AccountsViewSet(ApiViewSet,
                             "participant_name": participant_name,
                             "date": feed.created,
                             "msg": feed.participant_qna,
-                            "participant_id": feed.participant_id
+                            "participant_id": feed.participant_id,
+                            "is_anonymous": feed.is_anonymous
                         })
                 if feedback_type == "negative":
                     data['critical_msgs'] = msg_data
@@ -580,22 +586,23 @@ class AccountsViewSet(ApiViewSet,
                     data['message'] = msg_data
 
             elif method.lower() == 'post':
-                feedback_qna = request.query_params.get('qna',None)
-                is_positive = request.query_params.get('is_positive',None)
-                qna_type = request.query_params.get('qna_type',None)
+                qna = request.query_params.get('qna',None)
+                is_positive = request.query_params.get('is_positive',"False")
+                is_anonymous = request.query_params.get('is_anonymous',"False")
 
 
-                intake_summary_prompt = get_intake_summary_prompt(feedback_qna)
+                intake_summary_prompt = get_intake_summary_prompt(qna)
                 intake_summary = anthropic_completion(intake_summary_prompt,50000)
 
                 BotQnA.objects.create(
                     tenant_id = self.request.tenant.uid,
                     participant_id = participant_id,
-                    participant_qna = json.loads(feedback_qna),
-                    is_positive = is_positive,
-                    bot_id = signature_bot.uid,
+                    participant_qna = json.loads(qna),
+                    is_positive = True if is_positive.lower() == 'true' else False,
+                    bot_id = bot_id,
                     qna_type = qna_type,
-                    intake_summary = intake_summary
+                    intake_summary = intake_summary,
+                    is_anonymous = True if is_anonymous.lower() == 'true' else False
                 )
                 data['message'] = "created"
 

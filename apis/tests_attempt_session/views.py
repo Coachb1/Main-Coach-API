@@ -38,6 +38,7 @@ from utilities.helpers import get_session_notes, save_session_notes, get_session
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
 from utilities.models import UserActionInfo, BotQnA
+from utilities.helpers import cal_score_for_fitment
 
 
 
@@ -1003,58 +1004,21 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             logger.info(f"fitness analysis score request: {request.data}")
-            bot_id = request.data.get("bot_id")
+            bot_id = request.data.get("bot_id",None)
             user_response = request.data.get("fitness_analysis_data",None)
             participant_id = request.data.get("participant_id",None)
             logger.info(f"{bot_id},{self.request.tenant.uid}")
 
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=bot_id)
-            bot_att = BotAttribute.objects.get(tenant_id=self.request.tenant.uid, bot_id=signature_bot.uid)
-            mentor_answers = bot_att.fitment_answers['mentor_answer']
-            fitment_measures = bot_att.fitment_data['fitment_measures']
-            user_answers = (json.loads(user_response).values())
-            user_answers = [v['cochee'] for v in user_answers]
-
-            count_matching_answers = sum(1 for ua, ma in zip(user_answers, mentor_answers) if ua.strip().lower() == ma.strip().lower())
-
-            total_answers = len(user_answers)  # Assuming both lists are of the same length
-
-            # Calculate the percentage of matching answers
-            matching_percentage = (count_matching_answers / total_answers) * 100
-            print(count_matching_answers,matching_percentage)
-
-            # Define the thresholds for bottom, middle, and top thirds
-            bottom_threshold = 34
-            top_threshold = 67
-
-            msg = ''
             score = {}
-            # Classify based on percentage
-            if matching_percentage < bottom_threshold:
-                msg = fitment_measures['bottom']
-                score['bottom'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-            elif bottom_threshold <= matching_percentage < top_threshold:
-                msg = fitment_measures['mid']
-                score['mid'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-            else:
-                msg = fitment_measures['top']
-                score['top'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-
-            # saving fitemtn qna and scores
-            BotQnA.objects.create(
-                tenant_id = self.request.tenant.uid,
-                bot_id = signature_bot.uid,
-                participant_id = participant_id,
-                participant_qna = json.loads(user_response),
-                qna_type = 'fitment',
-                fitment_score = score
-            )        
+            if bot_id:
+                qna = BotQnA.objects.filter(tenant_id=self.request.tenant.uid, participant_id= participant_id, qna_type = 'fitment' ).order_by("-id")
+                if qna.count()>0:
+                    score = cal_score_for_fitment(
+                        user_response=qna.first().participant_qna,
+                        bot_id=bot_id,
+                        tenant_id= self.request.tenant.uid
+                    )
+                       
 
             return Response(score, status=status.HTTP_200_OK)
         except Exception as e:
@@ -1176,9 +1140,20 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_id = request.query_params.get('user_id')
             bot_id = request.query_params.get('bot_id')
             logger.info({"user_id, bot_id": f"{user_id}, {bot_id}"})
-            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant.uid,bot_id=bot_id)
-            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
-            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"})
+
+            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"} )
+            if (fitment_qnas).count()> 0:
+                score = cal_score_for_fitment(fitment_qnas.first().participant_qna,bot_id,tenant.uid)
+                score = score['score']
+                data['msg'] = f'Score: {score}'
+                if int(score) >=2:
+                    data["proceed"] = True
+                else:
+                    data['proceed'] = False
+            else:
+                data['msg'] = f'Have not created yet!'
+                data['proceed'] = False
             
             fitment_data = []
             for qna in fitment_qnas:
@@ -1189,22 +1164,6 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 })
 
             data['fitment_data'] = fitment_data
-
-            if len(fitment_data) == 0:
-                data['proceed'] = False
-            elif fitment_qnas.count() > 0:
-                fitment_scores = fitment_qnas[0].fitment_score
-                score = fitment_scores['score'] if 'score' in fitment_scores else 0
-                # score_key = fitment_scores.keys()
-                # if 'top' in score_key or 'mid' in score_key:
-                #     data['proceed'] = True
-                # else:
-                #     data["proceed"] = False
-                
-                if score >= 2:
-                    data['proceed'] = True
-                else: 
-                    data['proceed'] = False
 
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:

@@ -46,12 +46,14 @@ class SessionNotesRecommendations(models.Model):
 
 class BotQnA(TenantAwareModel):
     participant_id = models.CharField(max_length=255)
-    bot_id = models.CharField(max_length=255)
+    bot_id = models.CharField(max_length=255,default=None,null=True,blank=True)
     participant_qna = models.JSONField(default=None,null=True,blank=True)
     is_positive = models.BooleanField(null=True,default=False)
     qna_type = models.CharField(max_length=255,default=None,null=True,blank=True) # choice can be 'feedback' and "fitment" and "initial_qna"
     fitment_score = models.JSONField(default=None,null=True,blank=True)
     intake_summary = models.TextField(default=None,null=True,blank=True)
+    is_anonymous = models.BooleanField(null=True,default=False)
+
 
     class Meta:
         db_table = "bot_qna"
