@@ -20,7 +20,7 @@ from tests.helpers import create_one_question_scenario_from_context, create_scen
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
-from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile
+from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile, SignatureBot, BotAttribute
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
@@ -1066,3 +1066,51 @@ def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
                 data[j], data[j+1] = data[j+1], data[j]
                 
     return data
+
+
+def cal_score_for_fitment(user_response,bot_id,tenant_id):
+    signature_bot = SignatureBot.objects.get(tenant_id=tenant_id, bot_id=bot_id)
+    bot_att = BotAttribute.objects.get(tenant_id=tenant_id, bot_id=signature_bot.uid)
+    mentor_answers = [ans.lower().strip() for ans in bot_att.fitment_answers['mentor_answer']]
+    fitment_measures = bot_att.fitment_data['fitment_measures']
+    count_matching_answers = 0
+    try:
+        user_response = json.loads(user_response)
+    except: 
+        user_response = user_response
+
+
+    for index, qna in user_response.items():
+        if int(index) == 1:
+            if mentor_answers[0] == 'someone junior' and qna['cochee'].lower() == 'someone senior':
+                count_matching_answers += 1
+
+            elif mentor_answers[0] == 'any level' and qna['cochee'].lower() == 'any level':
+                count_matching_answers += 1
+
+        else:
+            if qna['cochee'].lower() in mentor_answers:
+                count_matching_answers += 1
+
+    msg = ''
+    score = {}
+    # Classify based on percentage
+    if count_matching_answers in [0,1]:
+        msg = fitment_measures['bottom']
+        score['bottom'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+    elif count_matching_answers == 2:
+        msg = fitment_measures['mid']
+        score['mid'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+    elif count_matching_answers == 3:
+        msg = fitment_measures['top']
+        score['top'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+
+    logger.info(f"=======================================score: {score}")
+
+    return score
