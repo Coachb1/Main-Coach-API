@@ -556,7 +556,8 @@ class AccountsViewSet(ApiViewSet,
                                 "participant_name": participant_name,
                                 "date": feed.created,
                                 "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id
+                                "participant_id": feed.participant_id,
+                                "is_anonymous": feed.is_anonymous,
 
                             })
                     elif feedback_type == 'positive':
@@ -565,7 +566,8 @@ class AccountsViewSet(ApiViewSet,
                                 "participant_name": participant_name,
                                 "date": feed.created,
                                 "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id
+                                "participant_id": feed.participant_id,
+                                "is_anonymous": feed.is_anonymous
 
                             })
                     else:
@@ -573,7 +575,8 @@ class AccountsViewSet(ApiViewSet,
                             "participant_name": participant_name,
                             "date": feed.created,
                             "msg": feed.participant_qna,
-                            "participant_id": feed.participant_id
+                            "participant_id": feed.participant_id,
+                            "is_anonymous": feed.is_anonymous
                         })
                 if feedback_type == "negative":
                     data['critical_msgs'] = msg_data
@@ -584,7 +587,8 @@ class AccountsViewSet(ApiViewSet,
 
             elif method.lower() == 'post':
                 qna = request.query_params.get('qna',None)
-                is_positive = request.query_params.get('is_positive',None)
+                is_positive = request.query_params.get('is_positive',"False")
+                is_anonymous = request.query_params.get('is_anonymous',"False")
 
 
                 intake_summary_prompt = get_intake_summary_prompt(qna)
@@ -594,10 +598,11 @@ class AccountsViewSet(ApiViewSet,
                     tenant_id = self.request.tenant.uid,
                     participant_id = participant_id,
                     participant_qna = json.loads(qna),
-                    is_positive = is_positive,
+                    is_positive = True if is_positive.lower() == 'true' else False,
                     bot_id = bot_id,
                     qna_type = qna_type,
-                    intake_summary = intake_summary
+                    intake_summary = intake_summary,
+                    is_anonymous = True if is_anonymous.lower() == 'true' else False
                 )
                 data['message'] = "created"
 
