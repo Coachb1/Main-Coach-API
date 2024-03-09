@@ -514,13 +514,16 @@ class AccountsViewSet(ApiViewSet,
             bot_id = request.query_params.get('bot_id',None)
             feedback_type = request.query_params.get("feedback_type",None)
             participant_id = request.query_params.get('user_id',None)
+            qna_type = request.query_params.get('qna_type',None)
+
 
             data = {}
-            try:
-                signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
-            except Exception as e:
-                logger.exception(e)
-                return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
+            if qna_type != 'fitment':
+                try:
+                    signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
             if method.lower() == 'get':
                 # try:
                 #     feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
@@ -580,20 +583,19 @@ class AccountsViewSet(ApiViewSet,
                     data['message'] = msg_data
 
             elif method.lower() == 'post':
-                feedback_qna = request.query_params.get('qna',None)
+                qna = request.query_params.get('qna',None)
                 is_positive = request.query_params.get('is_positive',None)
-                qna_type = request.query_params.get('qna_type',None)
 
 
-                intake_summary_prompt = get_intake_summary_prompt(feedback_qna)
+                intake_summary_prompt = get_intake_summary_prompt(qna)
                 intake_summary = anthropic_completion(intake_summary_prompt,50000)
 
                 BotQnA.objects.create(
                     tenant_id = self.request.tenant.uid,
                     participant_id = participant_id,
-                    participant_qna = json.loads(feedback_qna),
+                    participant_qna = json.loads(qna),
                     is_positive = is_positive,
-                    bot_id = signature_bot.uid,
+                    bot_id = bot_id,
                     qna_type = qna_type,
                     intake_summary = intake_summary
                 )
