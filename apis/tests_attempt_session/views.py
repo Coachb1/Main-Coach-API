@@ -107,7 +107,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         is_idp_discussion_opted = serializer.validated_data.get("is_idp_discussion_opted")
         intake_id = serializer.validated_data.get("intake_id")
 
-        print("is_signature_bot =========>", is_signature_bot)
+        print("is_signature_bot =========>", is_signature_bot, "is_idp", is_idp_discussion_opted)
 
         session = create_test_question_answer_session(
             tenant=request.tenant,
