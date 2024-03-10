@@ -518,6 +518,7 @@ class AccountsViewSet(ApiViewSet,
 
 
             data = {}
+            signature_bot = None
             if qna_type != 'fitment':
                 try:
                     signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
@@ -599,7 +600,7 @@ class AccountsViewSet(ApiViewSet,
                     participant_id = participant_id,
                     participant_qna = json.loads(qna),
                     is_positive = True if is_positive.lower() == 'true' else False,
-                    bot_id = bot_id,
+                    bot_id = signature_bot.uid if qna_type != 'fitment' else None,
                     qna_type = qna_type,
                     intake_summary = intake_summary,
                     is_anonymous = True if is_anonymous.lower() == 'true' else False
