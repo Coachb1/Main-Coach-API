@@ -590,7 +590,7 @@ class AccountsViewSet(ApiViewSet,
                 qna = request.query_params.get('qna',None)
                 is_positive = request.query_params.get('is_positive',"False")
                 is_anonymous = request.query_params.get('is_anonymous',"False")
-
+                logger.info(f"qna : {qna}, ispositive: {is_positive} , is_anonymous: {is_anonymous}")
 
                 intake_summary_prompt = get_intake_summary_prompt(qna)
                 intake_summary = anthropic_completion(intake_summary_prompt,50000)
@@ -747,6 +747,7 @@ class AccountsViewSet(ApiViewSet,
                     extracted_from_youtube[link] = {"error": "error in extracting transcript"}
             
         # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
+        logger.info(f"extratedz youtube: {extracted_from_youtube}")
         signature_bot.data['media_data']['extracted_from_youtube'] = extracted_from_youtube
         signature_bot.save(update_fields=["data"])
         return transcript
@@ -862,6 +863,7 @@ class AccountsViewSet(ApiViewSet,
                 #******** process media data ********
 
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                    logger.info(f"media_data: {media_data}")
                     if 'youtube_links' in media_data:
                         youtube_links = media_data['youtube_links']
                         youtube_links = [link.strip() for link in youtube_links.split(',')]
@@ -893,7 +895,7 @@ class AccountsViewSet(ApiViewSet,
                                 transcript_data = scrape_article_data(link).get('article_content',None)
                                 extracted_from_article[link] = transcript_data
                         
-                        # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                        logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                         extracted_media_data['extracted_from_article'] = extracted_from_article
 
 
@@ -935,6 +937,9 @@ class AccountsViewSet(ApiViewSet,
                             default_storage.delete(path)
                             extracted_from_doc[file.name] = doc_content
 
+                        
+                        logger.info(f"attached_docs: {extracted_from_doc}")
+
                         extracted_media_data['extracted_from_doc'] = extracted_from_doc
 
 
@@ -950,6 +955,8 @@ class AccountsViewSet(ApiViewSet,
                             pdf_content = extract_text_from_pdf(path)
                             default_storage.delete(path)
                             extracted_from_pdf[file.name] = pdf_content
+
+                        logger.info(f"attached_PDFS: {extracted_from_pdf}")
 
                         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
@@ -1019,7 +1026,11 @@ class AccountsViewSet(ApiViewSet,
                 if all_data:
                     signature_bot.data = all_data
                     updated_fields.append("data")
-
+                    
+                if bot_type == BotTypeChoice.feedback_bot:
+                    signature_bot.is_approved = True
+                    updated_fields.append('is_approved')
+                    
                 if updated_fields:
                     signature_bot.save(update_fields=updated_fields)
 
