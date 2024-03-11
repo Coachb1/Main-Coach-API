@@ -126,6 +126,7 @@ class DirectoryPageInfo(models.Model):
     avatar_snippit = models.TextField(default=None,null=True,blank=True)
     avatar_bot_url = models.TextField(default=None,null=True,blank=True)
     custom_user_bot_url = models.TextField(null=True,blank=True,default=None)
+    timer_info = models.JSONField(null=True,blank=True,default=None)
     
     class Meta:
         db_table = "directory_information"

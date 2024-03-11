@@ -186,7 +186,8 @@ def create_test(tenant: Tenant,
                 creator_user_id:str,
                 competency_group: str,
                 area_domain:str,
-                tab_category:str) -> tuple[Test, list[TestQuestion]]:
+                tab_category:str,
+                is_recommended:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -363,6 +364,7 @@ def create_test(tenant: Tenant,
             competency_group=competency_group,
             area_domain=area_domain,
             tab_category=tab_category,
+            is_recommended=is_recommended,
         )
 
         test_questions = []
