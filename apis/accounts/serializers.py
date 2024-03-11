@@ -111,6 +111,20 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
         model = DirectoryPageInfo
         fields = '__all__'
 
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try: 
+            signature_bot = SignatureBot.objects.get(bot_id=instance.avatar_bot_id)
+            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            if bot_att.admirer_ids:
+                data['admirer_ids'] = bot_att.admirer_ids.split(',')
+            else:
+                data['admirer_ids'] = []
+        except:
+            data['admirer_ids'] = []
+
+        return data
+
 
 
 class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
