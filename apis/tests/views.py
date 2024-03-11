@@ -1026,7 +1026,7 @@ class TestViewSet(ApiViewSet,
             for competency in competencies:
                 competency = competency.strip()
                 tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
-                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type } for test in tests]
+                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended } for test in tests]
             # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
             # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
 
@@ -1071,7 +1071,7 @@ class TestViewSet(ApiViewSet,
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1140,7 +1140,8 @@ class TestViewSet(ApiViewSet,
                         "title": test.title,
                         "description": test.description,
                         "test_code": test.test_code,
-                        "test_type": test.test_type
+                        "test_type": test.test_type,
+                        "is_recommended": test.is_recommended
                     })
             # Converting defaultdict to a regular dictionary
             test_dict = dict(test_dict)

@@ -307,7 +307,7 @@ class AccountsViewSet(ApiViewSet,
                 key = title_parts[0].strip().capitalize()
             
                 data.append({"title": item.title,"description": item.description, "domain": key,
-                                "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
+                                "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended})
 
         if candidate_type:
             tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,candidate_type=candidate_type.strip().lower())
@@ -315,7 +315,7 @@ class AccountsViewSet(ApiViewSet,
                 if test.area_domain:
                     key = test.area_domain
                     data.append({"title": item.title,"description": item.description, "domain": key,
-                                    "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro})
+                                    "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended})
 
         
         group_data = {}

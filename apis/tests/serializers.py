@@ -73,6 +73,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_game_type = serializers.BooleanField(
         required=False, default=False)
+    is_recommended = serializers.BooleanField(
+        required=False, default=False)
     is_immersive = serializers.BooleanField(
         required=False, default=False)
     is_free = serializers.BooleanField(
@@ -187,6 +189,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "competency_group",
                   "area_domain",
                   "tab_category",
+                  "is_recommended"
                   ]
 
     def get_questions(self, instance):

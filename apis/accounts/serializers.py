@@ -120,8 +120,15 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 data['admirer_ids'] = bot_att.admirer_ids.split(',')
             else:
                 data['admirer_ids'] = []
+
+            try:
+                profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
+                data['created'] = profile.created
+            except:
+                data['created'] = ""
         except:
             data['admirer_ids'] = []
+            data['created'] = ""
 
         return data
 
