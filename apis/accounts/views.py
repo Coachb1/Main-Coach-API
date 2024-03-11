@@ -1030,7 +1030,7 @@ class AccountsViewSet(ApiViewSet,
                 if bot_type == BotTypeChoice.feedback_bot:
                     signature_bot.is_approved = True
                     updated_fields.append('is_approved')
-                    
+
                 if updated_fields:
                     signature_bot.save(update_fields=updated_fields)
 
@@ -1198,6 +1198,7 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
             if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                media_data = json.loads(media_data)
                 if 'youtube_links' in media_data:
                     # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
                     youtube_links = media_data['youtube_links']
@@ -2103,7 +2104,7 @@ class AccountsViewSet(ApiViewSet,
             bots = SignatureBot.objects.filter(
                 deleted = False,
                 tenant_id = request.tenant.uid,
-                bot_scenario_case__in = [BotScenarioCaseChoice.role_bot,BotScenarioCaseChoice.skill_bot]
+                bot_type = BotTypeChoice.coachbots
             )
             data = []
             for bot in bots:
