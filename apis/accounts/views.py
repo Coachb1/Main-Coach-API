@@ -1232,7 +1232,7 @@ class AccountsViewSet(ApiViewSet,
                             transcript_data = scrape_article_data(link).get('article_content',None)
                             extracted_from_article[link] = transcript_data
                     
-                    # logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                    logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                     extracted_media_data['extracted_from_article'] = extracted_from_article
             
             if signature_bot.bot_type != BotTypeChoice.feedback_bot:
@@ -1969,6 +1969,29 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET','POST'],detail=False,url_path="user-can-join-as")
     def user_can_join_as(self, request, *args, **kwargs):
+        """
+        Determines the role a user can join as (e.g., 'coach' or 'coachee') based on their email and tenant's settings, or processes a CSV file to bulk update user privileges.
+
+        This method supports both GET and POST requests. For a GET request, it checks if the provided email belongs to a user with specific privileges within the tenant's domain and returns the role the user can join as. For a POST request, it accepts a CSV file containing user emails, client names, and desired roles, updating the privileges in bulk.
+
+        GET Request:
+        - Input: Requires a query parameter 'email' containing the user's email address.
+        - Process: Checks if the email is associated with specific privileges (e.g., coach or mentor) within the tenant's settings. It queries the `ClientUserInfo` and `CoachCoacheeJoiningPreviledge` models to determine the role.
+        - Output: Returns a JSON response with the key 'can_join_as' indicating the role the user can join as. Example: {"can_join_as": "coach"}
+
+        POST Request:
+        - Input: Requires a multipart/form-data request with a 'csv_file' field containing the CSV file. The CSV file should have headers 'email', 'client_name', and 'can_join_as'.
+        - Process: Reads the CSV file and creates or updates `CoachCoacheeJoiningPreviledge` entries for each row in the file, setting the user's privilege based on the 'can_join_as' field.
+        - Output: Returns a JSON response with a message indicating the number of records created and any errors encountered. Example: {"msg": "10 records created", "errors": ["got error for user@example.com: <error message>"]}
+
+        Args:
+            request (HttpRequest): The HTTP request object.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            HttpResponse: A JSON response indicating the role the user can join as for GET requests, or the outcome of the bulk update for POST requests.
+        """
         if request.method == 'GET':
             logger.info(f"***************** tenant_id: {request.tenant.uid}")
             try:
@@ -2122,4 +2145,65 @@ class AccountsViewSet(ApiViewSet,
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Get skills and role bots failed with: {e}")
+            return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['POST'], detail=False, url_path='save-liked-bot')
+    def save_liked_bot(self, request, *args, **kwargs):
+        """
+        Saves a bot as 'liked' by a user, updating the bot's admirer list.
+
+        This method allows users to mark a bot as 'liked', which adds the user's ID to the bot's list of admirers. If the bot is already marked as 'liked' by the user, this method ensures no duplicate entries are created. It handles the retrieval and update of the bot's admirer list, ensuring data integrity and consistency.
+
+        Args:
+            request (HttpRequest): The HTTP request object, containing:
+                - `bot_id` (str): The unique identifier of the bot to be liked.
+                - `user_id` (str): The unique identifier of the user liking the bot.
+
+        Returns:
+            Response: An HTTP response object containing a success message or an error message. The response status code is HTTP 200 OK for a successful operation or HTTP 400 Bad Request if an error occurs.
+
+        Example:
+            POST request data:
+            {
+                "bot_id": "123",
+                "user_id": "456"
+            }
+
+            Successful response:
+            {
+                "message": "saved"
+            }, status=HTTP_200_OK
+
+            Error response:
+            {
+                "message": "Bot Not Found"
+            }, status=HTTP_400_BAD_REQUEST
+
+        Note:
+            - The method assumes the existence of `SignatureBot` and `BotAttribute` models with fields `deleted`, `tenant_id`, `bot_id`, and `admirer_ids`.
+            - It also assumes the presence of a `tenant` attribute in the request, identifying the current tenant context.
+        """
+        try:
+            bot_id = request.data.get('bot_id', None)
+            user_id = request.data.get('user_id', None)
+            tenant_id = request.tenant.uid
+            try:
+                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant_id,bot_id=bot_id)
+            except Exception as e:
+                logger.error(f"bot not found for {bot_id}")
+                return Response({"message": f"Bot Not Found"},status=status.HTTP_400_BAD_REQUEST)
+            
+
+            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            ids = f"{user_id}"
+            if bot_att.admirer_ids:
+                for i in bot_att.admirer_ids.split(","):
+                    ids += f",{i}"
+            bot_att.admirer_ids = ",".join(set(ids.split(",")))
+            bot_att.save(update_fields=['admirer_ids'])
+
+            return Response({'message': "saved"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"create_or_save_liked_bot failed with: {e}")
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
