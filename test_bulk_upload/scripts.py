@@ -83,6 +83,7 @@ BOT_NAME = "Bot Name"
 USER_ID = "User ID" 
 AREA_DOMAIN = "Area/Domain"
 TAB_CATEGORY = "Tab Category"
+IS_RECOMMENDED = 'Is Recommended'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -297,6 +298,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_RECOMMENDED in input_dict:
+            if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
+                is_recommended = input_dict[IS_RECOMMENDED].strip().lower()
+
+                if is_recommended == "true":
+                    output_dict['is_recommended'] = True
+                elif is_recommended == "false":
+                    output_dict['is_recommended'] = False
+                else:
+                    output_dict['is_recommended'] = False
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -684,6 +696,17 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_RECOMMENDED in input_dict:
+            if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
+                is_recommended = input_dict[IS_RECOMMENDED].strip().lower()
+
+                if is_recommended == "true":
+                    output_dict['is_recommended'] = True
+                elif is_recommended == "false":
+                    output_dict['is_recommended'] = False
+                else:
+                    output_dict['is_recommended'] = False
 
 
         if IS_PITCH in input_dict:

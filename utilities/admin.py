@@ -19,10 +19,10 @@ class SessionNotesRecommendationsAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','is_visible',"is_approved")
+    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_info','is_visible',"is_approved")
     list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
     search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','is_visible',"is_approved")
+    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_info','is_visible',"is_approved")
 
 class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','uid','user_id',"user_name","strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","report","success")

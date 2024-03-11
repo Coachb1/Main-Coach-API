@@ -509,6 +509,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "feedback_summary":feedback_summary,"skill_summary":skill_summary,
                 "is_pitch": test.is_pitch,
                 "language_skills": test_attempt_session.language_skills,
+                "is_recommended": test.is_recommended
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
