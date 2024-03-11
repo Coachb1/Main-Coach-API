@@ -2104,7 +2104,7 @@ class AccountsViewSet(ApiViewSet,
             bots = SignatureBot.objects.filter(
                 deleted = False,
                 tenant_id = request.tenant.uid,
-                bot_scenario_case__in = [BotScenarioCaseChoice.role_bot,BotScenarioCaseChoice.skill_bot]
+                bot_type = BotTypeChoice.coachbots
             )
             data = []
             for bot in bots:
