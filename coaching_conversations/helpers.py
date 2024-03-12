@@ -28,6 +28,8 @@ from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
 from utilities.models import SessionNotesRecommendations
+import requests
+from utilities.prompts import get_intake_summary_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1199,3 +1201,259 @@ def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
         logger.exception(f"Got Error while fetching qna block from coach or mentor : {e}")
         return None
 
+
+def create_user_profile_and_bot(data,auth):
+    from settings import BACKEND
+    # creating user
+
+    url = f"{BACKEND}/api/v1/accounts/"
+    tenant_id = ""
+    payload = json.dumps({
+    "user_context": {
+        "name": data.get('name'),
+        "role": "member",
+        "password": "Demo#123",
+        "user_attributes": {
+        "tag": "deepchat_profile",
+        "attributes": {
+            "name": data.get('name'),
+            "email": data.get('email') if data.get('is_send_email',False) else 'info@coachbots.com'
+        }
+        }
+    },
+    "identity_context": {
+        "identity_type": "deepchat_unique_id",
+        "value": data.get('email')
+    }
+    })
+    headers = {
+    'Authorization': auth,
+    'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        response.raise_for_status()
+        user = response.json()
+        tenant_id = get_user_by_id(user.get('uid')).tenant_id
+        logger.info(f"user: {user}, tenant_id: {tenant_id}")
+
+    except Exception as e:
+        logger.exception(f"user creation failed with error: {e}")
+        return False, {"email": data.get('email'),'error': f"{e}"}
+
+
+    provided_links = {}
+    if data.get('youtube_links'):
+        provided_links['youtube_links'] = data.get('youtube_links').split(',')
+    if data.get('article_links'):
+        provided_links['article_links'] = data.get('article_links').split(',')
+
+    coach_same_department = data.get('coach_same_department').lower() == "yes" if data.get('coach_same_department') else None
+    allow_coachee_to_create_session = data.get('allow_coachee_to_create_session').lower() == "yes" if data.get('allow_coachee_to_create_session') else None
+
+    qna_for_coach = data.get('coach_faqs')
+    qna_for_mentor = data.get('mentor_faqs')
+    # 'coach':{
+    #     "As a coach, what foundational values do you believe individuals should prioritize and strive for in their personal and professional development journey?": "your_foundational_values_here",
+    #     "In your role as a coach, what kind of developmental framework do you employ, and why do you consider it to be the optimal framework for facilitating personal growth ?": "your_development_framework_here",
+    #     "Can you provide an overview of your coaching process and what I can expect from our sessions?": "your_coaching_process_overview_here",
+    #     "How do you handle situations where I feel stuck or unsure about my next steps?": "your_handling_situations_here",
+    #     "How can I integrate the lessons from these sessions into my daily life?": "your_integrating_lessons_here",
+    #     "Can you provide guidance on how to effectively balance personal and professional goals during our coaching process?": "your_guidance_on_coaching_process_here",
+    # }
+    # "mentor": {
+    #         "As a mentor, what do you think are the different career paths available in this field? What are the core skills and understanding required to continuously grow in this field?": "your_different_career_path_here",
+    #         "What is the problem solving approach in your domain and why do you think that is the right construct for growing in this field?": "your_problem_solving_approach_in_domain_here",
+    #         "Can you provide an overview of your mentoring approach and what I can expect from our sessions?": "your_overview_of_mentoring_here",
+    #         "What opportunities for growth or advancement do you see in this field, and how can I position myself to capitalize on them?": "your_opportunities_of_growth_here",
+    #         "What are some common challenges or obstacles that individuals face when pursuing success in this field, and what strategies do you suggest for overcoming them?": "your_common_challenges_or_obstacles_here",
+    #         "In your opinion, what are the key qualities or skills that contribute to success in the field I'm aiming to excel in, and how can I develop or enhance them?": "your_opinions_about_key_qualities_here",
+    #     }
+    qna_for_coach_mentor = {}
+    if qna_for_coach:
+        qna_for_coach_mentor['coach'] = qna_for_coach
+    if qna_for_mentor:
+        qna_for_coach_mentor['mentor'] = qna_for_mentor
+    name = data.get('name')
+    user_id = user.get('uid')
+    email = data.get('email')
+    about = data.get('about')
+    experience = data.get('experience')
+    area_domain = data.get('area_domain')
+    supported_outcome = data.get('supported_outcome')
+    bot_type = data.get('bot_type')
+    department = data.get('department')
+    profile_type = data.get('profile_type')
+    mentoring_preferences = data.get('mentoring_preferences')
+    mentoring_frameworks = data.get('mentoring_frameworks')
+    high_rating_characteristics = data.get('high_rating_characteristics')
+    low_rating_characteristics = data.get('low_rating_characteristics')
+    common_phrases_and_expressions = data.get('profile_type',None)
+    significant_challenges_and_solutions = data.get('significant_challenges_and_solutions',None)
+    coaching_for_fitment = data.get('coaching_for_fitment',None)
+    coaching_level = data.get('coaching_level',None)
+    admired_leaders = data.get('admired_leaders',None)
+    problem_solving_approach = data.get('problem_solving_approach',None)
+    dominant_point_of_view = data.get('dominant_point_of_view',None)
+
+
+    form_data = {
+        "name": name,
+        "user_id": user_id,
+        "email": email,
+        "about": about,
+        "experience": experience,
+        "profile_image_url": "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
+        "department": department,
+        "supported_outcome": supported_outcome,
+        "bot_type": bot_type,
+        "profile_type": "coach" if profile_type in ["coach-mentor", "coach"] else "mentor" if profile_type == "mentor" else profile_type,
+        "is_mentor": str(profile_type == "coach-mentor") if profile_type in ["coach-mentor", "coach"] else "False",
+        "area_domain": area_domain if profile_type in ["coach", "coach-mentor"] else None,
+        "mentoring_preferences": mentoring_preferences if profile_type in ["coach", "coach-mentor"] else None,
+        "mentoring_frameworks": mentoring_frameworks if profile_type in ["coach", "coach-mentor"] else None,
+        "dominant_point_of_view": dominant_point_of_view if profile_type in ["coach", "coach-mentor"] else None,
+        "problem_solving_approach": problem_solving_approach if profile_type in ["coach", "coach-mentor"] else None,
+        "provided_links": provided_links if profile_type in ["coach", "coach-mentor"] else None,
+        "admired_leaders": admired_leaders if profile_type in ["coach", "coach-mentor"] else None,
+        "coaching_for_fitment": coaching_for_fitment if profile_type in ["coach", "coach-mentor"] else None,
+        "coaching_level": coaching_level if profile_type in ["coach", "coach-mentor"] else None,
+        "coach_same_department":  coach_same_department if profile_type in ["coach", "coach-mentor"] else None,
+        "allow_coachee_to_create_session": allow_coachee_to_create_session if profile_type in ["coach", "coach-mentor"] else None,
+        "significant_challenges_and_solutions": significant_challenges_and_solutions if profile_type in ["coach", "coach-mentor"] else None,
+        "common_phrases_and_expressions": common_phrases_and_expressions if profile_type in ["coach", "coach-mentor"] else None,
+        "qna_for_coach_mentor" : qna_for_coach_mentor if qna_for_coach_mentor else None,
+        "low_rating_characteristics": low_rating_characteristics if profile_type == "coachee" else None,
+        "high_rating_characteristics": high_rating_characteristics if profile_type == "coachee" else None,
+    }
+
+    url = f"{BACKEND}/api/v1/accounts/coach-coachee-mentor-mentee-profile/"
+
+    payload = json.dumps(form_data)
+    headers = {
+    'Content-Type': 'application/json',
+    'Authorization': auth
+    }
+
+    try:
+        profile = requests.request("POST", url, headers=headers, data=payload)
+
+        logger.info(f"profile_created: {profile.json()}")
+        profile.raise_for_status()
+        profile = profile.json()['data'][0]
+    except Exception as e:
+        logger.exception(f"profile creation failed with {e}")
+        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}"}
+
+    if coaching_level and coach_same_department and supported_outcome:
+        qna_data = {
+            "1": {
+                "coach": "What level of coach/mentor do you want to interact with ?",
+                "cochee": coaching_level
+            },
+            "2": {
+                "coach": "I want a coach & mentor someone from the same department.",
+                "cochee": coach_same_department
+            },
+            "3": {
+                "coach": "What kind of outcome do you want from these sessions the most?",
+                "cochee": supported_outcome
+            }
+        }
+
+
+        intake_summary_prompt = get_intake_summary_prompt(qna_data)
+        intake_summary = anthropic_completion(intake_summary_prompt,50000)
+        # intake_summary = ""
+
+        BotQnA.objects.create(
+                        tenant_id = tenant_id,
+                        participant_id = user.get('uid'),
+                        participant_qna = qna_data,
+                        is_positive = False,
+                        bot_id = None,
+                        qna_type = 'fitment',
+                        intake_summary = intake_summary,
+                        is_anonymous = False
+                    )
+        
+    ## creating bot
+
+
+    if profile_type in ['mentor','coach',"icons_by_ai"]:
+        url = f"{BACKEND}/api/v1/accounts/create-bot-by-details/"
+
+        headers = {
+            "Authorization": auth,
+            "Content-Type": "application/json",
+        }
+        same_department = data.get("coach_same_department")
+        bot_type = data.get('bot_type')
+        avatar_bot_creation_form_data = {
+            "bot_type": 'avatar_bot',
+            "profile_id": profile.get('uid'),
+            "bot_name": name,
+            "email": data.get('email'),
+            "bot_details": {"info": data.get('about'), "coach_name": name},
+            "attributes": {"heading": f"welcome to {name}'s avatar bot"},
+            "participant_id": user.get('uid'),
+            "bot_base_url": "https://playground.coachbots.com",
+            "fitment_answer": f"{coaching_level},{same_department},{supported_outcome}",
+            "fitment_data": {
+                "options": {
+                    "1": ["Someone Senior", "Any level"],
+                    "2": ["Yes", "No"],
+                    "3": [
+                        "Career advancement",
+                        "Skill development",
+                        "Introspection & reflection",
+                        "Networking & leadership",
+                    ],
+                },
+                "mentee_que": {
+                    "1": "What level of coach & mentor do you want?",
+                    "2": "I want a coach & mentor someone from the same department.",
+                    "3": "What kind of outcome do you want from these sessions the most?",
+                },
+                "mentor_que": {
+                    "1": "What level of participant do you want to coach & mentor?",
+                    "2": "I want to coach & mentor someone in the same department.",
+                    "3": "What kind of outcome can you support in these sessions the most?",
+                },
+            },
+            "additional_data": {
+                "profile_type": profile_type,
+                "area_domain": area_domain,
+                "experience": experience,
+                "mentoring_preferences": mentoring_preferences,
+                "mentoring_frameworks": mentoring_frameworks,
+                "dominant_point_of_view": dominant_point_of_view,
+                "problem_solving_approach": problem_solving_approach,
+                "admired_leaders": admired_leaders,
+                "profile_description": about,
+                "department": department,
+                "youtube_links": data.get('youtube_links'),
+                "article_links": data.get('article_links'),
+            },
+            "media_data": {
+                "youtube_links": data.get('youtube_links'),
+                "article_links": data.get('article_links'),
+            },
+        }
+
+        try:
+            response = requests.request(
+                'POST',
+                url,
+                headers=headers,
+                data=json.dumps( avatar_bot_creation_form_data),
+            )
+            logger.info(f"bot_created: {response.json()}")
+            response.raise_for_status()
+            response = response.json()
+
+            return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": response.get('bot_id'),'error': f""}
+        except Exception as e:
+            logger.exception(f"bot creation failed with error {e}")
+            return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{e}"}
