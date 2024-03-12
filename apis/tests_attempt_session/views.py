@@ -28,7 +28,7 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
 from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email,send_feedback_conversation_email
-from users.models import UserAttribute, SignatureBot, BotAttribute
+from users.models import UserAttribute, SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile, CoachCoacheeConnection
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
@@ -39,6 +39,7 @@ from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
 from utilities.models import UserActionInfo, BotQnA
 from utilities.helpers import cal_score_for_fitment
+from users.choices import CoachCoacheeConnectionStatusChoice
 
 
 
@@ -690,6 +691,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
         user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
         bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
 
+        try:
+            coachee_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id, tenant_id=request.tenant.uid)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=signature_bot.user_id, tenant_id=request.tenant.uid)
+            connection = CoachCoacheeConnection.objects.get(deleted=False,coachee_id=coachee_profile.uid,coach_id=coach_profile.uid,
+                                                            status=CoachCoacheeConnectionStatusChoice.accepted, tenant_id=request.tenant.uid)
+            connected = True
+        except Exception as e:
+            logger.exception(e)
+            connected = False
         # previous_conversations = CoachingConversation.objects.filter(
         # tenant_id=self.request.tenant.uid,
         # test_attempt_session_id=test_attempt_session.uid,
@@ -700,24 +710,24 @@ class TestAttemptSessionViewSet(ApiViewSet,
         #         "participant_message_text",
         #         "coach_message_text",
         #     )
-        
-        participant_id = test_attempt_session.participant_id
-        candidate_name = f"""{get_user_display_name(
-            get_user_by_id(participant_id)).capitalize()} {user_email}"""
-        tenant = self.request.tenant
-        save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
-        save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
+        if connected:
+            participant_id = test_attempt_session.participant_id
+            candidate_name = f"""{get_user_display_name(
+                get_user_by_id(participant_id)).capitalize()} {user_email}"""
+            tenant = self.request.tenant
+            save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
+            save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
 
-        # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
-        sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
-        conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
-        conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+            # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
+            sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+            conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+            conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
 
-        # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
-            # send_bot_conversation_email(candidate_name, conv, recepients)
-        recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
-        # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
-        send_bot_conversation_email(candidate_name, conv, recepients, allow_reply=True)
+            # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+                # send_bot_conversation_email(candidate_name, conv, recepients)
+            recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
+            # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
+            send_bot_conversation_email(candidate_name, conv, recepients, allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
