@@ -15,6 +15,8 @@ from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
 from users.models import User, SignatureBot, BotAttribute
 from users.db import get_user_display_name, get_user_by_id
+from coaching_conversations.helpers import create_user_profile_and_bot
+import csv
 
 import logging
 
@@ -361,3 +363,32 @@ class CoachingConversationViewSet(ApiViewSet,
         conversation.save()
         
         return Response({"Success: AI response saved"}, status=status.HTTP_200_OK)
+    
+    @action(methods=["POST"], detail=False, url_path="create-user-profile-and-bot")
+    def create_user_profile_and_bot(self, request, *args, **kwargs):
+        try:
+            data = request.data.get('data')
+            auth = request.headers.get('Authorization')
+            logger.info(f"{auth}")
+            
+            details = []
+            for d in data:
+                is_created, user_data = create_user_profile_and_bot(d,auth)
+                temp = {
+                    "is_created": is_created,
+                    "user_email": user_data.get('email'),
+                    'bot_id' : user_data.get('bot_id'),
+                    "user_id": user_data.get('user_id'),
+                    "profile_id": user_data.get('profile_id'),
+                    "Error": user_data.get('error')
+
+                }
+                
+                details.append(temp)
+
+            
+            return Response({'data': details},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f" Failed create_user_profile_and_bot with {e}")
+            return Response({"msg": f"Failed with {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
