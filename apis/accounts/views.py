@@ -379,10 +379,11 @@ class AccountsViewSet(ApiViewSet,
             if bot_att.about:
                 data['description'] = bot_att.about
 
-            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id).first()
 
-            for i in coach_profile:
-                data["coaching_for_fitment"] = i.coaching_for_fitment.lower() if i.coaching_for_fitment else None
+            data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
+            if coach_profile:
+                data['profile_details'] = CoachCoacheeConnectionSerializer(coach_profile).data
 
             
             feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=signature_bot.user_id,bot_type=BotTypeChoice.feedback_bot).first()
