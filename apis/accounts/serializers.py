@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 
@@ -162,3 +162,12 @@ class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachCoacheeJoiningPreviledge
         fields = '__all__'
+
+
+
+class CoachCoacheeRatingSerializer(serializers.ModelSerializer):
+    rating = serializers.DecimalField(max_digits=3, decimal_places=2)
+    class Meta:
+        model = CoachCoacheeRating
+        fields = '__all__'
+    

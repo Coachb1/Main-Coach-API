@@ -235,6 +235,21 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
         db_table = "coach_coachee_mentor_mentee_profile"
 
         unique_together = (("tenant_id", "uid"),)
+        
+        
+class CoachCoacheeRating(TenantAwareModel):
+    coach_id = models.CharField(max_length=255)
+    coachee_id = models.CharField(max_length=255)
+    rating = models.DecimalField(null=True, blank=True, default=None, max_digits=4, decimal_places=2)
+    rating_type = models.CharField(max_length=255, null=True, blank=True, default=None)
+    rating_comment = models.TextField(null=True, blank=True, default=None)
+    is_deleted = models.BooleanField(null=True, default=False)
+    is_active = models.BooleanField(null=True, default=True)
+    
+    class Meta:
+        db_table = "coach_coachee_rating"
+
+        unique_together = (("tenant_id", "coach_id", "coachee_id", "is_deleted"),)
 
 
 
