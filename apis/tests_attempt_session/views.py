@@ -1184,6 +1184,53 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
     @action(methods=['GET','POST'],detail=False,url_path="create-or-get-bot-engagements")
     def create_or_get_bot_engagements(self,request, *args, **kwargs):
+        """
+        Handles the creation or retrieval of bot engagements based on the provided parameters. This method supports both GET and POST requests to either fetch existing bot engagement data or create/update bot engagement records.
+
+        Objective:
+        The primary goal of this method is to manage bot engagements, which include tracking user interactions with bots, such as the number of times a button was clicked or a session was attempted with the bot. It allows for both querying existing engagement data and incrementing engagement metrics.
+
+        Process:
+        - For GET requests, it filters and returns bot engagement data based on optional parameters like `bot_id`, `user_id`, and `by_date`.
+        - For POST requests, it creates or updates a bot engagement record for a specific bot and user on the current date, incrementing a specified field.
+
+        Input Requirements:
+        - `bot_id` (query parameter): The ID of the bot involved in the engagement. Required for both GET and POST requests.
+        - `user_id` (query parameter): The ID of the user involved in the engagement. Required for POST requests and optional for GET requests.
+        - `by_date` (query parameter, optional for GET): Filters the engagements to those that occurred on a specific date.
+        - `by_user` (query parameter, optional for GET): Filters the engagements to those associated with a specific user.
+        - `field_name` (query parameter, required for POST): Specifies the field to increment in the bot engagement record.
+
+        Expected Output:
+        - For GET requests, returns a JSON object containing an array of bot engagement records and summary statistics. Each record includes details such as `bot_id`, `user_id`, `interacted_on`, `num_button_clicked`, `num_of_attempted_sessions`, and `attempted_bot_questions`.
+        - For POST requests, returns a JSON object with a message indicating the bot engagement was successfully increased.
+
+        Example:
+        GET request with `bot_id=1` and `by_date=2023-04-01` might return:
+        ```
+        {
+            "results": [
+                {
+                    "bot_id": "1",
+                    "user_id": "123",
+                    "interacted_on": "2023-04-01",
+                    "num_button_clicked": 5,
+                    "num_of_attempted_sessions": 2,
+                    "attempted_bot_questions": 3
+                }
+            ],
+            "total_engagement_with_question_count": 10,
+            "total_without_question_count": 7
+        }
+        ```
+
+        POST request with `bot_id=1`, `user_id=123`, and `field_name=num_of_clicked_button` might return:
+        ```
+        {"msg": "Bot engagement increased"}
+        ```
+
+        Note: The method also handles exceptions by logging them and returning an appropriate error message and status code.
+        """
 
         try:
             data = {}
