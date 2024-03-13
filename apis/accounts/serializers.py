@@ -4,6 +4,7 @@ from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
+from commons.utils import get_bot_engagements
 
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
@@ -120,10 +121,21 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
             else:
                 data['admirer_ids'] = []
+
+            try:
+                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
+                engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
+                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
+                data['total_without_question_count'] = engagements.get('total_without_question_count',None)
+            except:
+                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
+                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
             
         except:
             data['admirer_ids'] = []
             data['created'] = ""
+            data['total_without_question_count'] = None
+            data['total_engagement_with_question_count'] = None
 
         return data
 
