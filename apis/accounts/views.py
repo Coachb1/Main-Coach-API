@@ -2156,38 +2156,34 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['POST'], detail=False, url_path='save-liked-profile')
     def save_liked_profile(self, request, *args, **kwargs):
         """
-        Saves a bot as 'liked' by a user, updating the bot's admirer list.
+        Saves or reverts a liked profile based on the user's action.
 
-        This method allows users to mark a bot as 'liked', which adds the user's ID to the bot's list of admirers. If the bot is already marked as 'liked' by the user, this method ensures no duplicate entries are created. It handles the retrieval and update of the bot's admirer list, ensuring data integrity and consistency.
+        This method allows a user to express admiration for a profile by adding their user ID to the profile's admirer list. If the user decides to revert their admiration, their user ID can be removed from the list. The process involves checking if the profile exists and then updating the `admirer_user_ids` field of the `CoachCoacheeMentorMenteeProfile` model based on the action specified in the request.
 
         Args:
-            request (HttpRequest): The HTTP request object, containing:
-                - `bot_id` (str): The unique identifier of the bot to be liked.
-                - `user_id` (str): The unique identifier of the user liking the bot.
+            request (HttpRequest): The HTTP request object containing the data needed to process the action. Expected keys in `request.data` are:
+                - profile_id (str): The unique identifier of the profile to be liked or unliked.
+                - user_id (str): The unique identifier of the user performing the action.
+                - is_revert (str): A flag indicating whether the action is to revert a like. Accepts 'true' or 'false' as string values.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
 
         Returns:
-            Response: An HTTP response object containing a success message or an error message. The response status code is HTTP 200 OK for a successful operation or HTTP 400 Bad Request if an error occurs.
+            Response: An HTTP response object containing a message indicating the outcome of the operation. Possible responses are:
+                - HTTP 200 OK with a message "saved" if the profile was successfully liked.
+                - HTTP 200 OK with a message "reverted" if the like was successfully reverted.
+                - HTTP 400 BAD REQUEST with an error message if the profile was not found or if an error occurred during the process.
 
         Example:
-            POST request data:
-            {
-                "bot_id": "123",
-                "user_id": "456"
-            }
+            POST request data: {"profile_id": "123", "user_id": "456", "is_revert": "false"}
+            Successful like response: {"message": "saved"}
 
-            Successful response:
-            {
-                "message": "saved"
-            }, status=HTTP_200_OK
-
-            Error response:
-            {
-                "message": "Bot Not Found"
-            }, status=HTTP_400_BAD_REQUEST
+            POST request data: {"profile_id": "123", "user_id": "456", "is_revert": "true"}
+            Successful revert response: {"message": "reverted"}
 
         Note:
-            - The method assumes the existence of `SignatureBot` and `BotAttribute` models with fields `deleted`, `tenant_id`, `bot_id`, and `admirer_ids`.
-            - It also assumes the presence of a `tenant` attribute in the request, identifying the current tenant context.
+            - The `is_revert` flag is crucial for determining the action to be performed. If omitted or set to 'false', the method attempts to add a like. If set to 'true', it attempts to revert a like.
+            - This method assumes that the `admirer_user_ids` field of the profile is a comma-separated string of user IDs.
         """
         try:
             profile_id = request.data.get('profile_id', None)
