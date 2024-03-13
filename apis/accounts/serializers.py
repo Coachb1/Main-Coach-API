@@ -114,18 +114,13 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try: 
-            signature_bot = SignatureBot.objects.get(bot_id=instance.avatar_bot_id)
-            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-            if bot_att.admirer_ids:
-                data['admirer_ids'] = bot_att.admirer_ids.split(',')
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
+            data['created'] = profile.created
+            if profile.admirer_user_ids:
+                data['admirer_ids'] = profile.admirer_user_ids.split(',')
             else:
                 data['admirer_ids'] = []
-
-            try:
-                profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
-                data['created'] = profile.created
-            except:
-                data['created'] = ""
+            
         except:
             data['admirer_ids'] = []
             data['created'] = ""

@@ -225,6 +225,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     qna_for_coach_mentor = models.JSONField(null=True, blank=True, default=None)
     significant_challenges_and_solutions = models.TextField(null=True, blank=True, default=None)
     common_phrases_and_expressions = models.TextField(null=True, blank=True, default=None)
+    admirer_user_ids = models.TextField(null=True, blank=True, default=None)
 
 
     
