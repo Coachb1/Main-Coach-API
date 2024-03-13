@@ -18,7 +18,7 @@ from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer, CoachCoacheeConnectionSerializer
 from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer,
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
-                                        CoachCoacheeJoiningPreviledgeSerializer)
+                                        CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer,)
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -30,7 +30,7 @@ from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, C
 from users.choices import BotTypeChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
-from users.models import SignatureBot, BotAttribute, ClientUserInfo
+from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
 from tests.helpers import scrape_article_data
 
@@ -2221,3 +2221,52 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"create_or_save_liked_bot failed with: {e}")
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+        
+    @action(methods=['GET','POST'], detail=False, url_path='coach-rating')
+    def coach_rating(self, request, *args, **kwargs):
+        """
+        This method retrieves the rating of a coach based on the number of coachees connected to the coach.
+
+        Args:
+            request: A Django HttpRequest object. Contains metadata about the request.
+
+        Returns:
+            A Django HttpResponse object. Contains the rating of the coach.
+
+        Example:
+            GET /coach-rating?coach_id=1
+            Response: {"rating": 4.5}
+        """
+        
+        if request.method == 'GET':
+            coach_id = request.query_params.get('coach_id',None)
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=request.tenant.uid, coach_id=coach_id)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                return Response({"rating":0},status=status.HTTP_200_OK)
+            return Response({"rating":total_score/total_ratings},status=status.HTTP_200_OK)
+        
+        if request.method == 'POST':
+            data = request.data.copy()
+            data['tenant_id'] = request.tenant.uid
+            serializer = CoachCoacheeRatingSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            try:
+                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coach_id'],tenant_id=request.tenant.uid,
+                                                            profile_type=ProfileTypeChoice.coach)
+            except Exception as e:
+                logger.exception(f"coach not found for {data['coach_id']}",e)
+                return Response({"error":f"coach not found for {data['coach_id']}"},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coachee_id'],tenant_id=request.tenant.uid,
+                                                            profile_type=ProfileTypeChoice.coachee)
+            except Exception as e:
+                logger.exception(f"coachee not found for {data['coachee_id']}",e)
+                return Response({"error":f"coachee not found for {data['coachee_id']}"},status=status.HTTP_400_BAD_REQUEST)
+                
+            serializer.save()
+            return Response(serializer.data,status=status.HTTP_201_CREATED)

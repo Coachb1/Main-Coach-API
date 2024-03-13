@@ -140,6 +140,8 @@ class DirectoryPageInfo(models.Model):
     timer_enabled = models.BooleanField(null=True,default=False)
     time_value_in_days = models.CharField(max_length=255,null=True,blank=True,default=None)
     timer_reset = models.BooleanField(null=True,default=False)
+    visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
+
     
     class Meta:
         db_table = "directory_information"
