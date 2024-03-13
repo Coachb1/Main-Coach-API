@@ -24,6 +24,7 @@ from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeP
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
+from utilities.models import BotEngagement
 
 
 
@@ -379,6 +380,21 @@ def save_user_action_info(tenant_id,user_id,for_,bot_id=None):
         setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
 
     action_info.save(update_fields=[for_])
+
+
+def save_bot_engagement(tenant_id,bot_id,user_id,field_name):
+    today_date = datetime.datetime.now().date()
+
+    bot_engagement, is_created = BotEngagement.objects.get_or_create(
+        tenant_id=tenant_id,
+        deleted = False,
+        user_id = user_id,
+        interacted_on = today_date,
+        bot_id = bot_id
+    )
+
+    setattr(bot_engagement, field_name, getattr(bot_engagement, field_name) + 1) 
+    bot_engagement.save()
 
 def extract_fields(data:dict):
     extracted_fields = []

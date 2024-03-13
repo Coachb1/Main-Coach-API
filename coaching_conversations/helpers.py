@@ -18,7 +18,7 @@ from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteePro
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
-from utilities.helpers import save_user_action_info
+from utilities.helpers import save_user_action_info, save_bot_engagement
 import json
 from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
@@ -533,10 +533,13 @@ def continue_coaching_conversation(tenant: Tenant,
     if is_signature_bot:
         
         current_conversation = CoachingConversation.objects.filter(deleted=0,tenant_id=tenant.uid,test_attempt_session_id=test_attempt_session.uid).count()
+        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
+        save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=test_attempt_session.participant_id,field_name="attempted_bot_questions")
+
         if current_conversation == 2 : # increasing action point if conversation contain two chat
             save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
+            save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=test_attempt_session.participant_id,field_name="num_of_bot_sessions")
 
-        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, uid=test_attempt_session.test_id, deleted=0)
         if current_conversation == 3 :
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
