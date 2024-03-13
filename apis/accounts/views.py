@@ -344,7 +344,7 @@ class AccountsViewSet(ApiViewSet,
         logger.info(f"****************** Bot ID: {bot_id} **********************")
 
         try:
-            signature_bot = SignatureBot.objects.get(bot_id=bot_id)
+            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,bot_id=bot_id)
         except Exception as e:
             logger.exception({"!!!!!!!!!! Error": e}, exc_info=True)
             return Response({"error": "Bot not found"},status=status.HTTP_404_NOT_FOUND)
@@ -383,7 +383,7 @@ class AccountsViewSet(ApiViewSet,
 
             data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
             if coach_profile:
-                data['profile_details'] = CoachCoacheeConnectionSerializer(coach_profile).data
+                data['profile_details'] = CoachCoacheeMentorMenteeProfileSerializer(coach_profile).data
 
             
             feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=signature_bot.user_id,bot_type=BotTypeChoice.feedback_bot).first()
