@@ -77,6 +77,17 @@ class UserActionInfo(TenantAwareModel):
     class Meta:
         db_table = "user_action_info"
 
+class BotEngagement(TenantAwareModel):
+    bot_id = models.CharField(max_length=255)
+    user_id = models.CharField(max_length=255)
+    interacted_on = models.DateField()
+    num_of_clicked_button = models.IntegerField(null=True,blank=True,default=0)
+    attempted_bot_questions = models.IntegerField(null=True,blank=True,default=0)
+    num_of_bot_sessions = models.IntegerField(null=True,blank=True,default=0)
+
+    class Meta:
+        db_table = 'bot_engagements'
+        unique_together = ('tenant_id', 'deleted', 'bot_id','user_id','interacted_on')
 
 class UserIDP(TenantAwareModel):
     user_id = models.CharField(max_length=255)

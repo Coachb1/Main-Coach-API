@@ -37,7 +37,7 @@ from coaching_conversations.models import CoachingConversation
 from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
-from utilities.models import UserActionInfo, BotQnA
+from utilities.models import UserActionInfo, BotQnA, BotEngagement
 from utilities.helpers import cal_score_for_fitment
 from users.choices import CoachCoacheeConnectionStatusChoice
 
@@ -1182,6 +1182,79 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
         
         
+    @action(methods=['GET','POST'],detail=False,url_path="create-or-get-bot-engagements")
+    def create_or_get_bot_engagements(self,request, *args, **kwargs):
+
+        try:
+            data = {}
+            bot_id = request.query_params.get('bot_id',None)
+            user_id = request.query_params.get('user_id',None)
+            tenant = self.request.tenant
+            logger.info(f"===================bot_id : {bot_id}, user_id: {user_id}")
+            try:
+                signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,deleted=False,bot_id=bot_id)
+            except Exception as e:
+                logger.exception(e)
+                return Response({"msg": "Bot Not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if request.method == 'GET':
+                by_date = request.query_params.get('by_date',None)
+                by_user = request.query_params.get('by_user',None)
+                bot_engagements = BotEngagement.objects.filter(deleted=False,tenant_id=tenant.uid,bot_id=signature_bot.uid)
+                if by_date:
+                    bot_engagements = bot_engagements.filter(interacted_on=by_date)
+                if by_user:
+                    bot_engagements = bot_engagements.filter(user_id=by_user)
+                
+                bot_result = []
+                total_with_questions = 0
+                total_without_questions = 0
+                for bot_engagement in bot_engagements:
+
+                    temp = {
+                        'bot_id': bot_id,
+                        'user_id': bot_engagement.user_id,
+                        'interacted_on': bot_engagement.interacted_on,
+                        'num_button_clicked': bot_engagement.num_of_clicked_button,
+                        'num_of_attempted_sessions': bot_engagement.num_of_bot_sessions,
+                        'attempted_bot_questions': bot_engagement.attempted_bot_questions
+                    }
+                    bot_result.append(temp)
+                    total_with_questions += sum([bot_engagement.num_of_clicked_button,bot_engagement.num_of_bot_sessions,bot_engagement.attempted_bot_questions])
+                    total_without_questions += sum([bot_engagement.num_of_clicked_button,bot_engagement.num_of_bot_sessions])
+
+
+                data = {
+                    "results": bot_result,
+                    'total_engagement_with_question_count': total_with_questions,
+                    'total_without_question_count': total_without_questions
+                }
+                
+
+            elif request.method == 'POST':
+                field_name = request.query_params.get('field_name',None)
+                today_date = datetime.datetime.now().date()
+
+                bot_engagement, is_created = BotEngagement.objects.get_or_create(
+                    tenant_id=tenant.uid,
+                    deleted = False,
+                    user_id = user_id,
+                    interacted_on = today_date,
+                    bot_id = signature_bot.uid
+                )
+
+                setattr(bot_engagement, field_name, getattr(bot_engagement, field_name) + 1) 
+                bot_engagement.save()
+
+                data = {'msg': 'Bot engagement increased'}
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"create_or_get_bot_engagements failed with {e}")
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
     # @action(methods=['GET'],detail=False,url_path="stream")
     
 def stream(request):

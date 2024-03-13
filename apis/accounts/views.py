@@ -2153,8 +2153,8 @@ class AccountsViewSet(ApiViewSet,
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-    @action(methods=['POST'], detail=False, url_path='save-liked-bot')
-    def save_liked_bot(self, request, *args, **kwargs):
+    @action(methods=['POST'], detail=False, url_path='save-liked-profile')
+    def save_liked_profile(self, request, *args, **kwargs):
         """
         Saves a bot as 'liked' by a user, updating the bot's admirer list.
 
@@ -2190,25 +2190,38 @@ class AccountsViewSet(ApiViewSet,
             - It also assumes the presence of a `tenant` attribute in the request, identifying the current tenant context.
         """
         try:
-            bot_id = request.data.get('bot_id', None)
+            profile_id = request.data.get('profile_id', None)
             user_id = request.data.get('user_id', None)
+            is_revert = request.data.get('is_revert',None)
             tenant_id = request.tenant.uid
             try:
-                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant_id,bot_id=bot_id)
+                profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=tenant_id,uid=profile_id)
             except Exception as e:
-                logger.error(f"bot not found for {bot_id}")
-                return Response({"message": f"Bot Not Found"},status=status.HTTP_400_BAD_REQUEST)
+                logger.error(f"profile not found for {profile_id}")
+                return Response({"message": f"profile Not Found"},status=status.HTTP_400_BAD_REQUEST)
             
+            if is_revert and is_revert.lower() == 'true':
+                user_ids = [i.strip() for  i in profile.admirer_user_ids.split(',')]
+                if user_id in user_ids:
+                    user_ids.remove(user_id)
+                
+                profile.admirer_user_ids = ','.join(user_ids)
+                profile.save(update_fields=['admirer_user_ids'])
+                
 
-            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-            ids = f"{user_id}"
-            if bot_att.admirer_ids:
-                for i in bot_att.admirer_ids.split(","):
-                    ids += f",{i}"
-            bot_att.admirer_ids = ",".join(set(ids.split(",")))
-            bot_att.save(update_fields=['admirer_ids'])
 
-            return Response({'message': "saved"}, status=status.HTTP_200_OK)
+                return Response({'message': "reverted"}, status=status.HTTP_200_OK)
+
+            else:
+
+                ids = f"{user_id}"
+                if profile.admirer_user_ids:
+                    for i in profile.admirer_user_ids.split(","):
+                        ids += f",{i}"
+                profile.admirer_user_ids = ",".join(set(ids.split(",")))
+                profile.save(update_fields=['admirer_user_ids'])
+
+                return Response({'message': "saved"}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"create_or_save_liked_bot failed with: {e}")
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
