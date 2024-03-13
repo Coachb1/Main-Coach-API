@@ -118,7 +118,7 @@ class DirectoryPageInfo(models.Model):
     experience = models.CharField(max_length=255,default=None,null=True,blank=True)
     expertise = models.CharField(max_length=255,default=None,null=True,blank=True)
     status = models.CharField(max_length=255,null=True,blank=True,choices=StatusChoice,default=StatusChoice.available)
-    avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default='avatar')
+    avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default=None)
     feedback_wall = models.CharField(max_length=500,default=None,null=True,blank=True)
     skills = models.CharField(max_length=400,null=True,blank=True,default="communication skills")
     is_visible = models.BooleanField(blank=True,default=False)
@@ -126,7 +126,9 @@ class DirectoryPageInfo(models.Model):
     avatar_snippit = models.TextField(default=None,null=True,blank=True)
     avatar_bot_url = models.TextField(default=None,null=True,blank=True)
     custom_user_bot_url = models.TextField(null=True,blank=True,default=None)
-    timer_info = models.JSONField(null=True,blank=True,default=None)
+    timer_enabled = models.BooleanField(null=True,default=False)
+    time_value_in_days = models.CharField(max_length=255,null=True,blank=True,default=None)
+    timer_reset = models.BooleanField(null=True,default=False)
     
     class Meta:
         db_table = "directory_information"
