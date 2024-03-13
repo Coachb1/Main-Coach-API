@@ -2248,7 +2248,7 @@ class AccountsViewSet(ApiViewSet,
             total_score = sum([rating.rating for rating in ratings])
             if total_ratings == 0:
                 return Response({"rating":0},status=status.HTTP_200_OK)
-            return Response({"rating":total_score/total_ratings},status=status.HTTP_200_OK)
+            return Response({"rating":total_score/total_ratings, "total_rating": total_ratings},status=status.HTTP_200_OK)
         
         if request.method == 'POST':
             data = request.data.copy()
