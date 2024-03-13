@@ -5,6 +5,7 @@ from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from commons.google_apis import text_bison_compeletion
 import re
+from utilities.models import BotEngagement
 
 logger = logging.getLogger(__name__)
 
@@ -64,3 +65,40 @@ def extract_file_and_text(input_string):
     text = text[1]
 
     return file_name, text
+
+
+def get_bot_engagements(tenant_id,bot_id,by_date=None,by_user=None):
+    """
+    get bot enagement using bot uid. It is here for bot enagement api
+    """
+    bot_engagements = BotEngagement.objects.filter(deleted=False,tenant_id=tenant_id,bot_id=bot_id)
+    if by_date:
+        bot_engagements = bot_engagements.filter(interacted_on=by_date)
+    if by_user:
+        bot_engagements = bot_engagements.filter(user_id=by_user)
+    
+    bot_result = []
+    total_with_questions = 0
+    total_without_questions = 0
+    for bot_engagement in bot_engagements:
+
+        temp = {
+            'bot_id': bot_id,
+            'user_id': bot_engagement.user_id,
+            'interacted_on': bot_engagement.interacted_on,
+            'num_button_clicked': bot_engagement.num_of_clicked_button,
+            'num_of_attempted_sessions': bot_engagement.num_of_bot_sessions,
+            'attempted_bot_questions': bot_engagement.attempted_bot_questions
+        }
+        bot_result.append(temp)
+        total_with_questions += sum([bot_engagement.num_of_clicked_button,bot_engagement.num_of_bot_sessions,bot_engagement.attempted_bot_questions])
+        total_without_questions += sum([bot_engagement.num_of_clicked_button,bot_engagement.num_of_bot_sessions])
+
+
+    data = {
+        "results": bot_result,
+        'total_engagement_with_question_count': total_with_questions,
+        'total_without_question_count': total_without_questions
+    }
+
+    return data
