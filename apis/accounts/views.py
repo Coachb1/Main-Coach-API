@@ -393,8 +393,8 @@ class AccountsViewSet(ApiViewSet,
                 data['feedback_id'] = None
 
             if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
-                if coach_profile.count() > 0:
-                    data['owner_profile_image'] = coach_profile.first().profile_image_url
+                if coach_profile:
+                    data['owner_profile_image'] = coach_profile.profile_image_url
             
         except Exception as e:
             logger.exception(e)
