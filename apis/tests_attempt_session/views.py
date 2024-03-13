@@ -34,7 +34,7 @@ from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_n
 
 from coaching_conversations.models import CoachingConversation
 
-from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info,save_bot_engagement
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
 from utilities.models import UserActionInfo, BotQnA, BotEngagement
@@ -1280,18 +1280,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             elif request.method == 'POST':
                 field_name = request.query_params.get('field_name',None)
-                today_date = datetime.datetime.now().date()
-
-                bot_engagement, is_created = BotEngagement.objects.get_or_create(
-                    tenant_id=tenant.uid,
-                    deleted = False,
-                    user_id = user_id,
-                    interacted_on = today_date,
-                    bot_id = signature_bot.uid
-                )
-
-                setattr(bot_engagement, field_name, getattr(bot_engagement, field_name) + 1) 
-                bot_engagement.save()
+                save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=user_id,field_name=field_name)
 
                 data = {'msg': 'Bot engagement increased'}
 
