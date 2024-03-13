@@ -84,6 +84,7 @@ USER_ID = "User ID"
 AREA_DOMAIN = "Area/Domain"
 TAB_CATEGORY = "Tab Category"
 IS_RECOMMENDED = 'Is Recommended'
+VISUAL_TAGS = 'Visual Tags'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -360,6 +361,10 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_logged_in'] = True
                 else:
                     output_dict['is_logged_in'] = False
+                    
+        if VISUAL_TAGS in input_dict:
+            if input_dict[VISUAL_TAGS] and len(input_dict[VISUAL_TAGS].strip()) > 0:
+                output_dict['visual_tags'] = input_dict.get(VISUAL_TAGS,None)
         
         
         if CURRENT_NEWS in input_dict:
@@ -823,6 +828,10 @@ def format_test_data_slack(raw_data):
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
                 output_dict['rating'] = input_dict.get(RATINGS,None)
+                
+        if VISUAL_TAGS in input_dict:
+            if input_dict[VISUAL_TAGS] and len(input_dict[VISUAL_TAGS].strip()) > 0:
+                output_dict['visual_tags'] = input_dict.get(VISUAL_TAGS,None)
 
         test_type = input_dict[TEST_TYPE].strip().lower()
 
