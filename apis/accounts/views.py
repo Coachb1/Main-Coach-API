@@ -709,20 +709,41 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
         user_id = request.query_params.get('user_id',None)
+        bot_type = request.query_params.get('bot_type',None)
+        client_name = request.query_params.get('client_name',None)
+        tenant_id = self.request.tenant.uid
+
+        logger.info(f"===============user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name}")
         
-        all_bots = SignatureBot.objects.filter(deleted=False,is_approved=True)
+        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,is_approved=True)
+        data = []
+
         if user_id:
-            data = []
             all_bots = all_bots.filter(user_id=user_id)
-            for bot in all_bots:
-                serializer = SignatureBotSerializer(bot)
-                bot_att = BotAttribute.objects.get(bot_id=bot.uid)
-                botser = BotAttributeSerializer(bot_att)
-                data.append({"signature_bot": serializer.data,
-                             "bot_attributes": botser.data})
-            return Response({"data": data},status=status.HTTP_200_OK)
-        else:
-            return Response({"data": [bot.bot_id for bot in all_bots]},status=status.HTTP_200_OK)
+
+        if bot_type:
+            all_bots = all_bots.filter(bot_type=bot_type)
+        
+        if client_name:
+            user_ids = []
+            bot_user_ids = list(all_bots.values_list('user_id',flat=True))
+            for u_id in bot_user_ids:
+                user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=u_id).attributes.get('email',None)
+                client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
+                if client:
+                    if client.client_name == client_name:
+                        user_ids.append(u_id)
+
+            logger.info(f"client members ids: {user_ids}")
+            all_bots = all_bots.filter(user_id__in = user_ids)
+
+        for bot in all_bots:
+            serializer = SignatureBotSerializer(bot)
+            bot_att = BotAttribute.objects.get(bot_id=bot.uid)
+            botser = BotAttributeSerializer(bot_att)
+            data.append({"signature_bot": serializer.data,
+                            "bot_attributes": botser.data})
+        return Response({"data": data},status=status.HTTP_200_OK)
         
 
     #************* utility methods ***************
@@ -1055,6 +1076,9 @@ class AccountsViewSet(ApiViewSet,
                     bot_att.coach_email = email
                     updated_fields.append("coach_email")
                 
+                if additional_data.get("profile_description",None):
+                    bot_att.about = additional_data.get("profile_description",None)
+                    updated_fields.append('about')
 
                 if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
                     bot_att.initial_qnas = initial_qna
