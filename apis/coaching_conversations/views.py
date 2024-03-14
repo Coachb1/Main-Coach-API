@@ -369,11 +369,13 @@ class CoachingConversationViewSet(ApiViewSet,
         try:
             data = request.data.get('data')
             auth = request.headers.get('Authorization')
-            logger.info(f"{auth}")
+            logger.info(f"================data: {data}")
             
             details = []
             for d in data:
-                is_created, user_data = create_user_profile_and_bot(d,auth)
+                formatted_dict = {key.strip().lower(): value for key, value in d.items()}
+                logger.info(f"===================== formatted_dict: {formatted_dict}")
+                is_created, user_data = create_user_profile_and_bot(formatted_dict,auth)
                 temp = {
                     "is_created": is_created,
                     "user_email": user_data.get('email'),
@@ -386,7 +388,7 @@ class CoachingConversationViewSet(ApiViewSet,
                 
                 details.append(temp)
 
-            
+            print(details)
             return Response({'data': details},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f" Failed create_user_profile_and_bot with {e}")
