@@ -5,6 +5,9 @@ from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,Bot
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
     tag = serializers.CharField()
@@ -120,8 +123,20 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
             else:
                 data['admirer_ids'] = []
+                
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=profile.tenant_id , coach_id=profile.uid)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                data['rating'] = 0
+                data['total_rating'] = 0
+            else:
+                data['rating'] = total_score/total_ratings
+                data['total_rating'] = total_ratings
             
-        except:
+        except Exception as e:
+            logger.error(f"Error in DirectoryInfoSErializer: {e}")
+            
             data['admirer_ids'] = []
             data['created'] = ""
 
