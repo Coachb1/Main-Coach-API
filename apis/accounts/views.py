@@ -2254,7 +2254,7 @@ class AccountsViewSet(ApiViewSet,
             data = request.data.copy()
             data['tenant_id'] = request.tenant.uid
             serializer = CoachCoacheeRatingSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
+            # serializer.is_valid(raise_exception=True)
             try:
                 CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coach_id'],tenant_id=request.tenant.uid,
                                                             profile_type=ProfileTypeChoice.coach)
@@ -2268,6 +2268,15 @@ class AccountsViewSet(ApiViewSet,
             except Exception as e:
                 logger.exception(f"coachee not found for {data['coachee_id']}",e)
                 return Response({"error":f"coachee not found for {data['coachee_id']}"},status=status.HTTP_400_BAD_REQUEST)
-                
-            serializer.save()
-            return Response(serializer.data,status=status.HTTP_201_CREATED)
+            
+            # check if the rating already exists
+            try:
+                rating = CoachCoacheeRating.objects.get(deleted=False,tenant_id=request.tenant.uid, coach_id=data['coach_id'], coachee_id=data['coachee_id'])
+                rating.rating = data['rating']
+                rating.save(update_fields=['rating'])
+                return Response({"data": CoachCoacheeRatingSerializer(rating).data },status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.info(f"rating not found for {data['coach_id']} and {data['coachee_id']} so creating new one")
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response(serializer.data,status=status.HTTP_201_CREATED)
