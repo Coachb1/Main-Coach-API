@@ -2256,15 +2256,13 @@ class AccountsViewSet(ApiViewSet,
             serializer = CoachCoacheeRatingSerializer(data=data)
             # serializer.is_valid(raise_exception=True)
             try:
-                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coach_id'],tenant_id=request.tenant.uid,
-                                                            profile_type=ProfileTypeChoice.coach)
+                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coach_id'],tenant_id=request.tenant.uid)
             except Exception as e:
                 logger.exception(f"coach not found for {data['coach_id']}",e)
                 return Response({"error":f"coach not found for {data['coach_id']}"},status=status.HTTP_400_BAD_REQUEST)
             
             try:
-                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coachee_id'],tenant_id=request.tenant.uid,
-                                                            profile_type=ProfileTypeChoice.coachee)
+                CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=data['coachee_id'],tenant_id=request.tenant.uid)
             except Exception as e:
                 logger.exception(f"coachee not found for {data['coachee_id']}",e)
                 return Response({"error":f"coachee not found for {data['coachee_id']}"},status=status.HTTP_400_BAD_REQUEST)
