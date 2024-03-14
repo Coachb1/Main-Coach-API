@@ -6,6 +6,9 @@ from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
     tag = serializers.CharField()
@@ -122,20 +125,33 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             else:
                 data['admirer_ids'] = []
 
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=profile.tenant_id , coach_id=profile.uid)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                data['rating'] = 0
+                data['total_rating'] = 0
+            else:
+                data['rating'] = total_score/total_ratings
+                data['total_rating'] = total_ratings
+
             try:
                 signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
                 engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
                 data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
                 data['total_without_question_count'] = engagements.get('total_without_question_count',None)
             except:
-                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
-                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
+                data['total_engagement_with_question_count'] = None
+                data['total_engagement_with_question_count'] = None
             
-        except:
+        except Exception as e:
+            logger.error(f"Error in DirectoryInfoSErializer: {e}")
             data['admirer_ids'] = []
             data['created'] = ""
             data['total_without_question_count'] = None
             data['total_engagement_with_question_count'] = None
+            data['rating'] = 0
+            data['total_rating'] = 0
 
         return data
 
