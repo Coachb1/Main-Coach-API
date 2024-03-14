@@ -199,3 +199,22 @@ class CoachCoacheeRatingSerializer(serializers.ModelSerializer):
         model = CoachCoacheeRating
         fields = '__all__'
     
+    def to_representation(self, instance):
+        # data =  super().to_representation(instance)
+        data = {}
+        try:
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=instance.tenant_id , coach_id=instance.coach_id)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                data['averate_rating'] = 0
+                data['total_ratings'] = 0
+            else:
+                data['average_rating'] = total_score/total_ratings
+                data['total_ratings'] = total_ratings
+        except Exception as e:
+            logger.error(f"Error in CoachCoacheeRatingSerializer: {e}")
+            data['averate_rating'] = 0
+            data['total_ratings'] = 0
+            
+        return data
