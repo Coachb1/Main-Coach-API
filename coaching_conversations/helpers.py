@@ -307,7 +307,6 @@ def initialize_coaching_conversation(tenant: Tenant,
                                 "book_recommendations": idp.book_recommendations,
                                 "course_recommendations": idp.course_recommendations,
                                 "recommended_ted_talk": idp.recommended_ted_talk,
-                                "recommended_scenarios": idp.recommended_scenarios,
                             }
 
                     custom_prompt = Template(custom_prompt).substitute(
@@ -933,8 +932,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 
             user_recent_idp = None
             latest_session = session.order_by('-created').first()
+            logger.info(f"*************** latest_session  : {latest_session.uid}")
             if latest_session.is_idp_discussion_opted:
-                idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created_at').first()
+                idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created').first()
+                logger.info(f"*************** idp : {idp}")
                 if idp:
                     user_recent_idp = {
                             "strengths": idp.strengths,
@@ -951,7 +952,6 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                             "book_recommendations": idp.book_recommendations,
                             "course_recommendations": idp.course_recommendations,
                             "recommended_ted_talk": idp.recommended_ted_talk,
-                            "recommended_scenarios": idp.recommended_scenarios,
                         }
 
             try:
