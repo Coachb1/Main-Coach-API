@@ -2296,7 +2296,7 @@ class AccountsViewSet(ApiViewSet,
                 rating = CoachCoacheeRating.objects.get(deleted=False,tenant_id=request.tenant.uid, coach_id=data['coach_id'], coachee_id=data['coachee_id'])
                 rating.rating = data['rating']
                 rating.save(update_fields=['rating'])
-                return Response({"data": CoachCoacheeRatingSerializer(rating).data },status=status.HTTP_200_OK)
+                return Response(CoachCoacheeRatingSerializer(rating).data,status=status.HTTP_200_OK)
             except Exception as e:
                 logger.info(f"rating not found for {data['coach_id']} and {data['coachee_id']} so creating new one")
                 serializer.is_valid(raise_exception=True)
