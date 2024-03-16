@@ -675,10 +675,17 @@ class AccountsViewSet(ApiViewSet,
             if profile.count() > 0:
                 return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
             
+            # _data = data.copy()
+            
             serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             logger.info(f"serializer data: {serializer.validated_data}")
             created_profile = serializer.save()
+            
+            if (created_profile.profile_type) in ('coachee','mentee'):
+                created_profile.is_approved = True
+                created_profile.save(update_fields=["is_approved"])
+                
             send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
                                f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page")
             # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
@@ -701,7 +708,7 @@ class AccountsViewSet(ApiViewSet,
                     status=StatusChoice.available,
                     skills=created_profile.high_rating_characteristics,
                     is_visible= True,
-                    is_approved = False,
+                    is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else False,
                     )
             
             return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
