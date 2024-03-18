@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo, EmailSentDetails
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 class SessionNotesRecommendationsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
     search_fields = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
+    
+
+class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','subject','status','sent_by', 'is_sent')
+    search_fields = ('id', 'subject','status','sent_by', 'is_sent')
+    list_filter = ('is_sent',)
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','is_visible',"is_approved")
@@ -39,6 +45,7 @@ admin.site.register(DirectoryPageInfo, DirectoryAdmin)
 admin.site.register(UserIDP, IDPAdmin)
 admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
 admin.site.register(UserActionInfo)
+admin.site.register(EmailSentDetails, EmailSentDetailsAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):

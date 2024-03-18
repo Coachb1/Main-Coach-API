@@ -739,7 +739,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 # send_bot_conversation_email(candidate_name, conv, recepients)
             recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
             # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, allow_reply=True)
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
