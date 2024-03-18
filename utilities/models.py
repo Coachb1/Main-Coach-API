@@ -171,3 +171,20 @@ class CoachCoacheeJoiningPreviledge(TenantAwareModel):
     class Meta:
         db_table = "coach_coachee_joining_previledge"
         unique_together = ('email', 'client_name', 'tenant_id')
+        
+        
+        
+class EmailSentDetails(TenantAwareModel):
+    bot_name = models.CharField(max_length=255)
+    owner_name = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+    sent_by = models.CharField(max_length=255)
+    sent_to = models.CharField(max_length=255)
+    status = models.CharField(max_length=255)
+    is_sent = models.BooleanField(default=False)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "email_sent_details"

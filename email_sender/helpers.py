@@ -4,6 +4,7 @@ from email.mime.multipart import MIMEMultipart
 from settings import BASE_DIR
 from users.models import UserAttribute
 import logging
+from utilities.models import EmailSentDetails
 
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
@@ -181,7 +182,7 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, allow_reply = False):
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_name, coach_name, allow_reply = False):
     try:
         from_password = APP_PASSWORD
         from_email = FROM_EMAIL
@@ -204,10 +205,17 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
         server.starttls()
         server.login(LOGIN_EMAIL, from_password)
-        server.sendmail(from_email, to_email, msg_str)
+        sent_status = server.sendmail(from_email, to_email, msg_str)
         server.quit()
-        print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ")
+        
+        print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ", sent_status)
+        EmailSentDetails.objects.create(subject=msg['Subject'],body=f"conversation: {conversation}\n summary: {summary} \n simulation: {simulation}",
+                                        bot_name=bot_name,owner_name=coach_name,sent_by=from_email,
+                                        status=sent_status, sent_to=to_email, is_sent=True)
     except Exception as e:
+        EmailSentDetails.objects.create(subject=msg['Subject'],body=msg_str,
+                                        bot_name=bot_name,owner_name=coach_name,sent_by=from_email,
+                                        status=sent_status, sent_to=to_email, is_sent=False)
         print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args)
 
 def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email):
