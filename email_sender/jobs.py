@@ -39,20 +39,12 @@ def initialize_weekly_email_schedular():
     scheduler.add_job(
         weekly_remider_to_login,
         trigger='cron',
-        day_of_week='mon',
+        day_of_week='fri',
         hour=11,
         minute=30,
         id='weekly_login_reminder',
     )
 
-    scheduler.add_job(
-        testing,
-        trigger='cron',
-        day_of_week='thu',
-        hour=19,
-        minute=10,
-        id='testing_job'
-    )
 
     scheduler.start()
 
