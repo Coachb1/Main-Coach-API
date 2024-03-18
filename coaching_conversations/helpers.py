@@ -1360,6 +1360,8 @@ def create_user_profile_and_bot(data,auth):
         "qna_for_coach_mentor" : qna_for_coach_mentor if qna_for_coach_mentor else None,
         "low_rating_characteristics": low_rating_characteristics if profile_type == "coachee" else None,
         "high_rating_characteristics": high_rating_characteristics if profile_type == "coachee" else None,
+        'is_approved': True
+
     }
 
     url = f"{BACKEND}/api/v1/accounts/coach-coachee-mentor-mentee-profile/"
@@ -1479,7 +1481,8 @@ def create_user_profile_and_bot(data,auth):
                 "discuss_how_you_helped_others_in_coachMentoring": discuss_how_you_helped_others_in_coachMentoring,
                 "provide_answers_using_emojis": provide_answers_using_emojis.lower() == 'yes' if provide_answers_using_emojis else False
             },
-            "media_data": media_data
+            "media_data": media_data,
+            'is_approved': True
         }
 
         try:
