@@ -8249,3 +8249,60 @@ NOTE: Start directly with the response and only provide the response.
         result.append(bot_id)
 
     return result
+
+
+
+
+def get_conversation_summary(conv):
+            
+    transcript_summary_prompt = f"""
+        Conversation : ${conv}
+
+        Summarize this coaching conversation. Create the summary like an action plan and provide it in bullet points. Do not leave out any important information. The summary should be a quarter of the length of the original Conversation.
+
+        NOTE : Never start with any kind of introduction sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary .
+    """
+    transcript_summary = anthropic_completion(transcript_summary_prompt, 1000)
+    return transcript_summary
+
+
+
+def create_scenario_from_transcript(conversation,access_token, tenant_id, context=None, source=None, competency=None, creator_user_id=None):
+    simulation_prompt = f"""
+    Information : ${conversation}
+
+    Read this {{Information}} thoroughly. This is the conversation summary between a coach/mentor and coachee. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills discussed in the {{Information}}. After creating the situation provide these:
+
+    Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion. It should not be about writing an email.
+    Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+    Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+    Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {{Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}}
+    KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+    KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+    The Question, Custom Prompt, KLP, KLS should be numbered.
+
+    Here the format looks like :
+
+    "Title",
+
+    "Description",
+
+    "Question 1",
+
+    "Prompt 1",
+
+    "Takeaway 1" ,
+
+    "Skills 1" repeated for {3} question(s). Do not include any {{responder}} response.
+
+    NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+    NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description. 
+
+    NOTE : Make sure the simulation is very advanced and tough.
+        """
+        
+        
+    scenario = create_scenario_from_site_context(None, access_token, tenant_id, json.dumps({'title': "",'data':{'information':''}}), origin=source, competency=competency, creator_user_id=creator_user_id, custom_prompt=simulation_prompt)
+    
+    return scenario
