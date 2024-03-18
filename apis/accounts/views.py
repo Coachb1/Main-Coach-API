@@ -670,6 +670,19 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
             data = request.data.copy()
             data['tenant_id'] = self.request.tenant.uid
+            profile_approved = data.get('is_approved',None)
+            if profile_approved:
+                if profile_approved.lower() == 'true':
+                    profile_approved = True
+                elif profile_approved.lower() == 'false':
+                    profile_approved = False
+                else:
+                    profile_approved = False
+
+            if profile_approved:
+                data['is_approved'] = profile_approved
+            else:
+                data['is_approved'] = False
 
             profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
             if profile.count() > 0:
@@ -708,7 +721,7 @@ class AccountsViewSet(ApiViewSet,
                     status=StatusChoice.available,
                     skills=created_profile.high_rating_characteristics,
                     is_visible= True,
-                    is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else False,
+                    is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
                     )
             
             return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
@@ -846,6 +859,15 @@ class AccountsViewSet(ApiViewSet,
                 bot_base_url = data.get('bot_base_url',None)
                 if not bot_base_url:
                     return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
+                
+                bot_approved = data.get('is_approved',False)
+                if bot_approved:
+                    if bot_approved.lower() == 'true':
+                        bot_approved = True
+                    elif bot_approved.lower() == 'false':
+                        bot_approved = False
+                    else:
+                        bot_approved = False
 
                 faqs = data.get('faqs')
                 fitment_details = data.get('fitment_data',None)
@@ -890,7 +912,8 @@ class AccountsViewSet(ApiViewSet,
                         "media_data": {
 
                         }
-                    }
+                    },
+                    is_approved=bot_approved
                 )
 
 
@@ -994,8 +1017,11 @@ class AccountsViewSet(ApiViewSet,
 
                         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
-
-                all_data['media_data'] = extracted_media_data
+                if extracted_media_data:
+                    signature_bot_media_data = signature_bot.data['media_data']
+                    for key, value in extracted_media_data.items():
+                        signature_bot_media_data[key] = value
+                    all_data['media_data'] = signature_bot_media_data
 
 
 
@@ -1341,7 +1367,10 @@ class AccountsViewSet(ApiViewSet,
                 logger.info(f"######### extracted media data : {extracted_media_data}")
 
             if extracted_media_data:
-                signature_bot.data['media_data'] = extracted_media_data
+                signature_bot_media_data = signature_bot.data['media_data']
+                for key, value in extracted_media_data.items():
+                    signature_bot_media_data[key] = value
+                signature_bot.data['media_data'] = signature_bot_media_data
                 signature_bot.save()
 
             # if updated_data:
