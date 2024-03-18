@@ -181,30 +181,34 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email, allow_reply = False):
-    from_password = APP_PASSWORD
-    from_email = FROM_EMAIL
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, allow_reply = False):
+    try:
+        from_password = APP_PASSWORD
+        from_email = FROM_EMAIL
 
 
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = f"Bot Conversation"
-    msg['From'] = "Coachbots  <mail@coachbots.com>"
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"Bot Conversation"
+        msg['From'] = "Coachbots  <mail@coachbots.com>"
 
-    if allow_reply:
-        msg['To'] = ', '.join(to_email)
+        if allow_reply:
+            msg['To'] = ', '.join(to_email)
 
-    html_body = get_bot_conversation_email_body(candidate_name, conversation)
+        html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
 
-    msg.attach(MIMEText(html_body, 'html'))
-    msg_str = msg.as_string()
-    print("*"*100, to_email, candidate_name, conversation,"*"*100)
+        msg.attach(MIMEText(html_body, 'html'))
+        msg_str = msg.as_string()
+        print("*"*100, to_email, candidate_name, conversation,"*"*100)
 
-    # login to server
-    server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
-    server.starttls()
-    server.login(LOGIN_EMAIL, from_password)
-    server.sendmail(from_email, to_email, msg_str)
-    server.quit()
+        # login to server
+        server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
+        server.starttls()
+        server.login(LOGIN_EMAIL, from_password)
+        server.sendmail(from_email, to_email, msg_str)
+        server.quit()
+        print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ")
+    except Exception as e:
+        print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args)
 
 def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email):
     from_password = APP_PASSWORD
@@ -923,7 +927,7 @@ def get_feedback_conv_email_body(candidate_name,conversation):
     </html>
     """
 
-def get_bot_conversation_email_body(candidate_name,conversation):
+def get_bot_conversation_email_body(candidate_name,conversation, summary, simulation):
     data = ""
     for index,i in enumerate(conversation):
         if index+1 == len(conversation):
@@ -1076,7 +1080,9 @@ def get_bot_conversation_email_body(candidate_name,conversation):
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{candidate_name} interacted with bot </p>
-                            (NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly. Also after the email discussion is over, one participant should update the email discussion in the action items section of the platform.)
+                            (NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly. Also after the email discussion is over, one participant should update the email discussion in the action items section of the platform.) <br/>
+                            {summary} <br/>
+                            {simulation} <br/>
                             <table role="presentation" border="0" cellpadding="0" cellspacing="0" class=" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                             <tbody>
                                 <tr>
