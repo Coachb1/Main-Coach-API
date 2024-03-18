@@ -15,7 +15,7 @@ from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from commons.utils import generic_completion
-from tests.helpers import get_meeting_report_from_test_attempt_session
+from tests.helpers import get_meeting_report_from_test_attempt_session, get_conversation_summary,create_scenario_from_transcript
 from tests.helpers import get_skills_tracker_data, calculate_similarity
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
@@ -673,6 +673,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         """
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
+        access_token = request.headers.get('Authorization')
 
         logger.info({"message":"##################################### Request Received for sending bot transcript email #####################################",
                      "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email})
@@ -723,12 +724,22 @@ class TestAttemptSessionViewSet(ApiViewSet,
             sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
             conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
             conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+            
+            conversation_summary = get_conversation_summary(conv)
+            
+            logger.info({"********************* conversation_summary":conversation_summary})
+            
+            created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+            
+            logger.info({"********************* created_scenarios":created_scenarios})
+
+            
 
             # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
                 # send_bot_conversation_email(candidate_name, conv, recepients)
             recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
             # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
-            send_bot_conversation_email(candidate_name, conv, recepients, allow_reply=True)
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
