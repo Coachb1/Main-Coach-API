@@ -637,7 +637,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
 
 
-    @action(methods=['GET'],detail=False,url_path="send-bot-transcript-email")
+    @action(methods=['GET', 'POST'],detail=False,url_path="send-bot-transcript-email")
     def send_bot_transcript_email(self,request, *args, **kwargs):
         
         """
@@ -674,9 +674,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
         access_token = request.headers.get('Authorization')
+        session_qna_data = request.data.get('session_qna_data')
+        
+        logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
         logger.info({"message":"##################################### Request Received for sending bot transcript email #####################################",
-                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email})
+                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email,
+                     "session_qna_data":session_qna_data})
 
         try:
             test_attempt_session = TestAttemptSession.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session_id)
@@ -721,9 +725,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
 
             # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
-            sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
-            conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
-            conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+            # sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+            # conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+            # conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+            
+            conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
             
             conversation_summary = get_conversation_summary(conv)
             
@@ -739,6 +745,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 # send_bot_conversation_email(candidate_name, conv, recepients)
             recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
             # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
+            
+            logger.info(f"************** session_qna_data conv: {conv}")
             send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
