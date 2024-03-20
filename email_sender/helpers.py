@@ -5,6 +5,7 @@ from settings import BASE_DIR
 from users.models import UserAttribute
 import logging
 from utilities.models import EmailSentDetails
+from string import Template
 
 from external_apis.slack_alert_api import send_slack_message
 
@@ -185,22 +186,24 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_name, coach_name, allow_reply = False):
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False):
     try:
         from_password = APP_PASSWORD
         from_email = FROM_EMAIL
 
 
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"Bot Conversation"
+        msg['Subject'] = f"Transcript + Summary with bot {bot_name}"
         msg['From'] = "Coachbots  <mail@coachbots.com>"
 
         if allow_reply:
             msg['To'] = ', '.join(to_email)
 
-        html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
+        # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
+        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
+        email_wrapper = get_email_wrapper(html_content=transcript_block,candidate_name=candidate_name)
 
-        msg.attach(MIMEText(html_body, 'html'))
+        msg.attach(MIMEText(email_wrapper, 'html'))
         msg_str = msg.as_string()
         print("*"*100, to_email, candidate_name, conversation,"*"*100)
 
@@ -213,11 +216,11 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         
         print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ", sent_status)
         EmailSentDetails.objects.create(subject=msg['Subject'],body=f"conversation: {conversation}\n summary: {summary} \n simulation: {simulation}",
-                                        bot_name=bot_name,owner_name=coach_name,sent_by=from_email,
+                                        bot_name=bot_id,owner_name=coach_name,sent_by=from_email,
                                         status=sent_status, sent_to=to_email, is_sent=True)
     except Exception as e:
         EmailSentDetails.objects.create(subject=msg['Subject'],body=msg_str,
-                                        bot_name=bot_name,owner_name=coach_name,sent_by=from_email,
+                                        bot_name=bot_id,owner_name=coach_name,sent_by=from_email,
                                         status=sent_status, sent_to=to_email, is_sent=False)
 
         """ send_slack_message({"module": "###############3send_bot_conversation_email################", "error": str(e)})
@@ -1820,3 +1823,372 @@ def get_html_body_learner_path(user_name,test_list):
     </body>
     </html>
     """
+
+
+
+def get_email_wrapper(html_content,candidate_name):
+
+    template = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta content="telephone=no" name="format-detection">
+    <title></title>
+    <!--[if (mso 16)]>
+    <style type="text/css">
+    a {text-decoration: none;}
+    </style>
+    <![endif]-->
+    <!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]-->
+    <!--[if gte mso 9]>
+<xml>
+    <o:OfficeDocumentSettings>
+    <o:AllowPNG></o:AllowPNG>
+    <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+    <!--[if !mso]><!-- -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <!--<![endif]-->
+</head>
+
+<body>
+    <div dir="ltr" class="es-wrapper-color">
+        <!--[if gte mso 9]>
+			<v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t">
+				<v:fill type="tile" color="#ebfafe"></v:fill>
+			</v:background>
+		<![endif]-->
+        <table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0">
+            <tbody>
+                <tr>
+                    <td class="esd-email-paddings" valign="top">
+                        <table cellpadding="0" cellspacing="0" class="esd-header-popover es-header" align="center">
+                            <tbody>
+                                <tr>
+                                    <td class="esd-stripe" align="center">
+                                        <table bgcolor="#ffffff" class="es-header-body" align="center" cellpadding="0" cellspacing="0" width="600">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="esd-structure es-p20t es-p20r es-p20l" align="left">
+                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td width="560" class="esd-container-frame" align="center" valign="top">
+                                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-text">
+                                                                                        <p style="font-size: 10px;">(NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)</p>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="es-p20t es-p20r es-p20l esd-structure" align="left">
+                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td width="560" class="esd-container-frame" align="center" valign="top">
+                                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-image" style="font-size: 0px;"><a target="_blank"><img class="adapt-img" src="https://demo.stripocdn.email/content/guids/804167b6-b3bc-4fc5-a3ae-8f7638774109/images/coachbotslogo.png" alt style="display: block;" width="305"></a></td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="esd-structure es-p20t es-p20r es-p20l" align="left">
+                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                            <tbody>
+                                                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px; text-align: left;">Hey ${candidate_name}!</p>
+
+                                                                <tr>
+                                                                    <td width="560" class="esd-container-frame" align="center" valign="top">
+                                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-text">
+                                                                                        <div>${html_content}</div>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table cellpadding="0" cellspacing="0" class="es-content" align="center">
+                            <tbody>
+                                <tr>
+                                    <td class="esd-stripe" align="center">
+                                        <table bgcolor="#ffffff" class="es-content-body" align="center" cellpadding="0" cellspacing="0" width="600">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="esd-structure es-p20r es-p20l" align="left">
+                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td width="560" class="esd-container-frame" align="center" valign="top">
+                                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+                                                                                        <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                                                                                            <tbody>
+                                                                                                <tr>
+                                                                                                    <td style="border-bottom: 2px solid #e9f7e4; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                                                                </tr>
+                                                                                            </tbody>
+                                                                                        </table>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table cellpadding="0" cellspacing="0" class="es-footer esd-footer-popover" align="center">
+                            <tbody>
+                                <tr>
+                                    <td class="esd-stripe" align="center" esd-custom-block-id="876054">
+                                        <table bgcolor="#ffffff" class="es-footer-body" align="center" cellpadding="0" cellspacing="0" width="600">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="esd-structure es-p30b es-p20r es-p20l" align="left">
+                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td width="560" class="esd-container-frame" align="left">
+                                                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td align="left" class="esd-block-text">
+                                                                                        <p>Thank you,</p>
+                                                                                        <p>Team Coachbots</p>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+                                                                                        <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                                                                                            <tbody>
+                                                                                                <tr>
+                                                                                                    <td style="border-bottom: 2px solid #e9f7e4; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                                                                </tr>
+                                                                                            </tbody>
+                                                                                        </table>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-text">
+                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) Coachbots 2024. Powered by Answer Cloud Technology Pvt. Ltd.</p>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-spacer es-p10" style="font-size:0">
+                                                                                        <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                                                                                            <tbody>
+                                                                                                <tr>
+                                                                                                    <td style="border-bottom: 1px solid #cccccc; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                                                                </tr>
+                                                                                            </tbody>
+                                                                                        </table>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td align="center" class="esd-block-text es-p30r es-p30l">
+                                                                                        <p style="line-height: 150%; font-size: 12px;">This is a transactional email received as a system user or admin. This email is not monitored, please contact your admin to discuss these emails.</p>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+
+</html>
+    
+    """
+
+    template = Template(template).substitute(html_content=html_content,candidate_name=candidate_name)
+
+    return template
+
+def get_transcript_block(conversation, summary, simulation,coach_name):
+
+    simulation_block = get_simulation_block(simulation)
+    data = ""
+    for index,i in enumerate(conversation):
+        
+        data += f'''
+        <tr>
+            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+            </td>
+        </tr>
+        <tr>
+            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{coach_name}: {i['coach']}</p>
+            </td>
+        </tr>
+    '''
+    template = """
+    <td class="esd-stripe" align="center">
+        <table bgcolor="#ffffff" class="es-content-body" align="center" cellpadding="0" cellspacing="0" width="600">
+            <tbody>
+                <tr>
+                    <td class="esd-structure es-p20r es-p20l" align="left">
+                        <table cellpadding="0" cellspacing="0" width="100%">
+                            <tbody>
+                                <tr>
+                                    <td width="560" class="esd-container-frame" align="center" valign="top">
+                                        <table cellpadding="0" cellspacing="0" width="100%">
+                                            <tbody>
+                                                <tr>
+                                                    <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+                                                        <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                                <td align="center" class="esd-block-text">
+                                                    <br>
+                                                    <div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Summary</div><br>
+                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px; text-align: left;">${summary}</p>
+                                                </td>
+                                                <tr>
+                                                    <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td align="center" class="esd-block-text">
+                                                        <br><div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Simulation</div><br>
+                                                        ${simulation_block}
+                                                    </td>
+                                                </tr>
+                                                
+                                                <tr>
+                                                    <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                </tr>
+                                                
+                                                <tr>
+                                                    <td align="center" class="esd-block-text">
+                                                        <br><div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Transcript</div><br>
+                                                        ${bot_conversation}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+                                                        <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </td>
+        """
+
+    template = Template(template).substitute(bot_conversation=data,summary=summary,simulation_block=simulation_block)        
+    return template
+
+def get_simulation_block(simulation):
+
+    title = simulation.get('title')
+    description = simulation.get('description')
+    test_code = simulation.get('test_code')
+    template = """
+    <tr>
+        <td align="left" class="esd-block-text">
+            <p>Title : ${title}<br>Description : ${description}</p>
+        </td>
+    </tr>
+    <tr>
+        <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+            <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                <tbody>
+                    <tr>
+                        <td style="border-bottom: 2px solid #ffffff; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td align="right" class="esd-block-text">
+            <p>Simulation code : ${test_code}</p>
+        </td>
+    </tr>
+
+    """
+    return Template(template).substitute(
+        title=title,
+        description=description,
+        test_code = test_code
+    )
