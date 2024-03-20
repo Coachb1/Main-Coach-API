@@ -875,10 +875,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             mentor_id = request.query_params.get('mentor_id')
             mode = request.query_params.get('for')
             access_token = request.query_params.get('token', None)
+            simulation_codes = request.query_params.get('simulation_codes', None)
             logger.info(f"************************** details: {mode}, userid: {user_id}, mentor_id; {mentor_id} \nQueryparams: {request.query_params}")
 
             if mode == 'mentor':
-                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token,simulation_codes)
                 logger.info(f"######################################## save_session_notes data: {data} \nErrors : {errors}")
                 if "error" in errors:
                     return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
@@ -944,6 +945,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             mode = request.query_params.get('mode',None)
             session_note_id = request.query_params.get('session_note_id',None)
             recommendations = request.query_params.get('recommendations',None)
+            simulation_codes = request.query_params.get('simulation_codes', None)
 
             if mode == 'get':
                 data = get_session_notes_data(tenant_id)
@@ -952,7 +954,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if not recommendations or not session_note_id:
                     return Response({"Error": "recommendations or session_note_id not found"}, status=status.HTTP_400_BAD_REQUEST)
 
-                data = update_session_notes(session_note_id,recommendations)
+                data = update_session_notes(session_note_id,recommendations,simulation_codes)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             else:
                 return Response({"details": 'Mode parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
