@@ -76,7 +76,6 @@ from readability import Document
 from test_bulk_upload.constants import get_skills
 from django.db.models import Q
 from utilities.models import ScenarioCreationDetails
-from commons.notifications import send_error_notification
 
 
 logger = logging.getLogger(__name__)
@@ -4217,15 +4216,10 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         except Exception as e:
             logger.exception("failed to send email to participant %s email %s, err: %s",
                              participant_id, participant_email, e)
-            send_error_notification("send_report_link_to_email",f"failed to send email to participant {participant_id} email {participant_email}, err: {e}",e)
             raise e
 
     for to_email in email_address_list:
-        try:
-            send_email(to_email, email_subject, data=data)
-        except Exception as e:
-            logger.exception(e)
-            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
+        send_email(to_email, email_subject, data=data)
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
@@ -4277,11 +4271,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     
 
     for to_email in email_address_list:
-        try:
-            send_email(to_email, email_subject, data=data)
-        except Exception as e:
-            logger.exception(e)
-            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
+        send_email(to_email, email_subject, data=data)
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
@@ -4291,7 +4281,6 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         except Exception as e:
             logger.exception("failed to send email to participant %s email %s, err: %s",
                              participant_id, participant_email, e)
-            send_error_notification("send_report_link_to_email_orch",f"failed to send email to participant {participant_id} email {participant_email}, err: {e}",data)
             raise e
 
     test_attempt_session.is_report_sent_to_email = True
@@ -7261,14 +7250,12 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                 status = "failed",
                                 reason_of_failure = f"failed to extract information for following reason : {e}"
                             )
-            send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
 
 
             if i+1 == max_retry:
                 logger.info(f"{'!'*100}  failed outer {max_retry} times  {'!'*100}")
                 # TODO: send email to user if creator_user_id is not None
                 if creator_user_id:
-                    send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
                     try:
                         user = User.objects.get(uid=creator_user_id)
                         send_generic_email(
