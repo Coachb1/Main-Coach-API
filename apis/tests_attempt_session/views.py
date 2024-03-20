@@ -41,6 +41,7 @@ from utilities.models import UserActionInfo, BotQnA, BotEngagement
 from utilities.helpers import cal_score_for_fitment
 from users.choices import CoachCoacheeConnectionStatusChoice
 from commons.utils import get_bot_engagements
+from commons.notifications import send_error_notification
 
 
 
@@ -268,12 +269,17 @@ class TestAttemptSessionViewSet(ApiViewSet,
                                     user_id=participant_id).attributes
             candidate_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
             
-            send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
+            try:
+                send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                send_error_notification("submit_feedback","Error in sending feedback email",{"participant_id":participant_id,"session_id":session_id,"feedback":feedback,"rating":rating,"test_id":test_id,"test_title":test_title})
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            send_error_notification("submit_feedback","Error in submit feedback",{"participant_id":participant_id,"session_id":session_id,"feedback":feedback,"rating":rating,"test_id":test_id,"test_title":test_title})
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -444,10 +450,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
-                    send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
+                    try:
+                        send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
+                    except Exception as e:
+                        send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
             else:
                 if test.email_address_list:
-                    send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                    try:
+                        send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                    except Exception as e:
+                        send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -748,8 +760,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
             # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
             
             logger.info(f"************** session_qna_data conv: {conv}")
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, bot_att.bot_name,allow_reply=True)
-
+            try:
+                send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
+        
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
@@ -821,7 +837,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 })
 
         for email in [bot_owner_email,"info@coachbots.com"]:
-            send_feedback_conversation_email(user_email,conv,email,type_of_email)
+            try:
+                send_feedback_conversation_email(user_email,conv,email,type_of_email)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
 
         return Response({'status': 'sent'}, status=status.HTTP_200_OK)
     
