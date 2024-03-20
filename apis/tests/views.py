@@ -37,7 +37,6 @@ import json
 from collections import defaultdict
 from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
-from commons.notifications import send_error_notification
 
 
 import logging
@@ -181,10 +180,7 @@ class TestViewSet(ApiViewSet,
         tests = get_learner_path(
             tenant_aware_query_set, objective, candidate_type)
 
-        try:
-            send_learner_path_email(tests, user)
-        except Exception as e:
-            send_error_notification("get_learner_path", "Error in sending learner path email", e)
+        send_learner_path_email(tests, user)
 
         return Response(self.serializer_class(instance=tests, many=True).data, status=status.HTTP_200_OK)
 
