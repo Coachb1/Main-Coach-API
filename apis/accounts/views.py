@@ -11,6 +11,8 @@ from django.core.files.base import ContentFile
 import threading
 import csv
 from io import TextIOWrapper
+from external_apis.slack_alert_api import send_slack_message
+from commons.notifications import send_error_notification
 
 
 from apis.accounts.aggregator import create_user_account
@@ -398,6 +400,8 @@ class AccountsViewSet(ApiViewSet,
             
         except Exception as e:
             logger.exception(e)
+            # send_slack_message({"module": "########### get_bot_details ###########", "error": str(e)})
+            send_error_notification("get_bot_details",f"failed to get bot details: {e}",{"bot_id":bot_id})
 
 
         return Response({"data":data},status=status.HTTP_200_OK)
@@ -486,6 +490,8 @@ class AccountsViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception(f"got error: {e}")
+            # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
+            send_error_notification("get_client_informations",f"failed to get client information: {e}",{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -612,6 +618,7 @@ class AccountsViewSet(ApiViewSet,
         
         except Exception as e:
             logger.exception(f"got error: {e}")
+            send_slack_message({"module": "########### get_user_feedback_data ###########", "error": str(e)})
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -654,77 +661,88 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profiles,many=True).data },status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
-            profile_id = request.query_params.get('profile_id',None)
-            print("*"*100)
-            logger.info(f"data : {request.data}")
-            data = {"tenant_id" : self.request.tenant.uid}
-            data.update(request.data)
-            print(data)
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
-            serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+            try:
+                profile_id = request.query_params.get('profile_id',None)
+                print("*"*100)
+                logger.info(f"data : {request.data}")
+                data = {"tenant_id" : self.request.tenant.uid}
+                data.update(request.data)
+                print(data)
+                profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
+                serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.exception(e)
+                send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
+                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
 
         if request.method == 'POST':
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
-            data = request.data.copy()
-            data['tenant_id'] = self.request.tenant.uid
-            profile_approved = data.get('is_approved',None)
-            if profile_approved:
-                if profile_approved.lower() == 'true':
-                    profile_approved = True
-                elif profile_approved.lower() == 'false':
-                    profile_approved = False
+            try:
+                data = request.data.copy()
+                data['tenant_id'] = self.request.tenant.uid
+                profile_approved = data.get('is_approved',None)
+                if profile_approved:
+                    if profile_approved.lower() == 'true':
+                        profile_approved = True
+                    elif profile_approved.lower() == 'false':
+                        profile_approved = False
+                    else:
+                        profile_approved = False
+
+                if profile_approved:
+                    data['is_approved'] = profile_approved
                 else:
-                    profile_approved = False
+                    data['is_approved'] = False
 
-            if profile_approved:
-                data['is_approved'] = profile_approved
-            else:
-                data['is_approved'] = False
-
-            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
-            if profile.count() > 0:
-                return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
-            
-            # _data = data.copy()
-            
-            serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            logger.info(f"serializer data: {serializer.validated_data}")
-            created_profile = serializer.save()
-            
-            if (created_profile.profile_type) in ('coachee','mentee'):
-                created_profile.is_approved = True
-                created_profile.save(update_fields=["is_approved"])
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
+                if profile.count() > 0:
+                    return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
                 
-            send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
-                               f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page")
-            # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
-            #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
-            #                    'aadil611ofc@gmail.com')
-            profile_type = created_profile.profile_type
-            if created_profile.is_mentor:
-                profile_type = ProfileTypeChoice.coach_mentor
+                # _data = data.copy()
+                
+                serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                logger.info(f"serializer data: {serializer.validated_data}")
+                created_profile = serializer.save()
+                
+                if (created_profile.profile_type) in ('coachee','mentee'):
+                    created_profile.is_approved = True
+                    created_profile.save(update_fields=["is_approved"])
+                    
+                send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
+                                f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page")
+                # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
+                #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
+                #                    'aadil611ofc@gmail.com')
+                profile_type = created_profile.profile_type
+                if created_profile.is_mentor:
+                    profile_type = ProfileTypeChoice.coach_mentor
 
-            DirectoryPageInfo.objects.create(
-                    name=created_profile.name,
-                    profile_id=created_profile.uid,
-                    department=created_profile.department,
-                    bot_type=BotTypeChoice.feedback_bot,
-                    profile_pic_url=created_profile.profile_image_url or "None",
-                    profile_type=profile_type,
-                    description=created_profile.about,
-                    experience=created_profile.experience,
-                    expertise=created_profile.area_domain,
-                    status=StatusChoice.available,
-                    skills=created_profile.high_rating_characteristics,
-                    is_visible= True,
-                    is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
-                    )
-            
-            return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
+                DirectoryPageInfo.objects.create(
+                        name=created_profile.name,
+                        profile_id=created_profile.uid,
+                        department=created_profile.department,
+                        bot_type=BotTypeChoice.feedback_bot,
+                        profile_pic_url=created_profile.profile_image_url or "None",
+                        profile_type=profile_type,
+                        description=created_profile.about,
+                        experience=created_profile.experience,
+                        expertise=created_profile.area_domain,
+                        status=StatusChoice.available,
+                        skills=created_profile.high_rating_characteristics,
+                        is_visible= True,
+                        is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
+                        )
+                
+                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.exception(e)
+                # send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
+                send_error_notification("coach_coachee_mentor_mentee_profile",f"failed to create profile: {e}",{"data":data})
+                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
 
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
@@ -811,87 +829,447 @@ class AccountsViewSet(ApiViewSet,
         # tenant = self.request.tenant
         # print("Tenant: ",tenant, "T"*100)
 
-        if request.method == 'POST':
-            profile_id = data.get('profile_id',None)
-            try:
-        
-                bot_type = data.get('bot_type')
-                if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
-                    return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
-                
-                if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot and bot_type != BotTypeChoice.user_bot:
-                    return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
-
-
-                participant_id = data.get('participant_id')
-                if participant_id is None or participant_id == '':
-                    return Response({"error": "participant_id is required"},status=status.HTTP_400_BAD_REQUEST)
-
-                bot_name = data.get('bot_name')
-                if bot_name is None or bot_name == '':
-                    return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
-
-                bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-").replace("&"," ")])
-                existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
-                if existing_bots.count() > 0:
-                    return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
-
+        try:
+            if request.method == 'POST':
+                profile_id = data.get('profile_id',None)
                 try:
-                    user = User.objects.get(uid=participant_id)
-                except:
-                    return Response({"error": "User not found"},status=status.HTTP_404_NOT_FOUND)
-                
-
-                bot_attributes = data.get('attributes')
-                if bot_attributes is None or bot_attributes == '':
-                    return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
-                
-                feedback_questions = data.get("feedback_questions")
-                if bot_type == BotTypeChoice.feedback_bot:
-                    if feedback_questions is None or feedback_questions == '':
-                        return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
-
-                fitment_answer = data.get('fitment_answer',None)
-                if bot_type == BotTypeChoice.avatar_bot:
-                    if fitment_answer is None or fitment_answer == "":
-                        return Response({"error": "fitment_answer is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+                    bot_type = data.get('bot_type')
+                    if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
+                        return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                     
-                bot_base_url = data.get('bot_base_url',None)
-                if not bot_base_url:
-                    return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
-                
-                bot_approved = data.get('is_approved',False)
-                if bot_approved:
-                    if bot_approved.lower() == 'true':
-                        bot_approved = True
-                    elif bot_approved.lower() == 'false':
-                        bot_approved = False
+                    if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot and bot_type != BotTypeChoice.user_bot:
+                        return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+
+                    participant_id = data.get('participant_id')
+                    if participant_id is None or participant_id == '':
+                        return Response({"error": "participant_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                    bot_name = data.get('bot_name')
+                    if bot_name is None or bot_name == '':
+                        return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-").replace("&"," ")])
+                    existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
+                    if existing_bots.count() > 0:
+                        return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
+
+                    try:
+                        user = User.objects.get(uid=participant_id)
+                    except:
+                        return Response({"error": "User not found"},status=status.HTTP_404_NOT_FOUND)
+                    
+
+                    bot_attributes = data.get('attributes')
+                    if bot_attributes is None or bot_attributes == '':
+                        return Response({"error": "attributes is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                    feedback_questions = data.get("feedback_questions")
+                    if bot_type == BotTypeChoice.feedback_bot:
+                        if feedback_questions is None or feedback_questions == '':
+                            return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                    fitment_answer = data.get('fitment_answer',None)
+                    if bot_type == BotTypeChoice.avatar_bot:
+                        if fitment_answer is None or fitment_answer == "":
+                            return Response({"error": "fitment_answer is required"},status=status.HTTP_400_BAD_REQUEST)
+                        
+                    bot_base_url = data.get('bot_base_url',None)
+                    if not bot_base_url:
+                        return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                    bot_approved = data.get('is_approved',False)
+                    if bot_approved:
+                        if bot_approved.lower() == 'true':
+                            bot_approved = True
+                        elif bot_approved.lower() == 'false':
+                            bot_approved = False
+                        else:
+                            bot_approved = False
+
+                    faqs = data.get('faqs')
+                    fitment_details = data.get('fitment_data',None)
+                    initial_questions = data.get('initial_questions',None)
+                    media_data = data.get('media_data')
+                    bot_details = data.get('bot_details',{})
+                    additional_data = data.get('additional_data')
+                    coach_data = data.get('coach_data')
+
+                    bot_details["is_login_required"] = False
+                    bot_details["is_strict_login_required"] = False
+                    
+
+                    all_data = {}
+
+                    all_data['coach_data'] = coach_data
+
+                    extracted_media_data = {}
+
+                    if additional_data:
+                        all_data['additional_data'] = additional_data
+
+                    print("################# media_data: ",media_data)
+
+                    if 'attatched_pdfs' in request.data:
+                        if media_data is None:
+                            media_data = {}
+                        media_data = json.loads(media_data)
+                        media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
+                        logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
+                    extracted_media_data = {}
+
+                    logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
+
+                    
+                    signature_bot = SignatureBot.objects.create(
+                        bot_id=bot_id,
+                        tenant_id=self.request.tenant.uid,
+                        user_id=participant_id,
+                        bot_type=bot_type,
+                        data = {
+                            "media_data": {
+
+                            }
+                        },
+                        is_approved=bot_approved
+                    )
+
+
+                    #******** process media data ********
+
+                    if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                        logger.info(f"media_data: {media_data}")
+                        if 'youtube_links' in media_data:
+                            youtube_links = media_data['youtube_links']
+                            youtube_links = [link.strip() for link in youtube_links.split(',')]
+
+
+                            #* save these links in bot attributes
+                            """ extracted_from_youtube = {}
+                            for link in youtube_links:
+                                
+                                if link != '':
+                                    transcript_data = download_and_transcribe_audio(link)
+                                    extracted_from_youtube[link] = transcript_data
+                            
+                            extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
+
+                            threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
+
+
+                        if 'article_links' in media_data:
+                            article_links = media_data['article_links']
+                            article_links = [link.strip() for link in article_links.split(',')]
+
+                            logger.info(f"******************* article_links: {article_links}")
+                            #* save these links in bot attributes
+                            extracted_from_article = {}
+                            for link in article_links:
+                                
+                                if link != '':
+                                    transcript_data = scrape_article_data(link).get('article_content',None)
+                                    extracted_from_article[link] = transcript_data
+                            
+                            logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                            extracted_media_data['extracted_from_article'] = extracted_from_article
+
+
+                        if 'pdf_data' in data:
+                            pdf_data = data.getlist('pdf_data')
+                            extracted_from_pdf = {}
+                            logger.info(f"******************* pdf_data: {doc_data}")
+
+                            if len(pdf_data) > 0:
+                                for index, pdf in enumerate(pdf_data):
+                                    extracted_from_pdf[index+1] = pdf
+                            logger.info(f"******************* pdf_data: {extracted_from_pdf}")
+                            extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+                        if 'doc_data' in data:
+                            doc_data = data.getlist('doc_data')
+                            extracted_from_doc = {}
+
+
+                            logger.info(f"******************* doc_data: {doc_data}")
+                            if len(doc_data) > 0:
+                                for index, doc in enumerate(doc_data):
+                                    extracted_from_doc[index+1] = doc
+
+                            logger.info(f"******************* doc_data: {extracted_from_doc}")
+                            extracted_media_data['extracted_from_doc'] = extracted_from_doc
+
+
+                        if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                            attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
+                            doc_names = []
+                            extracted_from_doc = {}
+
+                            for file in attached_docs:
+                                # logger.info(f"file name : {file.name}, {file.read()}")
+                                doc_names.append(file.name)
+                                path = default_storage.save(file.name, ContentFile(file.read()))
+                                doc_content = extract_text_from_doc(path)
+                                default_storage.delete(path)
+                                extracted_from_doc[file.name] = doc_content
+
+                            
+                            logger.info(f"attached_docs: {extracted_from_doc}")
+
+                            extracted_media_data['extracted_from_doc'] = extracted_from_doc
+
+
+                        if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                            attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
+                            pdf_names = []
+                            extracted_from_pdf = {}
+
+                            for file in attatched_pdfs:
+                                # logger.info(f"file name : {file.name}, {file.read()}")
+                                pdf_names.append(file.name)
+                                path = default_storage.save(file.name, ContentFile(file.read()))
+                                pdf_content = extract_text_from_pdf(path)
+                                default_storage.delete(path)
+                                extracted_from_pdf[file.name] = pdf_content
+
+                            logger.info(f"attached_PDFS: {extracted_from_pdf}")
+
+                            extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+                    if extracted_media_data:
+                        signature_bot_media_data = signature_bot.data['media_data']
+                        for key, value in extracted_media_data.items():
+                            signature_bot_media_data[key] = value
+                        all_data['media_data'] = signature_bot_media_data
+
+
+
+
+                    bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
+                                                        bot_id=signature_bot.uid,
+                                                        bot_name=bot_name,
+                                                        )
+                    
+                    # fitment_data= {"options": {"1": ["Weekly commitments", "Bi-weekly sessions", "Monthly sessions", "Ad Hoc / On demand", "Customized Structure"], "2": ["Career advancement", "Skill development", "Introspection & Reflection", "Industry insights", "Networking & Leadership"], "3": ["Technology", "Business Operations", "Industrial Operations", "Sales & Marketing", "HR & People Management"]}, "mentee_que": {"1": "How much time and commitment are you prepared to invest in a mentoring/coaching journey? Are there specific timelines or availability constraints you'd like your mentor/coach to consider?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to improve upon?"}, "mentor_que": {"1": "How much time are you willing to commit to mentoring/coaching? Are there specific times or days that work best for you, or any constraints you'd like a potential mentee to be aware of?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to contribute in?"}, "fitment_measures": {"mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership.", "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.", "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs."}}
+                    fitment_data= {
+                        "options":{
+                        "1": ["Anyone above me","Same or up to two level below","Any level"],
+                        "2": ["Yes","No"],
+                        "3": ["Career advancement","Skill development", "Introspection & reflection", "Networking & leadership"]
+                        },
+                        "mentee_que": {"1": "What level of coach & mentor do you want?", "2": "I want a coach & mentor someone from the same department.", "3": "What kind of outcome do you want from these sessions the most?"},
+                        "mentor_que": {"1": "What level of participant do you want to coach & mentor?", "2": "I want to coach & mentor someone in the same department.", "3": "What kind of outcome can you support in these sessions the most?"}
+                        }
+                    if fitment_details:
+                        fitment_data = fitment_details
+
+                    fitment_data["fitment_measures"] = {
+                                                        "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.",
+                                                        "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs.",
+                                                        "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
+                                                    }
+                    
+                    initial_qna = {
+                            "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
+                            "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
+                            "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
+                            "4": "Do you believe your solutions have worked so far? Why or why not?",
+                            "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
+                        }
+                    if initial_questions:
+                        initial_qna = initial_questions
+                    updated_fields = []
+                    if bot_details:
+                        signature_bot.bot_details = bot_details
+                        updated_fields.append("bot_details")
                     else:
-                        bot_approved = False
+                        signature_bot.bot_details = {"info":bot_attributes['heading']}
+                        updated_fields.append("bot_details")
 
-                faqs = data.get('faqs')
-                fitment_details = data.get('fitment_data',None)
-                initial_questions = data.get('initial_questions',None)
-                media_data = data.get('media_data')
-                bot_details = data.get('bot_details',{})
-                additional_data = data.get('additional_data')
-                coach_data = data.get('coach_data')
+                    if bot_attributes:
+                        signature_bot.attributes = bot_attributes
+                        updated_fields.append("attributes")
 
-                bot_details["is_login_required"] = False
-                bot_details["is_strict_login_required"] = False
+                    if faqs:
+                        signature_bot.faqs = faqs
+                        updated_fields.append("faqs")
+
+                    # if bot_type == BotTypeChoice.avatar_bot:
+                    #     try:
+                    #         prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
+                    #     except Exception as e:
+                    #         prompt = avatar_bot_default_prompt()
+                    #     signature_bot.custom_prompt = prompt
+                    #     updated_fields.append("custom_prompt")
+
+                    if all_data:
+                        signature_bot.data = all_data
+                        updated_fields.append("data")
+                        
+                    if bot_type == BotTypeChoice.feedback_bot:
+                        signature_bot.is_approved = True
+                        updated_fields.append('is_approved')
+
+                    if updated_fields:
+                        signature_bot.save(update_fields=updated_fields)
+
+                    updated_fields = []
+                    if fitment_answer and bot_type == BotTypeChoice.avatar_bot:
+                        bot_att.fitment_answers = {"mentor_answer": fitment_answer.split(",")}
+                        bot_att.fitment_data = fitment_data
+                        updated_fields.extend(["fitment_answers","fitment_data"])
+
+                    if feedback_questions:
+                        bot_att.feedback_questions = feedback_questions
+                        updated_fields.append("feedback_questions")
+
+                    email = data.get('email',None)
+                    if email:
+                        bot_att.coach_email = email
+                        updated_fields.append("coach_email")
+                    
+                    if additional_data.get("profile_description",None):
+                        bot_att.about = additional_data.get("profile_description",None)
+                        updated_fields.append('about')
+
+                    if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
+                        bot_att.initial_qnas = initial_qna
+                        updated_fields.append("initial_qnas")
+
+                    
+                    if updated_fields:
+                        bot_att.save(update_fields=updated_fields)
+
+                    # SAVING BOTURL AND bot_snippets
+                    try: 
+                        bot_url =''
+                        if bot_type == BotTypeChoice.avatar_bot:
+                            bot_url = f"{bot_base_url}/coach/{bot_id}"
+                        elif bot_type == BotTypeChoice.feedback_bot:
+                            bot_url = f"{bot_base_url}/feedback/{bot_id}"
+                        elif bot_type == BotTypeChoice.subject_matter_bot:
+                            bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
+                        elif bot_type == BotTypeChoice.helper_bot:
+                            bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
+                        elif bot_type == BotTypeChoice.user_bot:
+                            bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
+
+                        bot_snippet = f"""
+                                    <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
+                                    <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
+                                        """
+                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                        coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
+                        coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
+                        snippet = coach_profile.bot_snippets
+                        if snippet:
+                            snippet[bot_type] = bot_snippet
+                        else:
+                            snippet = {f"{bot_type}": bot_snippet}
+                        
+                        coach_profile.bot_snippets = snippet
+
+                            
+
+                        coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
+
+                        directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid).first()
+                        if bot_type == BotTypeChoice.avatar_bot:
+                            if directory:
+                                directory.avatar_bot_id = bot_id
+                                directory.avatar_snippit = bot_snippet
+                                directory.avatar_bot_url = bot_url
+                                directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+
+                            
+                        if bot_type == BotTypeChoice.feedback_bot:
+                            if directory:
+                                directory.feedback_wall = bot_url
+                                directory.save(update_fields=['feedback_wall'])
+
+                        if bot_type == BotTypeChoice.user_bot:
+                            if directory:
+                                if directory.custom_user_bot_url:
+                                    directory.custom_user_bot_url += f",{bot_url}"
+                                else:
+                                    directory.custom_user_bot_url = bot_url
+                                directory.save(update_fields=['custom_user_bot_url'])
+
+                        
+                    except Exception as e:
+                        logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
+                        send_error_notification("create_bot_by_details",f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}",{"bot_id":bot_id,"profile_id":profile_id})
+                    
+                    return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
                 
+                except Exception as e:
+                    logger.exception("Got error while creating bot: {e}")
+                    bot_type = data.get('bot_type')
+                    if bot_type == BotTypeChoice.avatar_bot:
+                        try:
+                            coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
+                            coach_profile.deleted = True
+                            coach_profile.save(update_fields=["deleted"])
+                            DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
+                        except Exception as e:
+                            logger.error(f"Got error in crating bot : profile_id is missing")
+                            send_error_notification("create_bot_by_details",f"Got error in crating bot : profile_id is missing: {e}",{"data":data})
 
-                all_data = {}
+                    return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
+            
+            elif request.method == "PATCH":
+                bot_id = data.get("bot_id",None)
+                try:
+                    signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
+                except SignatureBot.DoesNotExist:
+                    return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+                updated_data = data.get("updated_data",None)
 
-                all_data['coach_data'] = coach_data
+                if updated_data:
+                    
+                    additional_data = updated_data.get('additional_data')
+                    profile_description = additional_data.get("profile_description",None)
+                    bot_details = signature_bot.bot_details
+                    bot_details['coach_name'] = updated_data.get("bot_name",None)
+                    
+                    
+                    bot_data = signature_bot.data
+                    if additional_data:
+                        if profile_description:
+                            bot_details['info'] = profile_description
+                        
+                        bot_data["additional_data"] = additional_data
 
-                extracted_media_data = {}
+                    signature_bot.bot_details = bot_details
+                    signature_bot.data = bot_data
+                    signature_bot.save(update_fields=["bot_details","data"])
 
-                if additional_data:
-                    all_data['additional_data'] = additional_data
+                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+                    
+                    fitment_answer = updated_data.get('fitment_answers',None)
+                    email = updated_data.get("email",None)
+                    updated_fields = []
 
-                print("################# media_data: ",media_data)
+                    if fitment_answer:
+                        bot_att.fitment_answers = {"mentor_answer":fitment_answer.split(",")}
+                        updated_fields.append("fitment_answers")
+                    if email:
+                        bot_att.coach_email = email
+                        updated_fields.append("coach_email")
 
+                    bot_att.coach_name = updated_data.get("bot_name",None)
+                    updated_fields.append("coach_name")
+
+                    feedback_questions = updated_data.get("feedback_questions",None)
+
+                    if feedback_questions:
+                        bot_att.feedback_questions = feedback_questions
+                        updated_fields.append("feedback_questions")
+                    
+                    bot_att.save(update_fields=updated_fields)
+
+                media_data = data.get('media_data')
                 if 'attatched_pdfs' in request.data:
                     if media_data is None:
                         media_data = {}
@@ -902,29 +1280,14 @@ class AccountsViewSet(ApiViewSet,
 
                 logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
-                
-                signature_bot = SignatureBot.objects.create(
-                    bot_id=bot_id,
-                    tenant_id=self.request.tenant.uid,
-                    user_id=participant_id,
-                    bot_type=bot_type,
-                    data = {
-                        "media_data": {
-
-                        }
-                    },
-                    is_approved=bot_approved
-                )
-
-
-                #******** process media data ********
-
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                    logger.info(f"media_data: {media_data}")
+                    media_data = json.loads(media_data)
                     if 'youtube_links' in media_data:
+                        # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
                         youtube_links = media_data['youtube_links']
                         youtube_links = [link.strip() for link in youtube_links.split(',')]
 
+                        print("################# youtube_links: ",youtube_links)
 
                         #* save these links in bot attributes
                         """ extracted_from_youtube = {}
@@ -935,7 +1298,7 @@ class AccountsViewSet(ApiViewSet,
                                 extracted_from_youtube[link] = transcript_data
                         
                         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
-
+                    
                         threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
 
 
@@ -954,16 +1317,17 @@ class AccountsViewSet(ApiViewSet,
                         
                         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                         extracted_media_data['extracted_from_article'] = extracted_from_article
-
-
+                
+                if signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     if 'pdf_data' in data:
                         pdf_data = data.getlist('pdf_data')
                         extracted_from_pdf = {}
-                        logger.info(f"******************* pdf_data: {doc_data}")
+                        logger.info(f"******************* pdf_data: {pdf_data}")
 
                         if len(pdf_data) > 0:
                             for index, pdf in enumerate(pdf_data):
-                                extracted_from_pdf[index+1] = pdf
+                                file_name, text = extract_file_and_text(pdf)
+                                extracted_from_pdf[file_name] = text
                         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
                         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
@@ -975,13 +1339,13 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* doc_data: {doc_data}")
                         if len(doc_data) > 0:
                             for index, doc in enumerate(doc_data):
-                                extracted_from_doc[index+1] = doc
+                                file_name, text = extract_file_and_text(doc)
+                                extracted_from_doc[file_name] = text
 
                         logger.info(f"******************* doc_data: {extracted_from_doc}")
                         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                    
+                    if (media_data and 'attached_docs' in media_data) or 'attached_docs' in request.FILES:
                         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
                         doc_names = []
                         extracted_from_doc = {}
@@ -994,409 +1358,69 @@ class AccountsViewSet(ApiViewSet,
                             default_storage.delete(path)
                             extracted_from_doc[file.name] = doc_content
 
-                        
-                        logger.info(f"attached_docs: {extracted_from_doc}")
-
                         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                        
+                    if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
                         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
                         pdf_names = []
                         extracted_from_pdf = {}
 
+                        """ logger.info(f"******************* attatched_pdfs: {attatched_pdfs}") """
+
                         for file in attatched_pdfs:
                             # logger.info(f"file name : {file.name}, {file.read()}")
                             pdf_names.append(file.name)
+                            
                             path = default_storage.save(file.name, ContentFile(file.read()))
+
                             pdf_content = extract_text_from_pdf(path)
+
                             default_storage.delete(path)
                             extracted_from_pdf[file.name] = pdf_content
 
-                        logger.info(f"attached_PDFS: {extracted_from_pdf}")
+                    
 
                         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+
+                        logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
+
+                    logger.info(f"######### extracted media data : {extracted_media_data}")
 
                 if extracted_media_data:
                     signature_bot_media_data = signature_bot.data['media_data']
                     for key, value in extracted_media_data.items():
                         signature_bot_media_data[key] = value
-                    all_data['media_data'] = signature_bot_media_data
+                    signature_bot.data['media_data'] = signature_bot_media_data
+                    signature_bot.save()
 
+                # if updated_data:
+                #     # Update the instance with the new data
+                #     sig_bot_updates = updated_data.get('signature_bot',None)
+                #     bot_att_updates = updated_data.get('bot_attributes',None)
+                #     updated_fields = []
+                #     if sig_bot_updates:
+                #         for key, value in sig_bot_updates.items():
+                #             setattr(signature_bot, key, value)
+                #             updated_fields.append(key)
+                #         # Save the updated instance
+                #         signature_bot.save(update_fields=updated_fields)
 
-
-
-                bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
-                                                    bot_id=signature_bot.uid,
-                                                    bot_name=bot_name,
-                                                    )
-                
-                # fitment_data= {"options": {"1": ["Weekly commitments", "Bi-weekly sessions", "Monthly sessions", "Ad Hoc / On demand", "Customized Structure"], "2": ["Career advancement", "Skill development", "Introspection & Reflection", "Industry insights", "Networking & Leadership"], "3": ["Technology", "Business Operations", "Industrial Operations", "Sales & Marketing", "HR & People Management"]}, "mentee_que": {"1": "How much time and commitment are you prepared to invest in a mentoring/coaching journey? Are there specific timelines or availability constraints you'd like your mentor/coach to consider?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to improve upon?"}, "mentor_que": {"1": "How much time are you willing to commit to mentoring/coaching? Are there specific times or days that work best for you, or any constraints you'd like a potential mentee to be aware of?", "2": "What are your expectations from this mentoring/coaching session - in terms of key outcome areas?", "3": "What are the hard skill areas, if any, you want to contribute in?"}, "fitment_measures": {"mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership.", "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.", "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs."}}
-                fitment_data= {
-                    "options":{
-                    "1": ["Anyone above me","Same or up to two level below","Any level"],
-                    "2": ["Yes","No"],
-                    "3": ["Career advancement","Skill development", "Introspection & reflection", "Networking & leadership"]
-                    },
-                    "mentee_que": {"1": "What level of coach & mentor do you want?", "2": "I want a coach & mentor someone from the same department.", "3": "What kind of outcome do you want from these sessions the most?"},
-                    "mentor_que": {"1": "What level of participant do you want to coach & mentor?", "2": "I want to coach & mentor someone in the same department.", "3": "What kind of outcome can you support in these sessions the most?"}
-                    }
-                if fitment_details:
-                    fitment_data = fitment_details
-
-                fitment_data["fitment_measures"] = {
-                                                    "top": "The score refelcts a robust alignment between the coach and coachee, laying the foundation for an optimal coaching relationship. The coaching relationship is optimal, providing a strong foundation for success. Maintain and nurture open communication and collaboration, as these are key elements in sustaining the excellence of the coaching dynamic.",
-                                                    "bottom": "The score signals a notable discord in coaching dynamics, this suggests a reconsideration of the coaching relationship. Misalignment may impede progress, so exploring alternative matches could unveil better synergies and enhance overall effectiveness. Re-evaluate if the coaching partnership aligns with the coachee's goals and needs.",
-                                                    "mid": "The score reflects a promising yet moderate fit in coaching dynamics. Acknowledge existing areas for improvement and work collaboratively to address specific concerns. Proactively work on refining coaching dynamics to elevate the overall experience for both the coach and coachee. Continuous effort and attention to areas of improvement can lead to a more effective coaching partnership."
-                                                }
-                
-                initial_qna = {
-                        "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
-                        "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
-                        "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
-                        "4": "Do you believe your solutions have worked so far? Why or why not?",
-                        "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
-                    }
-                if initial_questions:
-                    initial_qna = initial_questions
-                updated_fields = []
-                if bot_details:
-                    signature_bot.bot_details = bot_details
-                    updated_fields.append("bot_details")
-                else:
-                    signature_bot.bot_details = {"info":bot_attributes['heading']}
-                    updated_fields.append("bot_details")
-
-                if bot_attributes:
-                    signature_bot.attributes = bot_attributes
-                    updated_fields.append("attributes")
-
-                if faqs:
-                    signature_bot.faqs = faqs
-                    updated_fields.append("faqs")
-
-                # if bot_type == BotTypeChoice.avatar_bot:
-                #     try:
-                #         prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
-                #     except Exception as e:
-                #         prompt = avatar_bot_default_prompt()
-                #     signature_bot.custom_prompt = prompt
-                #     updated_fields.append("custom_prompt")
-
-                if all_data:
-                    signature_bot.data = all_data
-                    updated_fields.append("data")
+                #     if bot_att_updates:
+                #         updated_fields = []
+                #         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+                #         for key, value in bot_att_updates.items():
+                #             setattr(signature_bot, key, value)
+                #             updated_fields.append(key)
+                #         # Save the updated instance
+                #         bot_att.save(update_fields=updated_fields)
                     
-                if bot_type == BotTypeChoice.feedback_bot:
-                    signature_bot.is_approved = True
-                    updated_fields.append('is_approved')
 
-                if updated_fields:
-                    signature_bot.save(update_fields=updated_fields)
-
-                updated_fields = []
-                if fitment_answer and bot_type == BotTypeChoice.avatar_bot:
-                    bot_att.fitment_answers = {"mentor_answer": fitment_answer.split(",")}
-                    bot_att.fitment_data = fitment_data
-                    updated_fields.extend(["fitment_answers","fitment_data"])
-
-                if feedback_questions:
-                    bot_att.feedback_questions = feedback_questions
-                    updated_fields.append("feedback_questions")
-
-                email = data.get('email',None)
-                if email:
-                    bot_att.coach_email = email
-                    updated_fields.append("coach_email")
-                
-                if additional_data.get("profile_description",None):
-                    bot_att.about = additional_data.get("profile_description",None)
-                    updated_fields.append('about')
-
-                if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
-                    bot_att.initial_qnas = initial_qna
-                    updated_fields.append("initial_qnas")
-
-                
-                if updated_fields:
-                    bot_att.save(update_fields=updated_fields)
-
-                # SAVING BOTURL AND bot_snippets
-                try: 
-                    bot_url =''
-                    if bot_type == BotTypeChoice.avatar_bot:
-                        bot_url = f"{bot_base_url}/coach/{bot_id}"
-                    elif bot_type == BotTypeChoice.feedback_bot:
-                        bot_url = f"{bot_base_url}/feedback/{bot_id}"
-                    elif bot_type == BotTypeChoice.subject_matter_bot:
-                        bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
-                    elif bot_type == BotTypeChoice.helper_bot:
-                        bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
-                    elif bot_type == BotTypeChoice.user_bot:
-                        bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
-
-                    bot_snippet = f"""
-                                <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
-                                <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
-                                    """
-                    coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
-                    coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
-                    coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
-                    snippet = coach_profile.bot_snippets
-                    if snippet:
-                        snippet[bot_type] = bot_snippet
-                    else:
-                        snippet = {f"{bot_type}": bot_snippet}
-                    
-                    coach_profile.bot_snippets = snippet
-
-                        
-
-                    coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
-
-                    directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid).first()
-                    if bot_type == BotTypeChoice.avatar_bot:
-                        if directory:
-                            directory.avatar_bot_id = bot_id
-                            directory.avatar_snippit = bot_snippet
-                            directory.avatar_bot_url = bot_url
-                            directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
-
-                        
-                    if bot_type == BotTypeChoice.feedback_bot:
-                        if directory:
-                            directory.feedback_wall = bot_url
-                            directory.save(update_fields=['feedback_wall'])
-
-                    if bot_type == BotTypeChoice.user_bot:
-                        if directory:
-                            if directory.custom_user_bot_url:
-                                directory.custom_user_bot_url += f",{bot_url}"
-                            else:
-                                directory.custom_user_bot_url = bot_url
-                            directory.save(update_fields=['custom_user_bot_url'])
-
-                    
-                except Exception as e:
-                    logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
-                
-                return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
-            
-            except Exception as e:
-                logger.exception("Got error while creating bot: {e}")
-                bot_type = data.get('bot_type')
-                if bot_type == BotTypeChoice.avatar_bot:
-                    try:
-                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
-                        coach_profile.deleted = True
-                        coach_profile.save(update_fields=["deleted"])
-                        DirectoryPageInfo.objects.filter(profile_id=profile_id).delete()
-                    except Exception as e:
-                        logger.error(f"Got error in crating bot : profile_id is missing")
-
-                return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
-
-            
-        elif request.method == "PATCH":
-            bot_id = data.get("bot_id",None)
-            try:
-                signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
-            except SignatureBot.DoesNotExist:
-                return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-            updated_data = data.get("updated_data",None)
-
-            if updated_data:
-                
-                additional_data = updated_data.get('additional_data')
-                profile_description = additional_data.get("profile_description",None)
-                bot_details = signature_bot.bot_details
-                bot_details['coach_name'] = updated_data.get("bot_name",None)
-                
-                
-                bot_data = signature_bot.data
-                if additional_data:
-                    if profile_description:
-                        bot_details['info'] = profile_description
-                    
-                    bot_data["additional_data"] = additional_data
-
-                signature_bot.bot_details = bot_details
-                signature_bot.data = bot_data
-                signature_bot.save(update_fields=["bot_details","data"])
-
-                bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-                
-                fitment_answer = updated_data.get('fitment_answers',None)
-                email = updated_data.get("email",None)
-                updated_fields = []
-
-                if fitment_answer:
-                    bot_att.fitment_answers = {"mentor_answer":fitment_answer.split(",")}
-                    updated_fields.append("fitment_answers")
-                if email:
-                    bot_att.coach_email = email
-                    updated_fields.append("coach_email")
-
-                bot_att.coach_name = updated_data.get("bot_name",None)
-                updated_fields.append("coach_name")
-
-                feedback_questions = updated_data.get("feedback_questions",None)
-
-                if feedback_questions:
-                    bot_att.feedback_questions = feedback_questions
-                    updated_fields.append("feedback_questions")
-                
-                bot_att.save(update_fields=updated_fields)
-
-            media_data = data.get('media_data')
-            if 'attatched_pdfs' in request.data:
-                if media_data is None:
-                    media_data = {}
-                media_data = json.loads(media_data)
-                media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
-                logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
-            extracted_media_data = {}
-
-            logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
-
-            if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                media_data = json.loads(media_data)
-                if 'youtube_links' in media_data:
-                    # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
-                    youtube_links = media_data['youtube_links']
-                    youtube_links = [link.strip() for link in youtube_links.split(',')]
-
-                    print("################# youtube_links: ",youtube_links)
-
-                    #* save these links in bot attributes
-                    """ extracted_from_youtube = {}
-                    for link in youtube_links:
-                        
-                        if link != '':
-                            transcript_data = download_and_transcribe_audio(link)
-                            extracted_from_youtube[link] = transcript_data
-                    
-                    extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
-                   
-                    threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
-
-
-                if 'article_links' in media_data:
-                    article_links = media_data['article_links']
-                    article_links = [link.strip() for link in article_links.split(',')]
-
-                    logger.info(f"******************* article_links: {article_links}")
-                    #* save these links in bot attributes
-                    extracted_from_article = {}
-                    for link in article_links:
-                        
-                        if link != '':
-                            transcript_data = scrape_article_data(link).get('article_content',None)
-                            extracted_from_article[link] = transcript_data
-                    
-                    logger.info(f"******************* extracted_from_article: {extracted_from_article}")
-                    extracted_media_data['extracted_from_article'] = extracted_from_article
-            
-            if signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                if 'pdf_data' in data:
-                    pdf_data = data.getlist('pdf_data')
-                    extracted_from_pdf = {}
-                    logger.info(f"******************* pdf_data: {pdf_data}")
-
-                    if len(pdf_data) > 0:
-                        for index, pdf in enumerate(pdf_data):
-                            file_name, text = extract_file_and_text(pdf)
-                            extracted_from_pdf[file_name] = text
-                    logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                    extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                if 'doc_data' in data:
-                    doc_data = data.getlist('doc_data')
-                    extracted_from_doc = {}
-
-
-                    logger.info(f"******************* doc_data: {doc_data}")
-                    if len(doc_data) > 0:
-                        for index, doc in enumerate(doc_data):
-                            file_name, text = extract_file_and_text(doc)
-                            extracted_from_doc[file_name] = text
-
-                    logger.info(f"******************* doc_data: {extracted_from_doc}")
-                    extracted_media_data['extracted_from_doc'] = extracted_from_doc
-                
-                if (media_data and 'attached_docs' in media_data) or 'attached_docs' in request.FILES:
-                    attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
-                    doc_names = []
-                    extracted_from_doc = {}
-
-                    for file in attached_docs:
-                        # logger.info(f"file name : {file.name}, {file.read()}")
-                        doc_names.append(file.name)
-                        path = default_storage.save(file.name, ContentFile(file.read()))
-                        doc_content = extract_text_from_doc(path)
-                        default_storage.delete(path)
-                        extracted_from_doc[file.name] = doc_content
-
-                    extracted_media_data['extracted_from_doc'] = extracted_from_doc
-                    
-                if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
-                    attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
-                    pdf_names = []
-                    extracted_from_pdf = {}
-
-                    """ logger.info(f"******************* attatched_pdfs: {attatched_pdfs}") """
-
-                    for file in attatched_pdfs:
-                        # logger.info(f"file name : {file.name}, {file.read()}")
-                        pdf_names.append(file.name)
-                        
-                        path = default_storage.save(file.name, ContentFile(file.read()))
-
-                        pdf_content = extract_text_from_pdf(path)
-
-                        default_storage.delete(path)
-                        extracted_from_pdf[file.name] = pdf_content
-
-                
-
-                    extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                    logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
-
-                logger.info(f"######### extracted media data : {extracted_media_data}")
-
-            if extracted_media_data:
-                signature_bot_media_data = signature_bot.data['media_data']
-                for key, value in extracted_media_data.items():
-                    signature_bot_media_data[key] = value
-                signature_bot.data['media_data'] = signature_bot_media_data
-                signature_bot.save()
-
-            # if updated_data:
-            #     # Update the instance with the new data
-            #     sig_bot_updates = updated_data.get('signature_bot',None)
-            #     bot_att_updates = updated_data.get('bot_attributes',None)
-            #     updated_fields = []
-            #     if sig_bot_updates:
-            #         for key, value in sig_bot_updates.items():
-            #             setattr(signature_bot, key, value)
-            #             updated_fields.append(key)
-            #         # Save the updated instance
-            #         signature_bot.save(update_fields=updated_fields)
-
-            #     if bot_att_updates:
-            #         updated_fields = []
-            #         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-            #         for key, value in bot_att_updates.items():
-            #             setattr(signature_bot, key, value)
-            #             updated_fields.append(key)
-            #         # Save the updated instance
-            #         bot_att.save(update_fields=updated_fields)
-                
-
-            return Response({"msg": "updated"}, status=status.HTTP_200_OK)
-
+                return Response({"msg": "updated"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Got error while creating bot: {e}")
+            """ send_slack_message({"module": "########### create_bot_by_details ###########", "error": str(e)}) """
+            send_error_notification("create_bot_by_details",f"Got error while creating bot : {e}",{})
+            return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
 
     @action(methods=['GET','POST'],detail=False, url_path="user-competency-details")
     def user_competency_details(self,request,*args, **kwargs):
@@ -1504,6 +1528,8 @@ class AccountsViewSet(ApiViewSet,
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"got error in get_or_create_idp: {e}")
+            # send_slack_message({"module": "##################get_or_create_idp#################", "message": f"got error in get_or_create_idp: {e}"})
+            send_error_notification("get_or_create_idp",f"got error in get_or_create_idp: {e}",request.data)
             return Response({"msg": "got_error"},status=status.HTTP_400_BAD_REQUEST)
           
           
@@ -1576,6 +1602,8 @@ class AccountsViewSet(ApiViewSet,
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception({"got error in directory information api": e})
+            # send_slack_message({"module": "##################get_directory_informations#################", "message": f"got error in get_directory_informations: {e}"})
+            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",request.query_params)
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -1691,6 +1719,8 @@ class AccountsViewSet(ApiViewSet,
 
                 return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
+            # send_slack_message({"module": "##################participant_leader_board_report#################", "message": f"got error in participant_leader_board_report: {e}"})
+            send_error_notification("participant_leader_board_report",f"got error in participant_leader_board_report: {e}",{})
             return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1858,63 +1888,68 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
         if request.method == 'POST':
+            
             coach_id = request.data.get('coach_id',None)
             coachee_id = request.data.get('coachee_id',None)
             profile_url = request.data.get('profile_page_url')
-
-            logger.info(f"***************** request data: {request.data}")
-
-            if None in [coach_id,coachee_id]:
-                return Response({"error":"coach_id and coachee_id are required"},status=status.HTTP_400_BAD_REQUEST)
-            
             try:
-                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=coach_id)
-                bot_ids = coach.bot_ids.split(',')
-                if len(bot_ids) == 0:
-                    return Response({"error":"coach doesn't have any bot"},status=status.HTTP_400_BAD_REQUEST)
+                logger.info(f"***************** request data: {request.data}")
+
+                if None in [coach_id,coachee_id]:
+                    return Response({"error":"coach_id and coachee_id are required"},status=status.HTTP_400_BAD_REQUEST)
                 
-                avatar_bot_id = None
-                for bot_id in bot_ids:
-                    bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
-                    if bot.bot_type == BotTypeChoice.avatar_bot:
-                        avatar_bot_id = bot.bot_id
+                try:
+                    coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=coach_id)
+                    bot_ids = coach.bot_ids.split(',')
+                    if len(bot_ids) == 0:
+                        return Response({"error":"coach doesn't have any bot"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                    avatar_bot_id = None
+                    for bot_id in bot_ids:
+                        bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
+                        if bot.bot_type == BotTypeChoice.avatar_bot:
+                            avatar_bot_id = bot.bot_id
 
-                if avatar_bot_id is None:
-                    return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
+                    if avatar_bot_id is None:
+                        return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
 
 
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":"coach not found"},status=status.HTTP_404_NOT_FOUND)
+
+                data = request.data.copy()
+                data['tenant_id'] = self.request.tenant.uid
+                data['coach_avatar_bot_id'] = avatar_bot_id
+                serializer = CoachCoacheeConnectionSerializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                created_connection = serializer.save()
+                coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
+                
+                coach_name = coach.name
+                coachee_name = coachee.name
+                coachee_email = coachee.email
+                subject = "you have a connection request"
+                html = f"""
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                            <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Dear {coach_name},  One of the participants has requested to confirm connecrtion. You can do so via visiting your profile page here. <a href={profile_url} >Profile page </a> . Thanks! </p>
+
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            </td>
+                            </tr>
+                    </table>
+                    """
+
+                send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email)
+                return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.exception(e)
-                return Response({"error":"coach not found"},status=status.HTTP_404_NOT_FOUND)
-
-            data = request.data.copy()
-            data['tenant_id'] = self.request.tenant.uid
-            data['coach_avatar_bot_id'] = avatar_bot_id
-            serializer = CoachCoacheeConnectionSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            created_connection = serializer.save()
-            coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
-            coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
-            
-            coach_name = coach.name
-            coachee_name = coachee.name
-            coachee_email = coachee.email
-            subject = "you have a connection request"
-            html = f"""
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Dear {coach_name},  One of the participants has requested to confirm connecrtion. You can do so via visiting your profile page here. <a href={profile_url} >Profile page </a> . Thanks! </p>
-
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td>
-                        </tr>
-                </table>
-                """
-
-            send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email)
-            return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
+                send_error_notification("coach_coachee_connections",f"got error in coach_coachee_connections: {e}",{"data": request.data})
+                return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
             
             
     @action(methods=['GET'],detail=False,url_path="feedback-leaderboard-report")
@@ -2029,6 +2064,8 @@ class AccountsViewSet(ApiViewSet,
                 return Response({'group': formatted_data},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
+            # send_slack_message({"module": "##################feedback_leader_board#################", "message": f"got error in feedback_leader_board: {e}"})
+            send_error_notification("feedback_leader_board",f"got error in feedback_leader_board: {e}",request.query_params)
             return  Response({"Error": f"Got Error in Feedback-leaderboard-report : {e}"},status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -2149,6 +2186,7 @@ class AccountsViewSet(ApiViewSet,
             return Response({"connected":True},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
+            send_error_notification("user_bot_connection_status",f"got error in user_bot_connection_status: {e}",request.query_params)
             return Response({"connected":False, "error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
         
 
@@ -2211,6 +2249,7 @@ class AccountsViewSet(ApiViewSet,
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Get skills and role bots failed with: {e}")
+            send_error_notification("get_skill_and_role_bots",f"got error in get_skill_and_role_bots: {e}",request.query_params)
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -2281,6 +2320,8 @@ class AccountsViewSet(ApiViewSet,
                 return Response({'message': "saved"}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"create_or_save_liked_bot failed with: {e}")
+            # send_slack_message({"module": "##################create_or_save_liked_bot#################", "message": f"got error in create_or_save_liked_bot: {e}"})
+            send_error_notification("create_or_save_liked_bot",f"got error in create_or_save_liked_bot: {e}",request.data)
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
         
