@@ -690,6 +690,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
+            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
@@ -719,7 +720,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         if connected:
             participant_id = test_attempt_session.participant_id
             candidate_name = f"""{get_user_display_name(
-                get_user_by_id(participant_id)).capitalize()} {user_email}"""
+                get_user_by_id(participant_id)).capitalize()}"""
             tenant = self.request.tenant
             save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
             save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
@@ -747,7 +748,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
             
             logger.info(f"************** session_qna_data conv: {conv}")
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, bot_att.bot_name,allow_reply=True)
 
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
