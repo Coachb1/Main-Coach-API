@@ -17,6 +17,7 @@ from users.models import User, SignatureBot, BotAttribute
 from users.db import get_user_display_name, get_user_by_id
 from coaching_conversations.helpers import create_user_profile_and_bot
 import csv
+from commons.notifications import send_error_notification
 
 import logging
 
@@ -357,6 +358,7 @@ class CoachingConversationViewSet(ApiViewSet,
         try:
             conversation = CoachingConversation.objects.get(uid=conversation_id, deleted=0, tenant_id=request.tenant.uid)
         except Exception as e:
+            send_error_notification("apis.coaching_conversations.views.save_ai_response", "Conversation not found", {"conversation_id": conversation_id})
             return Response({"Error: Conversation not found"}, status=status.HTTP_404_NOT_FOUND)
 
         conversation.coach_message_text = ai_response
@@ -392,5 +394,6 @@ class CoachingConversationViewSet(ApiViewSet,
             return Response({'data': details},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f" Failed create_user_profile_and_bot with {e}")
+            send_error_notification("apis.coaching_conversations.views.create_user_profile_and_bot", "Failed create_user_profile_and_bot", {"data": data})
             return Response({"msg": f"Failed with {e}"}, status=status.HTTP_400_BAD_REQUEST)
         
