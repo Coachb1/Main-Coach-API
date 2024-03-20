@@ -25,7 +25,6 @@ from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
 from utilities.models import BotEngagement
-from commons.notifications import send_error_notification
 
 
 
@@ -177,7 +176,6 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         logger.info("email sent..")
     except Exception as e:
         logger.error(f'failed to send email. {e}')
-        send_error_notification("save_session_notes",f"failed to send email: {e}",{"mentor_id":mentor_id,"mentee_id":user_id,"tenant_id":tenant_id,"context":context})
     
     
     return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}], {}
