@@ -6,6 +6,9 @@ from users.models import UserAttribute
 import logging
 from utilities.models import EmailSentDetails
 
+from external_apis.slack_alert_api import send_slack_message
+
+
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
 FROM_EMAIL_DISPLAY = "Coachbots Report <mail@coachbots.com>"
@@ -216,7 +219,11 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         EmailSentDetails.objects.create(subject=msg['Subject'],body=msg_str,
                                         bot_name=bot_name,owner_name=coach_name,sent_by=from_email,
                                         status=sent_status, sent_to=to_email, is_sent=False)
-        print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args)
+
+        """ send_slack_message({"module": "###############3send_bot_conversation_email################", "error": str(e)})
+        print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args) """
+        # send_error_notification("send_bot_conversation_email", str(e), {"to_email": to_email, "candidate_name": candidate_name, "conversation": conversation})
+
 
 def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email):
     from_password = APP_PASSWORD
