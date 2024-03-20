@@ -40,6 +40,7 @@ class SessionNotesRecommendations(models.Model):
     mentee_id = models.CharField(max_length=255)
     session_notes = models.TextField(default=None,null=True,blank=True)
     recommendations = models.TextField(default=None,null=True,blank=True)
+    simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
 
     class Meta:
         db_table = "session_notes_and_recommendations"
