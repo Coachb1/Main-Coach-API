@@ -85,7 +85,7 @@ def get_sid(email):
     return session_id
 
 
-def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
+def save_session_notes(user_id,mentor_id,tenant_id,context,access_token, simulation_codes=None):
     """
     This function is used to save session notes and recommendations for a specific mentor-mentee pair.
 
@@ -144,7 +144,8 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         mentor_id = mentor_id,
         mentee_id = user_id,
         session_notes = context,
-        created_date = datetime.datetime.utcnow()
+        created_date = datetime.datetime.utcnow(),
+        simulation_codes = simulation_codes,
         )
     
     save_user_action_info(tenant_id,user_id,"session_notes_count")
@@ -223,6 +224,7 @@ def get_session_notes(user_id,mentor_id):
             "date" : session_note.created_date,
             "updated": session_note.updated_date,
             "recommendations": session_note.recommendations,
+            "simulation_codes": session_note.simulation_codes
         }
         if user_id:
             
@@ -280,7 +282,8 @@ def get_session_notes_data(tenant_id):
             "created":notes.created_date,
             "updated": notes.updated_date,
             "context": notes.session_notes,
-            "recommendations": notes.recommendations
+            "recommendations": notes.recommendations,
+            "simulation_codes": notes.simulation_codes,
         }
         try:
             mentor = UserAttribute.objects.get(user_id=notes.mentor_id)
@@ -298,14 +301,16 @@ def get_session_notes_data(tenant_id):
 
     return data
 
-def update_session_notes(session_note_id,recommendations):
+def update_session_notes(session_note_id,recommendations,simulation_codes=None):
     "it updates recommendations into session_notes"
 
     session_note = SessionNotesRecommendations.objects.get(id=session_note_id)
 
     session_note.recommendations = recommendations
+    if simulation_codes:
+        session_note.simulation_codes = simulation_codes
     session_note.updated_date = datetime.datetime.utcnow()
-    session_note.save(update_fields=['recommendations',"updated_date"])
+    session_note.save(update_fields=['recommendations',"updated_date","simulation_codes"])
 
     return {"message": "recommandations updated"}
 
