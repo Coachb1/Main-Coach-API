@@ -22,6 +22,7 @@ class ProfileTypeChoice(DjangoChoices):
     coachbots = ChoiceItem("coachbots")
     external = ChoiceItem('external')
     icons_by_ai = ChoiceItem('icons_by_ai')
+    knowledge_bot = ChoiceItem('knowledge_bot')
 
 
 class BotTypeChoice(DjangoChoices):

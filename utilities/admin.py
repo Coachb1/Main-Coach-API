@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
-from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile
+from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttribute
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
 import logging
@@ -53,11 +53,14 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         return  # Ignore if the instance is being created or not approved
 
     # Send email when is_approved is changed to True
-    bot_id = instance.avatar_bot_id
+    bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else instance.avatar_bot_id
 
-    coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
-    coach_profile.is_approved = instance.is_approved
-    coach_profile.save(update_fields=["is_approved"])
+    try:
+        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
+        coach_profile.is_approved = instance.is_approved
+        coach_profile.save(update_fields=["is_approved"])
+    except: 
+        coach_profile = None
 
     signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
     if instance.is_approved:
@@ -66,9 +69,9 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
             subject = 'Your profile has been approved'
             emails = ["info@coachbots.com"]
             
-            bot_owner = get_user_by_id(coach_profile.user_id)
+            bot_owner = get_user_by_id(coach_profile.user_id if coach_profile else instance.profile_id)
             bot_owner_name = get_user_display_name(bot_owner)
-            bot_owner_email = get_user_attribute(bot_owner,"deepchat_profile").attributes.get("email",None)
+            bot_owner_email = UserAttribute.objects.get(user_id=bot_owner.uid).attributes.get('email')
             emails.append(bot_owner_email)
 
 
@@ -77,7 +80,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                             <tr>
                             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {bot_owner_name}</p>
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Congratulations! Your profile has been approved. </p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots! </p>
 
                                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                                 </td>
