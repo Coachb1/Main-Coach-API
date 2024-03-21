@@ -2160,35 +2160,45 @@ def get_transcript_block(conversation, summary, simulation,coach_name):
 
 def get_simulation_block(simulation):
 
-    title = simulation.get('title')
-    description = simulation.get('description')
-    test_code = simulation.get('test_code')
-    template = """
-    <tr>
-        <td align="left" class="esd-block-text">
-            <p>Title : ${title}<br>Description : ${description}</p>
-        </td>
-    </tr>
-    <tr>
-        <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
-            <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
-                <tbody>
-                    <tr>
-                        <td style="border-bottom: 2px solid #ffffff; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </td>
-    </tr>
-    <tr>
-        <td align="right" class="esd-block-text">
-            <p>Simulation code : ${test_code}</p>
-        </td>
-    </tr>
+    title = simulation.get('title',None)
+    if title:
+        description = simulation.get('description')
+        test_code = simulation.get('test_code')
+        template = """
+        <tr>
+            <td align="left" class="esd-block-text">
+                <p>Title : ${title}<br>Description : ${description}</p>
+            </td>
+        </tr>
+        <tr>
+            <td align="center" class="esd-block-spacer es-p20t es-p20b" style="font-size:0">
+                <table border="0" width="100%" height="100%" cellpadding="0" cellspacing="0">
+                    <tbody>
+                        <tr>
+                            <td style="border-bottom: 2px solid #ffffff; background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td align="right" class="esd-block-text">
+                <p>Simulation code : ${test_code}</p>
+            </td>
+        </tr>
 
-    """
-    return Template(template).substitute(
-        title=title,
-        description=description,
-        test_code = test_code
-    )
+        """
+        return Template(template).substitute(
+            title=title,
+            description=description,
+            test_code = test_code
+        )
+    else:
+        template = """
+        <tr>
+            <td align="left" class="esd-block-text">
+                <p>Sorry your simulation could not be generated because of insufficient data!</p>
+            </td>
+        </tr>
+        """
+        return template

@@ -729,42 +729,43 @@ class TestAttemptSessionViewSet(ApiViewSet,
         #         "participant_message_text",
         #         "coach_message_text",
         #     )
+        participant_id = test_attempt_session.participant_id
+        candidate_name = f"""{get_user_display_name(
+            get_user_by_id(participant_id)).capitalize()}"""
+        tenant = self.request.tenant
+        save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
+        save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
+
+        # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
+        # sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+        # conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+        # conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+        
+        conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
+        
+        conversation_summary = get_conversation_summary(conv)
+        
+        logger.info({"********************* conversation_summary":conversation_summary})
+        
+        created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+        
+        logger.info({"********************* created_scenarios":created_scenarios})
+
+        
+
+        # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+            # send_bot_conversation_email(candidate_name, conv, recepients)
+        recepients = [submitted_email,"info@coachbots.com"]
         if connected:
-            participant_id = test_attempt_session.participant_id
-            candidate_name = f"""{get_user_display_name(
-                get_user_by_id(participant_id)).capitalize()}"""
-            tenant = self.request.tenant
-            save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
-            save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
-
-            # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
-            # sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
-            # conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
-            # conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
-            
-            conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
-            
-            conversation_summary = get_conversation_summary(conv)
-            
-            logger.info({"********************* conversation_summary":conversation_summary})
-            
-            created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
-            
-            logger.info({"********************* created_scenarios":created_scenarios})
-
-            
-
-            # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
-                # send_bot_conversation_email(candidate_name, conv, recepients)
-            recepients = [submitted_email, bot_owner_email,"info@coachbots.com"]
-            # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
-            
-            logger.info(f"************** session_qna_data conv: {conv}")
-            try:
-                send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
-                send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
+            recepients.append(bot_owner_email)
+        # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
+        
+        logger.info(f"************** session_qna_data conv: {conv}")
+        try:
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
         
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
