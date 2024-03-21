@@ -363,6 +363,7 @@ class AccountsViewSet(ApiViewSet,
         data['is_sample_bot'] = signature_bot.is_sample_bot
         data['is_system_bot'] = signature_bot.is_system_bot
         data['additional_data'] = signature_bot.data.get('additional_data',None)
+        data['scenario_case'] = signature_bot.bot_scenario_case
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
@@ -874,6 +875,7 @@ class AccountsViewSet(ApiViewSet,
                         return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
                     
                     bot_approved = data.get('is_approved',False)
+                    bot_scenario_case = data.get('bot_scenario_case',None)
                     
 
                     faqs = data.get('faqs')
@@ -1077,6 +1079,10 @@ class AccountsViewSet(ApiViewSet,
                     if bot_attributes:
                         signature_bot.attributes = bot_attributes
                         updated_fields.append("attributes")
+
+                    if bot_scenario_case:
+                        signature_bot.bot_scenario_case = bot_scenario_case
+                        updated_fields.append('bot_scenario_case')
 
                     if faqs:
                         signature_bot.faqs = faqs
