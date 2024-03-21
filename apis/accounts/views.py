@@ -2021,7 +2021,7 @@ class AccountsViewSet(ApiViewSet,
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
-                feedback_bots = SignatureBot.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list,bot_type=BotTypeChoice.feedback_bot)
+                feedback_bots = SignatureBot.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id__in=user_ids_list,bot_type=BotTypeChoice.feedback_bot)
                 # bot_qnas = BotQnA.objects.filter(deleted=False,tenant_id=request.tenant.uid,qna_type='feedback',participant_id__in=user_ids_list)
 
                 # Sort the queryset by bot_id
