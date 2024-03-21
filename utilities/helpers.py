@@ -1094,7 +1094,7 @@ def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
 def cal_score_for_fitment(user_response,bot_id,tenant_id):
     signature_bot = SignatureBot.objects.get(tenant_id=tenant_id, bot_id=bot_id)
     bot_att = BotAttribute.objects.get(tenant_id=tenant_id, bot_id=signature_bot.uid)
-    mentor_answers = [ans.lower().strip() for ans in bot_att.fitment_answers['mentor_answer']]
+    mentor_answers = [str(ans).lower().strip() for ans in bot_att.fitment_answers['mentor_answer']]
     fitment_measures = bot_att.fitment_data['fitment_measures']
     count_matching_answers = 0
     try:
@@ -1105,14 +1105,14 @@ def cal_score_for_fitment(user_response,bot_id,tenant_id):
 
     for index, qna in user_response.items():
         if int(index) == 1:
-            if mentor_answers[0] == 'someone junior' and qna['cochee'].lower() == 'someone senior':
+            if mentor_answers[0] == 'someone junior' and str(qna['cochee']).lower() == 'someone senior':
                 count_matching_answers += 1
 
-            elif mentor_answers[0] == 'any level' and qna['cochee'].lower() == 'any level':
+            elif mentor_answers[0] == 'any level' and str(qna['cochee']).lower() == 'any level':
                 count_matching_answers += 1
 
         else:
-            if qna['cochee'].lower() in mentor_answers:
+            if str(qna['cochee']).lower() in mentor_answers:
                 count_matching_answers += 1
 
     msg = ''
