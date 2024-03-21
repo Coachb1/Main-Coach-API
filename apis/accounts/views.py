@@ -720,7 +720,6 @@ class AccountsViewSet(ApiViewSet,
                         name=created_profile.name,
                         profile_id=created_profile.uid,
                         department=created_profile.department,
-                        bot_type=BotTypeChoice.feedback_bot,
                         profile_pic_url=created_profile.profile_image_url or "None",
                         profile_type=profile_type,
                         description=created_profile.about,
@@ -1182,12 +1181,28 @@ class AccountsViewSet(ApiViewSet,
                                 directory.save(update_fields=['feedback_wall'])
 
                         if bot_type == BotTypeChoice.user_bot:
-                            if directory:
-                                if directory.custom_user_bot_url:
-                                    directory.custom_user_bot_url += f",{bot_url}"
-                                else:
-                                    directory.custom_user_bot_url = bot_url
-                                directory.save(update_fields=['custom_user_bot_url'])
+                            DirectoryPageInfo.objects.create(
+                            name=coach_profile.name,
+                            department=coach_profile.department if coach_profile else "",
+                            profile_id=coach_profile.uid if coach_profile else user.uid, # in case of user_bot if there is not profile_id then storing user id instead of profile id
+                            profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
+                            profile_type=coach_profile.profile_type if coach_profile else ProfileTypeChoice.knowledge_bot,
+                            description=coach_profile.about if coach_profile else "No Description",
+                            experience=coach_profile.experience if coach_profile else "",
+                            expertise=coach_profile.area_domain if coach_profile else "",
+                            status=StatusChoice.available,
+                            skills=coach_profile.high_rating_characteristics if coach_profile else "",
+                            is_visible= False,
+                            is_approved = False,
+                            custom_user_bot_url = bot_url,
+                            custom_user_bot_id = bot_id
+                            )
+                            # if directory:
+                            #     if directory.custom_user_bot_url:
+                            #         directory.custom_user_bot_url += f",{bot_url}"
+                            #     else:
+                            #         directory.custom_user_bot_url = bot_url
+                            #     directory.save(update_fields=['custom_user_bot_url'])
 
                         
                     except Exception as e:
