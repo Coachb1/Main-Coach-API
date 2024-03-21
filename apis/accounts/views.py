@@ -670,14 +670,8 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
             data = request.data.copy()
             data['tenant_id'] = self.request.tenant.uid
-            profile_approved = data.get('is_approved',None)
-            if profile_approved:
-                if profile_approved.lower() == 'true':
-                    profile_approved = True
-                elif profile_approved.lower() == 'false':
-                    profile_approved = False
-                else:
-                    profile_approved = False
+            profile_approved = data.get('is_approved',False)
+            
 
             if profile_approved:
                 data['is_approved'] = profile_approved
@@ -861,13 +855,7 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
                 
                 bot_approved = data.get('is_approved',False)
-                if bot_approved:
-                    if bot_approved.lower() == 'true':
-                        bot_approved = True
-                    elif bot_approved.lower() == 'false':
-                        bot_approved = False
-                    else:
-                        bot_approved = False
+                
 
                 faqs = data.get('faqs')
                 fitment_details = data.get('fitment_data',None)
