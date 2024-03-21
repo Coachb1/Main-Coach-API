@@ -9,4 +9,6 @@ class CoachingConversationChoices(DjangoChoices):
 class BotScenarioCaseChoice(DjangoChoices):
     role_bot = ChoiceItem('role_bot')
     skill_bot = ChoiceItem('skill_bot')
+    skill_guide = ChoiceItem('skill_guide')
     general = ChoiceItem('general')
+    icons_by_ai = ChoiceItem('icons_by_ai')

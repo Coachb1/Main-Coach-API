@@ -1485,7 +1485,8 @@ def create_user_profile_and_bot(data,auth):
                 "provide_answers_using_emojis": provide_answers_using_emojis.lower() == 'yes' if provide_answers_using_emojis else False
             },
             "media_data": media_data,
-            'is_approved': True
+            'is_approved': True,
+            'bot_scenario_case': profile.profile_type if profile.profile_type == 'icons_by_ai' else 'general'
         }
 
         try:
