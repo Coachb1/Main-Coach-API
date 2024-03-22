@@ -1121,7 +1121,7 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.coach_email = email
                         updated_fields.append("coach_email")
                     
-                    if additional_data.get("profile_description",None):
+                    if additional_data and additional_data.get("profile_description",None):
                         bot_att.about = additional_data.get("profile_description",None)
                         updated_fields.append('about')
 
