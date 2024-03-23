@@ -40,10 +40,11 @@ class AccountSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try:
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=instance.uid)
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
 
             data['profile_type'] = profile.profile_type
-        except:
+        except Exception as e:
+            logger.exception(f"Error fetching profile: {e}")
             pass
 
         return data

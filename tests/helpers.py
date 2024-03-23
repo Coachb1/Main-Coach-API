@@ -3735,45 +3735,45 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
 
 
-    if not test.is_self_created:
-        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
-                                                                            tenant_id=test_attempt_session.tenant_id)
+    
+    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+                                                                        tenant_id=test_attempt_session.tenant_id)
 
-        updated_fields = []
+    updated_fields = []
 
-        skills_rating_object.skills_info = skills_rating_object.skills_info or {}
-        total_test_attmepted = skills_rating_object.total_tests_attempted
+    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+    total_test_attmepted = skills_rating_object.total_tests_attempted
 
-        for skill, rating in skills_rating_score.items():
+    for skill, rating in skills_rating_score.items():
 
-            if skill in skills_rating_object.skills_info:
-                skills_rating_object.skills_info[skill]['score'] += rating
-                skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
-            else:
-                skills_rating_object.skills_info[skill] = {
-                    'score': rating,
-                    'question_count': skills_count[skill]
-                }
+        if skill in skills_rating_object.skills_info:
+            skills_rating_object.skills_info[skill]['score'] += rating
+            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+        else:
+            skills_rating_object.skills_info[skill] = {
+                'score': rating,
+                'question_count': skills_count[skill]
+            }
 
-            if skills_count[skill] == 0:
-                skills_rating_object.skills_info[skill]['average_score'] = 0
-            else:
-                required_average_score = rating / skills_count[skill]
-                skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+        if skills_count[skill] == 0:
+            skills_rating_object.skills_info[skill]['average_score'] = 0
+        else:
+            required_average_score = rating / skills_count[skill]
+            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
 
-        skills_rating_object.total_questions_attempted += attempted_count
-        skills_rating_object.total_tests_attempted += 1
+    skills_rating_object.total_questions_attempted += attempted_count
+    skills_rating_object.total_tests_attempted += 1
 
-        updated_fields.append("skills_info")
-        updated_fields.append("total_questions_attempted")
-        updated_fields.append("total_tests_attempted")
-        updated_fields.append("updated")
+    updated_fields.append("skills_info")
+    updated_fields.append("total_questions_attempted")
+    updated_fields.append("total_tests_attempted")
+    updated_fields.append("updated")
 
+    skills_rating_object.save(update_fields=updated_fields)
+
+    if skills_rating_object.total_tests_attempted == total_test_attmepted:
         skills_rating_object.save(update_fields=updated_fields)
-
-        if skills_rating_object.total_tests_attempted == total_test_attmepted:
-            skills_rating_object.save(update_fields=updated_fields)
 
     logger.info(f"{test_attempt_session.uid} - end last response calculation")
     
