@@ -173,6 +173,9 @@ class ClientUserInfo(TenantAwareModel):
     departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
     coach_mentor_previledge = models.TextField(null=True, blank=True, default=None)
     is_coach_mentor_previledge = models.BooleanField(null=True, default=False)
+    restricted_pages = models.TextField(null=True, blank=True, default=None)
+    restricted_features = models.TextField(null=True, blank=True, default=None)
+
 
 
 
