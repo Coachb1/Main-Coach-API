@@ -1673,6 +1673,7 @@ class AccountsViewSet(ApiViewSet,
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',')
                 emails = [email.strip() for email in emails]
+                by_category = request.query_params.get('by_category')
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
@@ -1727,6 +1728,27 @@ class AccountsViewSet(ApiViewSet,
                         data.append(temp)
                     
                 # data = sorted(data, key=lambda x: x['total_score'], reverse=True)
+                coach = []
+                coachee = []
+                if by_category:
+                    coach = [x for x in data if x['profile_type'] in ['coach','mentor']]
+                    coachee = [x for x in data if x['profile_type'] in ['coachee','mentee']]
+                    coach = custom_sort_reverse(data=coach,first_sort_filed="total_score",second_sort_field="name")
+                    for i, item in enumerate(coach, start=1):
+                        item['rating'] = i
+
+                    coachee = custom_sort_reverse(data=coachee,first_sort_filed="total_score",second_sort_field="name")
+                    for i, item in enumerate(coachee, start=1):
+                        item['rating'] = i
+
+                    
+                    data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
+                    for i, item in enumerate(data, start=1):
+                        item['rating'] = i
+
+                    return Response({"coach_mentor": coach,'coachee_mentee': coachee, 'full_data': data},status=status.HTTP_200_OK)
+
+
                 data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i

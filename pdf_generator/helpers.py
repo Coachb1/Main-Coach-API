@@ -602,25 +602,28 @@ def get_participant_report(user, only_data=False):
         participant_info['skills_info'] = skills_info
 
         test_attempt_sessions = TestAttemptSession.objects.filter(deleted=0, status = TestAttemptSessionStatusChoices.completed , participant_id = user.uid).exclude(finished_at=None).order_by('-finished_at')
+        print(f"***** user_id : {user.uid}, 'sessions': {test_attempt_sessions.count()}")
         test_attempt_session_list = []
         cnt = 1
 
         for test_attempt_session in test_attempt_sessions:
             test = Test.objects.get(uid=test_attempt_session.test_id)
+            print(test.is_self_created)
             
-            if not test.is_self_created:
-                try:
-                    session_info = {
-                        "slno" : cnt,
-                        "title": test.title,
-                        "link" : test_attempt_session.report_url,
-                        "date" : test_attempt_session.created.date()
-                    }
-                    test_attempt_session_list.append(session_info)
-                    cnt += 1
+            
+            try:
+                session_info = {
+                    "slno" : cnt,
+                    "title": test.title,
+                    "link" : test_attempt_session.report_url,
+                    "date" : test_attempt_session.created.date()
+                }
+                test_attempt_session_list.append(session_info)
+                cnt += 1
 
-                except Exception as e:
-                    pass
+            except Exception as e:
+                print(f"Exception while fetching test attempt session info: {e}")
+                pass
 
         participant_info['test_attempt_session_list'] = test_attempt_session_list
         participant_info['total_tests_attempted'] = len(test_attempt_session_list)
