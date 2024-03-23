@@ -1690,10 +1690,11 @@ class AccountsViewSet(ApiViewSet,
                         "session_notes_count": user_action.session_notes_count,
                         "profile_type": "coachee"
                     }
-                    profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user.uid)
+                    profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id=user.uid)
                     for p in profiles:
                         temp['profile_type'] = p.profile_type
                         temp['is_mentor'] = p.is_mentor
+                        temp['created'] = p.created
 
 
                     temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
@@ -1717,10 +1718,11 @@ class AccountsViewSet(ApiViewSet,
                             "profile_type": 'coachee',
                             'total_score': 0
                         }
-                        profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id=user.uid)
+                        profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True, tenant_id=request.tenant.uid, user_id=user.uid)
                         for p in profiles:
                             temp['profile_type'] = p.profile_type
                             temp['is_mentor'] = p.is_mentor
+                            temp['created'] = p.created
 
                         data.append(temp)
                     
