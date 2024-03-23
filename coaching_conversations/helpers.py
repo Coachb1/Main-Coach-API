@@ -1212,8 +1212,10 @@ def create_user_profile_and_bot(data,auth):
     from settings import BACKEND
 
     
-
-    name = data.get('name')
+    name = data.get('first name') + ' ' + data.get('last name')
+    if data.get('name',None):
+        name = data.get('name',None)
+        
     email = data.get('email')
     about = data.get('about')
     experience = data.get('experience')

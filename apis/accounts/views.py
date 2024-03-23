@@ -477,6 +477,8 @@ class AccountsViewSet(ApiViewSet,
                         "coach_skills": u.coach_skills,
                         "coach_expertise": u.coach_expertise,
                         "departments": u.departments,
+                        "restricted_pages": u.restricted_pages,
+                        "restricted_features": u.restricted_features
                     })
 
                 if len(user_info) == 0:
