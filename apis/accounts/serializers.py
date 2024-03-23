@@ -37,6 +37,17 @@ class AccountSerializer(serializers.ModelSerializer):
         model = User
         fields = ["uid", "name", "role", "created", "updated"]
 
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try:
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=instance.uid)
+
+            data['profile_type'] = profile.profile_type
+        except:
+            pass
+
+        return data
+
 
 
 class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
