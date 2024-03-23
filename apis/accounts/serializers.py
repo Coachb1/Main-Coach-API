@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
@@ -73,6 +73,18 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
             validated_data.pop('profile_image')
         return CoachCoacheeMentorMenteeProfile.objects.create(**validated_data)
     
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        try:
+            user_attributes = UserAttribute.objects.get(user_id=instance.user_id)
+            res['name'] = user_attributes.attributes.get('real_name',None)
+            print(f"################# user_attributes: {user_attributes.attributes}")
+            if res['name'] is None:
+                res['name'] = user_attributes.attributes.get('username',None)
+        except Exception as e:
+            logger.error(f"Error in CoachCoacheeMentorMenteeProfileSerializer: {e}")
+            
+        return res
 
 class BotAttributeSerializer(serializers.ModelSerializer):
     class Meta:
