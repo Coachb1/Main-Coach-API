@@ -1151,22 +1151,23 @@ class AccountsViewSet(ApiViewSet,
                                     <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
                                     <script src="{bot_base_url}/widget/coachbots-stt-widget.js" defer></script>
                                         """
-                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
-                        coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
-                        coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
-                        snippet = coach_profile.bot_snippets
-                        if snippet:
-                            snippet[bot_type] = bot_snippet
-                        else:
-                            snippet = {f"{bot_type}": bot_snippet}
-                        
-                        coach_profile.bot_snippets = snippet
-
+                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=0,uid=profile_id).first()
+                        if coach_profile:
+                            coach_profile.bot_urls = (coach_profile.bot_urls + f", {bot_url}") if coach_profile.bot_urls else bot_url
+                            coach_profile.bot_ids = (coach_profile.bot_ids + f", {bot_id}") if coach_profile.bot_ids else bot_id
+                            snippet = coach_profile.bot_snippets
+                            if snippet:
+                                snippet[bot_type] = bot_snippet
+                            else:
+                                snippet = {f"{bot_type}": bot_snippet}
                             
+                            coach_profile.bot_snippets = snippet
 
-                        coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
+                                
 
-                        directory = DirectoryPageInfo.objects.filter(profile_id = coach_profile.uid).first()
+                            coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
+
+                        directory = DirectoryPageInfo.objects.filter(profile_id = profile_id).first()
                         if bot_type == BotTypeChoice.avatar_bot:
                             if directory:
                                 directory.avatar_bot_id = bot_id
@@ -1182,7 +1183,7 @@ class AccountsViewSet(ApiViewSet,
 
                         if bot_type == BotTypeChoice.user_bot:
                             DirectoryPageInfo.objects.create(
-                            name=coach_profile.name,
+                            name=coach_profile.name if coach_profile else user.name,
                             department=coach_profile.department if coach_profile else "",
                             profile_id=coach_profile.uid if coach_profile else user.uid, # in case of user_bot if there is not profile_id then storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
