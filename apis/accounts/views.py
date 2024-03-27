@@ -1177,6 +1177,29 @@ class AccountsViewSet(ApiViewSet,
                                 directory.avatar_bot_url = bot_url
                                 directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
 
+                                try:
+                                    subject = "AI Frame"
+                                    html = f"""
+                                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                                <tr>
+                                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey {coach_profile.name}!</p>
+                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your AI frame. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+
+                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                                </td>
+                                                </tr>
+                                        </table>
+                                        """
+
+                                    send_email_with_html_template(subject=subject,html_content=html,to_email=email)
+                            
+                                except Exception as e:
+                                    logger.exception(f"Ai frame creation email is failed reason: {e}")
+                                    send_error_notification("create_bot_by_details",f"Ai frame creation email is failed reason: {e}",{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
+
+
+
                             
                         if bot_type == BotTypeChoice.feedback_bot:
                             if directory:
@@ -1966,13 +1989,13 @@ class AccountsViewSet(ApiViewSet,
                 coach_name = coach.name
                 coachee_name = coachee.name
                 coachee_email = coachee.email
-                subject = "you have a connection request"
+                subject = "You have a connection request"
                 html = f"""
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                             <tr>
                             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Dear {coach_name},  One of the participants has requested to confirm connecrtion. You can do so via visiting your profile page here. <a href={profile_url} >Profile page </a> . Thanks! </p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey {coach_name}!</p>
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
 
                                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                             </td>
