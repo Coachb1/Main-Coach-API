@@ -30,6 +30,7 @@ from apis.accounts.serializers import UserIDPSerializers
 from utilities.models import SessionNotesRecommendations
 import requests
 from utilities.prompts import get_intake_summary_prompt
+from commons.utils import remove_punctuations
 
 logger = logging.getLogger(__name__)
 
@@ -1215,6 +1216,8 @@ def create_user_profile_and_bot(data,auth):
     name = data.get('first name') + ' ' + data.get('last name')
     if data.get('name',None):
         name = data.get('name',None)
+
+    name = remove_punctuations(name)
         
     email = data.get('email')
     about = data.get('about')
