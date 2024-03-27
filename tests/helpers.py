@@ -189,7 +189,8 @@ def create_test(tenant: Tenant,
                 area_domain:str,
                 tab_category:str,
                 is_recommended:bool,
-                visual_tags: str) -> tuple[Test, list[TestQuestion]]:
+                visual_tags: str,
+                page_name: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -367,7 +368,8 @@ def create_test(tenant: Tenant,
             area_domain=area_domain,
             tab_category=tab_category,
             is_recommended=is_recommended,
-            visual_tags=visual_tags
+            visual_tags=visual_tags,
+            page_name=page_name,
         )
 
         test_questions = []

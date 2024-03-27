@@ -85,6 +85,7 @@ AREA_DOMAIN = "Area/Domain"
 TAB_CATEGORY = "Tab Category"
 IS_RECOMMENDED = 'Is Recommended'
 VISUAL_TAGS = 'Visual Tags'
+PAGE_NAME = 'Page Name'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -270,6 +271,10 @@ def format_test_orchestrated_conversation(raw_data):
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if PAGE_NAME in input_dict:
+            if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
 
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
@@ -796,6 +801,11 @@ def format_test_data_slack(raw_data):
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if PAGE_NAME in input_dict:
+            if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+
 
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
