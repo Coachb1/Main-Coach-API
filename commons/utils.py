@@ -6,6 +6,8 @@ from commons.openai_gpt import gpt3_completion
 from commons.google_apis import text_bison_compeletion
 import re
 from utilities.models import BotEngagement
+import string
+
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +104,11 @@ def get_bot_engagements(tenant_id,bot_id,by_date=None,by_user=None):
     }
 
     return data
+
+
+
+def remove_punctuations(text):
+    # Create translation table to map punctuations to None
+    translator = str.maketrans('', '', string.punctuation)
+    # Remove punctuations using translate method
+    return text.translate(translator)
