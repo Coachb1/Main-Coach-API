@@ -781,7 +781,7 @@ class AccountsViewSet(ApiViewSet,
         
 
     #************* utility methods ***************
-    def process_and_store_youtube_transcript(self,youtube_links,signature_bot):
+    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False):
         extracted_from_youtube = {}
         extracted_media_data = {}
 
@@ -804,7 +804,14 @@ class AccountsViewSet(ApiViewSet,
             
         # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
         logger.info(f"extratedz youtube: {extracted_from_youtube}")
-        signature_bot.data['media_data']['extracted_from_youtube'] = extracted_from_youtube
+        signature_bot.refresh_from_db()
+        bot_media_data = signature_bot.data['media_data']
+        if overwrite:
+            bot_media_data['extracted_from_youtube'] = extracted_from_youtube
+        else:
+            bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_from_youtube}
+
+        signature_bot.data['media_data'] = bot_media_data
         signature_bot.save(update_fields=["data"])
         return transcript
 
@@ -846,7 +853,7 @@ class AccountsViewSet(ApiViewSet,
                     if bot_name is None or bot_name == '':
                         return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
-                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], bot_name.strip().lower().replace(" ","-").replace("&"," ")])
+                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
                         return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
@@ -1305,6 +1312,17 @@ class AccountsViewSet(ApiViewSet,
                     bot_att.save(update_fields=updated_fields)
 
                 media_data = data.get('media_data')
+                is_overwrite = data.get('is_overwrite',None)
+                if is_overwrite:
+                    if is_overwrite.lower() == 'true':
+                        is_overwrite = True
+                    elif is_overwrite.lower() == 'false':
+                        is_overwrite = False
+                    else:
+                        is_overwrite = False
+                else:
+                    is_overwrite = False
+
                 if 'attatched_pdfs' in request.data:
                     if media_data is None:
                         media_data = {}
@@ -1334,7 +1352,7 @@ class AccountsViewSet(ApiViewSet,
                         
                         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
                     
-                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
+                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite)).start()
 
 
                     if 'article_links' in media_data:
@@ -1351,7 +1369,16 @@ class AccountsViewSet(ApiViewSet,
                                 extracted_from_article[link] = transcript_data
                         
                         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
-                        extracted_media_data['extracted_from_article'] = extracted_from_article
+                        signature_bot.refresh_from_db()
+                        bot_media_data = signature_bot.data['media_data']
+                        if is_overwrite:
+                            bot_media_data['extracted_from_article'] = extracted_from_article
+                        else:
+                            bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_from_article}
+                        
+                        signature_bot.data['media_data'] = bot_media_data
+                        signature_bot.save(update_fields=["data"])
+
                 
                 if signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     if 'pdf_data' in data:
@@ -1364,7 +1391,17 @@ class AccountsViewSet(ApiViewSet,
                                 file_name, text = extract_file_and_text(pdf)
                                 extracted_from_pdf[file_name] = text
                         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                        extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+                        
+                        signature_bot.refresh_from_db()
+                        bot_media_data = signature_bot.data['media_data']
+                        if is_overwrite:
+                            bot_media_data['extracted_from_pdf'] = extracted_from_pdf
+                        else:
+                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                        
+                        signature_bot.data['media_data'] = bot_media_data
+                        signature_bot.save(update_fields=["data"])
+
 
                     if 'doc_data' in data:
                         doc_data = data.getlist('doc_data')
@@ -1378,8 +1415,17 @@ class AccountsViewSet(ApiViewSet,
                                 extracted_from_doc[file_name] = text
 
                         logger.info(f"******************* doc_data: {extracted_from_doc}")
-                        extracted_media_data['extracted_from_doc'] = extracted_from_doc
-                    
+                        signature_bot.refresh_from_db()
+                        bot_media_data = signature_bot.data['media_data']
+                        if is_overwrite:
+                            bot_media_data['extracted_from_doc'] = extracted_from_doc
+                        else:
+                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                        
+                        signature_bot.data['media_data'] = bot_media_data
+                        signature_bot.save(update_fields=["data"])
+
+
                     if (media_data and 'attached_docs' in media_data) or 'attached_docs' in request.FILES:
                         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
                         doc_names = []
@@ -1393,7 +1439,15 @@ class AccountsViewSet(ApiViewSet,
                             default_storage.delete(path)
                             extracted_from_doc[file.name] = doc_content
 
-                        extracted_media_data['extracted_from_doc'] = extracted_from_doc
+                        signature_bot.refresh_from_db()
+                        bot_media_data = signature_bot.data['media_data']
+                        if is_overwrite:
+                            bot_media_data['extracted_from_doc'] = extracted_from_doc
+                        else:
+                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                        
+                        signature_bot.data['media_data'] = bot_media_data
+                        signature_bot.save(update_fields=["data"])
                         
                     if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
                         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
@@ -1414,41 +1468,19 @@ class AccountsViewSet(ApiViewSet,
                             extracted_from_pdf[file.name] = pdf_content
 
                     
-
-                        extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+                        signature_bot.refresh_from_db()
+                        bot_media_data = signature_bot.data['media_data']
+                        if is_overwrite:
+                            bot_media_data['extracted_from_pdf'] = extracted_from_pdf
+                        else:
+                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                        
+                        signature_bot.data['media_data'] = bot_media_data
+                        signature_bot.save(update_fields=["data"])
 
                         logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
 
                     logger.info(f"######### extracted media data : {extracted_media_data}")
-
-                if extracted_media_data:
-                    signature_bot_media_data = signature_bot.data['media_data']
-                    for key, value in extracted_media_data.items():
-                        signature_bot_media_data[key] = value
-                    signature_bot.data['media_data'] = signature_bot_media_data
-                    signature_bot.save()
-
-                # if updated_data:
-                #     # Update the instance with the new data
-                #     sig_bot_updates = updated_data.get('signature_bot',None)
-                #     bot_att_updates = updated_data.get('bot_attributes',None)
-                #     updated_fields = []
-                #     if sig_bot_updates:
-                #         for key, value in sig_bot_updates.items():
-                #             setattr(signature_bot, key, value)
-                #             updated_fields.append(key)
-                #         # Save the updated instance
-                #         signature_bot.save(update_fields=updated_fields)
-
-                #     if bot_att_updates:
-                #         updated_fields = []
-                #         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-                #         for key, value in bot_att_updates.items():
-                #             setattr(signature_bot, key, value)
-                #             updated_fields.append(key)
-                #         # Save the updated instance
-                #         bot_att.save(update_fields=updated_fields)
-                    
 
                 return Response({"msg": "updated"}, status=status.HTTP_200_OK)
         except Exception as e:
