@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo, EmailSentDetails
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -30,6 +30,12 @@ class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
     list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','is_visible',"is_approved")
 
+class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','client_name','email',"can_join_as")
+    list_filter = ('client_name','email',"can_join_as")
+    search_fields = ('client_name','email',"can_join_as")
+    list_editable = ('client_name','email',"can_join_as")
+
 class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','uid','user_id',"user_name","strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","report","success")
     list_filter = ("uid","user_id","success")
@@ -46,6 +52,7 @@ admin.site.register(UserIDP, IDPAdmin)
 admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
 admin.site.register(UserActionInfo)
 admin.site.register(EmailSentDetails, EmailSentDetailsAdmin)
+admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
