@@ -1,10 +1,12 @@
 from users.models import CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile, UserAttribute, User, \
-    SignatureBot
+    SignatureBot, ClientUserInfo
+from identities.models import Identity
 from tests.models import TestAttemptSession
 from email_sender.helpers import send_email_with_html_template
 import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 import time
+from settings import BACKEND
 
 
 
@@ -69,7 +71,7 @@ def touch_point_for_session_weekly():
             <tr>
             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to ger your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
+                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to get your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
 
                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
             </td> </tr>
@@ -108,41 +110,88 @@ def weekly_remider_to_login():
     >>> weekly_remider_to_login()
     # Sends weekly reminder emails to all users and logs any failed emails.
     """
+    if BACKEND == "https://coach-api-ovh.coachbots.com":
 
-    users = User.objects.filter(deleted=0)
-    tenant_ids = list(set(users.values_list("tenant_id",flat=True)))
-    tenant_action_mapping = {}
-    
-    for tenant_id in tenant_ids:
-        tenant_action_mapping[tenant_id] = get_total_actions_on_platform_over_week(tenant_id=tenant_id)
+        users = User.objects.filter(deleted=0)
+        tenant_ids = list(set(users.values_list("tenant_id",flat=True)))
+        tenant_action_mapping = {}
+        
+        for tenant_id in tenant_ids:
+            tenant_action_mapping[tenant_id] = get_total_actions_on_platform_over_week(tenant_id=tenant_id)
 
-    failed_emails = []
-    logger.info(f"tenant_action_mapping:=======================================================> {tenant_action_mapping}")
-    subject = "We want to you back!"
-    for user in users:
-        user_name = user.name
-        user_email = UserAttribute.objects.get(user_id=user.uid).attributes.get("email",None)
-        template = f"""
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                    <tr>
-                    <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear {user_name.capitalize()}, This week we faciltated over {tenant_action_mapping[user.tenant_id]} conversations across coach, coachees and simulations. Do remember to check out the action! Thank you </p>
+        clients = ClientUserInfo.objects.filter(deleted=0)
+        sent_emails = []
 
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                    </td> </tr>
-                </table>
-                """
-        if user_email:
-            try:
-                send_email_with_html_template(subject=subject,html_content=template,to_email=user_email)
-            except Exception as e:
-                logger.info(f"Failed to send email to {user_email} in weekly_remider_to_login, Reason: {e}")
-                failed_emails.append(user_email)
+        failed_emails = []
+        logger.info(f"tenant_action_mapping:=======================================================> {tenant_action_mapping}")
+        subject = "We want to you back!"
+        for client in clients:
+            tenant_id = client.tenant_id
+            member_emails = []
+            if client.member_emails:
+                member_emails = [email.strip() for email in client.member_emails.split(',')]
+
+            user_ids = Identity.objects.filter(deleted=False,tenant_id=tenant_id,value__in = member_emails)
+            user_ids = list(user_ids.values_list('user_id', 'value'))
+            print(user_ids,len(user_ids))
+            for user_obj in user_ids:
+                user_email = user_obj[1]
+                user_id = user_obj[0]
+                user = User.objects.get(uid=user_id)
+                user_name = user.name
+                template = f"""
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                        <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear {user_name.capitalize()}, This week we faciltated over {tenant_action_mapping[user.tenant_id]} conversations across coach, coachees and simulations. Do remember to check out the action! Thank you </p>
+
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                        </td> </tr>
+                    </table>
+                    """
+                if user_email not in sent_emails:
+                    try:
+                        sent_emails.append(user_email)
+                        print('sent',user_email)
+                        send_email_with_html_template(subject=subject,html_content=template,to_email=user_email)
+                    except Exception as e:
+                        logger.info(f"Failed to send email to {user_email} in weekly_remider_to_login, Reason: {e}")
+                        failed_emails.append(user_email)
 
 
-    if len(failed_emails) > 0:
-        send_email_with_html_template(subject="Failed to send email",html_content=f"Email delivery for weekly reminder to login. For these emails: {failed_emails}")
+        if len(failed_emails) > 0:
+            send_email_with_html_template(subject="Failed to send email",html_content=f"Email delivery for weekly reminder to login. For these emails: {failed_emails}")
+
+
+
+        # failed_emails = []
+        # logger.info(f"tenant_action_mapping:=======================================================> {tenant_action_mapping}")
+        # subject = "We want to you back!"
+        # for user in users:
+        #     user_name = user.name
+        #     user_email = UserAttribute.objects.get(user_id=user.uid).attributes.get("email",None)
+        #     template = f"""
+        #             <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+        #                 <tr>
+        #                 <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+        #                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+        #                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear {user_name.capitalize()}, This week we faciltated over {tenant_action_mapping[user.tenant_id]} conversations across coach, coachees and simulations. Do remember to check out the action! Thank you </p>
+
+        #                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+        #                 </td> </tr>
+        #             </table>
+        #             """
+        #     if user_email:
+        #         try:
+        #             send_email_with_html_template(subject=subject,html_content=template,to_email=user_email)
+        #         except Exception as e:
+        #             logger.info(f"Failed to send email to {user_email} in weekly_remider_to_login, Reason: {e}")
+        #             failed_emails.append(user_email)
+
+
+        # if len(failed_emails) > 0:
+        #     send_email_with_html_template(subject="Failed to send email",html_content=f"Email delivery for weekly reminder to login. For these emails: {failed_emails}")
 
 
 

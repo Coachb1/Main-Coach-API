@@ -113,7 +113,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token, simulat
 
     commentor = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=mentor_id).first()
     reciever = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).first()
-    logger.info(f"coach: {commentor.uid}, coachee: {reciever.uid}")
+    logger.info(f"coach: {commentor}, coachee: {reciever}")
     connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=commentor.uid,coachee_id=reciever.uid)
     
     if connections.count() == 0:
