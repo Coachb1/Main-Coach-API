@@ -12,3 +12,4 @@ class BotScenarioCaseChoice(DjangoChoices):
     skill_guide = ChoiceItem('skill_guide')
     general = ChoiceItem('general')
     icons_by_ai = ChoiceItem('icons_by_ai')
+    customer_avatar = ChoiceItem('customer_avatar')
