@@ -1213,9 +1213,10 @@ def create_user_profile_and_bot(data,auth):
     from settings import BACKEND
 
     
-    name = data.get('first name') + ' ' + data.get('last name')
-    if data.get('name',None):
-        name = data.get('name',None)
+    name = data.get('name',None)
+    if not name :
+        name = data.get('first name') + ' ' + data.get('last name')
+
 
     name = remove_punctuations(name)
         
@@ -1313,7 +1314,7 @@ def create_user_profile_and_bot(data,auth):
         "tag": "deepchat_profile",
         "attributes": {
             "name": name,
-            "email": user_email
+            "email": ""
         }
         }
     },
@@ -1491,7 +1492,7 @@ def create_user_profile_and_bot(data,auth):
             },
             "media_data": media_data,
             'is_approved': True,
-            'bot_scenario_case': profile.profile_type if profile.profile_type == 'icons_by_ai' else 'general'
+            'bot_scenario_case': profile.get('profile_type') if profile.get('profile_type') == 'icons_by_ai' else 'general'
         }
 
         try:
