@@ -130,6 +130,7 @@ class BotAttribute(TenantAwareModel):
     is_audio_response = models.BooleanField(null=True,default=False)
     about = models.TextField(null=True, blank=True, default=None)
     admirer_ids = models.TextField(null=True, blank=True, default=None)
+    ui_information = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "bot_attributes"
