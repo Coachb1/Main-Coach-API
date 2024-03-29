@@ -367,6 +367,7 @@ class AccountsViewSet(ApiViewSet,
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
+            data['ui_information'] = bot_att.ui_information
 
             if bot_att.fitment_data:
                 data['fitment_qna'] = bot_att.fitment_data['mentee_que']
