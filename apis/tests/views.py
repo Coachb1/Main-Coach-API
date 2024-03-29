@@ -799,11 +799,17 @@ class TestViewSet(ApiViewSet,
             resp_data = []
             if is_static == 'true' or is_static == True or is_static == "True":
                 scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
-                resp_data.append(scenario)
+                if scenario:
+                    resp_data.append(scenario)
+                else:
+                    resp_data.append({'message':"failed to generate the scenario"})
             if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
                 dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
                                                                     origin=source, competency=None, creator_user_id=creator_user_id)
-                resp_data.append(dynamic_discussion)
+                if scenario:
+                    resp_data.append(dynamic_discussion)
+                else:
+                    resp_data.append({'message':"failed to generate the dynamic_discussion"})
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             scenario = fetch_test_codes_by_site_context(url,tenant_id, context)

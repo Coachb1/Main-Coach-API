@@ -6928,8 +6928,9 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
                         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
-                        Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
+                        Questions - Give me the first question the manager will ask the team member based on the situation .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
                         Output format - Manager name: Question
+                        For example - Ajay: question?
                         Prompts - As given in the output format. 
 
                         Here the format looks like :
@@ -6962,6 +6963,9 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
                         
                         NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
                         \n\nAssistant: 
 
                     """%(site_information)  
