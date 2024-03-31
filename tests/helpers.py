@@ -1855,7 +1855,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=updated_fields)
-    
+
+    test_question_response.refresh_from_db()
     if test_question_response != TestQuestionResponseEvaluationStatusChoices.success:
         test_question_response.save(
         update_fields=updated_fields)
@@ -3181,7 +3182,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
         test_data = []
         for test_response in test_responses:
-            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "Feedback couldn't be generated.",})
         logger.info({"************test_responses":test_data})
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
@@ -3191,7 +3192,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     else:
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
                 key_learning_point = test_response.kls_klp.get('klp')
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
