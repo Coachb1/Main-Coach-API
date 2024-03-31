@@ -36,7 +36,10 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
                 response_text = anthropic_completion(prompt, tokens)
             except Exception as e:
                 logger.exception(e)
-                response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                try:
+                    response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                except Exception as e:
+                    response_text = fallback_text
         else:
             response_text = bison_feedback
 
