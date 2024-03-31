@@ -80,6 +80,8 @@ class Test(TenantAwareModel):
     is_recommended = models.BooleanField(default=False, null=True, blank=True)
     visual_tags = models.CharField(max_length=255, null=True, blank=True, default=None)
     page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+    scenario_summary = models.TextField(null=True, blank=True, default=None)
+
 
 
     class Meta:
