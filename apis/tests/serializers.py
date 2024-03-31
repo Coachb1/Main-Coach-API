@@ -119,6 +119,7 @@ class CreateTestSerializer(serializers.Serializer):
     tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     visual_tags = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -194,6 +195,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_recommended",
                   "visual_tags",
                   "page_name",
+                  "scenario_summary"
                   ]
 
     def get_questions(self, instance):
