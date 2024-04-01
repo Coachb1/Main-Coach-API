@@ -1000,6 +1000,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv
             )
 
+    provide_answers_using_emojis = signature_bot.data.get('additional_data')
+    if provide_answers_using_emojis:
+
+        provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
+        print(provide_answers_using_emojis,'a')
+    else:
+        provide_answers_using_emojis = False
+
+    if provide_answers_using_emojis:
+
+        prompt  = prompt.split('Assistant:')
+        prompt.insert(-1, f"Note: Always use emojis and icons in response to make the responses lively where applicable. \n\nAssistant:")
+        prompt = '\n'.join(prompt)
+
     return prompt
 
 
