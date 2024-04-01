@@ -8419,36 +8419,55 @@ response.\n        NOTE : Always assume suitable details to respond, never respo
     
     conversation_history = {}
         
-    for index, que in enumerate(questions,start=1):
-        history = ""
-        for key, value in conversation_history.items():
-            history += f"User: {key}, Coach: {value}\n"
+    # for index, que in enumerate(questions,start=1):
+    #     history = ""
+    #     for key, value in conversation_history.items():
+    #         history += f"User: {key}, Coach: {value}\n"
 
 
-        prompt = Template(prompt).substitute(conversation=history,
-                                                coach_information = coach_info,
-                                                intake = intake
-                                                )
+    #     prompt = Template(prompt).substitute(conversation=history,
+    #                                             coach_information = coach_info,
+    #                                             intake = intake
+    #                                             )
 
-        # response = anthropic_completion(prompt,1000)
+    #     # response = anthropic_completion(prompt,1000)
 
-        # print(f"(Anthropic){index}   User: {que}, coach: {response}")
+    #     # print(f"(Anthropic){index}   User: {que}, coach: {response}")
 
-        response = gpt3_completion(prompt,stop=['user','coachbots'])
+    #     # response = gpt3_completion(prompt,stop=['user','coachbots'])
 
-        # print(f"(gpt){index}   User: {que}, coach: {response.text}")
+    #     # print(f"(gpt){index}   User: {que}, coach: {response.text}")
 
-        # response = gemini_competions(prompt)
+    #     response = gemini_competions(prompt)
 
-        # print(f"(gemini){index}   User: {que}, coach: {response}")
+    #     # print(f"(gemini){index}   User: {que}, coach: {response}")
 
-        conversation_history[que] = response.text
+    #     conversation_history[que] = response
 
-    h = ""
-    for key, value in conversation_history.items():
-        h += f"User: {key}, Coach: {value}\n\n"
+    # h = ""
+    # for key, value in conversation_history.items():
+    #     h += f"User: {key}, Coach: {value}\n\n"
 
-    print('rsponse',h)
+    # print('rsponse',h)
+
+    signature_bot = SignatureBot.objects.get(bot_id="avatar_bot-87b15-lyfe.-life-transformation-by-a-senior-coaching-practitioner.")
+    provide_answers_using_emojis = signature_bot.data.get('additional_data')
+    if provide_answers_using_emojis:
+
+        provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
+        print(provide_answers_using_emojis,'a')
+    else:
+        provide_answers_using_emojis = False
+
+    # if provide_answers_using_emojis:
+
+    prompt  = prompt.split('Assistant:')
+    prompt.insert(-1, f"Note: Always use emojis and icons in response to make the responses lively where applicable. \n\nAssistant:")
+    prompt = '\n'.join(prompt)
+    print(prompt)
+
+
+
 
 
 
