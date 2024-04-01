@@ -762,7 +762,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name, allow_reply=True)
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name,bot_att.bot_name, allow_reply=True)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
@@ -1307,7 +1307,14 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
 
 
-    # @action(methods=['GET'],detail=False,url_path="stream")
+    @action(methods=['GET'],detail=False,url_path="testing")
+    def testing_simulations(self,request,*args,**kwargs):
+
+        from tests.helpers import simulate_llm_resposne
+
+        simulate_llm_resposne()
+
+        return Response("ok",status=status.HTTP_200_OK)
     
 def stream(request):
     conv_id = request.GET.get('conv_id')
@@ -1342,3 +1349,4 @@ def stream(request):
                 yield 'data: %s\n\n' % text
 
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+

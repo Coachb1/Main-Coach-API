@@ -288,7 +288,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                         else:
                             data_q[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                     data_q["response"] = test_response.response_text.strip('" \'')
-                    data_q["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
+                    data_q["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
                     qa.append(data_q)
                     count += 1
                     data_q = {}
@@ -319,7 +319,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     continue
 
                 response_text = participant_response.response_text
-                feedback_text = participant_response.feedback_text
+                feedback_text = participant_response.feedback_text or "Feedback couldn't be generated"
 
                 # Check if participant response object has speech_metrics or not
                 
@@ -363,7 +363,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             qa.append({
                 "question": question_text if test.test_type == TestTypeChoices.mcq else response.metadata['question'],
                 'response': response.response_text,
-                'comment': response.feedback_text,
+                'comment': response.feedback_text or "Feedback couldn't be generated",
                 'skills': mcq_skill if test.test_type == TestTypeChoices.mcq else response.mcq_skill,
                 'mcq_opitons': mcq_options
             })
@@ -392,7 +392,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             continue
 
         response_text = participant_response.response_text
-        feedback_text = participant_response.feedback_text
+        feedback_text = participant_response.feedback_text or "Feedback couldn't be generated"
 
         # Check if participant response object has speech_metrics or not
         if participant_response.speech_metrics:

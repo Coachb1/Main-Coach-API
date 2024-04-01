@@ -91,7 +91,6 @@ class SignatureBot(TenantAwareModel):
     tag = models.CharField(max_length=255, null=True, blank=True, default=None)
     attributes = models.JSONField(null=True, blank=True, default=None)
     data = models.JSONField(null=True, blank=True, default=None)
-    prompt = models.TextField(null=True, blank=True, default=None)
     custom_prompt = models.TextField(null=True, blank=True, default=None)
     faqs = models.JSONField(null=True, blank=True, default=None)
     is_fitment_analysis = models.BooleanField(null=True,default=True)

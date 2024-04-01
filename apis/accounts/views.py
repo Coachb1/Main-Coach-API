@@ -1097,13 +1097,13 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.faqs = faqs
                         updated_fields.append("faqs")
 
-                    # if bot_type == BotTypeChoice.avatar_bot:
-                    #     try:
-                    #         prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
-                    #     except Exception as e:
-                    #         prompt = avatar_bot_default_prompt()
-                    #     signature_bot.custom_prompt = prompt
-                    #     updated_fields.append("custom_prompt")
+                    if bot_type == BotTypeChoice.avatar_bot:
+                        try:
+                            prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
+                        except Exception as e:
+                            prompt = signature_bot_default_prompt()
+                        signature_bot.custom_prompt = prompt
+                        updated_fields.append("custom_prompt")
 
                     if all_data:
                         signature_bot.data = all_data
@@ -1262,6 +1262,41 @@ class AccountsViewSet(ApiViewSet,
             
             elif request.method == "PATCH":
                 bot_id = data.get("bot_id",None)
+                profile_id = data.get("profile_id",None)
+
+                # sending for reapproval to directory page info
+
+                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
+                if directory:
+                    DirectoryPageInfo.objects.create(
+                        name = directory.name,
+                        profile_id = directory.profile_id,
+                        department = directory.department,
+                        bot_type = directory.bot_type,
+                        profile_pic_url = directory.profile_pic_url,
+                        profile_type = directory.profile_type,
+                        description = directory.description,
+                        experience = directory.experience,
+                        expertise = directory.expertise,
+                        status = directory.status,
+                        avatar_bot_id = directory.avatar_bot_id,
+                        feedback_wall = directory.feedback_wall,
+                        skills = directory.skills,
+                        is_visible = directory.is_visible,
+                        is_approved = False,
+                        avatar_snippit = directory.avatar_snippit,
+                        avatar_bot_url = directory.avatar_bot_url,
+                        custom_user_bot_url = directory.custom_user_bot_url,
+                        custom_user_bot_id = directory.custom_user_bot_id,
+                        timer_enabled = directory.timer_enabled,
+                        time_value_in_days = directory.time_value_in_days,
+                        timer_reset = directory.timer_reset,
+                        visual_tag = directory.visual_tag,
+                    )
+
+                    directory.delete()
+                    directory.save()
+
                 try:
                     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
                 except SignatureBot.DoesNotExist:
