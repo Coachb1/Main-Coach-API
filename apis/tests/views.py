@@ -972,11 +972,12 @@ class TestViewSet(ApiViewSet,
 
         logger.info(f">>>>>>>>>>>>> raw_scenario_data : {raw_scenario_data}")
         resp_data = []
-        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True,creator_user_id=creator_user_id)
+        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True,creator_user_id=creator_user_id,scenario_summary=raw_scenario_data)
         
         resp_data.append(scenario)
         dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': raw_scenario_data}}),type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-                                                                    creator_user_id=creator_user_id)
+                                                                    creator_user_id=creator_user_id,
+                                                                    scenario_summary=raw_scenario_data)
         resp_data.append(dynamic_discussion)
 
         return Response(data=resp_data, status=status.HTTP_200_OK)

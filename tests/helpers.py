@@ -63,7 +63,7 @@ import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
 import re
-from commons.google_apis import speech_to_text, text_bison_compeletion
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
@@ -190,7 +190,8 @@ def create_test(tenant: Tenant,
                 tab_category:str,
                 is_recommended:bool,
                 visual_tags: str,
-                page_name: str) -> tuple[Test, list[TestQuestion]]:
+                page_name: str,
+                scenario_summary:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -370,6 +371,7 @@ def create_test(tenant: Tenant,
             is_recommended=is_recommended,
             visual_tags=visual_tags,
             page_name=page_name,
+            scenario_summary=scenario_summary
         )
 
         test_questions = []
@@ -1698,7 +1700,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     question_context=question.subjective_answer,
                     candidate_reply=test_question_response.response_text,
                     user_feedback_prompt=user_feedback_prompt,
-                    articles=test.articles)
+                    articles= test.articles,
+                    scenario_summary=test.scenario_summary,
+                    )
 
 
         feedback_text = ''
@@ -1777,7 +1781,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     question_context=question.subjective_answer,
                                     candidate_reply=response_text,
                                     user_feedback_prompt=user_feedback_prompt,
-                                    articles=test.articles)
+                                    articles=test.articles,
+                                    scenario_summary=test.scenario_summary,)
 
                     max_retry -= 1
 
@@ -1850,7 +1855,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=updated_fields)
-    
+
+    test_question_response.refresh_from_db()
     if test_question_response != TestQuestionResponseEvaluationStatusChoices.success:
         test_question_response.save(
         update_fields=updated_fields)
@@ -2285,7 +2291,8 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         question_context=question.subjective_answer,
                                         candidate_reply=test_question_response.response_text,
                                         user_feedback_prompt="",
-                                        articles=test.articles)
+                                        articles=test.articles,
+                                        scenario_summary=test.scenario_summary,)
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
@@ -2470,7 +2477,8 @@ def get_feedback(question, test_question_response, question_text, test):
                                     question_context=question.subjective_answer,
                                     candidate_reply=test_question_response.response_text,
                                     user_feedback_prompt="",
-                                    articles=test.articles)
+                                    articles=test.articles,
+                                    scenario_summary=test.scenario_summary,)
         
     test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
@@ -3174,7 +3182,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
         test_data = []
         for test_response in test_responses:
-            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "Feedback couldn't be generated.",})
         logger.info({"************test_responses":test_data})
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
@@ -3184,7 +3192,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     else:
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
                 key_learning_point = test_response.kls_klp.get('klp')
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
@@ -4544,7 +4552,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question_context: str,
                                     candidate_reply: str,
                                     user_feedback_prompt:str,
-                                    articles:str = None):
+                                    articles:str = None,
+                                    scenario_summary:str = None):
     """
     this method used to get prompt for feedback.
     """
@@ -4555,6 +4564,9 @@ def get_chat_conversation_prompt_v3(test_title: str,
             if articles_data:
                 articles_data = articles_data['article_content']
                 article_information += f"\n articles_data"
+
+    if scenario_summary:
+        article_information += scenario_summary
     
     if len(article_information) == 0:
         articles = None
@@ -6386,7 +6398,8 @@ def submit_feedback(
                 question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text,
                 user_feedback_prompt=user_feedback_prompt,
-                articles=test.articles)
+                articles=test.articles,
+                scenario_summary=test.scenario_summary,)
 
 
     feedback_text = ''
@@ -6452,7 +6465,8 @@ def submit_feedback(
                                 question_context=question.subjective_answer,
                                 candidate_reply=response_text,
                                 user_feedback_prompt=user_feedback_prompt,
-                                articles=test.articles)
+                                articles=test.articles,
+                                scenario_summary=test.scenario_summary,)
 
                 max_retry -= 1
 
@@ -7033,7 +7047,7 @@ def get_improved_title(title):
     return title
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7216,6 +7230,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "competency_group": competency,
                 "creator_user_id": creator_user_id,
             }
+            if scenario_summary:
+                test_json["scenario_summary"] = scenario_summary
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
 
@@ -8325,3 +8341,117 @@ def create_scenario_from_transcript(conversation,access_token, tenant_id, contex
     scenario = create_scenario_from_site_context(None, access_token, tenant_id, json.dumps({'title': "",'data':{'information':''}}), origin=source, competency=competency, creator_user_id=creator_user_id, custom_prompt=simulation_prompt)
     
     return scenario
+
+
+
+def simulate_llm_resposne():
+    prompt = """
+        \n\nHuman:\n        
+        {Information} - ${coach_information}
+Conversation History : ${conversation}
+
+Context : ${intake}\n        
+Personality: None\n        IDP: None\n        Action Plan & Session Notes: None\n\n        Read this {Information} thoroughly and understand it deeply. Act as the individual described in the provided information, mimicking their 
+personality traits, speech patterns, and values throughout the responses. Understand the given instructions before creating a response. ALWAYS follow these instructions to generate the responses :\n        1. Act as the person whose information is given here {Information}. Include details about their background, achievements, and notable personality traits.\n        2. Analyze the personal stories, or responses given in {Information} to identify the person's speech patterns, vocabulary, and storytelling style. Utilize this information to generate conversational responses that reflect the user's natural language and tone.\n        3. Analyze the \"Speech Patterns\" and vocabulary of the person from the given FAQs given here {Information} and model it when creating the response. Pay 
+attention to their tone, expressions, and commonly used phrases to ensure authenticity.\n        4. Use their \"Values and Beliefs\" given here {Information} to ensure that generated response aligns with their worldview and perspectives.\n        5. Integrate their \"Frequently Used Phrases\" given here {Information} while generating the responses.  Weave these phrases seamlessly into the responses, ensuring they feel natural and consistent with the individual's communication style.\n        6. Analyze the \"Emotional Expressions\" from the given FAQs  given here {Information} to mimic emotional nuances while generating the responses, ensuring that the response reflects the person's emotional range and communication style accurately.\n        7. Analyze the \"Life Experiences\" given here {Information} . Draw on these experiences when crafting personalized narratives or offering advice, creating a deeper connection with the coachee and enhancing the realism of the responses.\n        8. Analyze and imitate the \"Problem-Solving Approach\" given here {Information} to generate a response that reflects the person's decision-making style and problem-solving approach to resolve situations.\n        Use all the information provided here {Information} to act as the coach and respond to the coachee. \n\n   
+     Conduct a session with a coachee who is sharing their concern in this context {context}. Understand the coachee's concern and problem before providing any advice or solution in the response. The response should be directly related to the concern shared by the coachee.  The personality of the coachee is given here {Personality}. Understand the coachee's personality and always tailor your response accordingly.\n        Understand the coachee's perspective to the question and provide the information they want. \n        Offer advice, coaching, and mentoring based on the coach's style and character traits given in {Information}. Consider any other relevant information to provide comprehensive coaching advice. \n        Provide a response based on all the information you have on the coach. Always provide accurate information about yourself as the coach when asked by the coachee. \n        The response should always be directly related to the question. \n        If the coachees' Individual Development Plan is given in the IDP, make sure the response is based on that information.\n        If the coachees' Action Plan is given in Action Plan, make sure the response is based on the plan provided and it should be short and precise.\n        Consider the prior conversation given in Conversation History when providing the response.\n        Offer actionable advice or solutions to the coachee\u2019s potential challenges.\n   
+     Break down complex ideas into practical steps.\n        Pose questions to the coachee to create engagement.\n        Encourage 
+self-reflection or thought-provoking moments.\n        Maintain a tone that feels friendly and approachable.\n        Use the Custom Knowledge base here {Information}. Always refer to {Information} first, before providing a response. \n        Never provide any answer about a subject the coach is not familiar with. If the user asks any questions about a subject that is not mentioned in  {Information} as Areas of expertise, please respond that you are not familiar with the topic.\n\n        Always provide the response in a 
+first-person tone.\n        Always ask a contextual question at the end to further understand the details.\n        Always respond as the coach.\n        NEVER give visual cues like smiles warmly etc.\n\n        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the 
+response.\n        NOTE : Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.\n\n        NOTE: Make sure to keep the response short. Get straight to the point without unnecessary elaboration or repetition. Eliminate redundant phrases or ideas that don't add value to the response. Choose words and phrases that convey your message clearly and directly. Make sure to give short answers but do not miss out any necessary information.\n\n        NOTE: Provide concise responses without exceeding a brief length constraint. Aim for brevity while delivering complete information and answers.\n\n  
+      \n\nAssistant:\n\n
+
+        """
+
+
+    
+
+    # print(anthropic_completion("what is value engineering?",1000))
+    # print(gpt3_completion("what is value engineering?",stop=['user','coachbots']))
+    questions = [
+        "How do you approach guiding individuals through significant life transformations, considering the unique challenges they may face at different stages of life?",
+        "In your experience as a senior coaching practitioner, what strategies have you found most effective in fostering sustainable and meaningful change in your clients' lives?",
+        "Could you share a particularly impactful success story where your coaching significantly influenced someone's journey towards personal growth and transformation?",
+        "Methodology?",
+        "Successes?"
+    ]
+    intakes= {
+"Please let me know more about you as a person that you think might be relevant to our session today.": "I am a straightforward person who likes to get to the point, very precise and short answers to my questions. I prefer when people validate their approach before jumping on to provide solutions.",
+"What do you want to achieve with your session with me today - let me know the goals you have in mind.": "I want to solve for how do I go about finding focus in my life.",
+"What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?": "I easily get distracted with so many goals that I have set for myself.",
+"Do you believe your solutions have worked so far? Why or why not?": "Haven't really given it much thought."
+}   
+    intake = ""
+    for key, value in intakes.items():
+        intake += f" Question: {key}, Answer: {value} \n"
+
+    coach_data = {
+        "media_data": {
+            "extracted_from_article": {
+                "https://hbr.org/2023/12/8-essential-qualities-of-successful-leaders": "Becoming a great leader is a journey of continuous learning and growth. It’s a process — one that thrives on embracing challenges, seeking feedback, fostering connections, and cultivating understanding. In this article, the author outlines the eight most essential leadership qualities, according to Harvard Business School professor Linda Hill, one of the world’s top experts on leadership. Star leaders aren’t born with superhuman capabilities, Linda explains. Rather, they tend to have intentionally put themselves in situations where they have to learn, adapt, and grow — a crucible for developing the tenacity and fortitude to motivate and guide others."
+            },
+            "extracted_from_youtube": {
+                "https://www.youtube.com/watch?v=vLFxOOEyhUE": "okay hi everyone oh god you're like a bunch of high school kids in the morning my name is John Muldoon that was quite the intro by the way thank you I am the principal of the high school here on the pusci campus of Shanghai American school and I'll tell you I'm also I'm a little nervous to be standing up here today i-i've still in this stage a lot this year and I've talked with a lot of different people but there's something about that like red-dot back there on the ground that is intimidating and part about my part of what I'm going to talk about tonight is about being honest with yourself and other people and so I figure what better way to start then say that I'm a little nervous by be and be honest with you ah see you laughed a lot during the last one which I think makes the bar pretty high for me so here's the thing I I'm gonna talk to you a little bit about and I there's a disclaimer here in a very unscientific art of why I'm nervous as I saw our school psychologist out here and I'm sure there is yeah so I'm sure that the psychologist in the crowd is going to be very analytical with the advice I give all of you so I hope none of it is malpractice here's the thing our brains are supremely powerful organs and we don't often think about how we're using them right I actually I can pinpoint the first time I actually thought about how we use our brain I was in sixth grade so has in sixth grade and I'll be asked to do my family's going through a really hard time a really horrible time actually and we're spending a lot of time in the car so my dad's driving him and I'm sitting next to him up front my sister and my brother and I are in the back cramps it's always a good recipe for something right and my father is compulsively listening to motivational tapes right yeah cassette tapes right yeah so he's listening cassette tapes with all these people who are telling me and my family through the speakers of the car how great life is and how awesome we are and how everything is gonna be amazing it was like the worst great hey it was objectively the worst thing ever and totally not what I wanted to hear when I was going through some horrible things that I could not control and I'll never forget I remember this one and particularly this guy I chefs my dad if you still as a team so this guy says that the key to happiness is to talk to yourself but not just like talk to yourself right to say like really great thinks yourself he's like you should wake up every day this and it sounded so ridiculous to actually listen to it right he he's like you get up every day and you go to the mirror and you look at yourself and you're like you look good today is gonna be awesome right hey said if you do this all the time you'll actually get little voices that develop in your head that say nice things to you all day long and so here I am I'm like 11 or 12 years old and I'm like training your brain to get little voices that talk to you all day long yeah like I'm pretty sure that's the mark of something not good right I mean I can't tell how many fights we had about this as a family mostly started by me right like why can't we just listen to the radio like a normal family but I'll never forget it part of it is because we were going through what was probably the darkest chapter of my father's life and he was show he chose to listen to somebody tell him good things it was a choice he made I didn't understand that back then so you fast forward a little bit I had just become an assistant principal in my life right so I guess we're fast working a lot I'm feeling pretty good and I find out that my favorite teacher ever my 6th grade social studies teacher is retiring so I'm like I'm gonna stop by and see him that day like that day I found I drove to the school I didn't tell him I was coming I just went I don't know why I did he was my favorite teacher he helped me through so much in that same time period in my life when I went through so much so I I just walked no one stopped me it was amazing I walk right down the hallway right to his old classroom he's still there like he always was right I opened the door and I go in he looks up at me and he goes holy hell well actually that's not what he said I can't tell you what he said on the stage but he said something like that and he comes over and he gives me this big hug and he says John Muldoon I can't believe you're still alive right and I'm like are you confusing me with another John Logan but but he wasn't and actually the truth is that he was he was right we talked a lot about it he only knew me at that time period in my life well I and I got I'll be tell you I was so angry right and he he our parting thought he left me with so he's not around anymore it's a little sad to think about but the party thought that he left me with was how proud he was of seeing me and how happy I seems because he said in over 35 years of teaching he had never met an anger kid than me and it's kind of funny but it's also kind of tragic that I remember him so fondly and I think about that's his memory of me of like all the anger anyways the change didn't happen overnight for me if you fast forward a little bit or actually rewind from when I became an assistant principal I was in ninth grade I was in high school things were still not going well for me I was actually angrier than I had been in sixth grade was just saying something I didn't have any friends I mean I was so isolated my grades were awful they got I am not ashamed to tell you I was just about to fail out of high school by the middle of the year of my freshman year and I had the assist my history teacher another history teacher that took an interest in me right it's probably my second favorite teacher maybe why I became a history teacher myself actually and he was like a Jedi right like I actually like I owe this man my life he conducted what I can only call psychological warfare on me he got me so angry that he tricked me into wanting to do well at school I don't know how he did it like I think about it now I have no idea how it happened but it did in the trip I mean like please do not underestimate the magnitude of this transformation I was talking with my counselor about how I was not going to be coming back to school next year if I didn't turn things around right and and all of a sudden I was getting all A's and B's and I was being nicer to people and I actually maybe was working my way towards making friends right like actually yeah whatever I the transformation it was so severe my father sat me down and he asked me if I was on drugs right like and that's pretty messed up when you think like like son you know your grades have just gotten really good and you know it looks like maybe you have some friends now and you're not so miserable to be around are you on the drugs greatly that's that's actually how it went but this rosy period in my life was not destined to last because as I think everybody here knows you really can't trick a halfway intelligent teenager into doing something they don't want to do for too long and so by the end of the year the the gig was up and I had this huge confrontation with this teacher which like if we're being asked was not smart I mean to pick a verbal fight with a like Jedi psychological warfare mind master but I left the Year feeling so angry and deflated and confused and and thinking though is the key word I left the year thinking like how did this happen and I was thinking about it because I was so angry they did that myself actually that I had let him trick me and so I didn't know it at the time but I was in search of an epiphany and I wish I could tell you that it happened and it was amazing and it was like this moment that changed everything right away and it was on top of a mountain and right but that's actually it's not how it happened it I was at work at this Lake horrible summer job and it wasn't something that happened and changed my life right away but I'm standing there I'm at work and this mom comes in with this little kid and he's given I was like little matchbox model cars right you know what I'm talking about she's got this little matchbox car and I hope you're ready for this it was a model of my dad's old car like the same crazy sparkly gold paint with the weird white roof like it was though it was a model of my dad's old car I could practically hear the tape of the guy with the voices in your head talking to me right like my brain hurt when I saw that car and I I'm like this it's all within a week of getting out of school and I stand there there's no coincidence in my mind it cannot be a coincidence that this guy tricked me tricked my brain and I thought I was pretty smart he tricked me into doing something I didn't want to do and then a couple days later I'm reminded of this other time in my life where someone told me you can trick your brain into doing anything so I started thinking about it there has to be a connection and I know now and we all know now there is a connection right your brain is so powerful there are so many studies in your brain there's a lot of studies on the patterns of thinking in your brain and the words that emerge and the patterns of that thinking literally how you talk to yourself and the power of it you know some of these examples I'm gonna share with you are fresh in my mind cuz I was just reading an NPR article but there's so many you should look at them 19:11 the scoober psychologist and most people think this is when we first really started thinking about patterns of thinking by accident one day they noticed and I guess in 1911 like really fashionable for a woman to wear really big hats right so they noticed that women when they walk through doorways with these hats on they had to dock and kind of tilt their head they did it even when they didn't wear their hats and they were like why is that so they studied it and they figured out that if you have a pattern that established itself in your brain absent a conscious decision not to do it you'll do it it's not rocket science right it's pretty deductive for us now there's a lot of studies on it there's another one about doors oddly enough right in 2013 there's a group of scientists that are working with young woman that have anorexia and they notice that they don't walk through the door the way they were expecting them to despite the fact that all of them were on the smaller side and the doors were double doors like we have the back the auditorium here they walked through sideways like they were sneaking past someone right or squeezing through despite the fact that there was plenty of room so they looked at it they added it to their study expanding the scope of their study and they wanted to figure it out and they found that they had such patterns of disordered thinking in the brain that it influenced so many of their behaviors and the crazy thing of like how they walked through doors and the crazy thing about it is that they had no idea that they had these patterns of thinking running that way in their brain and they were not aware of the influence on their behavior all the time you know there's so many there's another one and then I'll stop sharing studies with you there's one from the University of Pennsylvania they actually found when they studied football players that by imagining throwing a football properly you have a similar performance gain to when you actually practice it physically that's crazy right you can you can practice doing something in your mind and it has not quite the same magnitude of effect but a similar effect it's doing it physically is really unbelievable now I didn't know any of this then right I didn't know that the patterns in your brain start being established when you're young all of the messages that you all hear when you're when you were younger all the messages that you hear right now even the ones you're not aware of they get in somehow and the more you hear something the more it takes root the more your brain accepts it even if you disagree with it and these roots grow and if we use the kind of vernacular from the audio cassette guy that's when the voices start right that's when you start having patterns of behavior influence other ways that you think the way you feel and the things that you do this is why some people and we see this right we all know people like this they've been told from when they were really young that if they work really hard and they don't give up that they can do anything right those people act differently and then people they get it the opposite message that they can never do anything right even though they probably disagree with the message that they can never do anything right take it another level and this is when like thinking about it I wonder if I've really lost my mind sometimes the voices in your head if that's what we're calling them they talk to each other they're having a conversation in your head I'm a visual thinker so I like to think about it like speed-dating event right we're in a big auditorium and all these little like positive and negative patterns of behavior moving from table to table talking to each other and what happens is when they're interacting with each other the positive patterns lessen the effect of the negative patterns the negative patterns lessen the effect of the positive patterns right it's in Crimea it makes sense but it's incredible and this when you like look at it on a macro level is why someone who's supremely positive bounces back from bad news much faster than someone who's not they are less fazed by a setback in their life because they have a lot of other positive thought processes that counteract the negative impact of it it doesn't make them less likely to understand what's happening but they feel differently about it and they might act differently the converse is true right the sweet sweet joy of an unbelievable moment in life might be fleeting for someone that has predominantly negative thought patterns anyways I didn't know any of this when I was 15 right but I had listened to a lot of motivational tapes back in the day so here I am I am going to conduct an experiment I decide on myself we have a scientist out there I just like shaking his head no you can't conduct an experiment on yourself but I was 15 right I'm using experiment and research very loosely and so i decide i am going to get cool right but not just like cool like ridiculously cool and and here's the thing like it's really hard to believe i wasn't cool in high school right my students are telling me this right now but the truth of the matter is i was so not cool and I knew it and that's okay I own it so I'm like I'm gonna do exactly what that guy in the tape said I should do so I woke up and and so none of this is a surprise to anyone that knows me I'm a very intense person right I woke up every day and I looked in that mirror and I told myself how amazingly cool I was right I was like the best-looking coolest kid that went to my school and and I this is actually really embarrassing but I mean my wife said I shouldn't share this part but I'm going to share this part I actually got blue paint blues my favorite color and I I painted on the wall across from my bed four big letters c ool right and I'm like I'm going for broke and then I don't know if it's because I was 15 if it's because I was like desperate for something positive in my life or what but after a while I convinced myself that I was in fact pretty cool right Jeremy our school psychologist now you're gonna have to unpack that later but and then something amazing happens cuz we all know right like I didn't really change that much about me I was changing the way I was thinking about me but my sister my younger sister who by the way was super cool and always really popular she comes bursting through the door one day while I'm singing my bed literally talking to myself about how cool I am and she just like can't take it anymore she's like you are so not cool if you have to tell yourself that you're cool you are not cool even worse if you have to tell other people that you're cool you're hurting yourself even more and then like I know she's amazing now but at the time oh my god right she looks at me and she's like maybe and this is brilliant she didn't mean it to be brilliant but it was brilliant maybe you should not try to be cool maybe you should just try to be happy for a little bit so that we're not all miserable being around you right harsh so she leaves and not the norm for me at the time I didn't react I just kind of sat there in my bed like crushed my experiment of failure thinking about how uncool iam but also thinking like it's not that I don't feel happy I also don't feel unhappy and that was so weird for me to think about and I realized and I had never like thought about it like my my predominant emotion my like real only emotion that I was consistently feeling was anger I was mad and and I did the smartest thing I've ever done in my life still to this day I asked myself why why was I so mad and I went all the way back it's a sixth grade and I started think about all the things that had happened and how they were all out of my control I was pulling it all the threads it was horrible it was painful to think about and it I I didn't pick up another experiment right away took me a little while as I'm thinking about all this thinking about how I was thinking and think about how I was feeling but eventually I decided that I couldn't take my sister's advice I couldn't try to be happy was just too big right I was gonna do a second experiment I was just going to try to be thankful for some things in my life there were good every day but I attacked it with the same intensity I attacked trying to be cool right so like I I mean I was an animal I was thanking everyone for everything right you let me borrow a pencil was the best thing that ever happened to me right and and I mean like I would show up in your doorstep five years after you did something if I was grasping at straws for something to thank someone for and I would thank you for something you did five years ago and and people didn't really know how to take me it was kind of like back when I had that rapid transformation during the school year nobody knew who what was going on with me nobody could explain it some people actually thought when I thanked them for things I was making fun of them and actually my dad asked me if I was on drugs again but something this this was like the watershed moment in my life I actually started to realize there were so many good things in my life that I was missing because I was so busy being angry at everything and I also realized that thinking about how is always anger things helped me realize when I was getting angry and stop it and I actually was feeling happier right so while I'm going through all this I start making all of these rules like these rules for life I I call them like trade secrets for not being a jerk right actually that's pretty negative I call them trade secrets we can call them trade secrets for like being a good person and I can share some of them with you let's share two of them the first one is what I've been doing every day since I was 15 years old my first rule I give sincere thanks three times a day three times a day that's it right now I do it a lot more than that but I give sincere thanks three times a day the second rule is be great and it's not like be great like objectively oh he's great that's not what it is right this is something I subject everybody here to all the time if you ask me how I'm doing right like ask me how I'm doing I'm great I'm the best I've ever been I'm living the dream these are all things I say every day the people when they ask me how I'm doing but that's actually not where it stops right like sometimes people tell you to do that like everyone hears it like fake it till you make it right that's a lie you're lying to yourself I'm not saying I'm great because I'm trying to convince myself I'm great I respond so over-the-top so positive because that's a signal to me it's actually a moment that I take every time somebody asked me how I'm doing to check in how do I actually feel and most of the time I feel really great I'm an intense person we've already established that so I feel really great and that's awesome 99.9 percent of the time I'm not lying to you point one percent of the time I don't know I say I'm great I might not actually feel great I might take a second and I might look at you and I might say actually I'm not feeling great and depend on how well we know each other I might say more I might not I don't know but think about how many times a day you were asked how you are or what's up that's how many times a day I think actively about how I'm feeling and why I'm feel and next up what am I gonna do about it because if we don't actively manage these patterns in our brain they manage to us and if you don't think about how you're gonna do that if you don't have a system or something that works for you you're just letting it go you're just letting things happen I couldn't clearly write we saw where that got me in my life I couldn't do it so there's a couple things that go with this right I told you there's a very unscientific Chua lis have a way that they type in behavioral sciences have a way that they talk about this and I never say them in the right order so I have a flashcard what they actually say is that the first thing you do is that you have to identify the emotion in the pattern right you have to recognize you're having it you have to put a name on it I'm angry I'm sad and whatever the second thing is you have to source it it's not enough just to say I'm angry why are you angry where's that anger coming from you have to pull it those threads it's not easy takes time it's pretty painful sometimes the next thing you have to do is identify what you actually want to be if you're sad do you want to be happy that's also not so easy sometimes and then the next one and this makes us sound awfully like you're a computer you have to consciously manage the way you think about that thing and the pattern that controls those things in your brain so that you like overwrite the bad pattern with the good pattern new pet old pattern with the new pattern and that's how you go about changing the way your brain works from a very unscientific I used to call this mind over matter right that was like my mantra when I was growing up mind over matter today's gonna be great I'm gonna make it great but I don't call it that anymore I call it being your own coach I think it's much more accurate we all deserve a great coach in our life we should start with ourselves it's hard work being a coach is really hard work I've coached a lot of things in my life to do it well it's really hard anyone can be a coach but to be a really great coach the kind of coach you want that's a lot of work gonna be your own coach forget it's a full-time job but it's worth it I mean my sixth grade teacher thought I was gonna die before I was 30 that's horrible I used to teach sixth grade I never thought that about any of my kids even the ones that I was really worried about so this isn't the system for everyone this is what worked for me the power of your brain is undisputed you can't just let it do its own thing you need to think intentionally about what's going on in there you also need to be aware there are a lot of critics to what I'm talking about right now right there's a lot of critics for all the resources out there there are people that say that you're deceiving yourself when you do this it's not really honest and I have two answers for that the first answer is that this is all about honesty it doesn't work if you're not honest right if you wake up every day and you're just trying to be cool right or you tell yourself that you're great when you're not and you don't think about why you're not really great how you really feel doesn't work so the deception critique doesn't hold up for me but if I'm being asked today I asked I don't care right this works for me like I just said my sixth grade teacher thought I was gonna make it I was so unhappy and angry that's no way to go through life I don't want to say that thinking like this and finding this way in the system that works for me save me from death but definitely saved my life in more ways than it didn't and I'm so profoundly thankful for all the happy little accidents along the way of my life that helped me to stumble onto it so think about your thinking listen to the voices in your head and be your own best coach thank you for having me tonight [Applause]"
+            }
+        },
+        "additional_data": {
+            "department": "External",
+            "experience": "10 - 15 years",
+            "area_domain": "Life Transformation",
+            "profile_type": "icons_by_ai",
+            "article_links": "https://hbr.org/2023/12/8-essential-qualities-of-successful-leaders",
+            "youtube_links": "https://www.youtube.com/watch?v=vLFxOOEyhUE",
+            "admired_leaders": "Brene Brown, Simon Sinek",
+            "profile_description": "I am an experienced psychologist and certified life coach with over 10 years of experience in behavior analysis, competency modeling, and coaching. As an ICF-accredited professional certified coach (PCC), she specializes in utilizing psychometric assessments, ability tests, and techniques like REBT and NLP to provide impactful coaching. \nGopika has designed and implemented assessment processes, tools, and frameworks to evaluate behaviors, personalities, and competencies. She conducts development centers, 360-degree feedback, and counseling sessions focused on capability building. \nHer experience includes coaching and counseling corporate executives, managers, and employees across industries to help them become more effective leaders. She is adept at situational leadership, is empathetic, and is passionate about enabling positive behavioral change in her clients to drive superior performance. (Names are changed on request to protect privacy). ",
+            "mentoring_frameworks": "Situational Leadership Model\nEmotional Intelligence Coaching\nSolution-Focused Coaching",
+            "mentoring_preferences": "Coaching (Reflection)",
+            "dominant_point_of_view": "Empathy and self-awareness are foundational for effective leadership and personal growth. By understanding ourselves and others, we can drive positive change and achieve superior performance.",
+            "problem_solving_approach": "In terms of problem-solving, my general approach revolves around facilitating deep reflection, challenging limiting beliefs, and identifying practical strategies for overcoming obstacles. I utilize techniques like Rational Emotive Behavior Therapy (REBT) and Neuro-Linguistic Programming (NLP) to empower clients to navigate challenges, embrace discomfort for growth, and adopt new perspectives. I create a safe and non-judgmental space where clients can explore and address their concerns, ultimately driving meaningful behavioral change and sustainable growth in their personal and professional lives.",
+            "provide_answers_using_emojis": False,
+            "discuss_how_you_helped_others_in_coachMentoring": "Context Action Result (CAR) #1:\nContext: Sarah, a young professional struggling with career dissatisfaction, reached out to Gopika for guidance in exploring a career change. \nAction: Gopika conducted thorough assessments of Sarah's skills, interests, and values. She provided resources to help Sarah identify alternative career paths aligned with her passion for writing.\nResult: Sarah successfully transitioned into a new role in content creation, finding fulfillment and renewed motivation in her career.\n\nCAR #2:\nContext: John, a working father, felt overwhelmed by the demands of his job and family responsibilities, leading to burnout and stress.\nAction: Gopika worked with John to create a personalized work-life balance plan, emphasizing task prioritization, time management strategies, and boundary setting.\nResult: John achieved a healthier work-life balance, experiencing reduced stress levels, improved productivity, and strengthened relationships with his family.\n\nCAR #3:\nContext: Emily and Mark, a couple facing communication issues and conflict struggles, sought help from Gopika to enhance their relationship.\nAction: Gopika facilitated couples counseling sessions focusing on communication skills, empathy-building exercises, and conflict resolution techniques.\nResult: Emily and Mark developed stronger communication skills, a deeper understanding of each other's perspectives, and a more harmon"
+        }
+    }
+    
+    coach_info =''
+    for key, value in coach_data.items():
+        coach_info += f"{key}: {value}\n"
+
+    
+    conversation_history = {}
+        
+    for index, que in enumerate(questions,start=1):
+        history = ""
+        for key, value in conversation_history.items():
+            history += f"User: {key}, Coach: {value}\n"
+
+
+        prompt = Template(prompt).substitute(conversation=history,
+                                                coach_information = coach_info,
+                                                intake = intake
+                                                )
+
+        # response = anthropic_completion(prompt,1000)
+
+        # print(f"(Anthropic){index}   User: {que}, coach: {response}")
+
+        response = gpt3_completion(prompt,stop=['user','coachbots'])
+
+        # print(f"(gpt){index}   User: {que}, coach: {response.text}")
+
+        # response = gemini_competions(prompt)
+
+        # print(f"(gemini){index}   User: {que}, coach: {response}")
+
+        conversation_history[que] = response.text
+
+    h = ""
+    for key, value in conversation_history.items():
+        h += f"User: {key}, Coach: {value}\n\n"
+
+    print('rsponse',h)
+
+
+
+
+    
+
