@@ -7140,8 +7140,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     
                     ### generate scenario using palm
                     logger.info(f'trying scenario creation bison for {i +1} time')
-                    # scenario = text_bison_compeletion(prompt)
-                    scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    scenario = text_bison_compeletion(prompt)
+                    # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
@@ -7175,8 +7175,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         
                         ### generate scenario using palm
                         logger.info(f'**retrying scenario creation bison for {i +1} time')
-                        # scenario = text_bison_compeletion(prompt)
-                        scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                        scenario = text_bison_compeletion(prompt)
+                        # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
