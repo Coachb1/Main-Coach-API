@@ -22,6 +22,7 @@ from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
 import re
 from skills.helpers import get_competency_prompt_or_output
+import logging
 
 import matplotlib
 matplotlib.use('Agg')
@@ -34,6 +35,7 @@ options = {
     'enable-local-file-access': "",
 }
 
+logger = logging.getLogger(__name__)
 
 def convert_html_to_pdf(html_str, css_file):
     return pdfkit.from_string(html_str, False, options, css=css_file)
@@ -127,6 +129,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     participant_id = test_attempt_session.participant_id
     participant_name = get_user_display_name(get_user_by_id(participant_id))
     test_started_at = test_attempt_session.started_at.strftime("%d %b %Y")
+    
+    # log tnant id, test_id, test_attempt_session_id, participant_id, participant_name, test_started_at
+    logger.info(f"tenant_id: {tenant.uid}, test_id: {test_id}, test_attempt_session_id: {test_attempt_session.uid}, participant_id: {participant_id}, participant_name: {participant_name}, test_started_at: {test_started_at}")
+    
 
     questions = TestQuestion.objects.filter(test_id=test_id)
     participant_responses = TestQuestionResponse.objects.filter(
@@ -134,8 +140,12 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     feedback_summary = test_attempt_session.feedback_summary
     skill_summary = test_attempt_session.culture_and_skill_summary
+    
+    # log questions, participant_responses, feedback_summary, skill_summary
+    logger.info(f"questions: {questions}, participant_responses: {participant_responses}, feedback_summary: {feedback_summary}, skill_summary: {skill_summary}")
     competency_report_data = {}
     
+    logger.info(f"test_attempt_session.competency_data: {test_attempt_session.competency_data}")
     if test_attempt_session.competency_data:
         competency_data= test_attempt_session.competency_data
         
@@ -147,6 +157,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "3" : "Senior Leadership"}
         
 
+        logger.info(f"competency_data: {competency_data}")
         for key,value in competency_data.items():
             data = ''
             for key_skill,value_skill in competency_skills.items():
@@ -164,7 +175,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         competency_report_data = competency_data
 
 
-
+    logger.info(f"scenario_case: {test.scenario_case}, is_transcript_only: {test.is_transcript_only}, only_data: {only_data}")
     if (test.scenario_case == "process_training" or test.is_transcript_only) and only_data:
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
@@ -210,12 +221,12 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 
                 qa.append(data)
 
-        print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
+        logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
         return {'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data, 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 'speech_metrics_avg': None, "response_relevance": True,"feedback_summary":test_attempt_session.feedback_summary,"skill_summary":test_attempt_session.culture_and_skill_summary}
 
 
 
-
+    logger.info(f"test_type: {test.test_type}")
     if test.is_free and only_data:
         # for feedbackSummaryReport ( which is a demo reprot for free trial users)
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
@@ -329,14 +340,14 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     "feedback_text": feedback_text,
                 })
 
-        print({'data': f"{qa},{custom_rating},{test.scenario_case}"})
-        
+        logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
         
         return {'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name,'competency_data':competency_report_data}
 
-    print(f"{'&'*50} test_type : {test.test_type}, condition: {test.test_type == TestTypeChoices.mcq}, only_data: {only_data}")
+
+    logger.info(f"test_type : {test.test_type}, only_data: {only_data}")
     if ( test.test_type == TestTypeChoices.mcq or test.test_type == TestTypeChoices.dynamic_mcq )  and only_data:
-        print("HURRayyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
                 tenant_id=test_attempt_session.tenant_id).custom_rating
@@ -353,6 +364,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         test_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                                 evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                                 deleted=0).order_by('id')
+        
+        logger.info(f"test_responses: {test_responses}")
         for response in test_responses:
             mcq_options = questions.get(uid=response.question_id).mcq_options
             question_text = questions.get(uid=response.question_id).question
@@ -376,6 +389,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     qa = []
     all_speech_metrics = []
 
+    logger.info(f"questions: {questions}, participant_responses: {participant_responses}")
     for question in questions:
         question_id = question.uid
         question_text = question.question
@@ -432,6 +446,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     # Get the averaged speech metrics for the test attempt session
     speech_metrics_avg = {}
+    logger.info(f"all_speech_metrics: {all_speech_metrics}")
     for metric in all_speech_metrics:
         for k, v in metric.items():
             if isinstance(v, str) and "%" in v:

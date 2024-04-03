@@ -3144,6 +3144,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
     title = test.title
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
     objective = test.orchestrated_conversation_details.get("objective")
 
@@ -3155,6 +3157,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     chat_conversation += get_group_discussion_chat_conversation(
         test_attempt_session, user_persona, is_report=True)
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:   chat_conversation: {chat_conversation}, objectives: {objective} , user_persona: {user_persona} ###############")
 
     chat_conversation_with_details = []
     flashcards = []
@@ -3193,7 +3197,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
                 data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
-                key_learning_point = test_response.kls_klp.get('klp')
+                
+                logger.info(f"############### get_meeting_report_from_test_attempt_session:  kls_klp_in_response: {test_response.kls_klp} ###############")
+                
+                key_learning_point = test_response.kls_klp.get('klp') if test_response.kls_klp else 'No key learning point found.'
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
                 count += 1
@@ -3201,7 +3208,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     {
                         "question":data["question"],
                         "ideal_answer": key_learning_point,
-                        "learnings": test_response.kls_klp.get('kls').strip().split(','),
+                        "learnings": test_response.kls_klp.get('kls').strip().split(',') if test_response.kls_klp else [],
                     }
                 )
                 data = {}
@@ -3212,6 +3219,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             
             if test_response.speech_metrics:
                 speech_metrics = test_response.speech_metrics
+                logger.info(f"############### get_meeting_report_from_test_attempt_session:  speech_metrics: {speech_metrics} ###############")
 
                 # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
                 speech_metrics = {k: v for k, v in speech_metrics.items(
@@ -3225,6 +3233,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                 all_speech_metrics.append(speech_metrics)
 
         # Get the averaged speech metrics for the test attempt session
+        logger.info(f"############### get_meeting_report_from_test_attempt_session:  all_speech_metrics: {all_speech_metrics} ###############")
         for metric in all_speech_metrics:
             for k, v in metric.items():
                 if isinstance(v, str) and "%" in v:
@@ -3281,6 +3290,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "speech_metrics_avg" : speech_metrics_avg,
         "response_relevance" : response_relevance
     }
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
 
     if data["start_with_user"]:
         data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
@@ -3309,6 +3320,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             "content": mindmap_contents
         }
         
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
+        
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
         skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
@@ -3331,6 +3344,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
     data["certificate_details"] = test.certificate_details
     data['ui_information'] = test.ui_information
+    
+    
 
     return data
 
