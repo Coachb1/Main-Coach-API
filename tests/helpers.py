@@ -2340,6 +2340,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
+    logger.info(f"IIIIIIIIIIIIIIIIIIIIIIIImp:::::::: dynamic discussion response saved : {test_question_response}")
 
     total_questions = TestQuestion.objects.filter(
         test_id=test.uid, deleted=0).count()
@@ -2812,11 +2813,23 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if i == 0:
-                bot_llm_response_text = anthropic_completion(prompt, 300)
+                try:
+                    bot_llm_response_text = anthropic_completion(prompt, 300)
+                except Exception as e:
+                    logger.error(f"Error in anthropic completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
             elif i == 1:
-                bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                try:
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                except Exception as e:
+                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                    bot_llm_response_text = text_bison_compeletion(prompt)
             else:
-                bot_llm_response_text = text_bison_compeletion(prompt)
+                try:
+                    bot_llm_response_text = text_bison_compeletion(prompt)
+                except Exception as e:
+                    logger.error(f"Error in text_bison completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
 
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
