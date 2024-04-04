@@ -2320,6 +2320,10 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
             logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
             kls = generic_completion(kls_prompt, 50,'no kls' )
+            
+            # retry kls if it is not received
+            if kls is None or kls == 'no kls' or kls == '':
+                kls = text_bison_compeletion(kls_prompt)
 
             klp_prompt = f"""
                 TestTitle: {test.title}
@@ -2330,6 +2334,10 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
             klp = generic_completion(klp_prompt, 50, 'no klp')
+
+            # retry klp if it is not received
+            if klp is None or klp == 'no klp' or klp == '':
+                klp = text_bison_compeletion(klp_prompt)
             
             test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
             update_fields.append("kls_klp")
@@ -2340,6 +2348,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
+    logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$######################IMP :::::::: dynamic discussion response saved : {test_question_response}")
 
     total_questions = TestQuestion.objects.filter(
         test_id=test.uid, deleted=0).count()
@@ -2508,40 +2517,44 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         >>> get_relevency_kls_klp(test_question_response, "What is the capital of France?", test)
         # This will update the `relevance` and `kls_klp` fields of the `test_question_response` object.
     """
-    update_fields = []
-    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                            question_text,
-                                            test_question_response.response_text,
-                                            test.description,
-                                            test.title,
-                                            )
+    try:
+        update_fields = []
+        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                question_text,
+                                                test_question_response.response_text,
+                                                test.description,
+                                                test.title,
+                                                )
 
-    relevance = 1
-    if "relevance" in relevancy_score:
-        relevance = int(relevancy_score['relevance'])
+        relevance = 1
+        if "relevance" in relevancy_score:
+            relevance = int(relevancy_score['relevance'])
 
-    test_question_response.relevance = relevance
-    update_fields.append("relevance")
+        test_question_response.relevance = relevance
+        update_fields.append("relevance")
 
-    kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
-    logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-    kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+        kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
 
-    klp_prompt = f"""
-        TestTitle: {test.title}
-        Question: {question_text}
+        klp_prompt = f"""
+            TestTitle: {test.title}
+            Question: {question_text}
 
-        For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
-        """
+            For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+            """
 
-    logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-    klp = generic_completion(klp_prompt, 50, 'no klp')
-    
-    test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
-    update_fields.append("kls_klp")
-    logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+        klp = generic_completion(klp_prompt, 50, 'no klp')
+        
+        test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+        update_fields.append("kls_klp")
+        logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        test_question_response.save(update_fields=update_fields)
+        logger.info(f"************respone after saving relevancy, kls, klp : {test_question_response.kls_klp}")
 
-    test_question_response.save(update_fields=update_fields)
+    except Exception as e:
+        logger.error(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
 
 @timeit
 def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
@@ -2812,11 +2825,23 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if i == 0:
-                bot_llm_response_text = anthropic_completion(prompt, 300)
+                try:
+                    bot_llm_response_text = anthropic_completion(prompt, 300)
+                except Exception as e:
+                    logger.error(f"Error in anthropic completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
             elif i == 1:
-                bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                try:
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                except Exception as e:
+                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                    bot_llm_response_text = text_bison_compeletion(prompt)
             else:
-                bot_llm_response_text = text_bison_compeletion(prompt)
+                try:
+                    bot_llm_response_text = text_bison_compeletion(prompt)
+                except Exception as e:
+                    logger.error(f"Error in text_bison completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
 
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
