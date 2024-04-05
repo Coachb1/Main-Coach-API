@@ -176,6 +176,8 @@ class TestAttemptSession(TenantAwareModel):
     is_idp_discussion_opted = models.BooleanField(
         null=True, blank=True, default=False)
     intake_id = models.CharField(max_length=255, null=True, blank=True, default=None)
+    conversation_summary = models.TextField(null=True, blank=True, default=None)
+    related_previous_conversation_summary = models.TextField(null=True, blank=True, default=None)
 
 
     
