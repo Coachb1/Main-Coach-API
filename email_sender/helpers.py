@@ -6,6 +6,7 @@ from users.models import UserAttribute
 import logging
 from utilities.models import EmailSentDetails
 from string import Template
+import datetime
 
 from external_apis.slack_alert_api import send_slack_message
 
@@ -195,7 +196,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
 
 
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"Transcript + Summary with bot {bot_name}"
+        msg['Subject'] = f"Transcript + Summary with bot {coach_name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         msg['From'] = "Coachbots  <mail@coachbots.com>"
 
         if allow_reply:
