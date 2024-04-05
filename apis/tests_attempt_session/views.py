@@ -746,6 +746,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         conversation_summary = get_conversation_summary(conv)
         
         logger.info({"********************* conversation_summary":conversation_summary})
+
+        test_attempt_session.conversation_summary = conversation_summary
+        test_attempt_session.save(update_fields=["conversation_summary"]) # saving session summary
         
         created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
         

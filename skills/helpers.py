@@ -199,7 +199,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     # - Completeness: Does the answer provide a comprehensive response to the question?
     # - Clarity: Is the answer well-written and easy to understand?
 
-    # "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
     
     # NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -226,7 +226,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     - Completeness: Does the answer provide a comprehensive response to the question?
     - Clarity: Is the answer well-written and easy to understand?
 
-    "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score. 
+    "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score. 
 
     NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -342,7 +342,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     "ANSWER:" {response_text};
 
-    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
+    "REQUIRED FROM LLM:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
     NOTE: Don't put any other text in the reply other than the JSON.
@@ -585,7 +585,7 @@ Raises:
 
         ${competency_prompts}
 
-        "Required from anthropic:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
+        "Required from LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
         If any of the skill is not related to the given conversation, rate that skills as 0. Only when the skill is not even slightly related to the conversation give the rating as 0.
 
         "competency_list:" "${competency_list}"
@@ -1002,7 +1002,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     # - Completeness: Does the answers provide a comprehensive response to the questions?
     # - Clarity: Are the answers well-written and easy to understand?
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{skills_rating}"
 
@@ -1028,7 +1028,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
     #     - Clarity: Is the answer well-written and easy to understand?
 
-    #     "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
+    #     "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
 
     #     NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -1062,7 +1062,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         - Clarity: Is the answer well-written and easy to understand?
 
-        "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
 
         NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -1723,7 +1723,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     # - Completeness: Does the answers provide a comprehensive response to the questions?
     # - Clarity: Are the answers well-written and easy to understand?
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -1748,7 +1748,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         # - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?  
         # - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)? 
 
-        # "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
+        # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
         # "cultural_list:" "{cultural_skills}"
 
         # NOTE: Please put properties of JSON enclosed in double quotes.
@@ -1785,7 +1785,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)?
 
-        "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
 
         "cultural_list:" "{cultural_skills}"
 
@@ -2020,7 +2020,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -2034,7 +2034,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -2050,7 +2050,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         \n\nHuman:
         "Objective:" {objective}; 
         "Conversation:" {conversation}; 
-        "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
         "cultural_list:" "{cultural_skills}" 
         Please put properties of JSON enclosed in double quotes. 
         Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}} 
@@ -2275,7 +2275,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
 
     # "skills_list:" "{skills_to_evaluate}"
 
@@ -2291,7 +2291,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
 
     # "skills_list:" "{skills_to_evaluate}"
 
@@ -2311,7 +2311,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     "Objective:" {objective};
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+    "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
     "skills_list:" "{skills_to_evaluate}"
     Please put properties of JSON enclosed in double quotes.
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
