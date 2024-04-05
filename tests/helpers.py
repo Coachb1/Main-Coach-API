@@ -2518,6 +2518,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         # This will update the `relevance` and `kls_klp` fields of the `test_question_response` object.
     """
     try:
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ getting relevancy, kls, klp  for question ==> {question_text} @@@@@@@@@@@@@@@@@@@@@@")
         update_fields = []
         relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                                 question_text,
@@ -2526,6 +2527,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
                                                 test.title,
                                                 )
 
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
         relevance = 1
         if "relevance" in relevancy_score:
             relevance = int(relevancy_score['relevance'])
@@ -2536,6 +2538,8 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
         kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
+        
+        logger.info(f"@@@@@@@@@@@@@@@@ kls : {kls} @@@@@@@@@@@@@@@@@@@@@@")
 
         klp_prompt = f"""
             TestTitle: {test.title}
@@ -2546,15 +2550,18 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
 
         logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
         klp = generic_completion(klp_prompt, 50, 'no klp')
+        logger.info(f"@@@@@@@@@@@@@@@@ klp : {klp} @@@@@@@@@@@@@@@@@@@@@@")
         
         test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
         update_fields.append("kls_klp")
         logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
         test_question_response.save(update_fields=update_fields)
         logger.info(f"************respone after saving relevancy, kls, klp : {test_question_response.kls_klp}")
+        
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ done getting relevancy, kls, klp in THREAD for question ===> {question_text} @@@@@@@@@@@@@@@@@@@@@@")
 
     except Exception as e:
-        logger.error(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
+        logger.error(f"@@@@@@@@@@@!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
 
 @timeit
 def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
@@ -2702,6 +2709,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
                                 }).start()
             
             if not test.is_free:
+                logger.info(f"@@@@@@@@@@@@@@@@ getting relevancy, kls, klp in THREAD @@@@@@@@@@@@@@@@@@@@@@")
                 threading.Thread(target=get_relevency_kls_klp, kwargs={
                                     "test_question_response":test_question_response,
                                     "question_text":question_text,
