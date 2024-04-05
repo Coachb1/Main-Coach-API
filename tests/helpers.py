@@ -77,6 +77,7 @@ from test_bulk_upload.constants import get_skills
 from django.db.models import Q
 from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
+from skills.helpers import json_extraction
 
 
 logger = logging.getLogger(__name__)
@@ -8349,6 +8350,56 @@ def get_conversation_summary(conv):
     """
     transcript_summary = anthropic_completion(transcript_summary_prompt, 1000)
     return transcript_summary
+
+def  get_relevant_session_summary(conversation_summeries,intake_summery,only_rel_json=False):
+
+
+    summary = ""
+    for index, conv in enumerate(conversation_summeries,start=1):
+        summary += f" summary_text_{index}: {conv}\n\n"
+
+    prompt = """
+    \n\nHuman: 
+
+    "Conversation Summaries": ${conversation_summeries}
+
+    "Intake Summary": ${intake_summery}
+
+    "REQUIRED FROM LLM:" Please check whether the summaries provided in "Conversation Summaries"list individually is even slightly related to the "Intake Summary" asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant  and 0 being completely irrelevant . ONLY when the entire summary is completely random and unrelated to the inake summary and description give the relevancy score value as 0. 
+    NOTE: Please Reply in a valid JSON format only and no other format will be accepted. 
+    NOTE: Don't put any other text in the reply other than the JSON. NOTE: Output Format Example: {{"summary_text_1":"1"},"summery_text_2":"5",..} 
+    NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above. 
+    
+    \n\nAssistant:
+    
+    """
+
+    prompt = Template(prompt).substitute(
+        conversation_summeries = summary,
+        intake_summery = intake_summery
+    )
+
+    summary_data = anthropic_completion(prompt, 1000)
+    json_data = json_extraction(summary_data)
+    logger.info(f"summary_data: {summary_data}, json: {json_data}")
+    json_data = json.loads(json_data)
+
+    if only_rel_json:
+        return json_data
+
+    
+    sorted_summary_rating = sorted(json_data.items(), key=lambda x: x[1], reverse=True)
+    logger.info(f"summary: {sorted_summary_rating}")
+    try:
+        rel_summary = conversation_summeries[int(sorted_summary_rating[0][0].split('_')[-1]) - 1]
+    except Exception as e:
+        logger.exception(f"failed with error: {e}")
+        rel_summary = conversation_summeries[-1]
+
+    
+    return rel_summary
+
+
 
 
 
