@@ -2556,6 +2556,9 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
         update_fields.append("kls_klp")
         logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        update_fields.append("evaluation_status")
         test_question_response.save(update_fields=update_fields)
         logger.info(f"************respone after saving relevancy, kls, klp : {test_question_response.kls_klp}")
         
@@ -2721,7 +2724,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
 
     update_fields.extend(["evaluation_status", "updated"])
-    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    # test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
 
     if total_questions == total_responses:
