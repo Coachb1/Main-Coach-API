@@ -143,6 +143,7 @@ class DirectoryPageInfo(models.Model):
     time_value_in_days = models.CharField(max_length=255,null=True,blank=True,default=None)
     timer_reset = models.BooleanField(null=True,default=False)
     visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
+    ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
 
     
     class Meta:
