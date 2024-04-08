@@ -25,10 +25,10 @@ class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_filter = ('is_sent',)
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','is_visible',"is_approved")
+    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
     search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','is_visible',"is_approved")
+    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
 
 class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','client_name','email',"can_join_as")
