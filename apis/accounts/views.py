@@ -48,7 +48,7 @@ from email_sender.helpers import send_generic_email, send_email_with_html_templa
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt
-from utilities.helpers import process_idp, regenerate_idp_or_scenarios
+from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
                     
@@ -737,6 +737,7 @@ class AccountsViewSet(ApiViewSet,
                         skills=created_profile.high_rating_characteristics,
                         is_visible= True,
                         is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
+                        ai_email = generate_email(created_profile.name,created_profile.id)
                         )
                 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
@@ -1238,7 +1239,8 @@ class AccountsViewSet(ApiViewSet,
                             is_visible= False,
                             is_approved = False,
                             custom_user_bot_url = bot_url,
-                            custom_user_bot_id = bot_id
+                            custom_user_bot_id = bot_id,
+                            ai_email = generate_email(coach_profile.name,coach_profile.id) if coach_profile else None
                             )
                             # if directory:
                             #     if directory.custom_user_bot_url:
@@ -1303,6 +1305,7 @@ class AccountsViewSet(ApiViewSet,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
                         visual_tag = directory.visual_tag,
+                        ai_email = directory.ai_email
                     )
 
                     directory.delete()
