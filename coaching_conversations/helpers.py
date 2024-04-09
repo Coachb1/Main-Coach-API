@@ -795,9 +795,27 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 personality = None
             
 
+            conv_history_data = ""
+            if signature_bot.bot_id == 'avatar_bot-d84e4-lyfe-gemini':
+                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+
+            elif signature_bot.bot_id == 'avatar_bot-30240-lyfe-gemini-v2':
+                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+                initial_que_ans = ''
+            
+            elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
+                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+
+            else:
+                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+
+
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = rel_previous_conv_summary,
+                conversation_history = conv_history_data,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None,
             )

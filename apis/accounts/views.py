@@ -1077,11 +1077,10 @@ class AccountsViewSet(ApiViewSet,
                                                     }
                     
                     initial_qna = {
-                            "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
+                            "1": "Please let me know more about you as a person that you think might be relevant to our session today.",
                             "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
                             "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
                             "4": "Do you believe your solutions have worked so far? Why or why not?",
-                            "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
                         }
                     if initial_questions:
                         initial_qna = initial_questions
