@@ -778,8 +778,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # rel_previous_conv_summary = session.first().related_previous_conversation_summary if session.first().related_previous_conversation_summary else ""
             rel_previous_conv_summary = ""
             for s in sessions:
-                if s.related_previous_conversation_summary:
-                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.related_previous_conversation_summary}\n"
+                if s.conversation_summary:
+                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.conversation_summary}\n"
 
             logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")
             try:
