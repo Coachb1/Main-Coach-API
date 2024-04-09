@@ -2724,7 +2724,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         logger.info(f"####################### process_dynamic_discussion_thread_response_by_user: LOGIC for dynamic discussion took {end - start:.2f} #######################")
 
     update_fields.extend(["evaluation_status", "updated"])
-    # test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+    test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
 
     if total_questions == total_responses:
