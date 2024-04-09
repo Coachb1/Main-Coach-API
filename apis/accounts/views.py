@@ -423,7 +423,7 @@ class AccountsViewSet(ApiViewSet,
             mob_number = request.query_params.get('mob_number',None)
             tenant = self.request.tenant
 
-            logger.info(f"for: {mode}, user_id: {user_id},email: {email},mob_number: {mob_number}")
+            logger.info(f"for: {mode}, user_id: {user_id},email: {email},mob_number: {mob_number}, tenant: {tenant}")
             client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
             data = {}
 
@@ -494,8 +494,9 @@ class AccountsViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception(f"got error: {e}")
+            logger.info(f"&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& failed to get client information: {e}")
             # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
-            send_error_notification("get_client_informations",f"failed to get client information: {e}",{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
+            # send_error_notification("get_client_informations",f"failed to get client information: {e}",{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
