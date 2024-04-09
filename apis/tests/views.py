@@ -796,6 +796,7 @@ class TestViewSet(ApiViewSet,
         logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}")
 
         if mode == 'A':
+            logger.info("************************* MODE A *************************")
             resp_data = []
             if is_static == 'true' or is_static == True or is_static == "True":
                 scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
@@ -812,6 +813,7 @@ class TestViewSet(ApiViewSet,
                     resp_data.append({'message':"failed to generate the dynamic_discussion"})
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
+            logger.info("*********************************** MODE B ********************************")
             scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
             return Response(data=scenario, status=status.HTTP_200_OK)
 
