@@ -181,8 +181,8 @@ def initialize_coaching_conversation(tenant: Tenant,
             releated_session_summary = None
             
 
-            if len(session_summaries) > 0:
-                releated_session_summary = get_relevant_session_summary(session_summaries,initial_que_ans)
+            # if len(session_summaries) > 0:
+            #     releated_session_summary = get_relevant_session_summary(session_summaries,initial_que_ans)
 
             logger.info(f" session_summaries: {session_summaries}")
             if releated_session_summary:
@@ -775,9 +775,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 
             
             ## getting related summary to initial_qna_summary and passing
-            rel_previous_conv_summary = session.first().related_previous_conversation_summary if session.first().related_previous_conversation_summary else ""
+            # rel_previous_conv_summary = session.first().related_previous_conversation_summary if session.first().related_previous_conversation_summary else ""
+            rel_previous_conv_summary = ""
+            for s in sessions:
+                if s.related_previous_conversation_summary:
+                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.related_previous_conversation_summary}\n"
 
-
+            logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")
             try:
                 personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
                 highest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.high_rating_characteristics)
@@ -797,19 +801,19 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             conv_history_data = ""
             if signature_bot.bot_id == 'avatar_bot-d84e4-lyfe-gemini':
-                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"{rel_previous_conv_summary}\n"
                 conv_history_data += f"Current Conversation: \n {current_conv}\n"
 
             elif signature_bot.bot_id == 'avatar_bot-30240-lyfe-gemini-v2':
-                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"{rel_previous_conv_summary}\n"
                 conv_history_data += f"Current Conversation: \n {current_conv}\n"
                 initial_que_ans = ''
             
             elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
-                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"{rel_previous_conv_summary}\n"
 
             else:
-                conv_history_data += f'Previous conversation summary: \n {rel_previous_conv_summary}\n'
+                conv_history_data += f"{rel_previous_conv_summary}\n"
                 conv_history_data += f"Current Conversation: \n {current_conv}\n"
 
 
@@ -1587,7 +1591,7 @@ def create_user_profile_and_bot(data,auth):
                 'PATCH',
                 url,
                 headers=headers,
-                data=json.dumps(data_json),
+                data=data_json,
             )
 
             print(resp.json())
