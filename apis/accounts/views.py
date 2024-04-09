@@ -61,6 +61,7 @@ from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
 from coaching_conversations.choices import BotScenarioCaseChoice
 import traceback
+from documents.utils import get_document_summary
 
 logger = logging.getLogger(__name__)
 
@@ -806,6 +807,10 @@ class AccountsViewSet(ApiViewSet,
                             break
                     if transcript is None:
                         transcript = download_and_transcribe_audio(link)
+
+                    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                        extracted_media_data[link] = transcript
+                        transcript = get_document_summary(transcript)
                     extracted_from_youtube[link] = transcript
                 except Exception as e:
                     logger.exception(e)
@@ -822,6 +827,11 @@ class AccountsViewSet(ApiViewSet,
 
         signature_bot.data['media_data'] = bot_media_data
         signature_bot.save(update_fields=["data"])
+
+        bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+        bot_att.extracted_documents = extracted_media_data
+        bot_att.save(update_fields=["extracted_documents"])
+        
         return transcript
 
     
@@ -1314,6 +1324,7 @@ class AccountsViewSet(ApiViewSet,
 
                 try:
                     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
+                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 except SignatureBot.DoesNotExist:
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
                 
@@ -1338,7 +1349,6 @@ class AccountsViewSet(ApiViewSet,
                     signature_bot.data = bot_data
                     signature_bot.save(update_fields=["bot_details","data"])
 
-                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                     
                     fitment_answer = updated_data.get('fitment_answers',None)
                     email = updated_data.get("email",None)
@@ -1385,7 +1395,7 @@ class AccountsViewSet(ApiViewSet,
                 logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                    media_data = json.loads(media_data)
+                    media_data = json.loads(media_data) if isinstance(media_data, str) else media_data
                     if 'youtube_links' in media_data:
                         # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
                         youtube_links = media_data['youtube_links']
@@ -1413,10 +1423,14 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* article_links: {article_links}")
                         #* save these links in bot attributes
                         extracted_from_article = {}
+                        extracted_articles = {}
                         for link in article_links:
                             
                             if link != '':
                                 transcript_data = scrape_article_data(link).get('article_content',None)
+                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                    extracted_articles[link] = transcript_data
+                                    transcript_data = get_document_summary(transcript_data)
                                 extracted_from_article[link] = transcript_data
                         
                         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
@@ -1430,16 +1444,23 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
+                        bot_att.extracted_documents = extracted_articles
+                        bot_att.save(update_fields=["extracted_documents"])
+
                 
                 if signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     if 'pdf_data' in data:
                         pdf_data = data.getlist('pdf_data')
                         extracted_from_pdf = {}
+                        extracted_pdf = {}
                         logger.info(f"******************* pdf_data: {pdf_data}")
 
                         if len(pdf_data) > 0:
                             for index, pdf in enumerate(pdf_data):
                                 file_name, text = extract_file_and_text(pdf)
+                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                    extracted_pdf[file_name] = text
+                                    text = get_document_summary(text)
                                 extracted_from_pdf[file_name] = text
                         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
                         
@@ -1453,16 +1474,23 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
+                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.save(update_fields=["extracted_documents"])
+
 
                     if 'doc_data' in data:
                         doc_data = data.getlist('doc_data')
                         extracted_from_doc = {}
+                        extracted_doc = {}
 
 
                         logger.info(f"******************* doc_data: {doc_data}")
                         if len(doc_data) > 0:
                             for index, doc in enumerate(doc_data):
                                 file_name, text = extract_file_and_text(doc)
+                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                    extracted_doc[file_name] = text
+                                    text = get_document_summary(text)
                                 extracted_from_doc[file_name] = text
 
                         logger.info(f"******************* doc_data: {extracted_from_doc}")
@@ -1476,11 +1504,15 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
+                        bot_att.extracted_documents = extracted_doc
+                        bot_att.save(update_fields=["extracted_documents"])
+
 
                     if (media_data and 'attached_docs' in media_data) or 'attached_docs' in request.FILES:
                         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
                         doc_names = []
                         extracted_from_doc = {}
+                        extracted_doc = {}
 
                         for file in attached_docs:
                             # logger.info(f"file name : {file.name}, {file.read()}")
@@ -1488,6 +1520,9 @@ class AccountsViewSet(ApiViewSet,
                             path = default_storage.save(file.name, ContentFile(file.read()))
                             doc_content = extract_text_from_doc(path)
                             default_storage.delete(path)
+                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                    extracted_doc[file.name] = doc_content
+                                    doc_content = get_document_summary(doc_content)
                             extracted_from_doc[file.name] = doc_content
 
                         signature_bot.refresh_from_db()
@@ -1499,11 +1534,15 @@ class AccountsViewSet(ApiViewSet,
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
+
+                        bot_att.extracted_documents = extracted_doc
+                        bot_att.save(update_fields=["extracted_documents"])
                         
                     if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
                         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
                         pdf_names = []
                         extracted_from_pdf = {}
+                        extracted_pdf = {}
 
                         """ logger.info(f"******************* attatched_pdfs: {attatched_pdfs}") """
 
@@ -1516,6 +1555,10 @@ class AccountsViewSet(ApiViewSet,
                             pdf_content = extract_text_from_pdf(path)
 
                             default_storage.delete(path)
+                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                    extracted_pdf[file.name] = pdf_content
+                                    
+                                    pdf_content = get_document_summary(pdf_content)
                             extracted_from_pdf[file.name] = pdf_content
 
                     
@@ -1528,6 +1571,9 @@ class AccountsViewSet(ApiViewSet,
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
+
+                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.save(update_fields=["extracted_documents"])
 
                         logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
 
