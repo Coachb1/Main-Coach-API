@@ -1137,3 +1137,17 @@ def cal_score_for_fitment(user_response,bot_id,tenant_id):
     logger.info(f"=======================================score: {score}")
 
     return score
+
+
+def generate_email(name,suffix,domain='coachbots.com'):
+    # Convert name to lowercase and remove any leading or trailing whitespace
+    name = name.strip().lower()
+    
+    # Replace spaces with dots
+    name = name.replace(' ', '.')
+    
+    # Generate a unique email address by appending a number
+    # until it becomes unique
+    email = name + str(suffix) + f'@{domain}'
+    
+    return email

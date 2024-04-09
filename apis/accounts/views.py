@@ -48,7 +48,7 @@ from email_sender.helpers import send_generic_email, send_email_with_html_templa
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt
-from utilities.helpers import process_idp, regenerate_idp_or_scenarios
+from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
                     
@@ -60,6 +60,7 @@ from utilities.prompts import get_intake_summary_prompt
 from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
 from coaching_conversations.choices import BotScenarioCaseChoice
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -402,8 +403,10 @@ class AccountsViewSet(ApiViewSet,
             
         except Exception as e:
             logger.exception(e)
+            error_msg = f"Failed to get bot details: {e}\n\n"
+            error_msg += traceback.format_exc()
             # send_slack_message({"module": "########### get_bot_details ###########", "error": str(e)})
-            send_error_notification("get_bot_details",f"failed to get bot details: {e}",{"bot_id":bot_id})
+            send_error_notification("get_bot_details",error_msg,{"bot_id":bot_id})
 
 
         return Response({"data":data},status=status.HTTP_200_OK)
@@ -494,9 +497,14 @@ class AccountsViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception(f"got error: {e}")
+
             logger.info(f"&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& failed to get client information: {e}")
             # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
             # send_error_notification("get_client_informations",f"failed to get client information: {e}",{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
+
+            error_msg = f"failed to get client information: {e}\n\n"
+            error_msg += traceback.format_exc()
+           
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -733,13 +741,16 @@ class AccountsViewSet(ApiViewSet,
                         skills=created_profile.high_rating_characteristics,
                         is_visible= True,
                         is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
+                        ai_email = generate_email(created_profile.name,created_profile.id)
                         )
                 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
+                error_msg = f"failed to create profile: {e}\n\n"
+                error_msg += traceback.format_exc()
                 # send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
-                send_error_notification("coach_coachee_mentor_mentee_profile",f"failed to create profile: {e}",{"data":data})
+                send_error_notification("coach_coachee_mentor_mentee_profile",error_msg,{"data":data})
                 return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
 
     @action(methods=['GET'], detail=False, url_path="get-bots")
@@ -1070,11 +1081,10 @@ class AccountsViewSet(ApiViewSet,
                                                     }
                     
                     initial_qna = {
-                            "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
+                            "1": "Please let me know more about you as a person that you think might be relevant to our session today.",
                             "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
                             "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
                             "4": "Do you believe your solutions have worked so far? Why or why not?",
-                            "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
                         }
                     if initial_questions:
                         initial_qna = initial_questions
@@ -1205,7 +1215,9 @@ class AccountsViewSet(ApiViewSet,
                             
                                 except Exception as e:
                                     logger.exception(f"Ai frame creation email is failed reason: {e}")
-                                    send_error_notification("create_bot_by_details",f"Ai frame creation email is failed reason: {e}",{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
+                                    error_msg = f"Ai frame creation email is failed reason: {e}\n\n"
+                                    error_msg += traceback.format_exc()
+                                    send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
 
 
 
@@ -1230,7 +1242,8 @@ class AccountsViewSet(ApiViewSet,
                             is_visible= False,
                             is_approved = False,
                             custom_user_bot_url = bot_url,
-                            custom_user_bot_id = bot_id
+                            custom_user_bot_id = bot_id,
+                            ai_email = generate_email(coach_profile.name,coach_profile.id) if coach_profile else None
                             )
                             # if directory:
                             #     if directory.custom_user_bot_url:
@@ -1242,7 +1255,9 @@ class AccountsViewSet(ApiViewSet,
                         
                     except Exception as e:
                         logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
-                        send_error_notification("create_bot_by_details",f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}",{"bot_id":bot_id,"profile_id":profile_id})
+                        error_msg = f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}\n\n"
+                        error_msg += traceback.format_exc()
+                        send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                     
                     return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
                 
@@ -1293,6 +1308,7 @@ class AccountsViewSet(ApiViewSet,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
                         visual_tag = directory.visual_tag,
+                        ai_email = directory.ai_email
                     )
 
                     directory.delete()
@@ -1521,9 +1537,11 @@ class AccountsViewSet(ApiViewSet,
 
                 return Response({"msg": "updated"}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.exception("Got error while creating bot: {e}")
+            logger.exception(f"Got error while creating bot: {e}")
+            error_msg = f"Got error while creating bot: {e}\n\n"
+            error_msg += traceback.format_exc()
             """ send_slack_message({"module": "########### create_bot_by_details ###########", "error": str(e)}) """
-            send_error_notification("create_bot_by_details",f"Got error while creating bot : {e}",{})
+            send_error_notification("create_bot_by_details",error_msg,{})
             return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
 
     @action(methods=['GET','POST'],detail=False, url_path="user-competency-details")
@@ -1633,7 +1651,9 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"got error in get_or_create_idp: {e}")
             # send_slack_message({"module": "##################get_or_create_idp#################", "message": f"got error in get_or_create_idp: {e}"})
-            send_error_notification("get_or_create_idp",f"got error in get_or_create_idp: {e}",request.data)
+            error_msg = f"got error in get_or_create_idp: {e}\n\n"
+            error_msg += traceback.format_exc()
+            send_error_notification("get_or_create_idp",error_msg,request.data)
             return Response({"msg": "got_error"},status=status.HTTP_400_BAD_REQUEST)
           
           

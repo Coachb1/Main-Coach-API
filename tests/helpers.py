@@ -2556,6 +2556,9 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
         update_fields.append("kls_klp")
         logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        update_fields.append("evaluation_status")
         test_question_response.save(update_fields=update_fields)
         logger.info(f"************respone after saving relevancy, kls, klp : {test_question_response.kls_klp}")
         
