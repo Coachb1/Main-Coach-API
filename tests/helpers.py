@@ -23,6 +23,7 @@ from apis.frontend_api.report_types import ReportType
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
+from commons.fcfs_handler import FcfsHandler
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from email_sender.helpers import send_email, send_generic_email
@@ -81,6 +82,8 @@ from skills.helpers import json_extraction
 
 
 logger = logging.getLogger(__name__)
+
+fcfs_handler = FcfsHandler(2)
 
 STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
 
@@ -7177,8 +7180,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     
                     ### generate scenario using palm
                     logger.info(f'trying scenario creation bison for {i +1} time')
-                    scenario = text_bison_compeletion(prompt)
+                    # scenario = text_bison_compeletion(prompt)
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
@@ -7212,8 +7216,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         
                         ### generate scenario using palm
                         logger.info(f'**retrying scenario creation bison for {i +1} time')
-                        scenario = text_bison_compeletion(prompt)
+                        # scenario = text_bison_compeletion(prompt)
+                        scenario = fcfs_handler.process(prompt)
                         # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                        
                         logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
