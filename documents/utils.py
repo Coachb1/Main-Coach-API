@@ -55,3 +55,18 @@ def get_summary(transcript, choice = "short"):
     summary = anthropic_completion(prompt,500)
     summary = summary.split(":")[-1].strip()
     return summary
+
+
+
+def get_document_summary(transcript):
+    prompt = f"""
+    Transcript : ${transcript}
+
+    Give me a 500-word summary of the above transcript. Do not leave out any details. Do not mention the transcript, just give the summary.
+    Note: 1) Do not mention the transcript, just give the summary.
+     2) Do not add any introductory sentences, just give the summary
+
+    """
+
+    summary = anthropic_completion(prompt,500)
+    return summary
