@@ -945,109 +945,109 @@ class AccountsViewSet(ApiViewSet,
 
                     #******** process media data ********
 
-                    if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                        logger.info(f"media_data: {media_data}")
-                        if 'youtube_links' in media_data:
-                            youtube_links = media_data['youtube_links']
-                            youtube_links = [link.strip() for link in youtube_links.split(',')]
+                    # if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                    #     logger.info(f"media_data: {media_data}")
+                    #     if 'youtube_links' in media_data:
+                    #         youtube_links = media_data['youtube_links']
+                    #         youtube_links = [link.strip() for link in youtube_links.split(',')]
 
 
-                            #* save these links in bot attributes
-                            """ extracted_from_youtube = {}
-                            for link in youtube_links:
+                    #         #* save these links in bot attributes
+                    #         """ extracted_from_youtube = {}
+                    #         for link in youtube_links:
                                 
-                                if link != '':
-                                    transcript_data = download_and_transcribe_audio(link)
-                                    extracted_from_youtube[link] = transcript_data
+                    #             if link != '':
+                    #                 transcript_data = download_and_transcribe_audio(link)
+                    #                 extracted_from_youtube[link] = transcript_data
                             
-                            extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
+                    #         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
 
-                            threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
+                    #         threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
 
 
-                        if 'article_links' in media_data:
-                            article_links = media_data['article_links']
-                            article_links = [link.strip() for link in article_links.split(',')]
+                    #     if 'article_links' in media_data:
+                    #         article_links = media_data['article_links']
+                    #         article_links = [link.strip() for link in article_links.split(',')]
 
-                            logger.info(f"******************* article_links: {article_links}")
-                            #* save these links in bot attributes
-                            extracted_from_article = {}
-                            for link in article_links:
+                    #         logger.info(f"******************* article_links: {article_links}")
+                    #         #* save these links in bot attributes
+                    #         extracted_from_article = {}
+                    #         for link in article_links:
                                 
-                                if link != '':
-                                    transcript_data = scrape_article_data(link).get('article_content',None)
-                                    extracted_from_article[link] = transcript_data
+                    #             if link != '':
+                    #                 transcript_data = scrape_article_data(link).get('article_content',None)
+                    #                 extracted_from_article[link] = transcript_data
                             
-                            logger.info(f"******************* extracted_from_article: {extracted_from_article}")
-                            extracted_media_data['extracted_from_article'] = extracted_from_article
+                    #         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
+                    #         extracted_media_data['extracted_from_article'] = extracted_from_article
 
 
-                        if 'pdf_data' in data:
-                            pdf_data = data.getlist('pdf_data')
-                            extracted_from_pdf = {}
-                            logger.info(f"******************* pdf_data: {doc_data}")
+                    #     if 'pdf_data' in data:
+                    #         pdf_data = data.getlist('pdf_data')
+                    #         extracted_from_pdf = {}
+                    #         logger.info(f"******************* pdf_data: {doc_data}")
 
-                            if len(pdf_data) > 0:
-                                for index, pdf in enumerate(pdf_data):
-                                    extracted_from_pdf[index+1] = pdf
-                            logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                            extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+                    #         if len(pdf_data) > 0:
+                    #             for index, pdf in enumerate(pdf_data):
+                    #                 extracted_from_pdf[index+1] = pdf
+                    #         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
+                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
-                        if 'doc_data' in data:
-                            doc_data = data.getlist('doc_data')
-                            extracted_from_doc = {}
-
-
-                            logger.info(f"******************* doc_data: {doc_data}")
-                            if len(doc_data) > 0:
-                                for index, doc in enumerate(doc_data):
-                                    extracted_from_doc[index+1] = doc
-
-                            logger.info(f"******************* doc_data: {extracted_from_doc}")
-                            extracted_media_data['extracted_from_doc'] = extracted_from_doc
+                    #     if 'doc_data' in data:
+                    #         doc_data = data.getlist('doc_data')
+                    #         extracted_from_doc = {}
 
 
-                        if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
-                            attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
-                            doc_names = []
-                            extracted_from_doc = {}
+                    #         logger.info(f"******************* doc_data: {doc_data}")
+                    #         if len(doc_data) > 0:
+                    #             for index, doc in enumerate(doc_data):
+                    #                 extracted_from_doc[index+1] = doc
 
-                            for file in attached_docs:
-                                # logger.info(f"file name : {file.name}, {file.read()}")
-                                doc_names.append(file.name)
-                                path = default_storage.save(file.name, ContentFile(file.read()))
-                                doc_content = extract_text_from_doc(path)
-                                default_storage.delete(path)
-                                extracted_from_doc[file.name] = doc_content
+                    #         logger.info(f"******************* doc_data: {extracted_from_doc}")
+                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
+
+
+                    #     if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
+                    #         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
+                    #         doc_names = []
+                    #         extracted_from_doc = {}
+
+                    #         for file in attached_docs:
+                    #             # logger.info(f"file name : {file.name}, {file.read()}")
+                    #             doc_names.append(file.name)
+                    #             path = default_storage.save(file.name, ContentFile(file.read()))
+                    #             doc_content = extract_text_from_doc(path)
+                    #             default_storage.delete(path)
+                    #             extracted_from_doc[file.name] = doc_content
 
                             
-                            logger.info(f"attached_docs: {extracted_from_doc}")
+                    #         logger.info(f"attached_docs: {extracted_from_doc}")
 
-                            extracted_media_data['extracted_from_doc'] = extracted_from_doc
+                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
 
 
-                        if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
-                            attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
-                            pdf_names = []
-                            extracted_from_pdf = {}
+                    #     if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
+                    #         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
+                    #         pdf_names = []
+                    #         extracted_from_pdf = {}
 
-                            for file in attatched_pdfs:
-                                # logger.info(f"file name : {file.name}, {file.read()}")
-                                pdf_names.append(file.name)
-                                path = default_storage.save(file.name, ContentFile(file.read()))
-                                pdf_content = extract_text_from_pdf(path)
-                                default_storage.delete(path)
-                                extracted_from_pdf[file.name] = pdf_content
+                    #         for file in attatched_pdfs:
+                    #             # logger.info(f"file name : {file.name}, {file.read()}")
+                    #             pdf_names.append(file.name)
+                    #             path = default_storage.save(file.name, ContentFile(file.read()))
+                    #             pdf_content = extract_text_from_pdf(path)
+                    #             default_storage.delete(path)
+                    #             extracted_from_pdf[file.name] = pdf_content
 
-                            logger.info(f"attached_PDFS: {extracted_from_pdf}")
+                    #         logger.info(f"attached_PDFS: {extracted_from_pdf}")
 
-                            extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
+                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
 
-                    if extracted_media_data:
-                        signature_bot_media_data = signature_bot.data['media_data']
-                        for key, value in extracted_media_data.items():
-                            signature_bot_media_data[key] = value
-                        all_data['media_data'] = signature_bot_media_data
+                    # if extracted_media_data:
+                    #     signature_bot_media_data = signature_bot.data['media_data']
+                    #     for key, value in extracted_media_data.items():
+                    #         signature_bot_media_data[key] = value
+                    #     all_data['media_data'] = signature_bot_media_data
 
 
 
@@ -1077,10 +1077,11 @@ class AccountsViewSet(ApiViewSet,
                                                     }
                     
                     initial_qna = {
-                            "1": "Please let me know more about you as a person that you think might be relevant to our session today.",
+                            "1": "Thank you for considering a virtual session. Please let me know more about you as a person that you think might be relevant to our session today.",
                             "2": "What do you want to achieve with your session with me today - let me know the goals you have in mind.",
                             "3": "What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?",
                             "4": "Do you believe your solutions have worked so far? Why or why not?",
+                            "5": {"options": ["Yes", "No"], "question": "Is this discussion related to your goal in a way to consider your IDP (individual development plan)? "}
                         }
                     if initial_questions:
                         initial_qna = initial_questions
@@ -1113,7 +1114,8 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append("custom_prompt")
 
                     if all_data:
-                        signature_bot.data = all_data
+                        bot_data = {**signature_bot.data,**all_data}
+                        signature_bot.data = bot_data
                         updated_fields.append("data")
                         
                     if bot_type == BotTypeChoice.feedback_bot:
