@@ -8580,6 +8580,26 @@ response.\n        NOTE : Always assume suitable details to respond, never respo
 
 
 
+def summaries():
+    from coaching_conversations.helpers import get_bot_conversation_data_user
+    tenant_id = '62d76be2-b439-4528-9ae4-2af389abb5f5'
+    bot_id = "fcd73746-845b-4349-a4c7-53eb46fa7f57"
+    user_id = "ae8981a7-bcad-42c8-9c57-1f0df47b5182"
+    tenant = Tenant.objects.get(uid=tenant_id)
+    sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant_id,test_id=bot_id,participant_id=user_id)
+    conversation_data = get_bot_conversation_data_user(sessions,tenant,user_id,only_converation=True)
+    conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
+    print(conversation_history)
+    print("="*10)
+
+    summery = get_conversation_summary(conversation_history)
+    print('summary',summery)
+    print("="*10)
+
+    for s in sessions:
+        if s.conversation_summary:
+            print(s.conversation_summary)
+            print('='*10)
 
 
     

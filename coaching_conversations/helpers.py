@@ -1582,6 +1582,15 @@ def create_user_profile_and_bot(data,auth):
             logger.info(f"bot_created: {response.json()}")
             response.raise_for_status()
             response = response.json()
+            data_json = {'bot_id': response.get('bot_uid'),"media_data": media_data,}
+            resp = requests.request(
+                'PATCH',
+                url,
+                headers=headers,
+                data=json.dumps(data_json),
+            )
+
+            print(resp.json())
 
             return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": response.get('bot_id'),'error': f""}
         except Exception as e:
