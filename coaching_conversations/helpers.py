@@ -783,7 +783,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             rel_previous_conv_summary = ""
             for s in sessions:
                 if s.conversation_summary:
-                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.conversation_summary}\n"
+                    rel_previous_conv_summary += f"\nPrevious conversation summary - {s.updated}:\n{s.conversation_summary}\n\n"
 
             logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")
             try:
@@ -1034,7 +1034,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             rel_previous_conv_summary = ""
             for s in sessions:
                 if s.conversation_summary:
-                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.conversation_summary}\n"
+                    rel_previous_conv_summary += f"\nPrevious conversation summary - {s.updated}:\n{s.conversation_summary}\n\n"
+
 
             logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")   
 
