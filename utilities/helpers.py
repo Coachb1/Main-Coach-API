@@ -1092,7 +1092,7 @@ def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
 
 
 def cal_score_for_fitment(user_response,bot_id,tenant_id):
-    signature_bot = SignatureBot.objects.get(tenant_id=tenant_id, bot_id=bot_id)
+    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant_id, bot_id=bot_id)
     bot_att = BotAttribute.objects.get(tenant_id=tenant_id, bot_id=signature_bot.uid)
     mentor_answers = [str(ans).lower().strip() for ans in bot_att.fitment_answers['mentor_answer']]
     fitment_measures = bot_att.fitment_data['fitment_measures']

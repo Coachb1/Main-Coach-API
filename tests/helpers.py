@@ -8560,7 +8560,7 @@ response.\n        NOTE : Always assume suitable details to respond, never respo
 
     # print('rsponse',h)
 
-    signature_bot = SignatureBot.objects.get(bot_id="avatar_bot-87b15-lyfe.-life-transformation-by-a-senior-coaching-practitioner.")
+    signature_bot = SignatureBot.objects.get(deleted=False,bot_id="avatar_bot-87b15-lyfe.-life-transformation-by-a-senior-coaching-practitioner.")
     provide_answers_using_emojis = signature_bot.data.get('additional_data')
     if provide_answers_using_emojis:
 

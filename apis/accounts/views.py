@@ -538,7 +538,7 @@ class AccountsViewSet(ApiViewSet,
             signature_bot = None
             if qna_type != 'fitment':
                 try:
-                    signature_bot = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,bot_id=bot_id)
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id = self.request.tenant.uid,bot_id=bot_id)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
@@ -1323,7 +1323,7 @@ class AccountsViewSet(ApiViewSet,
                     directory.save()
 
                 try:
-                    signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid,uid=bot_id)
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
                     bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 except SignatureBot.DoesNotExist:
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
