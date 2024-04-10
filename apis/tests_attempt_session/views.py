@@ -701,7 +701,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
+            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
@@ -821,7 +821,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
 
         try:
-            user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
+            user_id= SignatureBot.objects.get(deleted=False, tenant_id= tenant.uid, bot_id = bot_id).user_id
             bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
