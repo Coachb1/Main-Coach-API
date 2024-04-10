@@ -713,25 +713,29 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                                                         )
         
         initial_que_ans = ""
-        if bot_type in [BotTypeChoice.avatar_bot,BotTypeChoice.coachbots,BotTypeChoice.helper_bot]:
-            initial_qna = None
-            if bot_type == BotTypeChoice.avatar_bot:
-                if session.first().intake_id:
-                    initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.first().intake_id).order_by('-created').first()
-                else:
-                    initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
-            else:
-                initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
 
-            if initial_qna:
-                initial_que_ans = initial_qna.intake_summary
+        ## ========= removing precheck or intake from equation ==================
+
+        # if bot_type in [BotTypeChoice.avatar_bot,BotTypeChoice.coachbots,BotTypeChoice.helper_bot]:
+        #     initial_qna = None
+        #     if bot_type == BotTypeChoice.avatar_bot:
+        #         if session.first().intake_id:
+        #             initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.first().intake_id).order_by('-created').first()
+        #         else:
+        #             initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+        #     else:
+        #         initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+
+        #     if initial_qna:
+        #         initial_que_ans = initial_qna.intake_summary
         
         logger.info(f"************************************************ initial_qna: {initial_que_ans}")
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
         for key,val in signature_bot.data.items():
-            coach_info += f"{key}: {val}\n"
+            if val:
+                coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
@@ -812,9 +816,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
                 conv_history_data += f"{rel_previous_conv_summary}\n"
 
-            else:
+            else: # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
                 conv_history_data += f"{rel_previous_conv_summary}\n"
                 conv_history_data += f"Current Conversation: \n {current_conv}\n"
+                initial_que_ans = ''
 
 
             prompt = Template(prompt).substitute(
@@ -875,7 +880,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 faqs_text += f"Question: {que} Answer: {ans}\n"
 
             if signature_bot.bot_type != 'subject_matter_bot':
-                conversation = [{"coach": que, "user": ans} for que, ans in initial_que_ans.items()]
+                conversation = [f'Intake summary: {initial_que_ans}']
                 conversation.extend(current_conv)
 
             # articles_contents = ""
@@ -969,15 +974,15 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                                                         )
         
         initial_que_ans = ""
-        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.coachbots, BotTypeChoice.helper_bot]:
-            initial_qna = None
-            if session.first().intake_id:
-                initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
-            else:
-                initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
+        # if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.coachbots, BotTypeChoice.helper_bot]:
+        #     initial_qna = None
+        #     if session.first().intake_id:
+        #         initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=session.intake_id).order_by('-created').first()
+        #     else:
+        #         initial_qna = BotQnA.objects.filter(tenant_id = tenant.uid,participant_id=participant_id,bot_id=signature_bot.uid,qna_type="initial_qna").order_by('-id').first()
 
-            if initial_qna:
-                initial_que_ans = initial_qna.participant_qna
+        #     if initial_qna:
+        #         initial_que_ans = initial_qna.participant_qna
         
         logger.info(f"************************************************ initial_qna: {initial_que_ans}")
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
@@ -985,7 +990,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         coach_info = ""
         for key,val in signature_bot.data.items():
-            coach_info += f"{key}: {val}\n"
+            if val:
+                coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
@@ -1001,29 +1007,56 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
                 coach_info += "\n" + "FAQs:" + '\n' + qna_block_text
                 
-            user_recent_idp = None
-            latest_session = session.order_by('-created').first()
-            logger.info(f"*************** latest_session  : {latest_session.uid}")
-            if latest_session.is_idp_discussion_opted:
-                idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created').first()
-                logger.info(f"*************** idp : {idp}")
-                if idp:
-                    user_recent_idp = {
-                            "strengths": idp.strengths,
-                            "weakness": idp.weakness,
-                            "opportunities": idp.opportunities,
-                            "threats": idp.threats,
-                            "key_focus_areas": idp.key_focus_areas,
-                            "goals": idp.goals,
-                            "priorities": idp.priorities,
-                            "learning_histories": idp.learning_histories,
-                            "key_skills": idp.key_skills,
-                            "skill_gap_for_development": idp.skill_gap_for_development,
-                            "leadership_skill_focus_area": idp.leadership_skill_focus_area,
-                            "book_recommendations": idp.book_recommendations,
-                            "course_recommendations": idp.course_recommendations,
-                            "recommended_ted_talk": idp.recommended_ted_talk,
-                        }
+            # user_recent_idp = None
+            # latest_session = session.order_by('-created').first()
+            # logger.info(f"*************** latest_session  : {latest_session.uid}")
+            # if latest_session.is_idp_discussion_opted:
+            #     idp = UserIDP.objects.filter(tenant_id=tenant.uid, user_id=participant_id, deleted=0).order_by('-created').first()
+            #     logger.info(f"*************** idp : {idp}")
+            #     if idp:
+            #         user_recent_idp = {
+            #                 "strengths": idp.strengths,
+            #                 "weakness": idp.weakness,
+            #                 "opportunities": idp.opportunities,
+            #                 "threats": idp.threats,
+            #                 "key_focus_areas": idp.key_focus_areas,
+            #                 "goals": idp.goals,
+            #                 "priorities": idp.priorities,
+            #                 "learning_histories": idp.learning_histories,
+            #                 "key_skills": idp.key_skills,
+            #                 "skill_gap_for_development": idp.skill_gap_for_development,
+            #                 "leadership_skill_focus_area": idp.leadership_skill_focus_area,
+            #                 "book_recommendations": idp.book_recommendations,
+            #                 "course_recommendations": idp.course_recommendations,
+            #                 "recommended_ted_talk": idp.recommended_ted_talk,
+            #             }
+
+            rel_previous_conv_summary = ""
+            for s in sessions:
+                if s.conversation_summary:
+                    rel_previous_conv_summary += f"Previous conversation summary - {s.updated}:\n{s.conversation_summary}\n"
+
+            logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")   
+
+            conv_history_data = ""
+            if signature_bot.bot_id == 'avatar_bot-d84e4-lyfe-gemini':
+                conv_history_data += f"{rel_previous_conv_summary}\n"
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+
+            elif signature_bot.bot_id == 'avatar_bot-30240-lyfe-gemini-v2':
+                conv_history_data += f"{rel_previous_conv_summary}\n"
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+                initial_que_ans = ''
+            
+            elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
+                conv_history_data += f"{rel_previous_conv_summary}\n"
+
+            else: # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
+                conv_history_data += f"{rel_previous_conv_summary}\n"
+                conv_history_data += f"Current Conversation: \n {current_conv}\n"
+                initial_que_ans = ''
+
+
 
             try:
                 personalities = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=participant_id).first()
@@ -1044,11 +1077,9 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
-                conversation_history = current_conv,
+                conversation_history = conv_history_data,
                 context = initial_que_ans,
                 user_personality = personality if signature_bot.use_personality_context else None,
-                idp_report_data = user_recent_idp,
-                session_notes = get_latest_session_notes_coach_coachee(coach_user_id=signature_bot.user_id,coachee_user_id=participant_id,tenant_id=tenant.uid)
             )
 
         elif signature_bot.bot_type == BotTypeChoice.user_bot:
