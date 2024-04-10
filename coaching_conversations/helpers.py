@@ -147,7 +147,7 @@ def initialize_coaching_conversation(tenant: Tenant,
         
     signature_bot_question = "what would you like to discuss today?"
     if is_signature_bot:
-        signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.test_id)
+        signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant.uid,uid=test_attempt_session.test_id)
         user = User.objects.get(tenant_id=tenant.uid,uid=test_attempt_session.participant_id)
         get_or_create_bot_user_mapping(signature_bot,user)
         
