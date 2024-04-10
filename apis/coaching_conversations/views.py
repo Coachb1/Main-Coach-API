@@ -324,7 +324,7 @@ class CoachingConversationViewSet(ApiViewSet,
         elif mode == 'user':
             bot_ids = []
             if user_bot_id:
-                bot_ids = [SignatureBot.objects.get(bot_id=user_bot_id).uid]
+                bot_ids = [SignatureBot.objects.get(deleted=False,bot_id=user_bot_id).uid]
             else:
                 bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
             data = []
