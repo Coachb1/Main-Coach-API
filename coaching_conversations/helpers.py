@@ -261,10 +261,10 @@ def initialize_coaching_conversation(tenant: Tenant,
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
                         for l in lowest_charactersic_prompt:
-                            low_char_prompt += f"{l} "
+                            low_char_prompt += f"{l.negitive_prompt} "
                         high_char_prompt = ""
                         for l in highest_charactersic_prompt:
-                            high_char_prompt += f"{l} "
+                            high_char_prompt += f"{l.positive_prompt} "
                         personality = low_char_prompt + " " + high_char_prompt
 
                     except Exception as e:
@@ -289,10 +289,10 @@ def initialize_coaching_conversation(tenant: Tenant,
                             lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                             low_char_prompt = ""
                             for l in lowest_charactersic_prompt:
-                                low_char_prompt += f"{l} "
+                                low_char_prompt += f"{l.negitive_prompt} "
                             high_char_prompt = ""
                             for l in highest_charactersic_prompt:
-                                high_char_prompt += f"{l} "
+                                high_char_prompt += f"{l.positive_prompt} "
                             personality = low_char_prompt + " " + high_char_prompt
 
                         except Exception as e:
@@ -312,10 +312,10 @@ def initialize_coaching_conversation(tenant: Tenant,
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
                         for l in lowest_charactersic_prompt:
-                            low_char_prompt += f"{l} "
+                            low_char_prompt += f"{l.negitive_prompt} "
                         high_char_prompt = ""
                         for l in highest_charactersic_prompt:
-                            high_char_prompt += f"{l} "
+                            high_char_prompt += f"{l.positive_prompt} "
                         personality = low_char_prompt + " " + high_char_prompt
 
                     except Exception as e:
@@ -426,10 +426,10 @@ def initialize_coaching_conversation(tenant: Tenant,
                         lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                         low_char_prompt = ""
                         for l in lowest_charactersic_prompt:
-                            low_char_prompt += f"{l} "
+                            low_char_prompt += f"{l.negitive_prompt} "
                         high_char_prompt = ""
                         for l in highest_charactersic_prompt:
-                            high_char_prompt += f"{l} "
+                            high_char_prompt += f"{l.positive_prompt} "
                         personality = low_char_prompt + " " + high_char_prompt
 
                     except Exception as e:
@@ -1065,10 +1065,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
                 for l in lowest_charactersic_prompt:
-                    low_char_prompt += f"{l} "
+                    low_char_prompt += f"{l.negitive_prompt} "
                 high_char_prompt = ""
                 for l in highest_charactersic_prompt:
-                    high_char_prompt += f"{l} "
+                    high_char_prompt += f"{l.positive_prompt} "
                 personality = low_char_prompt + " " + high_char_prompt
 
             except Exception as e:
