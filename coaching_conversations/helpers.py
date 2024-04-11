@@ -804,7 +804,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             
 
             conv_history_data = ""
-             # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
+            # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
             conv_history_data += f"{rel_previous_conv_summary}\n"
             conv_history_data += f"Current Conversation: \n {current_conv}\n"
             
