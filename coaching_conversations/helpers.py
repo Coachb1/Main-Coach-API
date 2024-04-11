@@ -792,10 +792,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
                 for l in lowest_charactersic_prompt:
-                    low_char_prompt += f"{l} "
+                    low_char_prompt += f"{l.negitive_prompt} "
                 high_char_prompt = ""
                 for l in highest_charactersic_prompt:
-                    high_char_prompt += f"{l} "
+                    high_char_prompt += f"{l.positive_prompt} "
                 personality = low_char_prompt + " " + high_char_prompt
 
             except Exception as e:
@@ -804,22 +804,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             
 
             conv_history_data = ""
-            if signature_bot.bot_id == 'avatar_bot-d84e4-lyfe-gemini':
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-
-            elif signature_bot.bot_id == 'avatar_bot-30240-lyfe-gemini-v2':
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-                initial_que_ans = ''
+            # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
+            conv_history_data += f"{rel_previous_conv_summary}\n"
+            conv_history_data += f"Current Conversation: \n {current_conv}\n"
             
-            elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-
-            else: # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-                initial_que_ans = ''
 
 
             prompt = Template(prompt).substitute(
@@ -838,10 +826,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                     low_char_prompt = ""
                     for l in lowest_charactersic_prompt:
-                        low_char_prompt += f"{l} "
+                        low_char_prompt += f"{l.negitive_prompt} "
                     high_char_prompt = ""
                     for l in highest_charactersic_prompt:
-                        high_char_prompt += f"{l} "
+                        high_char_prompt += f"{l.positive_prompt} "
                     personality = low_char_prompt + " " + high_char_prompt
 
                 except Exception as e:
@@ -861,10 +849,10 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 lowest_charactersic_prompt = CharacteristicsAndPrompts.objects.filter(name = personalities.low_rating_characteristics)
                 low_char_prompt = ""
                 for l in lowest_charactersic_prompt:
-                    low_char_prompt += f"{l} "
+                    low_char_prompt += f"{l.negitive_prompt} "
                 high_char_prompt = ""
                 for l in highest_charactersic_prompt:
-                    high_char_prompt += f"{l} "
+                    high_char_prompt += f"{l.positive_prompt} "
                 personality = low_char_prompt + " " + high_char_prompt
 
             except Exception as e:
@@ -1040,22 +1028,9 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             logger.info(f"previous conversation summeries: {rel_previous_conv_summary}")   
 
             conv_history_data = ""
-            if signature_bot.bot_id == 'avatar_bot-d84e4-lyfe-gemini':
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-
-            elif signature_bot.bot_id == 'avatar_bot-30240-lyfe-gemini-v2':
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-                initial_que_ans = ''
+            conv_history_data += f"{rel_previous_conv_summary}\n"
+            conv_history_data += f"Current Conversation: \n {current_conv}\n"
             
-            elif signature_bot.bot_id == "avatar_bot-ca90d-lyfe-gemini-v3":
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-
-            else: # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
-                conv_history_data += f"{rel_previous_conv_summary}\n"
-                conv_history_data += f"Current Conversation: \n {current_conv}\n"
-                initial_que_ans = ''
 
 
 
@@ -1103,7 +1078,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     if provide_answers_using_emojis:
 
         provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
-        print(provide_answers_using_emojis,'a')
+        print(provide_answers_using_emojis,'provide_answers_using_emojis')
     else:
         provide_answers_using_emojis = False
 
