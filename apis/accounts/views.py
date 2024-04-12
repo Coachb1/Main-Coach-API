@@ -469,6 +469,23 @@ class AccountsViewSet(ApiViewSet,
                     if email in demo_emails:
                         demo_user = True
 
+                    if demo_user:
+                        user_account = Identity.objects.get(deleted=False,tenant_id=u.tenant_id,value=email)
+                        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
+
+                        # Get today's date
+                        current_date = datetime.datetime.now()
+
+                        # Calculate the difference between today's date and the specific date
+                        time_difference = current_date - specific_date
+
+                        # Check if the difference is greater than or equal to 2 weeks
+                        if time_difference >= datetime.timedelta(weeks=2):
+                            restricted = True
+                            demo_user = False
+
+                        logger.info(f"time difference: {time_difference} ")
+
                     user_info.append({
                         "client_name": u.client_name,
                         "avatar_bot_creation": u.avatar_bot_creation,
@@ -501,7 +518,7 @@ class AccountsViewSet(ApiViewSet,
             error_msg = f"failed to get client information: {e}\n\n"
             error_msg += traceback.format_exc()
             # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
-            send_error_notification("get_client_informations",error_msg,{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
+            # send_error_notification("get_client_informations",error_msg,{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -1764,6 +1781,7 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             email = request.query_params.get('email')
+            logger.info(f"Retrieving directory information for email: {email}")
             if email:
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',')
@@ -1789,7 +1807,7 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in directory information api": e})
             # send_slack_message({"module": "##################get_directory_informations#################", "message": f"got error in get_directory_informations: {e}"})
-            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",request.query_params)
+            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",{"email": request.query_params.get('email')})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
