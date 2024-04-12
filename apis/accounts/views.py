@@ -469,6 +469,23 @@ class AccountsViewSet(ApiViewSet,
                     if email in demo_emails:
                         demo_user = True
 
+                    if demo_user:
+                        user_account = Identity.objects.get(deleted=False,tenant_id=u.tenant_id,value=email)
+                        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
+
+                        # Get today's date
+                        current_date = datetime.datetime.now()
+
+                        # Calculate the difference between today's date and the specific date
+                        time_difference = current_date - specific_date
+
+                        # Check if the difference is greater than or equal to 2 weeks
+                        if time_difference >= datetime.timedelta(weeks=2):
+                            restricted = True
+                            demo_user = False
+
+                        logger.info(f"time difference: {time_difference} ")
+
                     user_info.append({
                         "client_name": u.client_name,
                         "avatar_bot_creation": u.avatar_bot_creation,
@@ -829,7 +846,10 @@ class AccountsViewSet(ApiViewSet,
         signature_bot.save(update_fields=["data"])
 
         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-        bot_att.extracted_documents = extracted_media_data
+        bot_att.refresh_from_db()
+        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+        bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_media_data}
+        bot_att.extracted_documents = bot_media_data
         bot_att.save(update_fields=["extracted_documents"])
         
         return transcript
@@ -1444,7 +1464,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_articles
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_articles}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
                 
@@ -1474,7 +1497,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_pdf}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
 
@@ -1504,7 +1530,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_doc
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_doc}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
 
@@ -1535,7 +1564,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_doc
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_doc}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
                         
                     if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
@@ -1572,7 +1604,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_pdf}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
                         logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
@@ -1746,6 +1781,7 @@ class AccountsViewSet(ApiViewSet,
         """
         try:
             email = request.query_params.get('email')
+            logger.info(f"Retrieving directory information for email: {email}")
             if email:
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',')
@@ -1771,7 +1807,7 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in directory information api": e})
             # send_slack_message({"module": "##################get_directory_informations#################", "message": f"got error in get_directory_informations: {e}"})
-            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",request.query_params)
+            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",{"email": request.query_params.get('email')})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
