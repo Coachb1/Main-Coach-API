@@ -1651,26 +1651,30 @@ def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4
     else:
         for avatar_bot in avatar_bots:
             media_data = avatar_bot.data.get('media_data')
+            print('bot_id', avatar_bot.bot_id)
             print('media_data', media_data)
             if media_data:
-                bot_att = BotAttribute.objects.get(deleted=False,bot_id=avatar_bot.uid)
-                print('bot_att.extracted_documents', bot_att.extracted_documents)
-                if not bot_att.extracted_documents:
-                    bot_att.extracted_documents = media_data
-                    bot_att.save(update_fields=['extracted_documents'])
+                try:
+                    bot_att = BotAttribute.objects.get(deleted=False,bot_id=avatar_bot.uid)
+                    print('bot_att.extracted_documents', bot_att.extracted_documents)
+                    if not bot_att.extracted_documents:
+                        bot_att.extracted_documents = media_data
+                        bot_att.save(update_fields=['extracted_documents'])
 
-                    summaries = {}
+                        summaries = {}
 
-                    for source, links in media_data.items():
-                        summaries_temp = {}
-                        for link, value in links.items():
-                            summaries_temp[link] = get_document_summary(value)
+                        for source, links in media_data.items():
+                            summaries_temp = {}
+                            for link, value in links.items():
+                                summaries_temp[link] = get_document_summary(value)
 
-                        summaries[source] = summaries_temp
+                            summaries[source] = summaries_temp
 
-                    
-                    avatar_bot.data['media_data'] = summaries
-                    avatar_bot.save(update_fields=['data'])
+                        
+                        avatar_bot.data['media_data'] = summaries
+                        avatar_bot.save(update_fields=['data'])
+                except Exception as e:
+                    print(e)
 
 
         return "Summeries updated successfully!"
