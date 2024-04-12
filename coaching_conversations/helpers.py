@@ -32,6 +32,7 @@ import requests
 from utilities.prompts import get_intake_summary_prompt
 from commons.utils import remove_punctuations
 from tests.helpers import get_relevant_session_summary
+from documents.utils import get_document_summary
 
 logger = logging.getLogger(__name__)
 
@@ -1606,7 +1607,7 @@ def create_user_profile_and_bot(data,auth):
                 'PATCH',
                 url,
                 headers=headers,
-                data=data_json,
+                data=json.dumps(data_json),
             )
 
             print(resp.json())
@@ -1615,3 +1616,61 @@ def create_user_profile_and_bot(data,auth):
         except Exception as e:
             logger.exception(f"bot creation failed with error {e}")
             return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{e}"}
+        
+
+def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4-2af389abb5f5',revert=False):
+
+    avatar_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,bot_type=BotTypeChoice.avatar_bot)
+    # avatar_bots = SignatureBot.objects.filter(deleted=False, bot_id='avatar_bot-03e4b-lyfe-gemini-summary-testing2')
+
+    if revert:
+        for avatar_bot in avatar_bots:
+            bot_att = BotAttribute.objects.get(deleted=False,bot_id=avatar_bot.uid)
+            extracted_document = bot_att.extracted_documents
+            media_data = {}
+            if extracted_document.get('extracted_from_youtube',None):
+                media_data['extracted_from_youtube'] = extracted_document.get('extracted_from_youtube',None) 
+            if extracted_document.get('extracted_from_article',None):
+                media_data['extracted_from_article'] = extracted_document.get('extracted_from_article',None) 
+            if extracted_document.get('extracted_from_pdf',None):
+                media_data['extracted_from_pdf'] = extracted_document.get('extracted_from_pdf',None) 
+            if extracted_document.get('extracted_from_doc',None):
+                media_data['extracted_from_doc'] = extracted_document.get('extracted_from_doc',None) 
+
+            print('media_data_full', media_data)
+            print('media_data_summary : ',extracted_document)
+            if media_data:
+                avatar_bot.data['media_data'] = media_data
+                avatar_bot.save(update_fields=['data'])
+
+                bot_att.extracted_documents = None
+                bot_att.save(update_fields=['extracted_documents'])
+
+        return "Document summaries reverted successfully"
+
+    else:
+        for avatar_bot in avatar_bots:
+            media_data = avatar_bot.data.get('media_data')
+            print('media_data', media_data)
+            if media_data:
+                bot_att = BotAttribute.objects.get(deleted=False,bot_id=avatar_bot.uid)
+                print('bot_att.extracted_documents', bot_att.extracted_documents)
+                if not bot_att.extracted_documents:
+                    bot_att.extracted_documents = media_data
+                    bot_att.save(update_fields=['extracted_documents'])
+
+                    summaries = {}
+
+                    for source, links in media_data.items():
+                        summaries_temp = {}
+                        for link, value in links.items():
+                            summaries_temp[link] = get_document_summary(value)
+
+                        summaries[source] = summaries_temp
+
+                    
+                    avatar_bot.data['media_data'] = summaries
+                    avatar_bot.save(update_fields=['data'])
+
+
+        return "Summeries updated successfully!"

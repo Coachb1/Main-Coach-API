@@ -829,7 +829,10 @@ class AccountsViewSet(ApiViewSet,
         signature_bot.save(update_fields=["data"])
 
         bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-        bot_att.extracted_documents = extracted_media_data
+        bot_att.refresh_from_db()
+        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+        bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_media_data}
+        bot_att.extracted_documents = bot_media_data
         bot_att.save(update_fields=["extracted_documents"])
         
         return transcript
@@ -1444,7 +1447,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_articles
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_articles}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
                 
@@ -1474,7 +1480,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_pdf}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
 
@@ -1504,7 +1513,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_doc
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_doc}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
 
@@ -1535,7 +1547,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_doc
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_doc}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
                         
                     if (media_data and 'attatched_pdfs' in media_data) or 'attatched_pdfs' in request.FILES:
@@ -1572,7 +1587,10 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
 
-                        bot_att.extracted_documents = extracted_pdf
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_pdf}
+                        bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
                         logger.info(f"******************* extracted_from_pdf: {extracted_from_pdf}")
