@@ -1644,6 +1644,26 @@ def create_user_profile_and_bot(data,auth):
             logger.exception(f"bot creation failed with error {e}")
             return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{e}"}
         
+    else:
+        error=""
+        try:
+            if client_name:
+                client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
+
+                if profile.get('profile_type') == 'icons_by_ai':
+                    accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
+                    client.accessed_bot_ids = accessed_bot_id
+                    client.save(update_fields=['accessed_bot_ids'])
+                else:
+                    member_emails = client.member_emails + f",{email}" if client.member_emails else email
+                    client.member_emails = member_emails
+                    client.save(update_fields=['member_emails'])
+
+        except Exception as e:
+            logger.exception(f"saving client_info failed with error {e}")
+            error = e
+
+        return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{error}"}
 
 def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4-2af389abb5f5',revert=False):
 
