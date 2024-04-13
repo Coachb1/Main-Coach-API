@@ -23,7 +23,7 @@ import json
 from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
-from users.models import BotAndUserMapping
+from users.models import BotAndUserMapping, ClientUserInfo
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
@@ -1308,6 +1308,7 @@ def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
 
 def create_user_profile_and_bot(data,auth):
     from settings import BACKEND
+    import traceback
 
     
     name = data.get('name',None)
@@ -1323,6 +1324,7 @@ def create_user_profile_and_bot(data,auth):
     area_domain = data.get('area_domain')
     department = data.get('department')
     profile_type = data.get('profile_type')
+    client_name = data.get('Client Name'.lower().strip(),None)
     mentoring_preferences = data.get('which way do you want to help the program participants the most?'.strip().lower(),None)
     mentoring_frameworks = data.get('please mention any coaching & mentoring frameworks or tools that you use in your approach.'.strip().lower(),None)
     high_rating_characteristics = data.get('please rate the characteristics/skills on which you will rate yourself highly.'.strip().lower(),None)
@@ -1342,7 +1344,10 @@ def create_user_profile_and_bot(data,auth):
     coach_same_department = data.get('I want to coach & mentor someone in the same department.'.strip().lower(),None)
     discuss_how_you_helped_others_in_coachMentoring = data.get('Please discuss how you have helped others as a coach/mentor or in other professional capacity. Please mentions these personal transformation stories in CAR format - Context, Action and Result achieved.'.strip().lower(),None)
     provide_answers_using_emojis = data.get('Would you like your AI Avatar to provide expressive answers using emojis?'.strip().lower(),None)
-
+    
+    if not client_name:
+        return False, {"email": email,'user_id':"",'error': f"Client name is required"}
+    
     provided_links = {}
     if youtube_links:
         provided_links['youtube_links'] = youtube_links.split(',')
@@ -1435,11 +1440,11 @@ def create_user_profile_and_bot(data,auth):
 
     except Exception as e:
         logger.exception(f"user creation failed with error: {e}")
-        return False, {"email": data.get('email'),'error': f"{e}"}
+        return False, {"email": data.get('email'),'error': f"{e}: {traceback.format_exception()}"}
 
     user_id = user.get('uid')
 
-    required_profile_list = ["coach-mentor", "coach", 'icons_by_ai']
+    required_profile_list = ["coach-mentor", "coach",'mentor' ,'icons_by_ai']
     form_data = {
         "name": name,
         "user_id": user_id,
@@ -1465,8 +1470,8 @@ def create_user_profile_and_bot(data,auth):
         "significant_challenges_and_solutions": significant_challenges_and_solutions if profile_type in required_profile_list else None,
         "common_phrases_and_expressions": common_phrases_and_expressions if profile_type in required_profile_list else None,
         "qna_for_coach_mentor" : qna_for_coach_mentor if qna_for_coach_mentor else None,
-        "low_rating_characteristics": low_rating_characteristics if profile_type == "coachee" else None,
-        "high_rating_characteristics": high_rating_characteristics if profile_type == "coachee" else None,
+        "low_rating_characteristics": low_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
+        "high_rating_characteristics": high_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
         'is_approved': True
 
     }
@@ -1490,7 +1495,7 @@ def create_user_profile_and_bot(data,auth):
 
     except Exception as e:
         logger.exception(f"profile creation failed with {e}")
-        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}"}
+        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}: {traceback.format_exception()}"}
 
     if coaching_level and coach_same_department and supported_outcome:
         qna_data = {
@@ -1613,7 +1618,28 @@ def create_user_profile_and_bot(data,auth):
 
             print(resp.json())
 
-            return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": response.get('bot_id'),'error': f""}
+            # saving in clientuser info
+            error = ''
+            try:
+                if client_name:
+                    client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
+
+                    if profile.get('profile_type') == 'icons_by_ai':
+                        accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
+                        client.accessed_bot_ids = accessed_bot_id
+                        client.save(update_fields=['accessed_bot_ids'])
+                    else:
+                        member_emails = client.member_emails + f",{email}" if client.member_emails else email
+                        client.member_emails = member_emails
+                        client.save(update_fields=['member_emails'])
+
+            except Exception as e:
+                logger.exception(f"saving client_info failed with error {e}")
+                error = e
+
+
+
+            return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": response.get('bot_id'),'error': f"{error}"}
         except Exception as e:
             logger.exception(f"bot creation failed with error {e}")
             return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{e}"}
