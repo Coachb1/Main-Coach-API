@@ -6,6 +6,9 @@ from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication
 
 from clients.models import Client
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ClientBasicAuthentication(BaseAuthentication):
@@ -46,9 +49,11 @@ class ClientBasicAuthentication(BaseAuthentication):
         try:
             client = Client.objects.get(key=key, deleted=0)
         except:
+            logger.exception(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Authenticatio :: invalid key : {key}")
             raise exceptions.AuthenticationFailed("Invalid credentials")
 
         if not check_password(secret, client.secret):
+            logger.exception(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Authentication :: invalid secret : {secret}")
             raise exceptions.AuthenticationFailed("Invalid credentials")
 
         return client, None
