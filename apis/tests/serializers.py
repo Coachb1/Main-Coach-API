@@ -120,6 +120,7 @@ class CreateTestSerializer(serializers.Serializer):
     visual_tags = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_email = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
