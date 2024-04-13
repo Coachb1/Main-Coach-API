@@ -86,6 +86,7 @@ TAB_CATEGORY = "Tab Category"
 IS_RECOMMENDED = 'Is Recommended'
 VISUAL_TAGS = 'Visual Tags'
 PAGE_NAME = 'Page Name'
+USER_EMAIL = 'User Email'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -387,6 +388,11 @@ def format_test_orchestrated_conversation(raw_data):
         if USER_ID in input_dict :
             if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
                 output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
+                
+                
+        if USER_EMAIL in input_dict :
+            if input_dict[USER_EMAIL] and len(input_dict[USER_EMAIL].strip()) > 0:
+                output_dict['creator_email'] = input_dict.get(USER_EMAIL,None)
         
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
