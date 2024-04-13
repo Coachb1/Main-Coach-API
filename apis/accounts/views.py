@@ -421,6 +421,7 @@ class AccountsViewSet(ApiViewSet,
             dict: A dictionary containing the retrieved client information. The structure of the dictionary depends on the `mode` parameter.
         """
         try:
+            logger.info(f"(((((((((((((((((((((((((((((((( REQUEST ORIGIN : {request.META.get('HTTP_REFERER')} |   {request.headers.get('Origin')}  |  {request.META.get('HTTP_ORIGIN')}   ))))))))))))))))))))))))))))))))")
             mode = request.query_params.get('for',None)  # can be my_lib, user_info
             user_id = request.query_params.get('user_id',None)
             email = request.query_params.get('email',None)
