@@ -43,20 +43,22 @@ def login_user(tenant: Tenant,
     
     """
     try:
+        logger.info(f"******************* login_user :: identity_type: {identity_type},  itentity_value : {identity_value}")
         user = get_user_via_identity(
             tenant=tenant,
             identity_type=identity_type,
             identity_value=identity_value
         )
     except Exception as e:
-        logger.exception("user get failed err: %s", e)
+        logger.exception("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user get failed err: %s", e)
         raise ValueError("invalid credentials")
 
     if not user.can_login:
-        logger.exception("user cannot login")
+        logger.exception("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user cannot login")
         raise ValueError("invalid credentials")
 
     if not check_password(password, user.password):
+        logger.exception(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! invalid password : {password}")
         raise ValueError("invalid credentials")
 
     return create_new_tokens(
