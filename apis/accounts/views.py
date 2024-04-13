@@ -519,7 +519,7 @@ class AccountsViewSet(ApiViewSet,
             error_msg = f"failed to get client information: {e}\n\n"
             error_msg += traceback.format_exc()
             # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
-            send_error_notification("get_client_informations",error_msg,{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
+            # send_error_notification("get_client_informations",error_msg,{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
