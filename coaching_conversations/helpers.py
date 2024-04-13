@@ -1325,11 +1325,12 @@ def create_user_profile_and_bot(data,auth):
     profile_type = data.get('profile_type')
     mentoring_preferences = data.get('which way do you want to help the program participants the most?'.strip().lower(),None)
     mentoring_frameworks = data.get('please mention any coaching & mentoring frameworks or tools that you use in your approach.'.strip().lower(),None)
-    high_rating_characteristics = data.get('high_rating_characteristics',None)
-    low_rating_characteristics = data.get('low_rating_characteristics',None)
+    high_rating_characteristics = data.get('please rate the characteristics/skills on which you will rate yourself highly.'.strip().lower(),None)
+    low_rating_characteristics = data.get('please rate the characteristics/skills on which you will rate yourself near the lows.'.strip().lower(),None)
     common_phrases_and_expressions = data.get('are there any phrases or expressions you find yourself using often in conversations? These could be catchphrases, favorite quotes, or unique sayings that reflect your personality.'.strip().lower(),None)
     significant_challenges_and_solutions = data.get('what were the 3 most significant challenges you encountered in your journey, and how did you successfully navigate and overcome them?'.strip().lower(),None)
     coaching_for_fitment = data.get('coaching_for_fitment',None)
+    profile_image_url = data.get('profile image url'.strip().lower(),None)
     admired_leaders = data.get('please add names of 1-2 well-known leaders that you admire.'.strip().lower(),None)
     problem_solving_approach = data.get('what is your general approach towards problem solving?'.strip().lower(),None)
     dominant_point_of_view = data.get('please articulate your dominant point of view which you want to discuss with the program participants as a general starting point.'.strip().lower(),None)
@@ -1445,7 +1446,7 @@ def create_user_profile_and_bot(data,auth):
         "email": email,
         "about": about,
         "experience": experience,
-        "profile_image_url": "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
+        "profile_image_url": profile_image_url or "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
         "department": department,
         "supported_outcome": supported_outcome,
         "profile_type": "coach" if profile_type in ["coach-mentor", "coach"] else "mentor" if profile_type == "mentor" else profile_type,
