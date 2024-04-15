@@ -108,6 +108,14 @@ class SignatureBotSerializer(serializers.ModelSerializer):
         model = SignatureBot
         fields = '__all__'
 
+        
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        user = User.objects.get(deleted=False,uid=instance.user_id)
+        res['creator_name'] = user.name
+
+        return res
+
 class UserIDPSerializers(serializers.ModelSerializer):
     class Meta:
         model = UserIDP
