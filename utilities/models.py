@@ -122,7 +122,7 @@ class UserIDP(TenantAwareModel):
 class DirectoryPageInfo(models.Model):
     name = models.CharField(max_length=255)
     profile_id = models.CharField(max_length=255)
-    department = models.CharField(max_length=255)
+    department = models.CharField(max_length=255,null=True,blank=True,default=None)
     bot_type = models.CharField(max_length=255,choices=BotTypeChoice,null=True,blank=True,default=None)
     profile_pic_url = models.CharField(max_length=255,default=None,null=True,blank=True)
     profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)

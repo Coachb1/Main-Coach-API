@@ -25,10 +25,12 @@ class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_filter = ('is_sent',)
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
     search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
     list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    ordering = ['-id']
 
 class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','client_name','email',"can_join_as")
@@ -37,6 +39,7 @@ class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
     list_editable = ('client_name','email',"can_join_as")
 
 class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_per_page = 10
     list_display = ('id','uid','user_id',"user_name","strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","report","success")
     list_filter = ("uid","user_id","success")
     search_fields = ("uid","user_id","success")
@@ -56,16 +59,19 @@ admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAd
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
-    if kwargs['created'] :
-        return  # Ignore if the instance is being created or not approved
+    # if kwargs['created'] :
+    #     return  # Ignore if the instance is being created or not approved
 
     # Send email when is_approved is changed to True
     bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else instance.avatar_bot_id
-
+    print("#"*100)
+    print('start//')
+    print(kwargs)
     try:
         coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
-        coach_profile.is_approved = instance.is_approved
-        coach_profile.save(update_fields=["is_approved"])
+        if instance.is_approved:
+            coach_profile.is_approved = instance.is_approved
+            coach_profile.save(update_fields=["is_approved"])
     except: 
         coach_profile = None
 
@@ -103,15 +109,12 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         
     if signature_bot.count() > 0:
         signature_bot = signature_bot.first()
-        
-        feedback_bot = SignatureBot.objects.filter(user_id=signature_bot.user_id,bot_type="feedback_bot")
         signature_bot.is_approved = instance.is_approved
         signature_bot.save(update_fields=["is_approved"])
-        for feed in feedback_bot:
-            feed.is_approved = instance.is_approved
-            feed.save(update_fields=["is_approved"])
-
         
+
+    print("end" )
+    print("*"*100)
     
 
 post_save.connect(save_and_send_approval_email_post_save, sender=DirectoryPageInfo)
