@@ -803,7 +803,7 @@ class AccountsViewSet(ApiViewSet,
             serializer = SignatureBotSerializer(bot)
             bot_att = BotAttribute.objects.get(bot_id=bot.uid)
             botser = BotAttributeSerializer(bot_att)
-            data.append({"signature_bot": serializer.data,
+            data.append({"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
                             "bot_attributes": botser.data})
         return Response({"data": data},status=status.HTTP_200_OK)
         
