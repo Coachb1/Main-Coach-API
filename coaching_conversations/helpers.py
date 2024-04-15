@@ -1400,7 +1400,7 @@ def create_user_profile_and_bot(data,auth):
         user_email = 'info@coachbots.com'
     else:
         if profile_type == 'icons_by_ai':
-            user_email = 'info@coachbots.com'
+            user_email = ''
 
 
 
@@ -1417,7 +1417,7 @@ def create_user_profile_and_bot(data,auth):
         "tag": "deepchat_profile",
         "attributes": {
             "name": name,
-            "email": ""
+            "email": user_email
         }
         }
     },
