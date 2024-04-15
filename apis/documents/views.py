@@ -12,6 +12,7 @@ from rest_framework import mixins
 from commons.langchain import download_and_transcribe_audio
 from documents.utils import get_summary
 from commons.youtube_utils import get_youtube_transcript, repidapi_stt
+from commons.anthropic import anthropic_completion
 
 
 class DocumentViewSet(ApiViewSet,
@@ -64,3 +65,10 @@ class DocumentViewSet(ApiViewSet,
 
         summary = get_summary(transcript,choice)
         return Response({"summary": summary})
+
+
+    @action(methods=["GET"], detail=False, url_path="get-prompt-response")
+    def get_prompt_response(self, request, *args, **kwargs):
+        prompt = request.query_params.get("prompt")
+        response_text = anthropic_completion(prompt, 500)
+        return Response({"response_text": response_text})
