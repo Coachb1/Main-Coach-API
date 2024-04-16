@@ -857,15 +857,54 @@ class AccountsViewSet(ApiViewSet,
 
     
     @action(methods=['POST','PATCH'],detail=False, url_path="create-bot-by-details")
-    def create_bot_by_details(self,request,*args, **kwargs):
+    def create_bot_by_details(self, request, *args, **kwargs):
         """
-        Creates a new bot based on the provided bot details.
+    Creates or updates a bot based on the provided details in the request. This method handles both POST and PATCH requests.
 
-        :param request: The HTTP request object.
-        :param bot_details: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
-        :return: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
-        :rtype: dict
-        """
+    For a POST request, it creates a new bot with the specified attributes and media data. It requires details such as bot type, participant ID, bot name, and attributes. Optionally, media data like YouTube links, article links, PDFs, and documents can be included for content extraction and storage.
+
+    For a PATCH request, it updates an existing bot, primarily used for re-approving or updating bot details and media content. It can also handle media data processing similarly to POST.
+
+    Parameters:
+        request (HttpRequest): The request object containing all necessary data.
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        HttpResponse: JSON response containing the bot ID and status or error message.
+
+    Raises:
+        HTTP_400_BAD_REQUEST: If required fields are missing or validation fails.
+        HTTP_404_NOT_FOUND: If the bot to be updated does not exist.
+
+    Example:
+        POST /create-bot-by-details
+        Request Body:
+            {
+                "bot_type": "avatar_bot",
+                "participant_id": "12345",
+                "bot_name": "Health Bot",
+                "attributes": {"description": "A bot that provides health advice."},
+                "media_data": {"youtube_links": "http://youtube.com/example"}
+            }
+        Response:
+            {
+                "bot_id": "avatar_bot-12345-health-bot",
+                "bot_uid": "abcd1234"
+            }
+
+        PATCH /create-bot-by-details
+        Request Body:
+            {
+                "bot_id": "avatar_bot-12345-health-bot",
+                "updated_data": {"bot_name": "Updated Health Bot"}
+            }
+        Response:
+            {
+                "msg": "updated"
+            }
+    """
+
 
         data = request.data
 
@@ -2389,19 +2428,32 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'],detail=False,url_path="user-bot-connection-status")
     def user_bot_connection_status(self, request, *args, **kwargs):
         """
-        This method retrieves the connection status of a user with a bot.
+    Retrieves the connection status between a user and a coach based on their respective user IDs.
 
-        Args:
-            request: A Django HttpRequest object. Contains metadata about the request.
-                The request query parameters should include 'user_id' and 'bot_id'.
+    This method checks if there is an accepted connection between the specified user (coachee) and coach within the system. It uses the user IDs provided in the request's query parameters to look up their profiles and the connection status between them. If an accepted connection exists, it returns a positive response; otherwise, it indicates that no such connection is found.
 
-        Returns:
-            A Django HttpResponse object. Contains the connection status of the user with the bot.
+    Args:
+        request (HttpRequest): The HTTP request object containing the query parameters.
+            - user_id (str): The user ID of the coachee.
+            - coach_user_id (str): The user ID of the coach.
 
-        Example:
-            GET /user-bot-connection-status?user_id=1&bot_id=2
-            Response: {"status": "connected"}
-        """
+    Returns:
+        HttpResponse: JSON response indicating whether a connection exists or not.
+        - If a connection is found and is accepted, it returns:
+            {"connected": True}
+        - If no accepted connection exists or an error occurs, it returns:
+            {"connected": False, "error": "<error message>"}
+
+    Raises:
+        HTTP 400 Bad Request: If either 'user_id' or 'coach_user_id' is not provided in the query parameters.
+        HTTP 404 Not Found: If no connection is found or if the specified user or coach does not exist.
+
+    Example:
+        GET /user-bot-connection-status?user_id=123&coach_user_id=456
+        Possible responses:
+        - If connected: {"connected": True}
+        - If not connected or error: {"connected": False, "error": "connection not found"}
+    """
         user_id = request.query_params.get('user_id',None)
         coach_user_id = request.query_params.get('coach_user_id',None)
         logger.info(f"****************** user_id: {user_id}, coach_user_id: {coach_user_id}, tenant_id: {request.tenant.uid}")
@@ -2558,17 +2610,39 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET','POST'], detail=False, url_path='coach-rating')
     def coach_rating(self, request, *args, **kwargs):
         """
-        This method retrieves the rating of a coach based on the number of coachees connected to the coach.
+        Retrieves or updates the rating of a coach based on interactions with coachees.
+
+        This method supports both GET and POST requests:
+        - GET: Fetches the average rating of a specified coach based on ratings provided by coachees.
+        - POST: Updates or creates a rating for a coach from a specific coachee.
+
+        For a GET request:
+        - Input: Requires 'coach_id' as a query parameter to identify the coach.
+        - Process: Calculates the average rating by aggregating all ratings associated with the coach.
+        - Output: Returns the average rating and the total number of ratings.
+        - Example:
+            GET /coach-rating?coach_id=1
+            Response: {"rating": 4.5, "total_rating": 10}
+
+        For a POST request:
+        - Input: Requires 'coach_id', 'coachee_id', and 'rating' in the request data.
+        - Process: Checks if a rating already exists for the given coach and coachee pair. If it exists, it updates the rating; otherwise, it creates a new rating entry.
+        - Output: Returns the updated or newly created rating entry.
+        - Example:
+            POST /coach-rating
+            Request data: {"coach_id": "1", "coachee_id": "2", "rating": 4.5}
+            Response: {"coach_id": "1", "coachee_id": "2", "rating": 4.5}
 
         Args:
-            request: A Django HttpRequest object. Contains metadata about the request.
+            request (HttpRequest): The HTTP request object containing the data needed to process the action.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
 
         Returns:
-            A Django HttpResponse object. Contains the rating of the coach.
+            Response: An HTTP response object containing the rating data or an error message.
 
-        Example:
-            GET /coach-rating?coach_id=1
-            Response: {"rating": 4.5}
+        Raises:
+            HTTP 400 BAD REQUEST: If the coach or coachee specified does not exist.
         """
         
         if request.method == 'GET':
