@@ -190,6 +190,7 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False):
+    msg_str = ""
     try:
         from_password = APP_PASSWORD
         from_email = FROM_EMAIL
