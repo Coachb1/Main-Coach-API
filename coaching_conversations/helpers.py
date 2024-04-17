@@ -1314,9 +1314,9 @@ def create_user_profile_and_bot(data,auth):
     import traceback
 
     
-    name = data.get('name',None)
+    name = data.get('name',None).strip()
     if not name :
-        name = data.get('first name') + ' ' + data.get('last name')
+        name = data.get('first name').strip() + ' ' + data.get('last name').strip()
 
 
     name = remove_punctuations(name)
@@ -1480,7 +1480,8 @@ def create_user_profile_and_bot(data,auth):
         "high_rating_characteristics": high_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
         'is_approved': True,
         "journey_and_background": journey_and_background,
-        "voice_sample": voice_sample
+        "voice_sample": voice_sample,
+        "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring
 
     }
 
