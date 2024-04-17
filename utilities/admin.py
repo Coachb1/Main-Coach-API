@@ -59,8 +59,8 @@ admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAd
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
-    # if kwargs['created'] :
-    #     return  # Ignore if the instance is being created or not approved
+    if kwargs['created'] and instance.profile_type not in ['coachee','mentee'] :
+        return  
 
     # Send email when is_approved is changed to True
     bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else instance.avatar_bot_id
@@ -77,7 +77,6 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
     signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
     if instance.is_approved:
-
         try:
             subject = 'Your profile has been approved'
             emails = ["info@coachbots.com"]

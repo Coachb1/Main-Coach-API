@@ -1348,11 +1348,13 @@ class AccountsViewSet(ApiViewSet,
             elif request.method == "PATCH":
                 bot_id = data.get("bot_id",None)
                 profile_id = data.get("profile_id",None)
+                for_reapproval = data.get('for_reapproval',None).lower().strip() == 'true' if data.get('for_reapproval',None) else False
+                
 
                 # sending for reapproval to directory page info
 
                 directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
-                if directory:
+                if directory and for_reapproval:
                     DirectoryPageInfo.objects.create(
                         name = directory.name,
                         profile_id = directory.profile_id,
