@@ -25,6 +25,6 @@ def get_user_display_name(user: User):
 
     if not name:
         name = user.name
-        name = re.sub(r'[_-]+', ' ', name).capitalize()
+        name = re.sub(r'[_-]+', ' ', name)
 
     return name
