@@ -1347,7 +1347,9 @@ def create_user_profile_and_bot(data,auth):
     coach_same_department = data.get('I want to coach & mentor someone in the same department.'.strip().lower(),None)
     discuss_how_you_helped_others_in_coachMentoring = data.get('Please discuss how you have helped others as a coach/mentor or in other professional capacity. Please mentions these personal transformation stories in CAR format - Context, Action and Result achieved.'.strip().lower(),None)
     provide_answers_using_emojis = data.get('Would you like your AI Avatar to provide expressive answers using emojis?'.strip().lower(),None)
-    
+    journey_and_background = data.get("backstory".lower().strip(),None)
+    voice_sample = data.get('Do you want to provide a voice sample, if you want an audio avatar?'.strip().lower(),None)
+
     if not client_name:
         return False, {"email": email,'user_id':"",'error': f"Client name is required"}
     
@@ -1359,6 +1361,7 @@ def create_user_profile_and_bot(data,auth):
 
     coach_same_department = coach_same_department.lower() == "yes" if coach_same_department else False
     allow_coachee_to_create_session = allow_coachee_to_create_session.lower() == "yes" if allow_coachee_to_create_session else False
+    voice_sample = voice_sample.lower() == "yes" if voice_sample else False
 
     coach_questions = [
         "As a coach, what foundational values do you believe individuals should prioritize and strive for in their personal and professional development journey?",
@@ -1475,7 +1478,9 @@ def create_user_profile_and_bot(data,auth):
         "qna_for_coach_mentor" : qna_for_coach_mentor if qna_for_coach_mentor else None,
         "low_rating_characteristics": low_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
         "high_rating_characteristics": high_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
-        'is_approved': True
+        'is_approved': True,
+        "journey_and_background": journey_and_background,
+        "voice_sample": voice_sample
 
     }
 
@@ -1593,8 +1598,20 @@ def create_user_profile_and_bot(data,auth):
                 "department": department,
                 "youtube_links": youtube_links,
                 "article_links": article_links,
+                "voice_sample": voice_sample,
                 "discuss_how_you_helped_others_in_coachMentoring": discuss_how_you_helped_others_in_coachMentoring,
-                "provide_answers_using_emojis": provide_answers_using_emojis.lower() == 'yes' if provide_answers_using_emojis else False
+                "provide_answers_using_emojis": provide_answers_using_emojis.lower() == 'yes' if provide_answers_using_emojis else False,
+                "allow_coachee_to_create_session": allow_coachee_to_create_session,
+                "significant_challenges_and_solutions": significant_challenges_and_solutions ,
+                "common_phrases_and_expressions": common_phrases_and_expressions,
+                "journey_and_background": journey_and_background,
+                "fitment_answers": [
+                      coaching_level,
+                      coach_same_department,
+                      supported_outcome,
+                ],
+                "coach_qna": qna_for_coach,
+                "mentor_qna": qna_for_mentor
             },
             "media_data": media_data,
             'is_approved': True,
