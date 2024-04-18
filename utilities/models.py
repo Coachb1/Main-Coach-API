@@ -144,6 +144,7 @@ class DirectoryPageInfo(models.Model):
     timer_reset = models.BooleanField(null=True,default=False)
     visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
     ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
+    _previous_is_approved = models.BooleanField(null=True,default=False)
 
     
     class Meta:
