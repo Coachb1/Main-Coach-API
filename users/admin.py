@@ -53,18 +53,18 @@ admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
 def sync_profile_and_bot_data(sender, instance, **kwargs):
     if kwargs['created']:
         return
-    try:
-        directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
-        directory.name = instance.name
-        directory.department = instance.department
-        directory.description = instance.about
-        directory.experience = instance.experience
-        directory.expertise = instance.area_domain
+    # try:
+    #     directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
+    #     directory.name = instance.name
+    #     directory.department = instance.department
+    #     directory.description = instance.about
+    #     directory.experience = instance.experience
+    #     directory.expertise = instance.area_domain
 
-        directory.save()
+    #     directory.save()
 
-    except Exception as e:
-        print(f"Failed to update directory: {e}")
+    # except Exception as e:
+    #     print(f"Failed to update directory: {e}")
 
 
     if instance.profile_type in ['coachee','mentee']:
