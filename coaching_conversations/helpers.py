@@ -1347,17 +1347,20 @@ def create_user_profile_and_bot(data,auth):
     coach_same_department = data.get('I want to coach & mentor someone in the same department.'.strip().lower(),None)
     discuss_how_you_helped_others_in_coachMentoring = data.get('Please discuss how you have helped others as a coach/mentor or in other professional capacity. Please mentions these personal transformation stories in CAR format - Context, Action and Result achieved.'.strip().lower(),None)
     provide_answers_using_emojis = data.get('Would you like your AI Avatar to provide expressive answers using emojis?'.strip().lower(),None)
-    journey_and_background = data.get("backstory".lower().strip(),None)
+    journey_and_background = data.get("Backstory".lower().strip(),None)
     voice_sample = data.get('Do you want to provide a voice sample, if you want an audio avatar?'.strip().lower(),None)
+
+
+
 
     if not client_name:
         return False, {"email": email,'user_id':"",'error': f"Client name is required"}
     
     provided_links = {}
     if youtube_links:
-        provided_links['youtube_links'] = youtube_links.split(',')
+        provided_links['youtube_links'] = youtube_links
     if article_links:
-        provided_links['article_links'] = article_links.split(',')
+        provided_links['article_links'] = article_links
 
     coach_same_department = coach_same_department.lower() == "yes" if coach_same_department else False
     allow_coachee_to_create_session = allow_coachee_to_create_session.lower() == "yes" if allow_coachee_to_create_session else False
