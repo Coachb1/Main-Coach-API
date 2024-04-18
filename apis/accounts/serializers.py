@@ -5,6 +5,7 @@ from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,Bot
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
+from users.db import get_user_by_id, get_user_display_name
 
 import logging
 logger = logging.getLogger(__name__)
@@ -90,11 +91,22 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         res = super().to_representation(instance)
         try:
-            user_attributes = UserAttribute.objects.get(user_id=instance.user_id)
-            res['name'] = user_attributes.attributes.get('real_name',None)
-            print(f"################# user_attributes: {user_attributes.attributes}")
-            if res['name'] is None:
-                res['name'] = user_attributes.attributes.get('username',None)
+            
+            # user_attributes = UserAttribute.objects.get(user_id=instance.user_id)
+            # name = user_attributes.attributes.get('real_name',None)
+            # print(f"################# user_attributes: {user_attributes.attributes}")
+            # if name is None:
+            #     name = user_attributes.attributes.get('username',None)
+            # if name is None:
+            #     name = user_attributes.attributes.get('name',None)
+
+            # res['name'] = name
+
+            name = get_user_display_name(get_user_by_id(instance.user_id))
+            if name:
+                res['name'] = name
+
+            
         except Exception as e:
             logger.error(f"Error in CoachCoacheeMentorMenteeProfileSerializer: {e}")
             
