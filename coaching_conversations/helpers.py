@@ -1314,9 +1314,9 @@ def create_user_profile_and_bot(data,auth):
     import traceback
 
     
-    name = data.get('name',None).strip()
+    name = data.get('name',None)
     if not name :
-        name = data.get('first name').strip() + ' ' + data.get('last name').strip()
+        name = data.get('first name') + ' ' + data.get('last name')
 
 
     name = remove_punctuations(name)
