@@ -86,7 +86,7 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
 
     bot_ids = instance.bot_ids
     if bot_ids:
-        bot_ids = bot_ids.split(',')[0].strip()
+        bot_ids = bot_ids.split(',')
         bots = SignatureBot.objects.filter(deleted=False,bot_id__in=bot_ids)
         for bot in bots:
             if bot.bot_type == 'avatar_bot':
