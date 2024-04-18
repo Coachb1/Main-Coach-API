@@ -70,7 +70,9 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'is_mentor',
                 'qna_for_coach_mentor',
                 'significant_challenges_and_solutions',
-                'common_phrases_and_expressions'
+                'common_phrases_and_expressions',
+                "journey_and_background",
+                "mentorship_contribution"
                 ]
 
         extra_kwargs = {
