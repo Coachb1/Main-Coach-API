@@ -232,7 +232,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     admirer_user_ids = models.TextField(null=True, blank=True, default=None)
     journey_and_background = models.TextField(null=True, blank=True, default=None)
     mentorship_contribution = models.TextField(null=True, blank=True, default=None)
-
+    is_approved_email_sent = models.BooleanField(null=True, blank=True, default=False)
 
     
     
