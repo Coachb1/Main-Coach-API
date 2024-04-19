@@ -166,11 +166,12 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token, simulat
 
     # sending email 
     try:
+        
         mentor = UserAttribute.objects.get(user_id=session_notes.mentor_id).attributes
         mentee = UserAttribute.objects.get(user_id=session_notes.mentee_id).attributes
-        mentor_name = mentor.get('name', None) or mentor.get('user_name', None)
+        mentor_name = get_user_display_name(get_user_by_id(user_id=session_notes.mentor_id))
         mentor_email = mentor.get('email',None)
-        mentee_name = mentee.get('name',None) or mentor.get('user_name',None)
+        mentee_name = get_user_display_name(get_user_by_id(user_id=session_notes.mentee_id))
         mentee_email = mentee.get('email',None)
         
         to_email = [mentor_email,mentee_email]
@@ -290,9 +291,9 @@ def get_session_notes_data(tenant_id):
         try:
             mentor = UserAttribute.objects.get(user_id=notes.mentor_id)
             mentee = UserAttribute.objects.get(user_id=notes.mentee_id)
-            temp["mentor_name"] = mentor.get('name',None)
+            temp["mentor_name"] = get_user_display_name(get_user_by_id(user_id=notes.mentor_id))
             temp["mentor_email"] = mentor.get('email',None)
-            temp["mentee_name"] = mentee.get('name',None)
+            temp["mentee_name"] = get_user_display_name(get_user_by_id(user_id=notes.mentee_id))
             temp["mentee_email"] = mentee.get('email',None)
 
         except Exception as e:

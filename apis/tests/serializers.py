@@ -196,7 +196,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "is_recommended",
                   "visual_tags",
                   "page_name",
-                  "scenario_summary"
+                  "scenario_summary",
+                  "creator_email"
                   ]
 
     def get_questions(self, instance):
