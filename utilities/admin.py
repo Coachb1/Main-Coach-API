@@ -75,7 +75,10 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     except: 
         coach_profile = None
 
-    signature_bot = SignatureBot.objects.filter(bot_id=bot_id)
+    if instance.profile_type in ['coachee','mentee']:
+        return
+
+    signature_bot = SignatureBot.objects.filter(deleted=False,bot_id=bot_id)
     if instance.is_approved:
             try:
                 subject = 'Your profile has been approved'
@@ -100,7 +103,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                                 </table>
                             """
                 
-                if (coach_profile and not coach_profile.is_approved_email_sent) or instance.profile_type == 'knowledge_bot':
+                if (coach_profile and not coach_profile.is_approved_email_sent) or (instance.profile_type == 'knowledge_bot' and not signature_bot.first().is_approval_email_sent):
                     for email in emails:
                         logger.info(f"Sending email to {email}")
                         send_email_with_html_template(subject=subject,html_content=html_content,to_email=email)
@@ -108,9 +111,24 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                         if coach_profile:
                             coach_profile.is_approved_email_sent = True
                             coach_profile.save(update_fields=["is_approved_email_sent"])
+                        else:
+                            bot = signature_bot.first()
+                            bot.is_approval_email_sent = True
+                            bot.save(update_fields=["is_approval_email_sent"])
+
             except Exception as e:
                 logger.info(f"failed to send email: {e}")
         
+    # else: 
+    #     if coach_profile:
+    #         coach_profile.is_approved_email_sent = False
+    #         coach_profile.save(update_fields=["is_approved_email_sent"])
+
+    #     if instance.profile_type == 'knowledge_bot':
+    #         bot = signature_bot.first()
+    #         bot.is_approval_email_sent = False
+    #         bot.save(update_fields=["is_approval_email_sent"])
+
     if signature_bot.count() > 0:
         signature_bot = signature_bot.first()
         signature_bot.is_approved = instance.is_approved
