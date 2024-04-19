@@ -103,6 +103,7 @@ class SignatureBot(TenantAwareModel):
     use_personality_context = models.BooleanField(null=True,default=False)
     use_idp = models.BooleanField(null=True,default=False)
     bot_scenario_case = models.CharField(max_length=255, null=True, blank=True, choices=BotScenarioCaseChoice, default=BotScenarioCaseChoice.general)
+    is_approval_email_sent = models.BooleanField(null=True,default=False)
     
 
     class Meta:
