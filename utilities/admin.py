@@ -69,9 +69,16 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     print(kwargs)
     try:
         coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
+        updated_fields = []
         if instance.is_approved:
             coach_profile.is_approved = instance.is_approved
-            coach_profile.save(update_fields=["is_approved"])
+            updated_fields.append('is_approved')
+
+        coach_profile.profile_image_url = instance.profile_pic_url
+        updated_fields.append('profile_image_url')
+        coach_profile.save(update_fields=updated_fields)
+
+
     except: 
         coach_profile = None
 
