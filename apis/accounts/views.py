@@ -2601,6 +2601,31 @@ class AccountsViewSet(ApiViewSet,
                 profile.admirer_user_ids = ",".join(set(ids.split(",")))
                 profile.save(update_fields=['admirer_user_ids'])
 
+                ## sending email
+                try:
+                    user_email = UserAttribute.objects.get(deleted=False,user_id=user_id).attributes.get('email')
+                    user_name = get_user_display_name(get_user_by_id(user_id))
+                    subject = "Profile Notification"
+                    html_content = f"""
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
+                                <tr>
+                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
+
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                                    </td>
+                                    </tr>
+                                </table>
+                            """
+                    for email in ['info@coachbots.com', user_email]:
+                        try:
+                            send_email_with_html_template(subject,html_content,email)
+                        except Exception as e:
+                            logger.info(f"couldn't send email for {email} due to {e}")
+                except Exception as e:
+                    logger.exception(f"Got error while sending email in save liked profile: {e}")
+
                 return Response({'message': "saved"}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"create_or_save_liked_bot failed with: {e}")
