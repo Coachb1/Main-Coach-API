@@ -1850,7 +1850,7 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in directory information api": e})
             # send_slack_message({"module": "##################get_directory_informations#################", "message": f"got error in get_directory_informations: {e}"})
-            send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",{"email": request.query_params.get('email')})
+            # send_error_notification("get_directory_informations",f"got error in get_directory_informations: {e}",{"email": request.query_params.get('email')})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
