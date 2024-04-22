@@ -2710,3 +2710,79 @@ class AccountsViewSet(ApiViewSet,
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
                 return Response(serializer.data,status=status.HTTP_201_CREATED)
+
+
+    @action(methods=['POST'], detail=False, url_path='automation-cleanup')
+    def automation_cleanup(self, request, *args, **kwargs):
+        # logger.info(f"((((((((((((((((((((( QUERY PARAMS: {request.query_params})))))))))))))))))))))")
+        logger.info(f"((((((((((((((((((((( DATA : {request.data})))))))))))))))))))))")
+        
+        verify_hash = request.data.get('verify_hash',None)
+        
+        if not verify_hash:
+            return Response({"error":"verify_hash is required"},status=status.HTTP_400_BAD_REQUEST)
+        if verify_hash != 'c2FtcGxlLWNvZGUtZm9yLXByb3RlY3Rpb24tYW5kLXZhbGlkYXRpb24K':
+            return Response({"error": "Unauthorized"},status=status.HTTP_401_UNAUTHORIZED)
+        
+        user_uid = request.data.get('user_uid',None)
+        # coach_user_uid = request.data.get('coach_user_uid',None)
+        
+        def delete_user(user_uid):
+            logger.info(f"###################################USER_UID : {user_uid}")
+            user = User.objects.get(uid=user_uid)
+            user.delete()
+            
+            # delete user attributes
+            
+            user_attributes = UserAttribute.objects.filter(deleted=False,user_id=user_uid)
+            for user_attribute in user_attributes:
+                user_attribute.delete()
+                
+                
+            # delete user identity
+            
+            user_identity = Identity.objects.filter(user_id=user_uid)
+            for identity in user_identity:
+                identity.delete()
+
+            
+            
+        def delete_user_related_resources(user_uid):
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_uid)
+            for profile in profiles:
+                
+                # delete connections if user has coachee profile
+                connections = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=profile.uid)
+                for connection in connections:
+                    connection.delete()
+                    
+                # delete connections if user has coach profile
+                connections = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=profile.uid)
+                for connection in connections:
+                    connection.delete()
+                    
+                profile.delete()
+            
+            # delete bots if user has any
+            bots = SignatureBot.objects.filter(deleted=False,user_id=user_uid)
+            for bot in bots:
+                # delete bot related resources
+                bot_attributes = BotAttribute.objects.filter(deleted=False,bot_id=bot.bot_id)
+                for bot_attribute in bot_attributes:
+                    bot_attribute.delete()
+                    
+                bot_qnas = BotQnA.objects.filter(deleted=False,bot_id=bot.bot_id)
+                for bot_qna in bot_qnas:
+                    bot_qna.delete()
+                    
+                
+                bot.delete()
+                
+        
+        try:
+            delete_user(user_uid)
+            delete_user_related_resources(user_uid)
+            return Response({"message":"deleted"},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
