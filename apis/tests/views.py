@@ -555,25 +555,37 @@ class TestViewSet(ApiViewSet,
         scenario_case = request.query_params.get('scenario_case',None)
         num_questions = request.query_params.get('num_questions',None)
         candidate_type = request.query_params.get('candidate_type',None)
+        test_codes = request.query_params.get('test_codes',None)
+        page_name = request.query_params.get('page_name',None)
 
-        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
+
         test_list = []
+        tests = Test.objects.filter()
+        if test_codes:
+            test_codes = [code.strip() for code in test_codes.split(",")]
+            tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_code__in=test_codes)
 
-        if candidate_type:
-            tests = tests.filter(candidate_type=candidate_type)
-        if interaction_mode:
-            tests = tests.filter(interaction_mode=interaction_mode)
-        if scenario_case:
-            tests = tests.filter(scenario_case=scenario_case)
-        if title :
-            tests = tests.filter(title=title)
+        else:
+            tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
+
+            if candidate_type:
+                tests = tests.filter(candidate_type=candidate_type)
+            if interaction_mode:
+                tests = tests.filter(interaction_mode=interaction_mode)
+            if scenario_case:
+                tests = tests.filter(scenario_case=scenario_case)
+            if title :
+                tests = tests.filter(title=title)
+
+            if page_name:
+                tests = tests.filter(page_name=page_name)
 
         cnt = 1
         csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
         for test in tests:
             temp={}
             questions = TestQuestion.objects.filter(test_id=test.uid)
-
+            
             num_questions = int(num_questions)
             if questions.count() == num_questions :
                 
@@ -606,6 +618,8 @@ class TestViewSet(ApiViewSet,
                 
                 cnt += 1
                 
+            else:
+                print(f'{test.test_code},{test.test_type}: {questions.count()}')
 
         return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
     
@@ -621,17 +635,27 @@ class TestViewSet(ApiViewSet,
         bots = request.query_params.get('bots',None)
         is_start_with_user = request.query_params.get('is_start_with_user',None)
 
-        tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
-        test_list = []
 
-        if candidate_type:
-            tests = tests.filter(candidate_type=candidate_type)
-        
-        if interaction_mode:
-            tests = tests.filter(interaction_mode=interaction_mode)
-        if scenario_case:
-            tests = tests.filter(scenario_case=scenario_case)
-        
+        test_codes = request.query_params.get('test_codes',None)
+        page_name = request.query_params.get('page_name',None)
+        test_list = []
+        tests = Test.objects.filter()
+        if test_codes:
+            test_codes = [code.strip() for code in test_codes.split(",")]
+            tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_code__in=test_codes)
+        else:
+            tests = Test.objects.filter(deleted=0,tenant_id=tenant_id,test_type=test_type)
+
+            if candidate_type:
+                tests = tests.filter(candidate_type=candidate_type)
+            
+            if interaction_mode:
+                tests = tests.filter(interaction_mode=interaction_mode)
+            if scenario_case:
+                tests = tests.filter(scenario_case=scenario_case)
+            if page_name:
+                tests = tests.filter(page_name=page_name)
+            
 
         cnt = 1
         csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
@@ -660,11 +684,14 @@ class TestViewSet(ApiViewSet,
 
                 orch_details = test.orchestrated_conversation_details
 
+                
                 if 'start_with_user' in orch_details:
                     if is_start_with_user == 'false':
+                        print(f"{test.test_code},start with user: {'start_with_user' in orch_details}")
                         continue
                 elif 'start_with_user' not in orch_details:
                     if is_start_with_user == 'true':
+                        print(f"{test.test_code},start with user: {'start_with_user' in orch_details}")
                         continue
 
 
@@ -674,10 +701,12 @@ class TestViewSet(ApiViewSet,
                             csv_heading += f",Pesron {index}"
                         temp[f'Person {index}'] = msg
                 else:
+                    print(f"{test.test_code},{test.test_type},{questions.count()},{len(orch_details['initial_messages'])}")
+
                     continue
 
 
-
+                test_type = test.test_type
                 if test_type in ['dynamic_discussion',"dynamic_discussion_thread"]:
                     if test_type == 'dynamic_discussion':
                         if cnt == 1:
@@ -709,7 +738,8 @@ class TestViewSet(ApiViewSet,
 
                 cnt += 1
                 
-
+            else:
+                print(f"{test.test_code},{test.test_type},{questions.count()}")
         return Response({"heading": csv_heading,'test_list':test_list}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-free-type-test")
