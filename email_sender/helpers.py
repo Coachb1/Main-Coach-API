@@ -163,7 +163,7 @@ def send_feedbackd_email(candidate_name, test_code, test_name, session_id, ratin
 def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,mentee_name,session_note):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
-    to_email = to_email.append("info@coachbots.com")
+    to_email.append("info@coachbots.com")
 
 
     

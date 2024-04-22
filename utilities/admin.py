@@ -76,6 +76,16 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
         coach_profile.profile_image_url = instance.profile_pic_url
         updated_fields.append('profile_image_url')
+        coach_profile.name = instance.name
+        updated_fields.append('name')
+        coach_profile.department = instance.department
+        updated_fields.append('department')
+        coach_profile.experience = instance.experience
+        updated_fields.append('experience')
+        coach_profile.area_domain = instance.expertise
+        updated_fields.append('area_domain')
+        coach_profile.about = instance.description
+        updated_fields.append('about')
         coach_profile.save(update_fields=updated_fields)
 
 
