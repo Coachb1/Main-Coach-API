@@ -53,18 +53,40 @@ admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
 def sync_profile_and_bot_data(sender, instance, **kwargs):
     if kwargs['created']:
         return
-    # try:
-    #     directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
-    #     directory.name = instance.name
-    #     directory.department = instance.department
-    #     directory.description = instance.about
-    #     directory.experience = instance.experience
-    #     directory.expertise = instance.area_domain
+    try:
+        directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
+        updated_fields = []
 
-    #     directory.save()
+        if instance.profile_image_url != directory.profile_pic_url:
+            directory.profile_pic_url = instance.profile_image_url
+            updated_fields.append('profile_pic_url')
 
-    # except Exception as e:
-    #     print(f"Failed to update directory: {e}")
+        if instance.name != directory.name:
+            directory.name = instance.name
+            updated_fields.append('name')
+
+        if instance.department != directory.department:
+            directory.department = instance.department
+            updated_fields.append('department')
+
+        if instance.about != directory.description:
+            directory.description = instance.about
+            updated_fields.append('description')
+
+        if instance.experience != directory.experience:
+            directory.experience = instance.experience
+            updated_fields.append('experience')
+
+        if instance.area_domain != directory.expertise:
+            directory.expertise = instance.area_domain
+            updated_fields.append('expertise')
+
+        if updated_fields:
+            directory.save(update_fields=updated_fields)
+
+
+    except Exception as e:
+        print(f"Failed to update directory: {e}")
 
 
     if instance.profile_type in ['coachee','mentee']:
