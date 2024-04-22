@@ -151,18 +151,17 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token, simulat
     
     save_user_action_info(tenant_id,user_id,"session_notes_count")
     
-    if access_token:
-        logger.info(f"commentor: {commentor.profile_type},reciever:{reciever.profile_type}")
-        if reciever.profile_type != "coach":
+    # if access_token:
+    #     logger.info(f"commentor: {commentor.profile_type},reciever:{reciever.profile_type}")
+    #     if reciever.profile_type != "coach":
 
-            context = json.dumps({"title":"","data":{"information":context}})
-            try:
-                recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
-                session_notes.recommendations = recomm['test_code']
-                session_notes.save(update_fields=['recommendations'])
-            except Exception as e:
-                logger.error({"Error":e},exc_info=True)
-
+    #         context = json.dumps({"title":"","data":{"information":context}})
+    #         try:
+    #             recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
+    #             session_notes.recommendations = recomm['test_code']
+    #             session_notes.save(update_fields=['recommendations'])
+    #         except Exception as e:
+    #             logger.error({"Error":e},exc_info=True)
 
     # sending email 
     try:
