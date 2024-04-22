@@ -11,7 +11,6 @@ from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttr
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
 import logging
-from commons.utils import compare_model_field_data
 
 logger = logging.getLogger(__name__)
 
