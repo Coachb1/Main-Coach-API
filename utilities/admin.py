@@ -70,23 +70,36 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     try:
         coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.profile_id)
         updated_fields = []
-        if instance.is_approved:
+        if instance.is_approved != coach_profile.is_approved:
             coach_profile.is_approved = instance.is_approved
             updated_fields.append('is_approved')
 
-        coach_profile.profile_image_url = instance.profile_pic_url
-        updated_fields.append('profile_image_url')
-        coach_profile.name = instance.name
-        updated_fields.append('name')
-        coach_profile.department = instance.department
-        updated_fields.append('department')
-        coach_profile.experience = instance.experience
-        updated_fields.append('experience')
-        coach_profile.area_domain = instance.expertise
-        updated_fields.append('area_domain')
-        coach_profile.about = instance.description
-        updated_fields.append('about')
-        coach_profile.save(update_fields=updated_fields)
+        if instance.profile_pic_url != coach_profile.profile_image_url:
+            coach_profile.profile_image_url = instance.profile_pic_url
+            updated_fields.append('profile_image_url')
+
+        if instance.name != coach_profile.name:
+            coach_profile.name = instance.name
+            updated_fields.append('name')
+
+        if instance.department != coach_profile.department:
+            coach_profile.department = instance.department
+            updated_fields.append('department')
+
+        if instance.experience != coach_profile.experience:
+            coach_profile.experience = instance.experience
+            updated_fields.append('experience')
+
+        if instance.expertise != coach_profile.area_domain:
+            coach_profile.area_domain = instance.expertise
+            updated_fields.append('area_domain')
+
+        if instance.description != coach_profile.about:
+            coach_profile.about = instance.description
+            updated_fields.append('about')
+
+        if updated_fields:
+            coach_profile.save(update_fields=updated_fields)
 
 
     except: 
