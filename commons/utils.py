@@ -115,3 +115,20 @@ def remove_punctuations(text):
     translator = str.maketrans('', '', string.punctuation)
     # Remove punctuations using translate method
     return text.translate(translator)
+
+@timeit
+def compare_model_field_data(model_1, model_2, field1, field2) -> bool:
+    """
+    Compares two Django model instances and checks if the values of the specified fields are equal.
+
+    Args:
+        model_1 (Any): The first model instance to compare.
+        model_2 (Any): The second model instance to compare.
+        field1 (str): The name of the first field to compare.
+        field2 (str): The name of the second field to compare.
+
+    Returns:
+        bool: True if the values of the specified fields are equal, False otherwise.
+    """
+    # Check if the values of the specified fields are equal
+    return getattr(model_1, field1) == getattr(model_2, field2)
