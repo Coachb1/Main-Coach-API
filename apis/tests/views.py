@@ -557,6 +557,8 @@ class TestViewSet(ApiViewSet,
         candidate_type = request.query_params.get('candidate_type',None)
         test_codes = request.query_params.get('test_codes',None)
         page_name = request.query_params.get('page_name',None)
+        competency_skills = request.query_params.get('competency_skills',None)
+        tab_category = request.query_params.get('tab_category',None)
 
 
         test_list = []
@@ -580,8 +582,14 @@ class TestViewSet(ApiViewSet,
             if page_name:
                 tests = tests.filter(page_name=page_name)
 
+            if competency_skills:
+                tests = tests.exclude(competency_group=None)
+            if tab_category:
+                tests = tests.filter(tab_category=tab_category)
+
+
         cnt = 1
-        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills"
         for test in tests:
             temp={}
             questions = TestQuestion.objects.filter(test_id=test.uid)
@@ -601,6 +609,8 @@ class TestViewSet(ApiViewSet,
                 temp["Interaction Mode"] = test.interaction_mode
                 temp["Test Type"] = test.test_type
                 temp["Scenario Case"] = test.scenario_case
+                temp['Tab category'] = test.tab_category
+                temp['Competency Skills'] = test.competency_group
 
                 for question in questions:
                     if cnt == 1:
@@ -617,6 +627,8 @@ class TestViewSet(ApiViewSet,
 
                 
                 cnt += 1
+
+                print(f'created- {test.test_code}')
                 
             else:
                 print(f'{test.test_code},{test.test_type}: {questions.count()}')
@@ -638,6 +650,9 @@ class TestViewSet(ApiViewSet,
 
         test_codes = request.query_params.get('test_codes',None)
         page_name = request.query_params.get('page_name',None)
+        competency_skills = request.query_params.get('competency_skills',None)
+        tab_category = request.query_params.get('tab_category',None)
+
         test_list = []
         tests = Test.objects.filter()
         if test_codes:
@@ -655,10 +670,14 @@ class TestViewSet(ApiViewSet,
                 tests = tests.filter(scenario_case=scenario_case)
             if page_name:
                 tests = tests.filter(page_name=page_name)
+            if competency_skills:
+                tests = tests.exclude(competency_group=None)
+            if tab_category:
+                tests = tests.filter(tab_category=tab_category)
             
 
         cnt = 1
-        csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case"
+        csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills"
         for test in tests:
             
             temp={}
@@ -680,6 +699,8 @@ class TestViewSet(ApiViewSet,
                 temp["Interaction Mode"] = test.interaction_mode
                 temp["Test Type"] = test.test_type
                 temp["Scenario Case"] = test.scenario_case
+                temp['Tab category'] = test.tab_category
+                temp['Competency Skills'] = test.competency_group
 
 
                 orch_details = test.orchestrated_conversation_details
@@ -737,6 +758,8 @@ class TestViewSet(ApiViewSet,
                 test_list.append(temp)
 
                 cnt += 1
+
+                print(f"created {test.test_code}")
                 
             else:
                 print(f"{test.test_code},{test.test_type},{questions.count()}")
