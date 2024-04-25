@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+                 ,User,UserAttribute)
 import json
 from utilities.models import DirectoryPageInfo
 
@@ -42,11 +43,29 @@ class ClientUserInfoAdmin(admin.ModelAdmin):
     list_editable = ('client_name','member_emails','member_mob_numbers','avatar_bot_creation','feedback_bot_creation','subject_matter_bot_creation','number_of_conversation_per_month','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
     ordering = ('-id',)
 
+
+# class UserAdmin(admin.ModelAdmin):
+#     list_per_page = 10
+#     list_display = ('id','tenant_id','name','role','is_root','is_excluded','deleted')
+#     list_filter = ('tenant_id','role','is_root','is_excluded')
+#     search_fields = ('name',)
+#     list_editable = ('name','role','is_root','is_excluded','deleted')
+#     ordering = ('-id',)
+# class UserAttributesAdmin(admin.ModelAdmin):
+#     list_per_page = 10
+#     list_display = ('id','tenant_id','user_id','attributes','tag','deleted')
+#     list_filter = ('tenant_id',)
+#     search_fields = ('user_id',)
+#     list_editable = ('attributes','deleted')
+#     ordering = ('-id',)
+
 admin.site.register(CoachCoacheeMentorMenteeProfile, CoachCoacheeMentorMenteeProfileAdmin)
 admin.site.register(BotAttribute)
 admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
+# admin.site.register(User,UserAdmin)
+# admin.site.register(UserAttribute,UserAttributesAdmin)
 
 
 @receiver(post_save, sender=CoachCoacheeMentorMenteeProfile)
