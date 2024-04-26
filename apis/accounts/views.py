@@ -1272,19 +1272,10 @@ class AccountsViewSet(ApiViewSet,
                                 try:
                                     subject = "AI Frame"
                                     html = f"""
-                                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                                <tr>
-                                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey {coach_profile.name}!</p>
-                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your AI frame. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
-
-                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                                </td>
-                                                </tr>
-                                        </table>
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your AI frame. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
                                         """
 
-                                    send_email_with_html_template(subject=subject,html_content=html,to_email=email)
+                                    send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
                             
                                 except Exception as e:
                                     logger.exception(f"Ai frame creation email is failed reason: {e}")
@@ -2106,16 +2097,7 @@ class AccountsViewSet(ApiViewSet,
                     connection.save(update_fields=['status'])
                     subject = "Connection Approved"
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} has approved your connection request.</p>
-
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
@@ -2143,16 +2125,7 @@ class AccountsViewSet(ApiViewSet,
                     coachee_email = coachee.email
                     subject = "Connection Approved"
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations,{coach_name} as approved your connection request.</p>
-
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
@@ -2207,19 +2180,10 @@ class AccountsViewSet(ApiViewSet,
                 coachee_email = coachee.email
                 subject = "You have a connection request"
                 html = f"""
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                            <tr>
-                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey {coach_name}!</p>
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
-
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                            </td>
-                            </tr>
-                    </table>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
                     """
 
-                send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email)
+                send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
                 return Response({"data": CoachCoacheeConnectionSerializer(created_connection).data },status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.exception(e)
@@ -2611,16 +2575,7 @@ class AccountsViewSet(ApiViewSet,
                     user_name = get_user_display_name(get_user_by_id(user_id))
                     subject = "Profile Notification"
                     html_content = f"""
-                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
-
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                    </td>
-                                    </tr>
-                                </table>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
                             """
                     for email in ['info@coachbots.com', user_email]:
                         try:

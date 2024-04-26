@@ -67,15 +67,7 @@ def touch_point_for_session_weekly():
 
     subject = "Touchpoint for coaching mentoring session"
     template = """
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-            <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to get your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
-
-                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-            </td> </tr>
-        </table>
+        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to get your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
         """
     failed_emails =[]
     for user_att in user_atts:
@@ -140,15 +132,7 @@ def weekly_remider_to_login():
                 user = User.objects.get(uid=user_id)
                 user_name = user.name
                 template = f"""
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear {user_name.capitalize()}, This week we faciltated over {tenant_action_mapping[user.tenant_id]} conversations across coach, coachees and simulations. Do remember to check out the action! Thank you </p>
-
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td> </tr>
-                    </table>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear {user_name.capitalize()}, This week we faciltated over {tenant_action_mapping[user.tenant_id]} conversations across coach, coachees and simulations. Do remember to check out the action! Thank you </p>
                     """
                 if user_email not in sent_emails:
                     try:
