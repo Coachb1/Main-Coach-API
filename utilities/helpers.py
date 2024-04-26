@@ -563,16 +563,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                         logger.error({"Error":e},exc_info=True)
                         user_email = ""
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}, user_email: {user_email} </p>
-
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}, user_email: {user_email} </p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
@@ -661,18 +652,9 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 if i+1 == 2:
                     subject = "Failed to generate required Scenarios For IDP"
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
-                                    
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
 
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
@@ -695,7 +677,6 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                             <tr>
                             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {user_name} </p>
                                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your IDP is ready. The detailed report can be viewed here:</p>
                         <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                         <tbody>
@@ -712,9 +693,6 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                             </tr>
                         </tbody>
                         </table>
-                                
-
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                             </td>
                             </tr>
                     </table>
@@ -722,7 +700,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id).attributes
         emails = [user_att['email'],"info@coachbots.com"]
         for email in emails:
-            send_email_with_html_template(subject=subject,html_content=html,to_email=email)
+            send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {user_name}!')
 
 
         return UserIDPSerializers(user_idp).data, True
