@@ -14,7 +14,7 @@ from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
-                            update_prompt_user_attributes, scrape_article_data)
+                            update_prompt_user_attributes, scrape_article_data, update_scenarios)
 from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -1215,4 +1215,21 @@ class TestViewSet(ApiViewSet,
         
         except Exception as e:
             logger.exception({"got error in get-tests-by-tab-category api": e})
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['PATCH'],detail=False, url_path="update_scenarios")
+    def update_test_scenarios(self,request,*args, **kwargs):
+
+        try:
+            data = request.data.get('test_data')
+            for d in data:
+                formatted_dict = {key.strip(): value for key, value in d.items()}
+                # logger.info(f"===================== formatted_dict: {formatted_dict}")
+                update_scenarios(formatted_dict)
+                
+            return Response("updated", status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception({"got error in update_scenarios api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
