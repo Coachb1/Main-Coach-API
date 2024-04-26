@@ -8606,3 +8606,76 @@ def summaries():
 
     
 
+def update_scenarios(test):
+
+    title = test.get("Title")
+    description = test.get('Test description')
+
+    question = []
+    prompt = []
+    kls = []
+    klps = []
+    for key, value in test.items():
+        if key.startswith('Question'):
+            print(key)
+            question.append(value)
+
+        if key.startswith('Custom Prompt'):
+            print(key)
+            prompt.append(value)
+
+        if key.startswith('KLS'):
+            print(key)
+            kls.append(value)
+
+        if key.startswith('KLP'):
+            print(key)
+            klps.append(value)
+
+
+    print(f"title: {title}, desc : {description}")
+    print(f"{question}, {prompt}, {kls}, {klps}")
+
+    code = test.get('Test code')
+    test_obj = Test.objects.get(deleted=False,test_code = code)
+
+    print(test_obj.title)
+    print(test_obj.description)
+    print(test_obj.skills_to_evaluate)
+    skills = []
+
+    for s in kls:
+        skills.extend([sk.strip().capitalize() for sk in s.split(',')])
+
+    skills = ",".join(set(skills))
+    print(skills)
+    test_obj.title = title
+    test_obj.description = description
+    test_obj.skills_to_evaluate = skills
+
+    test_obj.save()
+
+    test_ques = TestQuestion.objects.filter(test_id=test_obj.uid)
+
+    for index, que in enumerate(test_ques):
+
+        print(f'{index}{que.question}')
+        que.question = question[index]
+        que.gpt_prompt_override = prompt[index]
+        que.key_learning_point = klps[index]
+        que.key_learning_skills = kls[index]
+
+        que.save()
+
+        print(f"""
+         {question[index]},
+         {prompt[index]},
+         {klps[index]},
+         {kls[index]}
+        """)
+
+
+    print(f"{'*'*100}{code}")
+
+
+
