@@ -82,3 +82,4 @@ python-docx==1.1.0
 apscheduler==3.10.4
 pyarrow==15.0.2
 lxml_html_clean==0.1.0
+coverage==7.4.4
