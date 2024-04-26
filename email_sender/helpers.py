@@ -243,14 +243,14 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
 
     html_body= ''
     if type_of_email == 'like' or type_of_email == 'dislike':
-        text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a crititical feedback for you!"
+        text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a critical feedback for you!"
         if type_of_email == 'like':
             text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
         html_body = get_like_dislike_email_body(text)
     elif type_of_email == 'feedback_conv':
-        message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a crititical feedback for you!"
-        if is_positive:
-            message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
+        message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a feedback for you!"
+        # if is_positive:
+        #     message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
         html_body = get_feedback_conv_email_body(message, conversation)
 
     msg.attach(MIMEText(html_body, 'html'))
