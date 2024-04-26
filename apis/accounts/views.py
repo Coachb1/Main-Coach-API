@@ -583,8 +583,12 @@ class AccountsViewSet(ApiViewSet,
                 feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
                 msg_data = []
                 for feed in feedback_data:
-                    participant_name = get_user_display_name(
-                        get_user_by_id(feed.participant_id))
+                    try:
+                        participant_name = get_user_display_name(
+                            get_user_by_id(feed.participant_id))
+                    except Exception as e:
+                        logger.info(f"User not found: {feed.participant_id}")
+                        continue
                     
                     if feedback_type == "negative":
                         if not feed.is_positive:
