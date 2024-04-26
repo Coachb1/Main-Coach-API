@@ -205,7 +205,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
         transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
-        email_wrapper = get_email_wrapper(html_content=transcript_block,candidate_name=candidate_name)
+        email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)')
 
         msg.attach(MIMEText(email_wrapper, 'html'))
         msg_str = msg.as_string()
@@ -230,25 +230,28 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args) """
         # send_error_notification("send_bot_conversation_email", str(e), {"to_email": to_email, "candidate_name": candidate_name, "conversation": conversation})
 
-def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email):
+def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email, is_positive=False):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 
 
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = f"Feedback"
+    msg['Subject'] = f"Peer Feedback for your profile"
     msg['From'] = "Coachbots  <mail@coachbots.com>"
     msg['To'] = to_email
 
 
     html_body= ''
     if type_of_email == 'like' or type_of_email == 'dislike':
-        text = f"{candidate_name} Disliked Your Bot "
+        text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a crititical feedback for you!"
         if type_of_email == 'like':
-            text = f"{candidate_name} Liked Your Bot "
+            text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
         html_body = get_like_dislike_email_body(text)
     elif type_of_email == 'feedback_conv':
-        html_body = get_feedback_conv_email_body(candidate_name, conversation)
+        message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a crititical feedback for you!"
+        if is_positive:
+            message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
+        html_body = get_feedback_conv_email_body(message, conversation)
 
     msg.attach(MIMEText(html_body, 'html'))
     msg_str = msg.as_string()
@@ -261,7 +264,7 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
     server.sendmail(from_email, to_email, msg_str)
     server.quit()
 
-def send_email_with_html_template(subject, html_content, to_email = 'info@coachbots.com'):
+def send_email_with_html_template(subject, html_content, to_email = 'info@coachbots.com',title='Hey!'):
     """
     please enter html content like this (can reference from it):
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
@@ -285,7 +288,7 @@ def send_email_with_html_template(subject, html_content, to_email = 'info@coachb
     msg['From'] = "Coachbots Notification <mail@coachbots.com>"
     msg['To'] = to_email
 
-    html_body = email_body_templete(html_content=html_content)
+    html_body = email_body_templete(html_content=html_content,title=title)
 
     msg.attach(MIMEText(html_body, 'html'))
     msg_str = msg.as_string()
@@ -297,7 +300,7 @@ def send_email_with_html_template(subject, html_content, to_email = 'info@coachb
     server.sendmail(from_email, to_email, msg_str)
     server.quit()
 
-def email_body_templete(html_content):
+def email_body_templete(html_content,title='Hey!'):
     """
     please enter html content like this (can reference from it):
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
@@ -313,148 +316,8 @@ def email_body_templete(html_content):
     </table>
     
     """
-    return f"""<!doctype html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Simple Transactional Email</title>
-        <style>
-    @media only screen and (max-width: 620px) {{
-    table.body h1 {{
-        font-size: 28px !important;
-        margin-bottom: 10px !important;
-    }}
+    return get_email_wrapper(html_content=html_content, title=title)
 
-    table.body p,
-    table.body ul,
-    table.body ol,
-    table.body td,
-    table.body span,
-    table.body a {{
-        font-size: 16px !important;
-    }}
-
-    table.body .wrapper,
-    table.body .article {{
-        padding: 10px !important;
-    }}
-
-    table.body .content {{
-        padding: 0 !important;
-    }}
-
-    table.body .container {{
-        padding: 0 !important;
-        width: 100% !important;
-    }}
-
-    table.body .main {{
-        border-left-width: 0 !important;
-        border-radius: 0 !important;
-        border-right-width: 0 !important;
-    }}
-
-    table.body .btn table {{
-        width: 100% !important;
-    }}
-
-    table.body .btn a {{
-        width: 100% !important;
-    }}
-
-    table.body .img-responsive {{
-        height: auto !important;
-        max-width: 100% !important;
-        width: auto !important;
-    }}
-    }}
-    @media all {{
-    .ExternalClass {{
-        width: 100%;
-    }}
-
-    .ExternalClass,
-    .ExternalClass p,
-    .ExternalClass span,
-    .ExternalClass font,
-    .ExternalClass td,
-    .ExternalClass div {{
-        line-height: 100%;
-    }}
-
-    .apple-link a {{
-        color: inherit !important;
-        font-family: inherit !important;
-        font-size: inherit !important;
-        font-weight: inherit !important;
-        line-height: inherit !important;
-        text-decoration: none !important;
-    }}
-
-    #MessageViewBody a {{
-        color: inherit;
-        text-decoration: none;
-        font-size: inherit;
-        font-family: inherit;
-        font-weight: inherit;
-        line-height: inherit;
-    }}
-
-    .btn-primary table td:hover {{
-        background-color: #34495e !important;
-    }}
-
-    .btn-primary a:hover {{
-        background-color: #34495e !important;
-        border-color: #34495e !important;
-    }}
-    }}
-    </style>
-    </head>
-    <body style="background-color: #f6f6f6; font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.4; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
-        <span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Interaction Report.</span>
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #f6f6f6; width: 100%;" width="100%" bgcolor="#f6f6f6">
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-            <td class="container" style="font-family: sans-serif; font-size: 14px; vertical-align: top; display: block; max-width: 580px; padding: 10px; width: 580px; margin: 0 auto;" width="580" valign="top">
-            <div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
-
-                <!-- START CENTERED WHITE CONTAINER -->
-                <table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
-
-                <!-- START MAIN CONTENT AREA -->
-                <tr>
-                    <td class="wrapper" style="font-family: sans-serif; font-size: 14px; vertical-align: top; box-sizing: border-box; padding: 20px;" valign="top">
-                    {html_content}
-                    </td>
-                </tr>
-
-                <!-- END MAIN CONTENT AREA -->
-                </table>
-                <!-- END CENTERED WHITE CONTAINER -->
-
-                <!-- START FOOTER -->
-                <div class="footer" style="clear: both; margin-top: 10px; text-align: center; width: 100%;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                    <tr>
-                    <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
-                        <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
-                    </td>
-                    </tr>
-                </table>
-                </div>
-                <!-- END FOOTER -->
-
-            </div>
-            </td>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-        </tr>
-        </table>
-    </body>
-    </html>
-"""
 def get_generic_email_body(content):
     return f"""
     <!doctype html>
@@ -612,162 +475,10 @@ def get_generic_email_body(content):
 
 
 def get_like_dislike_email_body(content):
-    return f"""
-    <!doctype html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Simple Transactional Email</title>
-        <style>
-    @media only screen and (max-width: 620px) {{
-    table.body h1 {{
-        font-size: 28px !important;
-        margin-bottom: 10px !important;
-    }}
+    return get_email_wrapper(html_content=content,title='Hey!')
 
-    table.body p,
-    table.body ul,
-    table.body ol,
-    table.body td,
-    table.body span,
-    table.body a {{
-        font-size: 16px !important;
-    }}
-
-    table.body .wrapper,
-    table.body .article {{
-        padding: 10px !important;
-    }}
-
-    table.body .content {{
-        padding: 0 !important;
-    }}
-
-    table.body .container {{
-        padding: 0 !important;
-        width: 100% !important;
-    }}
-
-    table.body .main {{
-        border-left-width: 0 !important;
-        border-radius: 0 !important;
-        border-right-width: 0 !important;
-    }}
-
-    table.body .btn table {{
-        width: 100% !important;
-    }}
-
-    table.body .btn a {{
-        width: 100% !important;
-    }}
-
-    table.body .img-responsive {{
-        height: auto !important;
-        max-width: 100% !important;
-        width: auto !important;
-    }}
-    }}
-    @media all {{
-    .ExternalClass {{
-        width: 100%;
-    }}
-
-    .ExternalClass,
-    .ExternalClass p,
-    .ExternalClass span,
-    .ExternalClass font,
-    .ExternalClass td,
-    .ExternalClass div {{
-        line-height: 100%;
-    }}
-
-    .apple-link a {{
-        color: inherit !important;
-        font-family: inherit !important;
-        font-size: inherit !important;
-        font-weight: inherit !important;
-        line-height: inherit !important;
-        text-decoration: none !important;
-    }}
-
-    #MessageViewBody a {{
-        color: inherit;
-        text-decoration: none;
-        font-size: inherit;
-        font-family: inherit;
-        font-weight: inherit;
-        line-height: inherit;
-    }}
-
-    .btn-primary table td:hover {{
-        background-color: #34495e !important;
-    }}
-
-    .btn-primary a:hover {{
-        background-color: #34495e !important;
-        border-color: #34495e !important;
-    }}
-    }}
-    </style>
-    </head>
-    <body style="background-color: #f6f6f6; font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.4; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
-        <span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Interaction Report.</span>
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #f6f6f6; width: 100%;" width="100%" bgcolor="#f6f6f6">
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-            <td class="container" style="font-family: sans-serif; font-size: 14px; vertical-align: top; display: block; max-width: 580px; padding: 10px; width: 580px; margin: 0 auto;" width="580" valign="top">
-            <div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
-
-                <!-- START CENTERED WHITE CONTAINER -->
-                <table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
-
-                <!-- START MAIN CONTENT AREA -->
-                <tr>
-                    <td class="wrapper" style="font-family: sans-serif; font-size: 14px; vertical-align: top; box-sizing: border-box; padding: 20px;" valign="top">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{content}</p>
-                            
-            
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td>
-                        </tr>
-                    </table>
-                    </td>
-                </tr>
-
-                <!-- END MAIN CONTENT AREA -->
-                </table>
-                <!-- END CENTERED WHITE CONTAINER -->
-
-                <!-- START FOOTER -->
-                <div class="footer" style="clear: both; margin-top: 10px; text-align: center; width: 100%;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                    <tr>
-                    <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
-                        <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
-                    </td>
-                    </tr>
-                </table>
-                </div>
-                <!-- END FOOTER -->
-
-            </div>
-            </td>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-        </tr>
-        </table>
-    </body>
-    </html>
-    """
-
-def get_feedback_conv_email_body(candidate_name,conversation):
-    data = ''
+def get_feedback_conv_email_body(message,conversation):
+    data = f'<p>{message}<p><br><br>'
     for i in conversation:
         data += f'''
                 <tr>
@@ -781,171 +492,7 @@ def get_feedback_conv_email_body(candidate_name,conversation):
                     </td>
                 </tr>
             '''
-    return f"""
-    <!doctype html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Simple Transactional Email</title>
-        <style>
-    @media only screen and (max-width: 620px) {{
-    table.body h1 {{
-        font-size: 28px !important;
-        margin-bottom: 10px !important;
-    }}
-
-    table.body p,
-    table.body ul,
-    table.body ol,
-    table.body td,
-    table.body span,
-    table.body a {{
-        font-size: 16px !important;
-    }}
-
-    table.body .wrapper,
-    table.body .article {{
-        padding: 10px !important;
-    }}
-
-    table.body .content {{
-        padding: 0 !important;
-    }}
-
-    table.body .container {{
-        padding: 0 !important;
-        width: 100% !important;
-    }}
-
-    table.body .main {{
-        border-left-width: 0 !important;
-        border-radius: 0 !important;
-        border-right-width: 0 !important;
-    }}
-
-    table.body .btn table {{
-        width: 100% !important;
-    }}
-
-    table.body .btn a {{
-        width: 100% !important;
-    }}
-
-    table.body .img-responsive {{
-        height: auto !important;
-        max-width: 100% !important;
-        width: auto !important;
-    }}
-    }}
-    @media all {{
-    .ExternalClass {{
-        width: 100%;
-    }}
-
-    .ExternalClass,
-    .ExternalClass p,
-    .ExternalClass span,
-    .ExternalClass font,
-    .ExternalClass td,
-    .ExternalClass div {{
-        line-height: 100%;
-    }}
-
-    .apple-link a {{
-        color: inherit !important;
-        font-family: inherit !important;
-        font-size: inherit !important;
-        font-weight: inherit !important;
-        line-height: inherit !important;
-        text-decoration: none !important;
-    }}
-
-    #MessageViewBody a {{
-        color: inherit;
-        text-decoration: none;
-        font-size: inherit;
-        font-family: inherit;
-        font-weight: inherit;
-        line-height: inherit;
-    }}
-
-    .btn-primary table td:hover {{
-        background-color: #34495e !important;
-    }}
-
-    .btn-primary a:hover {{
-        background-color: #34495e !important;
-        border-color: #34495e !important;
-    }}
-    }}
-    </style>
-    </head>
-    <body style="background-color: #f6f6f6; font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.4; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
-        <span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Interaction Report.</span>
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #f6f6f6; width: 100%;" width="100%" bgcolor="#f6f6f6">
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-            <td class="container" style="font-family: sans-serif; font-size: 14px; vertical-align: top; display: block; max-width: 580px; padding: 10px; width: 580px; margin: 0 auto;" width="580" valign="top">
-            <div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
-
-                <!-- START CENTERED WHITE CONTAINER -->
-                <table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
-
-                <!-- START MAIN CONTENT AREA -->
-                <tr>
-                    <td class="wrapper" style="font-family: sans-serif; font-size: 14px; vertical-align: top; box-sizing: border-box; padding: 20px;" valign="top">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{candidate_name} interacted with bot </p>
-                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" class=" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
-                            <tbody>
-                                <tr>
-                                <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
-                                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
-                                    <tbody>
-                                        {data}
-                                    </tbody>
-                                    </table>
-                                </td>
-                                </tr>
-                            </tbody>
-                            </table>
-            
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td>
-                        </tr>
-                    </table>
-                    </td>
-                </tr>
-
-                <!-- END MAIN CONTENT AREA -->
-                </table>
-                <!-- END CENTERED WHITE CONTAINER -->
-
-                <!-- START FOOTER -->
-                <div class="footer" style="clear: both; margin-top: 10px; text-align: center; width: 100%;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                    <tr>
-                    <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
-                        <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
-                    </td>
-                    </tr>
-                </table>
-                </div>
-                <!-- END FOOTER -->
-
-            </div>
-            </td>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-        </tr>
-        </table>
-    </body>
-    </html>
-    """
+    return get_email_wrapper(html_content=data,title=f'Hey!')
 
 def get_bot_conversation_email_body(candidate_name,conversation, summary, simulation):
     data = ""
@@ -1493,175 +1040,25 @@ def get_session_notes_html_body(mentor_name,mentor_email,mentee_name,mentee_emai
 
 
 def get_html_body(candidate_name, test_name, report_url):
-
-    return f"""
-    <!doctype html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Simple Transactional Email</title>
-        <style>
-    @media only screen and (max-width: 620px) {{
-    table.body h1 {{
-        font-size: 28px !important;
-        margin-bottom: 10px !important;
-    }}
-
-    table.body p,
-    table.body ul,
-    table.body ol,
-    table.body td,
-    table.body span,
-    table.body a {{
-        font-size: 16px !important;
-    }}
-
-    table.body .wrapper,
-    table.body .article {{
-        padding: 10px !important;
-    }}
-
-    table.body .content {{
-        padding: 0 !important;
-    }}
-
-    table.body .container {{
-        padding: 0 !important;
-        width: 100% !important;
-    }}
-
-    table.body .main {{
-        border-left-width: 0 !important;
-        border-radius: 0 !important;
-        border-right-width: 0 !important;
-    }}
-
-    table.body .btn table {{
-        width: 100% !important;
-    }}
-
-    table.body .btn a {{
-        width: 100% !important;
-    }}
-
-    table.body .img-responsive {{
-        height: auto !important;
-        max-width: 100% !important;
-        width: auto !important;
-    }}
-    }}
-    @media all {{
-    .ExternalClass {{
-        width: 100%;
-    }}
-
-    .ExternalClass,
-    .ExternalClass p,
-    .ExternalClass span,
-    .ExternalClass font,
-    .ExternalClass td,
-    .ExternalClass div {{
-        line-height: 100%;
-    }}
-
-    .apple-link a {{
-        color: inherit !important;
-        font-family: inherit !important;
-        font-size: inherit !important;
-        font-weight: inherit !important;
-        line-height: inherit !important;
-        text-decoration: none !important;
-    }}
-
-    #MessageViewBody a {{
-        color: inherit;
-        text-decoration: none;
-        font-size: inherit;
-        font-family: inherit;
-        font-weight: inherit;
-        line-height: inherit;
-    }}
-
-    .btn-primary table td:hover {{
-        background-color: #34495e !important;
-    }}
-
-    .btn-primary a:hover {{
-        background-color: #34495e !important;
-        border-color: #34495e !important;
-    }}
-    }}
-    </style>
-    </head>
-    <body style="background-color: #f6f6f6; font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.4; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
-        <span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Interaction Report.</span>
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #f6f6f6; width: 100%;" width="100%" bgcolor="#f6f6f6">
+    msg = f"""
+    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The  {candidate_name} has completed the interaction {test_name}. The detailed report can be viewed here:</p>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
+    <tbody>
         <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
-            <td class="container" style="font-family: sans-serif; font-size: 14px; vertical-align: top; display: block; max-width: 580px; padding: 10px; width: 580px; margin: 0 auto;" width="580" valign="top">
-            <div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
-
-                <!-- START CENTERED WHITE CONTAINER -->
-                <table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
-
-                <!-- START MAIN CONTENT AREA -->
+        <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
+            <tbody>
                 <tr>
-                    <td class="wrapper" style="font-family: sans-serif; font-size: 14px; vertical-align: top; box-sizing: border-box; padding: 20px;" valign="top">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The  {candidate_name} has completed the interaction {test_name}. The detailed report can be viewed here:</p>
-                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
-                            <tbody>
-                                <tr>
-                                <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
-                                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
-                                    <tbody>
-                                        <tr>
-                                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: center; background-color: #3498db;" valign="top" align="center" bgcolor="#3498db"> <a href="{report_url}" target="_blank" style="border: solid 1px #3498db; border-radius: 5px; box-sizing: border-box; cursor: pointer; display: inline-block; font-size: 14px; font-weight: bold; margin: 0; padding: 12px 25px; text-decoration: none; text-transform: capitalize; background-color: #3498db; border-color: #3498db; color: #ffffff;">Get Report</a> </td>
-                                        </tr>
-                                    </tbody>
-                                    </table>
-                                </td>
-                                </tr>
-                            </tbody>
-                            </table>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You will be able to request leaderboard reports and other simulations via the platform channels as per admin privileges. Thank you! </p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                        </td>
-                        </tr>
-                    </table>
-                    </td>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: center; background-color: #3498db;" valign="top" align="center" bgcolor="#3498db"> <a href="{report_url}" target="_blank" style="border: solid 1px #3498db; border-radius: 5px; box-sizing: border-box; cursor: pointer; display: inline-block; font-size: 14px; font-weight: bold; margin: 0; padding: 12px 25px; text-decoration: none; text-transform: capitalize; background-color: #3498db; border-color: #3498db; color: #ffffff;">Get Report</a> </td>
                 </tr>
-
-                <!-- END MAIN CONTENT AREA -->
-                </table>
-                <!-- END CENTERED WHITE CONTAINER -->
-
-                <!-- START FOOTER -->
-                <div class="footer" style="clear: both; margin-top: 10px; text-align: center; width: 100%;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                    <tr>
-                    <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
-                        <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
-                    </td>
-                    </tr>
-                </table>
-                </div>
-                <!-- END FOOTER -->
-
-            </div>
-            </td>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">&nbsp;</td>
+            </tbody>
+            </table>
+        </td>
         </tr>
-        </table>
-    </body>
-    </html>
+    </tbody>
+    </table>
     """
-
+    return get_email_wrapper(html_content=msg)
 
 def get_html_body_learner_path(user_name,test_list):
 
@@ -1828,7 +1225,7 @@ def get_html_body_learner_path(user_name,test_list):
 
 
 
-def get_email_wrapper(html_content,candidate_name):
+def get_email_wrapper(html_content,title='Hey!',note=""):
 
     template = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -1888,7 +1285,7 @@ def get_email_wrapper(html_content,candidate_name):
                                                                             <tbody>
                                                                                 <tr>
                                                                                     <td align="center" class="esd-block-text">
-                                                                                        <p style="font-size: 10px;">(NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)</p>
+                                                                                        <p style="font-size: 10px;">${note}</p>
                                                                                     </td>
                                                                                 </tr>
                                                                             </tbody>
@@ -1922,7 +1319,7 @@ def get_email_wrapper(html_content,candidate_name):
                                                     <td class="esd-structure es-p20t es-p20r es-p20l" align="left">
                                                         <table cellpadding="0" cellspacing="0" width="100%">
                                                             <tbody>
-                                                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px; text-align: left;">Hey ${candidate_name}!</p>
+                                                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px; text-align: left;">${title}</p>
 
                                                                 <tr>
                                                                     <td width="560" class="esd-container-frame" align="center" valign="top">
@@ -2063,7 +1460,7 @@ def get_email_wrapper(html_content,candidate_name):
     
     """
 
-    template = Template(template).substitute(html_content=html_content,candidate_name=candidate_name)
+    template = Template(template).substitute(html_content=html_content,title=title,note=note)
 
     return template
 

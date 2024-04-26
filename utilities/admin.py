@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
-from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttribute
+from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttribute, BotAttribute
 from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
 import logging
@@ -119,32 +119,28 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                 bot_owner_email = UserAttribute.objects.get(user_id=bot_owner.uid).attributes.get('email')
                 emails.append(bot_owner_email)
 
+                msg = 'Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots!'
+                if instance.profile_type == 'knowledge_bot':
+                    bot_name = BotAttribute.objects.get(bot_id=signature_bot.first().uid).bot_name
+                    msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
 
                 html_content = f"""
-                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {bot_owner_name}</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots! </p>
-
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                    </td>
-                                    </tr>
-                                </table>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{msg}</p>
                             """
                 
                 if (coach_profile and not coach_profile.is_approved_email_sent) or (instance.profile_type == 'knowledge_bot' and not signature_bot.first().is_approval_email_sent):
-                    for email in emails:
-                        logger.info(f"Sending email to {email}")
-                        send_email_with_html_template(subject=subject,html_content=html_content,to_email=email)
-                        logger.info(f"Email sent to {email}")
-                        if coach_profile:
+                    if coach_profile:
                             coach_profile.is_approved_email_sent = True
                             coach_profile.save(update_fields=["is_approved_email_sent"])
-                        else:
-                            bot = signature_bot.first()
-                            bot.is_approval_email_sent = True
-                            bot.save(update_fields=["is_approval_email_sent"])
+                    else:
+                        bot = signature_bot.first()
+                        bot.is_approval_email_sent = True
+                        bot.save(update_fields=["is_approval_email_sent"])
+
+                    for email in emails:
+                        logger.info(f"Sending email to {email}")
+                        send_email_with_html_template(subject=subject,html_content=html_content,to_email=email,title=f'Hey! {bot_owner_name}')
+                        logger.info(f"Email sent to {email}")
 
             except Exception as e:
                 logger.info(f"failed to send email: {e}")

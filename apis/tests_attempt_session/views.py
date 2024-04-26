@@ -816,6 +816,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         bot_id = request.query_params.get('bot_id')
         conversation = request.query_params.get('conversation')
         type_of_email = request.query_params.get('type_of_email')
+        is_positive = request.query_params.get('is_positive','False')
         user_email = request.query_params.get('user_email')
 
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
@@ -842,7 +843,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         for email in [bot_owner_email,"info@coachbots.com"]:
             try:
-                send_feedback_conversation_email(user_email,conv,email,type_of_email)
+                send_feedback_conversation_email(user_email,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
