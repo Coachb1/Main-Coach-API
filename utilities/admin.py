@@ -121,6 +121,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
                 msg = 'Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots!'
                 if instance.profile_type == 'knowledge_bot':
+                    subject = 'Your Knowledge bot has been approved'
                     bot_name = BotAttribute.objects.get(bot_id=signature_bot.first().uid).bot_name
                     msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
 
