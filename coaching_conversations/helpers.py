@@ -1463,6 +1463,9 @@ def create_user_profile_and_bot(data,auth):
         "profile_image_url": profile_image_url or "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
         "department": department,
         "supported_outcome": supported_outcome,
+        "coaching_for_fitment": coaching_for_fitment,
+        "coaching_level": coaching_level,
+        "coach_same_department":  coach_same_department,
         "profile_type": "coach" if profile_type in ["coach-mentor", "coach"] else "mentor" if profile_type == "mentor" else profile_type,
         "is_mentor": str(profile_type == "coach-mentor") if profile_type in ["coach-mentor", "coach"] else "False",
         "area_domain": area_domain if profile_type in required_profile_list else None,
@@ -1472,9 +1475,6 @@ def create_user_profile_and_bot(data,auth):
         "problem_solving_approach": problem_solving_approach if profile_type in required_profile_list else None,
         "provided_links": provided_links if profile_type in required_profile_list else None,
         "admired_leaders": admired_leaders if profile_type in required_profile_list else None,
-        "coaching_for_fitment": coaching_for_fitment if profile_type in required_profile_list else None,
-        "coaching_level": coaching_level if profile_type in required_profile_list else None,
-        "coach_same_department":  coach_same_department if profile_type in required_profile_list else None,
         "allow_coachee_to_create_session": allow_coachee_to_create_session if profile_type in required_profile_list else None,
         "significant_challenges_and_solutions": significant_challenges_and_solutions if profile_type in required_profile_list else None,
         "common_phrases_and_expressions": common_phrases_and_expressions if profile_type in required_profile_list else None,
@@ -1509,7 +1509,7 @@ def create_user_profile_and_bot(data,auth):
         logger.exception(f"profile creation failed with {e}")
         return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}: {traceback.format_exception()}"}
 
-    if coaching_level and coach_same_department and supported_outcome:
+    if (coaching_level != None and coach_same_department != None and supported_outcome != None):
         qna_data = {
             "1": {
                 "coach": "What level of coach/mentor do you want to interact with ?",

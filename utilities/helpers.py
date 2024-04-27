@@ -1072,9 +1072,19 @@ def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
 def cal_score_for_fitment(user_response,bot_id,tenant_id):
     signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant_id, bot_id=bot_id)
     bot_att = BotAttribute.objects.get(tenant_id=tenant_id, bot_id=signature_bot.uid)
-    mentor_answers = [str(ans).lower().strip() for ans in bot_att.fitment_answers['mentor_answer']]
+    mentor_answers = []
     fitment_measures = bot_att.fitment_data['fitment_measures']
     count_matching_answers = 0
+    for ans in bot_att.fitment_answers['mentor_answer']:
+        ans = str(ans).strip().lower()
+        if ans == 'true' or ans == 'yes' or ans == 'y':
+            ans = 'yes'
+        elif ans == 'false' or ans == 'no' or ans == 'n':
+            ans = 'no'
+
+        mentor_answers.append(ans)
+        
+
     try:
         user_response = json.loads(user_response)
     except: 
@@ -1090,7 +1100,13 @@ def cal_score_for_fitment(user_response,bot_id,tenant_id):
                 count_matching_answers += 1
 
         else:
-            if str(qna['cochee']).lower() in mentor_answers:
+            mentee_ans = str(qna['cochee']).lower()
+            if mentee_ans == 'true' or mentee_ans == 'yes' or mentee_ans == 'y':
+                mentee_ans = 'yes'
+            elif mentee_ans == 'false' or mentee_ans == 'no' or mentee_ans == 'n':
+                mentee_ans = 'no'
+                
+            if mentee_ans in mentor_answers:
                 count_matching_answers += 1
 
     msg = ''

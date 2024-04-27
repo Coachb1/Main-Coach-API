@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute)
 import json
-from utilities.models import DirectoryPageInfo
+from utilities.models import DirectoryPageInfo, BotQnA
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
@@ -106,6 +106,29 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
 
     except Exception as e:
         print(f"Failed to update directory: {e}")
+
+
+    fitment_analysis = BotQnA.objects.filter(tenant_id=instance.tenant_id,deleted=False,participant_id=instance.user_id,qna_type='fitment').last()
+    if fitment_analysis:
+        print(fitment_analysis.participant_qna)
+        qna_data = {
+            "1": {
+                "coach": "What level of coach/mentor do you want to interact with ?",
+                "cochee": instance.coaching_level
+            },
+            "2": {
+                "coach": "I want a coach & mentor someone from the same department.",
+                "cochee": instance.coach_same_department
+            },
+            "3": {
+                "coach": "What kind of outcome do you want from these sessions the most?",
+                "cochee": instance.supported_outcome
+            }
+        }
+
+        fitment_analysis.participant_qna = qna_data
+        fitment_analysis.save(update_fields=['participant_qna'])
+    
 
 
     if instance.profile_type in ['coachee','mentee']:
