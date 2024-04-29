@@ -2739,7 +2739,7 @@ class AccountsViewSet(ApiViewSet,
                 
         
         try:
-            delete_user(user_uid)
+            # delete_user(user_uid)
             delete_user_related_resources(user_uid)
             return Response({"message":"deleted"},status=status.HTTP_200_OK)
         except Exception as e:
