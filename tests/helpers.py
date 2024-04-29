@@ -4276,7 +4276,16 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
-        "profile", {}).get("email")
+        "profile", {}).get("email") or participant_attributes.get('email',None)
+
+    for to_email in email_address_list:
+        try:
+            send_email(to_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception(e)
+            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
+
+    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     if test.email_candidate:
         try:
@@ -4287,14 +4296,6 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
             send_error_notification("send_report_link_to_email",f"failed to send email to participant {participant_id} email {participant_email}, err: {e}",e)
             raise e
 
-    for to_email in email_address_list:
-        try:
-            send_email(to_email, email_subject, data=data)
-        except Exception as e:
-            logger.exception(e)
-            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
-
-    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     test_attempt_session.is_report_sent_to_email = True
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
@@ -4339,7 +4340,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
-        "profile", {}).get("email")
+        "profile", {}).get("email") or participant_attributes.get('email')
 
     
 
