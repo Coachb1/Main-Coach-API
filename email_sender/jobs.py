@@ -23,7 +23,7 @@ def initialize_weekly_email_schedular():
     scheduler = BackgroundScheduler()
     job_defaults = {
                     'coalesce': False,
-                    'max_instances': 3,
+                    'max_instances': 1,
                     'replace_existing': True,
                     'misfire_grace_time': 120
                     }
@@ -36,6 +36,14 @@ def initialize_weekly_email_schedular():
         hour=11,
         minute=0,
         id="touch_point"
+    )
+    scheduler.add_job(
+        testing,
+        trigger='cron',
+        day_of_week='mon',
+        hour=13,
+        minute=0,
+        id="testing"
     )
 
     scheduler.add_job(
