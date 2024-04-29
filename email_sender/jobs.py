@@ -20,12 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 def initialize_weekly_email_schedular():
+    logger.info(f"initializing scheduler....")
     scheduler = BackgroundScheduler()
     job_defaults = {
                     'coalesce': False,
                     'max_instances': 1,
                     'replace_existing': True,
-                    'misfire_grace_time': 120
+                    'misfire_grace_time': 60
                     }
     scheduler.configure(job_defaults=job_defaults)
     ## adding weekily email scheduler for touch point reminder for session 
@@ -41,8 +42,8 @@ def initialize_weekly_email_schedular():
         testing,
         trigger='cron',
         day_of_week='mon',
-        hour=13,
-        minute=0,
+        hour=14,
+        minute=30,
         id="testing"
     )
 
@@ -56,7 +57,7 @@ def initialize_weekly_email_schedular():
     )
 
 
-    scheduler.start()
+    return scheduler
 
 def touch_point_for_session_weekly():
     
