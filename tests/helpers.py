@@ -1890,7 +1890,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # from another prompt and skill for individual qustion is deprecated
     # because now we are cal skill_ratings at the end of conversation
     if test.test_type == TestTypeChoices.trainer_thread:
-        threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
+        if user_info.evaluate_relevency:
+            threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
         if test.scenario_case == ScenarioCaseChoices.process_training:
             threading.Thread(target=evaluate_rating_thread, args=(question, test_question_response, test, test_attempt_session)).start()
     else:
@@ -1907,14 +1908,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                                 True
                                                 )
         else:
-            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                                question.question,
-                                                test_question_response.response_text,
-                                                test.description,
-                                                test.title,
-                                                )
+            if user_info.evaluate_relevency:
+                relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                    question.question,
+                                                    test_question_response.response_text,
+                                                    test.description,
+                                                    test.title,
+                                                    )
 
-        if not is_evaluated:
+        if user_info.evaluate_relevency and not is_evaluated:
             test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
             # delete this response
             delete_test_response(test_question_response)
@@ -2305,14 +2307,17 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         test_question_response.feedback_text = feedback_text
         update_fields.append("feedback_text")
         logger.info(f"************dynamic discussion feedback : {feedback_text}")
+        
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
 
-        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                            question_text,
-                                            test_question_response.response_text,
-                                            test.description,
-                                            test.title,
-                                            test.is_free
-                                            )
+        if user_info.evaluate_relevency:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                question_text,
+                                                test_question_response.response_text,
+                                                test.description,
+                                                test.title,
+                                                test.is_free
+                                                )
 
         relevance = 1
         if "relevance" in relevancy_score:
@@ -2524,14 +2529,19 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         # This will update the `relevance` and `kls_klp` fields of the `test_question_response` object.
     """
     try:
-        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ getting relevancy, kls, klp  for question ==> {question_text} @@@@@@@@@@@@@@@@@@@@@@")
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ getting relevancy, kls, klp  for question ==> {question_text} @@@@@@@@@@@@@@@@@@@@@@")    
+        test_attempt_session = TestAttemptSession.objects.get(
+            uid=test_question_response.test_attempt_session_id
+            )
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
         update_fields = []
-        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                                question_text,
-                                                test_question_response.response_text,
-                                                test.description,
-                                                test.title,
-                                                )
+        if user_info.evaluate_relevency:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                    question_text,
+                                                    test_question_response.response_text,
+                                                    test.description,
+                                                    test.title,
+                                                    )
 
         logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
         relevance = 1
