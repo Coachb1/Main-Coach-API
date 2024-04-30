@@ -39,6 +39,53 @@ default_metrics = {
                 }
 
 class CoachMetricApi(object):
+    """
+    A class used to interact with the Coach Metric API.
+
+    This class uses the HTTPHelper utility to make HTTP requests to the Coach Metric API. It provides methods to get speech metrics from audio and video files. 
+
+    Attributes:
+        http_helper (HTTPHelper): An instance of the HTTPHelper class with the base URL set to the Coach Metric API's base URL.
+
+    Methods:
+        get_speech_metrics_from_audio(file_url: str, transcript: str) -> dict:
+            Sends a POST request to the "metrics/audio/" endpoint of the Coach Metric API with the provided file URL and transcript. 
+            If the response is empty, it raises a ValueError and sends an error message to a Slack channel. 
+            Returns the JSON response from the API.
+
+            Args:
+                file_url (str): The URL of the audio file.
+                transcript (str): The transcript of the audio file.
+
+            Returns:
+                dict: The speech metrics received from the API.
+
+            Example:
+                {
+                    "speech_rate": 150,
+                    "filler_words": ["um", "uh"],
+                    "long_pause": 2
+                }
+
+        get_speech_metrics_from_video(file_url: str, transcript: str) -> dict:
+            Sends a POST request to the "metrics/video/" endpoint of the Coach Metric API with the provided file URL and transcript. 
+            If the response is empty, it raises a ValueError and sends an error message to a Slack channel. 
+            Returns the JSON response from the API.
+
+            Args:
+                file_url (str): The URL of the video file.
+                transcript (str): The transcript of the video file.
+
+            Returns:
+                dict: The speech metrics received from the API.
+
+            Example:
+                {
+                    "speech_rate": 150,
+                    "filler_words": ["um", "uh"],
+                    "long_pause": 2
+                }
+    """
     http_helper = HTTPHelper(base_url=settings.COACH_METRIC_BASE_URL)
 
     @timeit

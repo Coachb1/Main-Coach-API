@@ -73,6 +73,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     is_game_type = serializers.BooleanField(
         required=False, default=False)
+    is_recommended = serializers.BooleanField(
+        required=False, default=False)
     is_immersive = serializers.BooleanField(
         required=False, default=False)
     is_free = serializers.BooleanField(
@@ -115,6 +117,10 @@ class CreateTestSerializer(serializers.Serializer):
     competency_group = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     area_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    visual_tags = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_email = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -187,6 +193,11 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "competency_group",
                   "area_domain",
                   "tab_category",
+                  "is_recommended",
+                  "visual_tags",
+                  "page_name",
+                  "scenario_summary",
+                  "creator_email"
                   ]
 
     def get_questions(self, instance):

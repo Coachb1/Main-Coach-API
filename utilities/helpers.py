@@ -20,9 +20,12 @@ from tests.helpers import create_one_question_scenario_from_context, create_scen
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
-from users.models import User
+from users.models import User, CoachCoacheeConnection, CoachCoacheeMentorMenteeProfile, SignatureBot, BotAttribute
 from .prompts import get_focus_prompt, get_goals_prompt, get_priority_prompt
 from email_sender.helpers import send_email_with_html_template
+from users.db import get_user_by_id, get_user_display_name
+from utilities.models import BotEngagement
+from commons.notifications import send_error_notification
 
 
 
@@ -83,21 +86,55 @@ def get_sid(email):
     return session_id
 
 
-def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
+def save_session_notes(user_id,mentor_id,tenant_id,context,access_token, simulation_codes=None):
+    """
+    This function is used to save session notes and recommendations for a specific mentor-mentee pair.
+
+    The function first checks if the mentor and mentee are connected. If they are not, an error message is returned.
+    If they are connected, a new SessionNotesRecommendations object is created with the provided session notes.
+    The function then increments the session_notes_count for the user.
+    If an access token is provided, the function generates a scenario from the session notes and saves it as a recommendation.
+    Finally, the function attempts to send an email to the mentor and mentee with the session notes.
+
+    Parameters:
+    - user_id (str): The ID of the user (mentee).
+    - mentor_id (str): The ID of the mentor.
+    - tenant_id (str): The ID of the tenant.
+    - context (str): The session notes to be saved.
+    - access_token (str): The access token for authentication.
+
+    Returns:
+    - A list containing a dictionary with the session notes, creation date, update date, and recommendations, if successful.
+    - An empty list and a dictionary containing an error message, if unsuccessful.
+
+    Example Usage:
+    save_session_notes("user123", "mentor123", "tenant123", "These are the session notes.", "access_token")
+    """
+
+    commentor = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=mentor_id).first()
+    reciever = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).first()
+    logger.info(f"coach: {commentor}, coachee: {reciever}")
+    connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=commentor.uid,coachee_id=reciever.uid)
+    
+    if connections.count() == 0:
+        connections = CoachCoacheeConnection.objects.filter(deleted=False,tenant_id=tenant_id,coach_id=reciever.uid,coachee_id=commentor.uid)
+
+    if connections.count() == 0:
+        return [],{"error": "This user is not in your connection list" } 
     
     mentor, is_created = MentorDetails.objects.get_or_create(mentor_id=mentor_id,tenant_id=tenant_id)
 
-    mentees_ids = ""
-    if mentor.mentee_ids :
-        ids = mentor.mentee_ids.split(',')
-        # ids.append(user_id)
-        # ids = set(ids)
-        # mentees_ids = ",".join(list(ids))
+    # mentees_ids = ""
+    # if mentor.mentee_ids :
+    #     ids = mentor.mentee_ids.split(',')
+    #     # ids.append(user_id)
+    #     # ids = set(ids)
+    #     # mentees_ids = ",".join(list(ids))
         
-        if user_id not in ids:
-            return [],{"error": "this user is not in your mentee list" } 
-    else:
-        return [], {"error": "no users in your mentee list"}
+    #     if user_id not in ids:
+    #         return [],{"error": "this user is not in your mentee list" } 
+    # else:
+    #     return [], {"error": "no users in your mentee list"}
         
     # mentor.mentee_ids = mentees_ids
     # mentor.save(update_fields = ['mentee_ids'])
@@ -108,27 +145,32 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         mentor_id = mentor_id,
         mentee_id = user_id,
         session_notes = context,
-        created_date = datetime.datetime.utcnow()
+        created_date = datetime.datetime.utcnow(),
+        simulation_codes = simulation_codes,
         )
     
+    save_user_action_info(tenant_id,user_id,"session_notes_count")
     
-    if access_token:
-        context = json.dumps({"title":"","data":{"information":context}})
-        try:
-            recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
-            session_notes.recommendations = recomm['test_code']
-            session_notes.save(update_fields=['recommendations'])
-        except Exception as e:
-            logger.error({"Error":e},exc_info=True)
+    # if access_token:
+    #     logger.info(f"commentor: {commentor.profile_type},reciever:{reciever.profile_type}")
+    #     if reciever.profile_type != "coach":
 
+    #         context = json.dumps({"title":"","data":{"information":context}})
+    #         try:
+    #             recomm = create_scenario_from_site_context('',access_token,tenant_id,context)
+    #             session_notes.recommendations = recomm['test_code']
+    #             session_notes.save(update_fields=['recommendations'])
+    #         except Exception as e:
+    #             logger.error({"Error":e},exc_info=True)
 
     # sending email 
     try:
-        mentor = UserAttribute.objects.get(user_id=session_notes.mentor_id)
-        mentee = UserAttribute.objects.get(user_id=session_notes.mentee_id)
-        mentor_name = mentor.get('name',None)
+        
+        mentor = UserAttribute.objects.get(user_id=session_notes.mentor_id).attributes
+        mentee = UserAttribute.objects.get(user_id=session_notes.mentee_id).attributes
+        mentor_name = get_user_display_name(get_user_by_id(user_id=session_notes.mentor_id))
         mentor_email = mentor.get('email',None)
-        mentee_name = mentee.get('name',None)
+        mentee_name = get_user_display_name(get_user_by_id(user_id=session_notes.mentee_id))
         mentee_email = mentee.get('email',None)
         
         to_email = [mentor_email,mentee_email]
@@ -136,6 +178,7 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
         logger.info("email sent..")
     except Exception as e:
         logger.error(f'failed to send email. {e}')
+        send_error_notification("save_session_notes",f"failed to send email: {e}",{"mentor_id":mentor_id,"mentee_id":user_id,"tenant_id":tenant_id,"context":context})
     
     
     return [{"context": session_notes.session_notes,"date" : session_notes.created_date,"updated":session_notes.updated_date,"recommendations": session_notes.recommendations}], {}
@@ -143,6 +186,32 @@ def save_session_notes(user_id,mentor_id,tenant_id,context,access_token):
 
     
 def get_session_notes(user_id,mentor_id):
+    """
+    Fetches session notes and recommendations for a specific user or mentor.
+
+    This function retrieves session notes and recommendations from the SessionNotesRecommendations model. 
+    It filters the data based on either the user_id (mentee) or mentor_id provided as input. 
+    For each session note, it also fetches the corresponding mentor or mentee's email and display name from the UserAttribute model.
+
+    Args:
+        user_id (str): The unique identifier of the user (mentee). If provided, the function will fetch session notes where the user is the mentee.
+        mentor_id (str): The unique identifier of the mentor. If provided, the function will fetch session notes where the user is the mentor.
+
+    Note: At least one of user_id or mentor_id must be provided. If both are provided, the function will prioritize the user_id.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a session note. Each dictionary contains the following keys:
+            - 'context': The session note text.
+            - 'date': The date the session note was created.
+            - 'updated': The date the session note was last updated.
+            - 'recommendations': The recommendations text.
+            - 'mentor_email_id' or 'mentee_email_id': The email of the mentor or mentee, depending on whether user_id or mentor_id was provided.
+            - 'mentor_name' or 'mentee_name': The display name of the mentor or mentee, depending on whether user_id or mentor_id was provided.
+
+    Example:
+        >>> get_session_notes(user_id='123', mentor_id=None)
+        [{'context': 'Session note 1', 'date': datetime.datetime(2022, 1, 1, 0, 0), 'updated': datetime.datetime(2022, 1, 2, 0, 0), 'recommendations': 'Recommendation 1', 'mentor_email_id': 'mentor@example.com', 'mentor_name': 'Mentor Name'}]
+    """
 
     if user_id:
         session_notes = SessionNotesRecommendations.objects.filter(mentee_id = user_id)
@@ -157,20 +226,20 @@ def get_session_notes(user_id,mentor_id):
             "date" : session_note.created_date,
             "updated": session_note.updated_date,
             "recommendations": session_note.recommendations,
+            "simulation_codes": session_note.simulation_codes
         }
         if user_id:
+            
             mentor = UserAttribute.objects.get(user_id=session_note.mentor_id)
             email = mentor.attributes.get("email",None)
-            name = mentor.attributes.get('name',None)
             note['mentor_email_id'] = email
-            note['mentor_name'] = name
+            note['mentor_name'] = get_user_display_name(get_user_by_id(user_id=mentor.user_id))
 
         elif mentor_id:
             mentee = UserAttribute.objects.get(user_id=session_note.mentee_id)
             email = mentee.attributes.get("email",None)
-            name = mentee.attributes.get('name',None)
             note['mentee_email_id'] = email
-            note['mentee_name'] = name
+            note['mentee_name'] = get_user_display_name(get_user_by_id(user_id=mentee.user_id))
             
         data.append(note)
 
@@ -178,6 +247,34 @@ def get_session_notes(user_id,mentor_id):
 
 
 def get_session_notes_data(tenant_id):
+    """
+    Fetches session notes and recommendations for a specific tenant.
+
+    This function retrieves session notes and recommendations from the SessionNotesRecommendations model. 
+    It filters the data based on the tenant_id provided as input. 
+    For each session note, it also fetches the corresponding mentor and mentee's email and name from the UserAttribute model.
+
+    Args:
+        tenant_id (str): The unique identifier of the tenant. The function will fetch session notes associated with this tenant.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a session note. Each dictionary contains the following keys:
+            - 'id': The unique identifier of the session note.
+            - 'created': The date the session note was created.
+            - 'updated': The date the session note was last updated.
+            - 'context': The session note text.
+            - 'recommendations': The recommendations text.
+            - 'mentor_name': The name of the mentor.
+            - 'mentor_email': The email of the mentor.
+            - 'mentee_name': The name of the mentee.
+            - 'mentee_email': The email of the mentee.
+
+    Note: If the function fails to fetch the mentor or mentee's attributes, it logs the exception and continues to the next session note.
+
+    Example:
+        >>> get_session_notes_data(tenant_id='123')
+        [{'id': 1, 'created': datetime.datetime(2022, 1, 1, 0, 0), 'updated': datetime.datetime(2022, 1, 2, 0, 0), 'context': 'Session note 1', 'recommendations': 'Recommendation 1', 'mentor_name': 'Mentor Name', 'mentor_email': 'mentor@example.com', 'mentee_name': 'Mentee Name', 'mentee_email': 'mentee@example.com'}]
+    """
 
     session_notes = SessionNotesRecommendations.objects.filter(tenant_id=tenant_id)
     data = []
@@ -187,14 +284,15 @@ def get_session_notes_data(tenant_id):
             "created":notes.created_date,
             "updated": notes.updated_date,
             "context": notes.session_notes,
-            "recommendations": notes.recommendations
+            "recommendations": notes.recommendations,
+            "simulation_codes": notes.simulation_codes,
         }
         try:
             mentor = UserAttribute.objects.get(user_id=notes.mentor_id)
             mentee = UserAttribute.objects.get(user_id=notes.mentee_id)
-            temp["mentor_name"] = mentor.get('name',None)
+            temp["mentor_name"] = get_user_display_name(get_user_by_id(user_id=notes.mentor_id))
             temp["mentor_email"] = mentor.get('email',None)
-            temp["mentee_name"] = mentee.get('name',None)
+            temp["mentee_name"] = get_user_display_name(get_user_by_id(user_id=notes.mentee_id))
             temp["mentee_email"] = mentee.get('email',None)
 
         except Exception as e:
@@ -205,18 +303,37 @@ def get_session_notes_data(tenant_id):
 
     return data
 
-def update_session_notes(session_note_id,recommendations):
+def update_session_notes(session_note_id,recommendations,simulation_codes=None):
+    "it updates recommendations into session_notes"
 
     session_note = SessionNotesRecommendations.objects.get(id=session_note_id)
 
     session_note.recommendations = recommendations
+    if simulation_codes:
+        session_note.simulation_codes = simulation_codes
     session_note.updated_date = datetime.datetime.utcnow()
-    session_note.save(update_fields=['recommendations',"updated_date"])
+    session_note.save(update_fields=['recommendations',"updated_date","simulation_codes"])
 
     return {"message": "recommandations updated"}
 
 
 def get_fitness_analysis_score(coach_data, conversation_data):
+    """
+    This function is designed to analyze the compatibility between a coach and a coachee based on their conversation data and the coach's information. 
+
+    The function constructs a prompt that includes the coach's data and the conversation data. The prompt is then passed to the `anthropic_completion` function, which is expected to return a fitment score in JSON format. The score is a measure of the compatibility between the coach and the coachee, based on their values, personality, ideas, experiences, and expectations.
+
+    Parameters:
+    coach_data (str): A string containing the coach's information.
+    conversation_data (str): A string containing the conversation data between the coach and the coachee.
+
+    Returns:
+    str: A string in JSON format containing the fitment score. The score is a number between 0 and 10, with 10 indicating the highest compatibility. The JSON string should be in the format: {"Fitment score":"<score>"}
+
+    Example:
+    >>> get_fitness_analysis_score("Coach Info", "Conversation Info")
+    '{"Fitment score":"7"}'
+    """
     prompt = f"""
     {{Coach_Information}} - {coach_data}
     Conversation: {conversation_data}
@@ -238,14 +355,53 @@ def get_fitness_analysis_score(coach_data, conversation_data):
     return response
 
 
-def save_user_action_info(tenant,user_id,for_):
+def save_user_action_info(tenant_id,user_id,for_,bot_id=None):
+    """
+    Save user action information.
+
+    Parameters:
+    - tenant_id (str): The tenant_id.
+    - user_id (str): The user ID.
+    - for_ (str): The field to update in the UserActionInfo model.
+    - bot_id (str, optional): The bot ID. Defaults to None.
+    if bot_id then text value will be save.
+
+    Returns:
+    None
+
+    """
     action_info, is_created = UserActionInfo.objects.get_or_create(
-                    tenant_id = tenant.uid,
+                    tenant_id = tenant_id,
                     user_id = user_id,
                 )
+    if bot_id:
+        value = getattr(action_info, for_)
+        bot_ids = bot_id
+        if value:
+            bot_ids = value + f",{bot_id}"
+            bot_ids = set(bot_ids.split(","))
+            bot_ids = ",".join(bot_ids)
+            
+        setattr(action_info, for_, bot_ids )
+    else:
+        setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
 
-    setattr(action_info, for_, getattr(action_info, for_) + 1)  # increasing fields by 1
     action_info.save(update_fields=[for_])
+
+
+def save_bot_engagement(tenant_id,bot_id,user_id,field_name):
+    today_date = datetime.datetime.now().date()
+
+    bot_engagement, is_created = BotEngagement.objects.get_or_create(
+        tenant_id=tenant_id,
+        deleted = False,
+        user_id = user_id,
+        interacted_on = today_date,
+        bot_id = bot_id
+    )
+
+    setattr(bot_engagement, field_name, getattr(bot_engagement, field_name) + 1) 
+    bot_engagement.save()
 
 def extract_fields(data:dict):
     extracted_fields = []
@@ -264,19 +420,73 @@ def extract_fields(data:dict):
     return extracted_fields
 
 def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id = None):
+    """
+    Process the Individual Development Plan (IDP) for a user.
 
+    Args:
+        idp_data (dict): A dictionary containing the IDP data.
+        user_id (str): The ID of the user.
+        tenant_id (str): The ID of the tenant.
+        access_token (str): The access token for authentication.
+        only_data (bool, optional): If True, only return the IDP data. Defaults to False.
+        idp_id (str, optional): The ID of the IDP. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing the processed IDP data and a boolean indicating success.
+
+    Raises:
+        Exception: If any error occurs during the processing.
+
+    Detailed Explanation:
+    This function is responsible for processing the Individual Development Plan (IDP) for a user. It takes in the IDP data,
+    user ID, tenant ID, access token, and optional parameters. The IDP data is a dictionary containing various fields such as
+    strengths, weaknesses, opportunities, threats, key focus areas, goals, priorities, learning histories, key skills, and user name.
+
+    If the `only_data` parameter is True, the function will return the IDP data as a serialized object. If the `idp_id` parameter
+    is provided, it will try to fetch the IDP object from the database and return its serialized data. If the IDP is not found,
+    it will return an error message.
+
+    If the `only_data` parameter is False, the function will create a new IDP object in the database with the provided data.
+    It will then try to fetch recommendations for books, skills, and other resources based on the IDP data. If any error occurs
+    during the recommendation fetching process, it will log the error and send an email notification. If the required number
+    of scenarios are not generated, it will log the error and send an email notification.
+
+    Finally, it will save the IDP object with the recommendations and scenarios, and send an email notification to the user
+    with a link to view the IDP report.
+
+    Example:
+    >>> idp_data = {
+    ...     'strengths': 'communication, leadership',
+    ...     'weakness': 'time management',
+    ...     'opportunities': 'networking',
+    ...     'threats': 'competition',
+    ...     'key_focus_areas': 'project management',
+    ...     'goals': 'career advancement',
+    ...     'priorities': 'personal growth',
+    ...     'learning_histories': 'online courses',
+    ...     'key_skills': 'problem solving',
+    ...     'user_name': 'John Doe'
+    ... }
+    >>> user_id = '12345'
+    >>> tenant_id = '67890'
+    >>> access_token = 'abcdef'
+    >>> only_data = False
+    >>> idp_id = None
+    >>> process_idp(idp_data, user_id, tenant_id, access_token, only_data, idp_id)
+    ({'id': 1, 'tenant_id': '67890', 'user_id': '12345', 'strengths': 'communication, leadership', 'weakness': 'time management', 'opportunities': 'networking', 'threats': 'competition', 'key_focus_areas': 'project management', 'goals': 'career advancement', 'priorities': 'personal growth', 'learning_histories': 'online courses', 'key_skills': 'problem solving', 'user_name': 'John Doe', 'book_recommendations': 'book1,book2', 'recommended_hbr': 'hbr1,hbr2', 'recommended_ted_talk': 'tedtalk1,tedtalk2', 'report': 'https://example.com/idpReport?uid=1', 'learning_communities': 'community1,community2', 'course_recommendations': 'course1,course2', 'recommended_scenarios': {'communication': {'dynamic': {'title': 'Communication Dynamic Discussion', 'data': {'information': 'communication'}}}, 'leadership': {'simulation': {'title': 'Leadership Simulation', 'data': {'information': 'leadership'}}}}, 'total_scenarios_created': 2, 'success': True}, True)
+    """
     logger.info(f"*********************************************** idp_id: {idp_id}, user_id: {user_id}, tenant_id: {tenant_id}")
     if only_data:
         if idp_id:
             try:
-                user_idp = UserIDP.objects.get(tenant_id=tenant_id, uid=idp_id, success=True)
+                user_idp = UserIDP.objects.get(deleted=False,tenant_id=tenant_id, uid=idp_id, success=True)
                 serializer = UserIDPSerializers(user_idp)
                 return serializer.data, True
             except Exception as e:
                 logger.error({"Error":e},exc_info=True)
                 return {"error": "IDP not found"}, False
 
-        user_idps = UserIDP.objects.filter(tenant_id=tenant_id,user_id=user_id, success=True)
+        user_idps = UserIDP.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id, success=True)
         if user_idps.count() < 1:
             return {"error": "No IDPs found"}, False
         serializer = UserIDPSerializers(user_idps,many=True)
@@ -328,10 +538,13 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 course_recomm = get_course_recommendation(learning_histories,key_skills,hard_soft_skills)
                 hbr_recomm = get_recommendation("hbr",hard_soft_skills)
                 tedtalk_recomm = get_recommendation("ted_talk",hard_soft_skills)
+                learning_communities = get_recommendation("learning_communities",hard_soft_skills)
+
                 user_idp.book_recommendations = book_recomm
                 user_idp.recommended_hbr = hbr_recomm
                 user_idp.recommended_ted_talk = tedtalk_recomm
                 user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
+                user_idp.learning_communities = learning_communities
 
                 user_idp.course_recommendations = course_recomm
 
@@ -340,23 +553,21 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 user_idp.save()
                 break
             except Exception as e:
-                logger.exception(f"Failed to fetch recommendations and soft and hard skills: {e}")
+                logger.exception(f"Failed to fetch recommendations and soft and hard skills: {e} for {i+1} time")
                 if i+1 == 2:
                     subject = "Failed to generate IDP"
+                    try:
+                        user_attribute = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id)
+                        user_email = user_attribute.attributes.get("email",None)
+                    except Exception as e:
+                        logger.error({"Error":e},exc_info=True)
+                        user_email = ""
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}</p>
-
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate IDP:{user_idp.uid}, user: {user_id}, user_email: {user_email} </p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
+                    # send_email_with_html_template(subject=subject,html_content=html,to_email='ansariaadil611@gmail.com')
                     return {"error": "in book recommendation, skills etc couldn't generate"}, False
                 continue
 
@@ -441,18 +652,9 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 if i+1 == 2:
                     subject = "Failed to generate required Scenarios For IDP"
                     html = f"""
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
-                                <tr>
-                                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
-                                    
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
 
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
-                                </td>
-                                </tr>
-                        </table>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html)
@@ -475,7 +677,6 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                             <tr>
                             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey! {user_name} </p>
                                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your IDP is ready. The detailed report can be viewed here:</p>
                         <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                         <tbody>
@@ -492,9 +693,6 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                             </tr>
                         </tbody>
                         </table>
-                                
-
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                             </td>
                             </tr>
                     </table>
@@ -502,12 +700,33 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
         user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id).attributes
         emails = [user_att['email'],"info@coachbots.com"]
         for email in emails:
-            send_email_with_html_template(subject=subject,html_content=html,to_email=email)
+            send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {user_name}!')
 
 
         return UserIDPSerializers(user_idp).data, True
     
-def regenerate_idp_or_scenarios(idp_id,access_token,tenant_id,):
+def regenerate_idp_or_scenarios(idp_id, access_token, tenant_id):
+    """
+    This function regenerates Individual Development Plan (IDP) or scenarios for a user based on the user's IDP details.
+
+    Parameters:
+    - idp_id (str): The unique identifier of the user's IDP.
+    - access_token (str): The access token for authentication.
+    - tenant_id (str): The tenant identifier.
+
+    The function performs the following steps:
+    1. Retrieves the user's IDP based on the provided idp_id.
+    2. Extracts the key focus areas, goals, priorities, soft skills, hard skills, and recommended scenarios from the user's IDP.
+    3. Identifies the scenarios that failed to be created in the previous run.
+    4. For each failed scenario, it attempts to create a new scenario. If the scenario is related to a skill, it creates a dynamic discussion and a simulation scenario. If the scenario is related to focus areas, goals areas, or priority areas, it creates a custom scenario based on the respective prompt.
+    5. Updates the user's IDP with the newly created scenarios.
+
+    Returns:
+    - A tuple containing the serialized data of the updated user's IDP and a boolean indicating the success of the operation.
+
+    Example Usage:
+    regenerate_idp_or_scenarios("1234", "access_token", "tenant_id")
+    """
 
     user_idp = UserIDP.objects.get(uid=idp_id)
     key_focus_areas = user_idp.key_focus_areas
@@ -598,6 +817,7 @@ def regenerate_idp_or_scenarios(idp_id,access_token,tenant_id,):
 
 
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    """Generates Hard skill using generic completion method."""
     prompt = """
             \n\nHuman:
             {Key Focus areas}: ${focus_areas}
@@ -631,6 +851,8 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     return data
 
 def get_soft_skills(focus_areas,learning_history,existing_skills,goals,priorities):
+    """Generates Soft skill using generic completion method."""
+
     prompt = """
             \n\nHuman:
             {Key Focus areas}: ${focus_areas}
@@ -665,7 +887,24 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     return data
 
 def get_recommendation(prompt_type,hard_soft_skills):
-    prompt = ""
+    """
+    This function generates a recommendation for resources (books, HBR articles, or TED Talks) to improve certain skills.
+
+    The function first determines the type of resource based on the `prompt_type` parameter. It then constructs a prompt string that requests recommendations for improving the skills specified in `hard_soft_skills`. This prompt is passed to the `generic_completion` function, which generates a text completion based on the prompt.
+
+    Args:
+        prompt_type (str): The type of resource for which recommendations are requested. This should be one of the following: 'book', 'hbr', or 'ted_talk'.
+        hard_soft_skills (str): A string containing the skills for which improvement resources are requested. The skills should be listed in a comma-separated format.
+
+    Returns:
+        str: A string containing the generated recommendations. The recommendations are formatted as a list, with each item in the list corresponding to a skill and the recommended resource for improving that skill.
+
+    Example:
+        >>> get_recommendation('book', 'communication, leadership')
+        '1. Communication - Book name and description.
+         2. Leadership - Book name and description.'
+    """
+    # function body here    prompt = ""
     if prompt_type == "book":
         prompt = """
         \n\nHuman:
@@ -715,11 +954,28 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             \n\nAssistant:
             """
+        
+    elif prompt_type == 'learning_communities':
+        prompt = """
+        {skill_gaps}: ${hard_soft_skills}
+        Please provide learning communities to improve these skills {skill_gaps}. Provide the name of the learning community, the hosting site and a small description of 80 words.
+        Output Format:
+        1. Skill1 - Name, the hosting site and description.
+        2. Skill2 - Name, the hosting site and description.
+        3. Skill3 - Name, the hosting site and description.
+        4. Skill4 - Name, the hosting site and description.
+
+        Always give the output in the given format.
+        Do not include any introductory sentence or any conclusion.
+        If the skills does not have any online community, please respond with "No learning communities found."
+        """
 
     prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
 
     data = generic_completion(prompt=prompt)
-    print(data)
+
+    logger.info(f"{prompt_type.replace('_',' ').capitalize()} : {data}")
+
 
     return data
 
@@ -732,10 +988,10 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
 
     This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please provide courses from Coursera to improve these skills {skill_gaps}. Provide the name of the course.
     Output Format :
-    1. Skill1 - Course name
-    2. Skill2 - Course name
-    3. Skill3 - Course name
-    4. Skill4 - Course name
+    1. Skill1 - Course name, source of the course and description.
+    2. Skill2 - Course name, source of the course  and description.
+    3. Skill3 - Course name, source of the course and description.
+    4. Skill4 - Course name, source of the course  and description.
 
     Always give the output in the given format.
     Do not include any introductory sentence or any conclusion.
@@ -779,3 +1035,113 @@ def extract_topics_info(text):
         })
 
     return topics_info
+
+
+def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
+    """
+    This function sorts a list of dictionaries in descending order based on two fields. 
+
+    The function uses a modified version of the bubble sort algorithm. It first sorts the data based on the 'first_sort_field'. 
+    If two dictionaries have the same 'first_sort_field', it then sorts them based on the 'second_sort_field'. 
+
+    Parameters:
+    data (list): A list of dictionaries that needs to be sorted. Each dictionary should contain the keys specified by 'first_sort_field' and 'second_sort_field'.
+    first_sort_filed (str): The primary key based on which the data should be sorted.
+    second_sort_field (str): The secondary key which is used for sorting when the 'first_sort_field' is the same for two dictionaries.
+
+    Returns:
+    list: A sorted list of dictionaries in descending order. The primary sorting is done based on 'first_sort_field' and secondary sorting is done based on 'second_sort_field'.
+
+    Example:
+    >>> data = [{'name': 'John', 'age': 30}, {'name': 'Jane', 'age': 30}, {'name': 'Doe', 'age': 25}]
+    >>> custom_sort_reverse(data, 'age', 'name')
+    [{'name': 'Jane', 'age': 30}, {'name': 'John', 'age': 30}, {'name': 'Doe', 'age': 25}]
+    """
+    n = len(data)
+    
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if data[j][first_sort_filed] < data[j+1][first_sort_filed] or \
+               (data[j][first_sort_filed] == data[j+1][first_sort_filed] and data[j][second_sort_field] > data[j+1][second_sort_field]):
+                # Swap if first_sort_filed is smaller or if first_sort_filed is equal, but user_name is greater
+                data[j], data[j+1] = data[j+1], data[j]
+                
+    return data
+
+
+def cal_score_for_fitment(user_response,bot_id,tenant_id):
+    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant_id, bot_id=bot_id)
+    bot_att = BotAttribute.objects.get(tenant_id=tenant_id, bot_id=signature_bot.uid)
+    mentor_answers = []
+    fitment_measures = bot_att.fitment_data['fitment_measures']
+    count_matching_answers = 0
+    for ans in bot_att.fitment_answers['mentor_answer']:
+        ans = str(ans).strip().lower()
+        if ans == 'true' or ans == 'yes' or ans == 'y':
+            ans = 'yes'
+        elif ans == 'false' or ans == 'no' or ans == 'n':
+            ans = 'no'
+
+        mentor_answers.append(ans)
+        
+
+    try:
+        user_response = json.loads(user_response)
+    except: 
+        user_response = user_response
+
+
+    for index, qna in user_response.items():
+        if int(index) == 1:
+            if mentor_answers[0] == 'someone junior' and str(qna['cochee']).lower() == 'someone senior':
+                count_matching_answers += 1
+
+            elif mentor_answers[0] == 'any level' and str(qna['cochee']).lower() == 'any level':
+                count_matching_answers += 1
+
+        else:
+            mentee_ans = str(qna['cochee']).lower()
+            if mentee_ans == 'true' or mentee_ans == 'yes' or mentee_ans == 'y':
+                mentee_ans = 'yes'
+            elif mentee_ans == 'false' or mentee_ans == 'no' or mentee_ans == 'n':
+                mentee_ans = 'no'
+                
+            if mentee_ans in mentor_answers:
+                count_matching_answers += 1
+
+    msg = ''
+    score = {}
+    # Classify based on percentage
+    if count_matching_answers in [0,1]:
+        msg = fitment_measures['bottom']
+        score['bottom'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+    elif count_matching_answers == 2:
+        msg = fitment_measures['mid']
+        score['mid'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+    elif count_matching_answers == 3:
+        msg = fitment_measures['top']
+        score['top'] = msg
+        score['msg'] = msg
+        score['score'] = count_matching_answers
+
+    logger.info(f"=======================================score: {score}")
+
+    return score
+
+
+def generate_email(name,suffix,domain='coachbots.com'):
+    # Convert name to lowercase and remove any leading or trailing whitespace
+    name = name.strip().lower()
+    
+    # Replace spaces with dots
+    name = name.replace(' ', '.')
+    
+    # Generate a unique email address by appending a number
+    # until it becomes unique
+    email = name + str(suffix) + f'@{domain}'
+    
+    return email

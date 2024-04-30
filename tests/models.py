@@ -77,6 +77,13 @@ class Test(TenantAwareModel):
     creator_user_id = models.CharField(max_length=255, null=True, blank=True, default=None)
     area_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
     tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
+    is_recommended = models.BooleanField(default=False, null=True, blank=True)
+    visual_tags = models.CharField(max_length=255, null=True, blank=True, default=None)
+    page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+    scenario_summary = models.TextField(null=True, blank=True, default=None)
+    creator_email = models.CharField(max_length=255, null=True, blank=True, default=None)
+
+
 
     class Meta:
         db_table = "test"
@@ -167,6 +174,11 @@ class TestAttemptSession(TenantAwareModel):
     mcq_summary = models.TextField(null=True,blank=True, default=None)
     competency_data = models.JSONField(null=True, blank=True,default=None)
     language_skills = models.TextField(null=True, blank=True, default=None)
+    is_idp_discussion_opted = models.BooleanField(
+        null=True, blank=True, default=False)
+    intake_id = models.CharField(max_length=255, null=True, blank=True, default=None)
+    conversation_summary = models.TextField(null=True, blank=True, default=None)
+    related_previous_conversation_summary = models.TextField(null=True, blank=True, default=None)
 
 
     

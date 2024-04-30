@@ -1,6 +1,23 @@
 
 
 def get_skills(candidate_type):
+    """
+    This function returns a list of skills based on the candidate type provided as input.
+
+    The function defines four lists of skills corresponding to four different candidate types: 'Manager', 'Sales manager', 'Customer service', and 'Employee'. Each list contains specific skills relevant to the respective candidate type. 
+
+    The function then checks the input candidate type against these four types. If the input matches one of the types, the function returns the corresponding list of skills. If the input does not match any of the types, the function returns an empty list.
+
+    Args:
+        candidate_type (str): A string representing the candidate type. It should be one of the following: 'Manager', 'Sales manager', 'Customer service', 'Employee'. The function is case-sensitive, so the input should match exactly.
+
+    Returns:
+        list: A list of strings where each string is a skill relevant to the input candidate type. If the input does not match any of the predefined types, an empty list is returned.
+
+    Example:
+        >>> get_skills('Manager')
+        ['Communication skills', 'Objection handling', 'Problem solving', 'Social skills', 'Collaboration', 'Accountable', 'Improve lives around you', 'Negotiation', 'Get the best from others', 'Flexible', 'Coaching', 'Methodical approach', 'Empathy', 'Decisiveness', 'Self assurance', 'Clarity and concision']
+    """
     MANAGER = [
         "Communication skills",
         "Objection handling",
@@ -208,6 +225,24 @@ class EmployeeSkills:
 
 
 def get_skills_by_candidate_type(candidate_type):
+    """
+    This function returns the appropriate skills class based on the candidate type provided.
+
+    The function takes a string as an input, which represents the candidate type. It then compares this string with predefined candidate types ('Manager', 'Sales manager', 'Customer services', 'Employee'). The comparison is case-insensitive as the input string is capitalized before comparison. 
+
+    If the input matches one of the predefined types, the function returns the corresponding skills class. If the input does not match any of the predefined types, the function returns None.
+
+    Args:
+        candidate_type (str): A string representing the candidate type. The string should be one of the following: 'Manager', 'Sales manager', 'Customer services', 'Employee'. The comparison is case-insensitive.
+
+    Returns:
+        class: The corresponding skills class if the input matches one of the predefined types. Returns None if the input does not match any of the predefined types.
+
+    Example:
+        >>> get_skills_by_candidate_type('manager')
+        <class '__main__.ManagerSkills'>
+    """
+    
     if candidate_type.capitalize() == 'Manager':
         return ManagerSkills
     elif candidate_type.capitalize() == 'Sales manager':

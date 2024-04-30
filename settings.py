@@ -24,6 +24,8 @@ REFRESH_TOKEN_EXPIRY_VALUE = 30
 ACCESS_TOKEN_EXPIRY_UNIT = "days"
 ACCESS_TOKEN_EXPIRY_VALUE = 1
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+
 INSTALLED_APPS = [
     "test_bulk_upload.apps.TestBulkUploadConfig",
     "tenants.apps.TenantsConfig",
