@@ -7356,7 +7356,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                 status = "failed",
                                 reason_of_failure = f"failed to extract information for following reason : {e}"
                             )
-            send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
+            # send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
 
 
             if i+1 == max_retry:
@@ -8690,3 +8690,32 @@ def update_scenarios(test):
 
 
 
+def get_low_skill_scenarios(tenant,test_codes=None,min_skill_count=4):
+
+    scenarios = []
+    tests = Test.objects.filter(deleted=False,tenant_id=tenant.uid)
+
+    if test_codes:
+        test_codes = [test.strip() for test in test_codes.split(",")]
+        tests = tests.filter(test_code__in=test_codes)
+
+
+    for test in tests:
+    
+        skills_to_evaluate = test.skills_to_evaluate
+
+        if skills_to_evaluate:
+            unique_skills = set([skill.strip() for skill in skills_to_evaluate.split(',')])
+            if len(unique_skills) < min_skill_count:
+                scenarios.append({
+                "Test Code": test.test_code,
+                "Skills": ",".join(unique_skills),
+                "Skill count": len(unique_skills)
+            })
+
+
+    return scenarios
+
+
+
+        
