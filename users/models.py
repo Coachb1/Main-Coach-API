@@ -72,6 +72,7 @@ class UserAttribute(TenantAwareModel):
     custom_skill_prompt_2 = models.TextField(null=True, blank=True, default=None)
     test_previlage = models.TextField(null=True,blank=True,default=None)
     competency_data = models.JSONField(null=True,blank=True,default=default_competency_data())
+    evaluate_relevency = models.BooleanField(null=True, blank = True, default=True)
     
 
 
