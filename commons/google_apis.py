@@ -78,7 +78,7 @@ def speech_to_text(url):
         raise e
     
 @timeit
-def text_bison_compeletion(prompt):
+def text_bison_compeletion(prompt,model="text-bison@001"):
     """
     Generates text completions based on a given prompt using the TextGenerationModel from the vertexai.language_models module.
 
@@ -107,7 +107,7 @@ def text_bison_compeletion(prompt):
     while True:
         try:
             logger.info({"**** text_bison_compeletion":f"trying text_bison_compeletion for {retry} time"})
-            model = TextGenerationModel.from_pretrained("text-bison@001")
+            model = TextGenerationModel.from_pretrained(model)
             response = model.predict(
                 prompt,
                 **parameters
@@ -163,3 +163,48 @@ def text_to_speech_google(text):
     except Exception as e:
         logger.error(f"text_to_speech_google failed with {e}", exc_info=True)
         raise e
+    
+
+def gemini_competions(prompt):
+    import requests
+    import json
+    max_retry = 3
+    retry = 0
+
+    while True:
+        try:
+            logger.info({"**** gemini":f"trying gemini for {retry} time"})
+            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=AIzaSyBfhB_y-hjwnqpVfVuC8ctvKy4gyiTesKo"
+
+            payload = json.dumps({
+            "contents": [
+                {
+                "parts": [
+                    {
+                    "text": prompt
+                    }
+                ]
+                }
+            ]
+            })
+            headers = {
+            'Content-Type': 'application/json'
+            }
+
+            response = requests.request("POST", url, headers=headers, data=payload)
+            print(response)
+            print(response.json())
+            return response.json().get('candidates')[0].get("content").get("parts")[0].get("text")
+
+        
+        except Exception as e:
+            logger.error({"****gemini ":f"failed gemini for {retry} time"})
+            logger.exception('Error communicating with gemini err: %s', e)
+
+            retry += 1
+            if retry >= max_retry:
+                raise e
+
+            time.sleep(random.randint(1,3))
+
+    

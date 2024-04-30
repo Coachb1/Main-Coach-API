@@ -3,6 +3,7 @@ import re
 import openai
 import requests
 import anthropic
+import time
 
 from pytube.exceptions import VideoUnavailable
 from urllib.parse import urlparse, parse_qs
@@ -20,11 +21,29 @@ from langchain.llms import OpenAI
 from datetime import datetime
 from pydub import AudioSegment
 from django.conf import settings
+from commons.timeit import timeit
 
 
 
 # Validation Functions
 def is_valid_openai_key(api_key) -> bool:
+    """
+    Check if the provided OpenAI API key is valid.
+
+    Parameters:
+    - api_key (str): The OpenAI API key to be tested.
+
+    Returns:
+    - bool: True if the API key is valid, False otherwise.
+
+    Raises:
+    - requests.exceptions.HTTPError: If there is an HTTP error during the authentication request.
+    - Exception: If there is an error during the OpenAI Python package test.
+
+    Example:
+    >>> is_valid_openai_key("your_api_key")
+    True
+    """
     try:
         # Test OpenAI API key by making a request to the authentication endpoint
         auth_response = requests.get("https://api.openai.com/v1/engines", headers={"Authorization": f"Bearer {api_key}"})
@@ -42,6 +61,15 @@ def is_valid_openai_key(api_key) -> bool:
         return False
     
 def is_valid_youtube_url(url: str) -> bool:
+    """
+    Check if the given URL is a valid YouTube video URL.
+
+    Parameters:
+        url (str): The URL to be checked.
+
+    Returns:
+        bool: True if the video is available, False otherwise.
+    """
     # Check if the URL is a valid YouTube video URL
     try:
         # Create a YouTube object
@@ -59,6 +87,19 @@ def is_valid_youtube_url(url: str) -> bool:
 
 # Calculate YouTube video duration
 def get_video_duration(url: str) -> float:
+    """
+    Get the duration of a video from a given URL.
+
+    Parameters:
+    - url (str): The URL of the video.
+
+    Returns:
+    - float: The duration of the video in minutes.
+
+    Example:
+    >>> get_video_duration('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    3.5
+    """
     yt = YouTube(url)  
     video_length = round(yt.length / 60, 2)
 
@@ -66,6 +107,16 @@ def get_video_duration(url: str) -> float:
 
 # Calculate API call cost
 def calculate_api_cost(video_length: float, option: str) -> float:
+    """
+    Calculate the cost of API calls based on the length of the video and the option chosen.
+
+    Parameters:
+    video_length (float): The length of the video in seconds.
+    option (str): The option chosen, either 'summary' or 'answer'.
+
+    Returns:
+    float: The cost of the API calls.
+    """
     if option == 'summary':
         api_call_cost = round(video_length * 0.009, 2)
     elif option == 'answer':
@@ -75,6 +126,15 @@ def calculate_api_cost(video_length: float, option: str) -> float:
 
 # Get Video Thumbnail URL & Title
 def video_info(url: str):
+    """
+    Get the thumbnail URL and title of a YouTube video.
+
+    Parameters:
+    url (str): The URL of the YouTube video.
+
+    Returns:
+    tuple: The thumbnail URL and title of the video.
+    """
 
     yt = YouTube(url)
 
@@ -86,7 +146,12 @@ def video_info(url: str):
 
 # Download YouTube video as Audio
 def download_audio(url: str):
+    """
+    Download the audio of a YouTube video.
 
+    Parameters:
+    url (str): The URL of the YouTube video.
+    """
     yt = YouTube(url)
 
     # Extract the video_id from the url
@@ -108,6 +173,13 @@ def download_audio(url: str):
 
 # Transcription 
 def transcribe_audio(file_path, video_id):
+        """
+        Transcribe the audio file of a YouTube video.
+
+        Parameters:
+        file_path (str): The path of the audio file.
+        video_id (str): The ID of the YouTube video.
+        """
         # The path of the transcript
         transcript_filepath = f"tmp/{video_id}.txt"
 
@@ -160,9 +232,41 @@ def transcribe_audio(file_path, video_id):
             for i in range(chunk_no):
                 os.remove(f"tmp/{chunk_name}_{i}.mp3")
 
+def convert_youtube_link(youtube_link):
+    """
+    Convert a YouTube link to the standard format.
 
+    Parameters:
+    youtube_link (str): The YouTube link.
+
+    Returns:
+    str: The converted YouTube link.
+    """
+    # Check if the input is a valid YouTube link
+    if "youtu.be" in youtube_link:
+        # Extract the video ID from the input link
+        video_id = youtube_link.split("/")[-1].split("?")[0]
+        
+        # Construct the new YouTube link format
+        converted_link = f"https://www.youtube.com/watch?v={video_id}"
+        
+        return converted_link
+    else:
+        return youtube_link
+
+@timeit  
 def download_and_transcribe_audio(url: str):
+    """
+    Download and transcribe the audio of a YouTube video.
+
+    Parameters:
+    url (str): The URL of the YouTube video.
+
+    Returns:
+    str: The transcribed text of the audio.
+    """
     # Extract the video_id from the url
+    url = convert_youtube_link(url)
     query = urlparse(url).query
     params = parse_qs(query)
     video_id = params["v"][0]
@@ -178,6 +282,8 @@ def download_and_transcribe_audio(url: str):
         
         loader = TextLoader(transcript_filepath, encoding='utf8')
         documents = loader.load()
+
+        time.sleep(5)
 
         print("*"*50, "DOCUMENTS: \n", documents, "*"*50)
 
@@ -202,7 +308,17 @@ def download_and_transcribe_audio(url: str):
         return transcript_file
 # Generate Answer
 def generate_answer(api_key: str, url: str, question: str) -> str:
+    """
+    Generate an answer to a question based on the content of a YouTube video.
 
+    Parameters:
+    api_key (str): The OpenAI API key.
+    url (str): The URL of the YouTube video.
+    question (str): The question to answer.
+
+    Returns:
+    str: The generated answer.
+    """
     openai.openai_api_key = api_key
 
     llm = OpenAI(temperature=0, model_name="gpt-3.5-turbo")
@@ -260,6 +376,16 @@ def generate_answer(api_key: str, url: str, question: str) -> str:
     
 
 def generate_answer_from_text(text_path: str, question: str) -> str:
+    """
+    Generate an answer to a question based on the content of a text file.
+
+    Parameters:
+    text_path (str): The path of the text file.
+    question (str): The question to answer.
+
+    Returns:
+    str: The generated answer.
+    """
     llm = OpenAI(temperature=0, model_name="gpt-3.5-turbo")
     text_splitter = CharacterTextSplitter(chunk_size=100, chunk_overlap=0)
 
@@ -279,18 +405,59 @@ def generate_answer_from_text(text_path: str, question: str) -> str:
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
+    """
+    Extract the text from a PDF file.
+
+    Parameters:
+    pdf_path (str): The path of the PDF file.
+
+    Returns:
+    str: The extracted text.
+    """
     import PyPDF2
     pdf = open(pdf_path, 'rb')
     pdfReader = PyPDF2.PdfReader(pdf)
     text_data = ""
-    for i in range(pdfReader.numPages):
-        page = pdfReader.getPage(i)
-        text = page.extractText()
+    for i in range(len(pdfReader.pages)):
+        page = pdfReader.pages[i]
+        text = page.extract_text()
         text_data += " ".join(text.split("\t"))
 
     return text_data
 
+def extract_text_from_doc(file_path: str) -> str:
+    """
+    Extract the text from a DOC file.
+
+    Parameters:
+    file_path (str): The path of the DOC file.
+
+    Returns:
+    str: The extracted text.
+    """
+    from docx import Document
+    doc = Document(file_path)
+    text_data = ""
+    # Extract and print text from each paragraph
+    for paragraph in doc.paragraphs:
+        print(paragraph.text)
+        text_data += " ".join(paragraph.text.split("\t"))
+    print(f"############################ text: {text_data} #####################")
+    return text_data
+
+
+
 def generate_answer_from_text_anthropic(text_path: str, question: str) -> str:
+    """
+    Generate an answer to a question based on the content of a text file using the Anthropic API.
+
+    Parameters:
+    text_path (str): The path of the text file.
+    question (str): The question to answer.
+
+    Returns:
+    str: The generated answer.
+    """
     # anthropic.anthropic_api_key = api_key  # Set Anthropic API key
     ANTHROPIC_KEY = settings.ANTHROPIC_KEY
     
@@ -317,7 +484,16 @@ def generate_answer_from_text_anthropic(text_path: str, question: str) -> str:
 
 # Generating Video Summary 
 def generate_summary(api_key: str, url: str) -> str:
+    """
+    Generate a summary of a YouTube video.
 
+    Parameters:
+    api_key (str): The OpenAI API key.
+    url (str): The URL of the YouTube video.
+
+    Returns:
+    str: The generated summary.
+    """
     openai.api_key = api_key
 
     llm = OpenAI(temperature=0, model_name="gpt-3.5-turbo")

@@ -250,13 +250,18 @@ input[type='file']{
                         let url = window.URL.createObjectURL(blob);
                         let a = document.createElement('a');
                         a.href = url;
-                        a.download = 'test.csv';
+                        let timestamp = new Date().toLocaleDateString() + '-' + new Date().toLocaleTimeString().replace(/:/g, '-');
+                            
+                        // Set the download filename with the timestamp
+                        a.download = 'test-' + timestamp + '.csv';
                         a.click();
                     })
                 }
                 else{
                     form.reset()
                     response.json().then(function(result){
+                        console.log(result)
+
                         if(result['exception']===undefined){
                             let records = JSON.stringify(result);
                             document.getElementById('message').innerHTML = ''
@@ -268,7 +273,19 @@ input[type='file']{
                             }) 
                         }
                         else{
-                            document.getElementById('message').innerHTML = result['errors'][0];
+                            document.getElementById('message').innerHTML = "Error occured Please check CSV: " + result['errors'];
+                        }
+                        console.log(result)
+                        if (result.file_response) {
+                            let url = window.URL.createObjectURL(new Blob([result.file_response]));
+                            let a = document.createElement('a');
+                            a.href = url;
+                            // Create a timestamp for the filename (using local time)
+                            let timestamp = new Date().toLocaleDateString() + '-' + new Date().toLocaleTimeString().replace(/:/g, '-');
+                            
+                            // Set the download filename with the timestamp
+                            a.download = 'test-' + timestamp + '.csv';
+                            a.click();
                         }
                     })
                 }

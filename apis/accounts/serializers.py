@@ -1,9 +1,14 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute
 from commons.cloudinary import upload_image
-from utilities.models import UserIDP, DirectoryPageInfo
+from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
+from commons.utils import get_bot_engagements
+from users.db import get_user_by_id, get_user_display_name
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class UserAttributesUserContextSerializer(serializers.Serializer):
@@ -33,13 +38,25 @@ class AccountSerializer(serializers.ModelSerializer):
         model = User
         fields = ["uid", "name", "role", "created", "updated"]
 
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try:
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
+
+            data['profile_type'] = profile.profile_type
+        except Exception as e:
+            logger.exception(f"Error fetching profile: {e}")
+            pass
+
+        return data
+
 
 
 class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
     profile_image = serializers.FileField(required=False)
     class Meta:
         model = CoachCoacheeMentorMenteeProfile
-        fields = ['uid','profile_type','name', 'email', 'status', 'speciality', 'experience', 'location','profile_image',
+        fields = ['uid','tenant_id','profile_type','name', 'email', 'status', 'speciality', 'experience', 'location','profile_image',
                 'favourite_simulation_codes', 'about', 'department', 'unique_id', 'user_id', 'bot_ids', 'bot_urls', 'profile_image_url','hard_skill_areas',
                 'area_domain','provided_links','low_rating_characteristics','high_rating_characteristics','mentoring_preferences',
                 'mentoring_frameworks','dominant_point_of_view','problem_solving_approach','admired_leaders','voice_sample','coaching_for_fitment','coaching_level',
@@ -49,7 +66,15 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'time_commitment',
                 'is_approved',  
                 'other_details',
-                'mob_number']
+                'mob_number',
+                'allow_coachee_to_create_session',
+                'is_mentor',
+                'qna_for_coach_mentor',
+                'significant_challenges_and_solutions',
+                'common_phrases_and_expressions',
+                "journey_and_background",
+                "mentorship_contribution"
+                ]
 
         extra_kwargs = {
             'uid': {'read_only': True},
@@ -63,6 +88,29 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
             validated_data.pop('profile_image')
         return CoachCoacheeMentorMenteeProfile.objects.create(**validated_data)
     
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        try:
+            
+            # user_attributes = UserAttribute.objects.get(user_id=instance.user_id)
+            # name = user_attributes.attributes.get('real_name',None)
+            # print(f"################# user_attributes: {user_attributes.attributes}")
+            # if name is None:
+            #     name = user_attributes.attributes.get('username',None)
+            # if name is None:
+            #     name = user_attributes.attributes.get('name',None)
+
+            # res['name'] = name
+
+            name = get_user_display_name(get_user_by_id(instance.user_id))
+            if name:
+                res['name'] = name
+
+            
+        except Exception as e:
+            logger.error(f"Error in CoachCoacheeMentorMenteeProfileSerializer: {e}")
+            
+        return res
 
 class BotAttributeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -74,12 +122,145 @@ class SignatureBotSerializer(serializers.ModelSerializer):
         model = SignatureBot
         fields = '__all__'
 
+        
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        user = User.objects.get(deleted=False,uid=instance.user_id)
+        res['creator_name'] = user.name
+
+        return res
+
 class UserIDPSerializers(serializers.ModelSerializer):
     class Meta:
         model = UserIDP
         fields = '__all__'
 
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        chars_to_remove = '*'
+
+        fields_to_clean = [ 'strengths','weaknesses','opportunities',
+                            'threats','key_focus_areas','goals',
+                            'priorities','learning_histories',
+                            'key_skills','skill_gap_for_development',
+                            'leadership_skill_focus_areas','book_recommendations',
+                            'course_recommendations','recommended_hbr','recommended_ted_talk',
+                            'learning_communities']
+        for key in fields_to_clean:
+            if key in data:
+                print(f"######################## key: {key} value: {data[key]}")
+                content = data.get(key,' ')
+                if content:
+                    data[key] = content.replace(chars_to_remove, '')
+
+
+        return data
+
 class DirectoryInfoSErializer(serializers.ModelSerializer):
     class Meta:
         model = DirectoryPageInfo
         fields = '__all__'
+
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try: 
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
+            data['created'] = profile.created
+            if profile.admirer_user_ids:
+                data['admirer_ids'] = profile.admirer_user_ids.split(',')
+            else:
+                data['admirer_ids'] = []
+
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=profile.tenant_id , coach_id=profile.uid)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                data['rating'] = 0
+                data['total_rating'] = 0
+            else:
+                data['rating'] = total_score/total_ratings
+                data['total_rating'] = total_ratings
+
+            try:
+                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
+                engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
+                data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
+                data['total_without_question_count'] = engagements.get('total_without_question_count',None)
+            except:
+                data['total_engagement_with_question_count'] = None
+                data['total_engagement_with_question_count'] = None
+            
+        except Exception as e:
+            logger.error(f"Error in DirectoryInfoSErializer: {e}")
+            data['admirer_ids'] = []
+            data['created'] = ""
+            data['total_without_question_count'] = None
+            data['total_engagement_with_question_count'] = None
+            data['rating'] = 0
+            data['total_rating'] = 0
+
+        return data
+
+
+
+class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachCoacheeConnection
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        try:
+            coach = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coach_id)
+            coachee = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coachee_id)
+            data['coach_name'] = coach.name
+            data['coach_user_id'] = coach.user_id
+            data['coach_email'] = coach.email
+            data['coachee_email'] = coachee.email
+            data['coachee_user_id'] = coachee.user_id
+            data['coachee_name'] = coachee.name
+            data['allow_coachee_to_create_session'] = coach.allow_coachee_to_create_session
+        except:
+            data['coach_name'] = None
+            data['coachee_name'] = None
+            data['coach_user_id'] = None
+            data['coachee_user_id'] = None
+            data['coach_email'] = None
+            data['coachee_email'] = None
+
+        return data
+    
+
+
+class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachCoacheeJoiningPreviledge
+        fields = '__all__'
+
+
+
+class CoachCoacheeRatingSerializer(serializers.ModelSerializer):
+    rating = serializers.DecimalField(max_digits=3, decimal_places=2)
+    class Meta:
+        model = CoachCoacheeRating
+        fields = '__all__'
+    
+    def to_representation(self, instance):
+        # data =  super().to_representation(instance)
+        data = {}
+        try:
+            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=instance.tenant_id , coach_id=instance.coach_id)
+            total_ratings = len(ratings)
+            total_score = sum([rating.rating for rating in ratings])
+            if total_ratings == 0:
+                data['averate_rating'] = 0
+                data['total_ratings'] = 0
+            else:
+                data['average_rating'] = total_score/total_ratings
+                data['total_ratings'] = total_ratings
+        except Exception as e:
+            logger.error(f"Error in CoachCoacheeRatingSerializer: {e}")
+            data['averate_rating'] = 0
+            data['total_ratings'] = 0
+            
+        return data

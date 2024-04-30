@@ -11,6 +11,7 @@ from .constants import get_skills
 from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
+from users.models import  ClientUserInfo
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -82,8 +83,118 @@ BOT_NAME = "Bot Name"
 USER_ID = "User ID" 
 AREA_DOMAIN = "Area/Domain"
 TAB_CATEGORY = "Tab Category"
+IS_RECOMMENDED = 'Is Recommended'
+VISUAL_TAGS = 'Visual Tags'
+PAGE_NAME = 'Page Name'
+USER_EMAIL = 'User Email'
 
 def format_test_orchestrated_conversation(raw_data):
+    """
+    This function takes raw data in the form of a JSON string and formats it to create an orchestrated conversation test.
+
+    The function first loads the input JSON data into a dictionary. It then extracts the required information from the dictionary and formats it according to the API requirements for creating an orchestrated conversation test.
+
+    The function checks for the presence of certain keys in the input dictionary and performs the following actions based on their values:
+    - 'Title': Sets the title of the test.
+    - 'Context': Sets the description of the test.
+    - 'Scenario Case': Sets the scenario case of the test.
+    - 'Description Media': Sets the description media of the test.
+    - 'Test Custum Prompt': Sets the GPT prompt override of the test.
+    - 'Test Image Link' and 'Test Image Props': Sets the test image and its properties.
+    - 'Test Narration': Sets the narration of the test.
+    - 'Certificate Title' and 'Certificate Description': Sets the title and description of the certificate, if provided.
+    - 'Is Dynamic': Sets the test type to dynamic discussion if the value is 'true'.
+    - 'Is Dynamic Thread': Sets the test type to dynamic discussion thread if the value is 'true'.
+    - 'Client Name': Sets the client name for the test.
+    - 'Bot Name': Sets the bot name for the test.
+    - 'Tab Category': Sets the tab category for the test.
+    - 'Area/Domain': Sets the area/domain for the test.
+    - 'Ted talks and HBR Case': Sets the TED talks and HBR case for the test.
+    - 'Is Game Type': Sets the is game type flag for the test.
+    - 'Is Immersive': Sets the is immersive flag for the test.
+    - 'Is Transcript Only': Sets the is transcript only flag for the test.
+    - 'Is Free': Sets the is free flag for the test.
+    - 'Is Micro': Sets the is micro flag for the test.
+    - 'Is Logged In': Sets the is logged in flag for the test.
+    - 'Current news': Sets the articles for the test.
+    - 'Image URL': Sets the image URL for the test.
+    - 'Source': Sets the source for the test.
+    - 'User ID': Sets the creator user ID for the test.
+    - 'Ratings': Sets the rating for the test.
+    - 'Email Address List': Sets the email address list for the test.
+    - 'Candidate Type': Sets the candidate type for the test.
+    - 'Is Checkin Type': Sets the is checkin type flag for the test.
+    - 'Goals': Sets the goals for the test.
+    - 'Course': Sets the course for the test.
+    - 'Industry': Sets the industry for the test.
+    - 'Experience Level': Sets the experience level for the test.
+    - 'Start with user': Sets the start with user flag for the test.
+    - 'Background': Sets the background for the test.
+    - 'PersonX': Adds questions to the test based on the 'PersonX' keys in the input dictionary.
+
+    The function then checks if the test type is dynamic discussion and if there is more than one bot specified. If so, it returns an error.
+
+    Finally, the function converts the formatted output dictionary back to a JSON string and returns it.
+
+    Args:
+        raw_data (str): A JSON string containing the raw data for creating an orchestrated conversation test.
+
+    Returns:
+        str: A JSON string containing the formatted data for creating an orchestrated conversation test.
+
+    Raises:
+        Exception: If any required keys are missing or have null or empty values in the input dictionary.
+        Exception: If the API call fails.
+
+    Example:
+        >>> raw_data = '''
+        ... {
+        ...     "Title": "Orchestrated Conversation Test",
+        ...     "Context": "This is a test description",
+        ...     "Scenario Case": "Case 1",
+        ...     "Description Media": "Media link",
+        ...     "Test Custum Prompt": "Custom prompt",
+        ...     "Test Image Link": "Image link",
+        ...     "Test Image Props": "Image props",
+        ...     "Test Narration": "Test narration",
+        ...     "Certificate Title": "Certificate title",
+        ...     "Certificate Description": "Certificate description",
+        ...     "Is Dynamic": "true",
+        ...     "Is Dynamic Thread": "false",
+        ...     "Client Name": "Client A",
+        ...     "Bot Name": "Bot A",
+        ...     "Tab Category": "Category A",
+        ...     "Area/Domain": "Domain A",
+        ...     "Ted talks and HBR Case": "Case A",
+        ...     "Is Game Type": "true",
+        ...     "Is Immersive": "false",
+        ...     "Is Transcript Only": "true",
+        ...     "Is Free": "false",
+        ...     "Is Micro": "true",
+        ...     "Is Logged In": "false",
+        ...     "Current news": "News A",
+        ...     "Image URL": "Image URL",
+        ...     "Source": "Source A",
+        ...     "User ID": "User A",
+        ...     "Ratings": "5",
+        ...     "Email Address List": "email1@example.com,email2@example.com",
+        ...     "Candidate Type": "Manager",
+        ...     "Is Checkin Type": "true",
+        ...     "Goals": "Goal A",
+        ...     "Course": "Course A",
+        ...     "Industry": "Industry A",
+        ...     "Experience Level": "Level A",
+        ...     "Start with user": "true",
+        ...     "Background": "Background A",
+        ...     "Person1": "Question 1",
+        ...     "Person2": "Question 2",
+        ...     "Person3": "Question 3"
+        ... }
+        ... '''
+        >>> format_test_orchestrated_conversation(raw_data)
+        '{"creator_id": null, "title": "Orchestrated Conversation Test", "description": "This is a test description", "interaction_mode": "text", "email_candidate": true, "test_type": "dynamic_discussion", "scenario_case": "case 1", "description_media": "Media link", "gpt_prompt_override": "Custom prompt", "questions": [{"question": "Question 1", "question_type": "subjective", "gpt_prompt_override": "", "subjective_answer": "", "question_for": "Person1"}, {"question": "Question 2", "question_type": "subjective", "gpt_prompt_override": "", "subjective_answer": "", "question_for": "Person2"}, {"question": "Question 3", "question_type": "subjective", "gpt_prompt_override": "", "subjective_answer": "", "question_for": "Person3"}]}'
+    """
+    
     try:
         input_dict = json.loads(raw_data)
 
@@ -149,11 +260,22 @@ def format_test_orchestrated_conversation(raw_data):
                     
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
-                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                output_dict['client_name'] = input_dict[CLIENT].strip()
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
+                    logger.info(f"###########################Matching Client info: {client_info}")
+                except ClientUserInfo.DoesNotExist:
+                    available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
+                    logger.info(f"###########################Available Client info: {available_clients}")
+                    return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if PAGE_NAME in input_dict:
+            if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
 
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
@@ -183,6 +305,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_RECOMMENDED in input_dict:
+            if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
+                is_recommended = input_dict[IS_RECOMMENDED].strip().lower()
+
+                if is_recommended == "true":
+                    output_dict['is_recommended'] = True
+                elif is_recommended == "false":
+                    output_dict['is_recommended'] = False
+                else:
+                    output_dict['is_recommended'] = False
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -234,6 +367,10 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_logged_in'] = True
                 else:
                     output_dict['is_logged_in'] = False
+                    
+        if VISUAL_TAGS in input_dict:
+            if input_dict[VISUAL_TAGS] and len(input_dict[VISUAL_TAGS].strip()) > 0:
+                output_dict['visual_tags'] = input_dict.get(VISUAL_TAGS,None)
         
         
         if CURRENT_NEWS in input_dict:
@@ -251,6 +388,11 @@ def format_test_orchestrated_conversation(raw_data):
         if USER_ID in input_dict :
             if input_dict[USER_ID] and len(input_dict[USER_ID].strip()) > 0:
                 output_dict['creator_user_id'] = input_dict.get(USER_ID,None)
+                
+                
+        if USER_EMAIL in input_dict :
+            if input_dict[USER_EMAIL] and len(input_dict[USER_EMAIL].strip()) > 0:
+                output_dict['creator_email'] = input_dict.get(USER_EMAIL,None)
         
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
@@ -483,6 +625,26 @@ def format_test_data_web(raw_data):
 
 
 def format_test_data_slack(raw_data):
+    """ 
+    The format_test_data_slack function takes in a raw_data parameter, which is expected to be a JSON string. It processes the input JSON data and formats it into a specific output JSON format.
+
+    The function performs the following steps:
+
+    Parses the raw_data JSON string into a Python dictionary using json.loads.
+    Creates an output_dict with predefined keys and values extracted from the input_dict.
+    Checks if certain keys exist in the input_dict and adds corresponding values to the output_dict.
+    Handles special cases for certain keys and modifies the output_dict accordingly.
+    Processes the questions in the input_dict and adds them to the output_dict.
+    Handles additional logic based on the test_type and modifies the output_dict accordingly.
+    Converts the output_dict to a JSON string using json.dumps.
+    Returns the output JSON string and a boolean check_pass indicating if the processing was successful.
+    Example: Input:
+
+    raw_data = '{"title": "Test Title", "description": "Test Description", "max_test_allowed": 10, "interaction_mode": "interactive", "test_type": "single", "scenario_case": "case1", "questions": {"question1": "What is your name?", "question2": "How old are you?"}}'
+    Output:
+
+    '{"creator_id": null, "title": "Test Title", "description": "Test Description", "max_test_allowed": 10, "interaction_mode": "interactive", "test_type": "single", "scenario_case": "case1", "description_media": null, "gpt_prompt_override": "", "questions": [{"question": "What is your name?", "question_type": "subjective", "gpt_prompt_override": "", "subjective_answer": "", "key_learning_point": "", "key_learning_skills": null}, {"question": "How old are you?", "question_type": "subjective", "gpt_prompt_override": "", "subjective_answer": "", "key_learning_point": "", "key_learning_skills": null}], "total_question": 2}
+    """
     try:
         input_dict = json.loads(raw_data)
 
@@ -550,6 +712,17 @@ def format_test_data_slack(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_RECOMMENDED in input_dict:
+            if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
+                is_recommended = input_dict[IS_RECOMMENDED].strip().lower()
+
+                if is_recommended == "true":
+                    output_dict['is_recommended'] = True
+                elif is_recommended == "false":
+                    output_dict['is_recommended'] = False
+                else:
+                    output_dict['is_recommended'] = False
 
 
         if IS_PITCH in input_dict:
@@ -622,11 +795,23 @@ def format_test_data_slack(raw_data):
 
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
-                output_dict['client_name'] = input_dict[CLIENT].strip().capitalize()
+                output_dict['client_name'] = input_dict[CLIENT].strip()
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=output_dict['client_name'])
+                    logger.info(f"###########################Matching Client info: {client_info}")
+                except ClientUserInfo.DoesNotExist:
+                    available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
+                    logger.info(f"###########################Available Client info: {available_clients}")
+                    return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if PAGE_NAME in input_dict:
+            if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+
 
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
@@ -659,6 +844,10 @@ def format_test_data_slack(raw_data):
         if RATINGS in input_dict:
             if input_dict[RATINGS] and len(input_dict[RATINGS].strip()) > 0:
                 output_dict['rating'] = input_dict.get(RATINGS,None)
+                
+        if VISUAL_TAGS in input_dict:
+            if input_dict[VISUAL_TAGS] and len(input_dict[VISUAL_TAGS].strip()) > 0:
+                output_dict['visual_tags'] = input_dict.get(VISUAL_TAGS,None)
 
         test_type = input_dict[TEST_TYPE].strip().lower()
 
@@ -677,6 +866,7 @@ def format_test_data_slack(raw_data):
                     skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
 
+        # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
         unmatched_skills = []
@@ -686,6 +876,11 @@ def format_test_data_slack(raw_data):
 
         if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
+
+        unique_skill_count = len(set(skills_list))
+
+        if unique_skill_count < 4:
+            return {"skills": set(skills_list), "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -956,6 +1151,27 @@ def login_web(email, password):
 
 
 def login_slack(email, password, subdomain_prefix):
+    """
+    This function is used to authenticate a user with Slack using their email and password.
+
+    The function constructs a payload with the user's email, password, and subdomain prefix, 
+    then sends a POST request to the Slack login API endpoint. If the response status code is 200, 
+    it means the login was successful and the function returns the access token. 
+    If the status code is not 200, the function returns False. 
+    If any exception occurs during the process, it is logged and the function also returns False.
+
+    Parameters:
+    email (str): The email address of the user. It should be a valid email address.
+    password (str): The password of the user. It should not be empty.
+    subdomain_prefix (str): The subdomain prefix of the user's Slack workspace. It should not be empty.
+
+    Returns:
+    str or bool: The access token as a string if the login is successful, False otherwise.
+
+    Example:
+    >>> login_slack('test@example.com', 'password123', 'myworkspace')
+    'xoxp-1111827399-16111519414-20367011469-5f89a31i07'
+    """
     try:
         url = f"{BACKEND}/api/v1/webauth/login/"
         # url = "http://localhost:8000/api/v1/webauth/login/"
@@ -1062,7 +1278,36 @@ def create_test_web(csv_file, email, password):
 
 
 def create_test_slack(csv_file, email, password, subdomain_prefix):
+    """
+    This function is designed to create tests on Slack by reading data from a CSV file and making API calls.
 
+    The function performs the following steps:
+    1. Logs into Slack using provided email and password.
+    2. Reads the CSV file and checks for null or empty values in specified columns for each row.
+    3. Checks for empty Key Learning Skills (KLS), Key Learning Points (KLP), and questions.
+    4. If a row is valid, it is appended to a list of valid rows to be sent to the API.
+    5. For each valid row, the function formats the data as per the API requirements and makes a POST request to the API endpoint.
+    6. If the API call is successful, the function increments a counter for successful records and maps the test name to the test code.
+    7. If the API call fails, the function raises an exception.
+    8. After all rows have been processed, the function writes the test name to test code mapping to a CSV file and returns it as a response.
+
+    Parameters:
+    csv_file (file): A CSV file containing the test data.
+    email (str): The email address used to log into Slack.
+    password (str): The password used to log into Slack.
+    subdomain_prefix (str): The subdomain prefix for the Slack workspace.
+
+    Returns:
+    dict: A dictionary containing the following keys:
+        - "success" (bool): Indicates whether the tests were created successfully.
+        - "message" (str): A message indicating the result of the operation.
+        - "errors" (list): A list of error messages, if any.
+        - "file_response" (HttpResponse): A response containing the CSV file with the test name to test code mapping.
+        - "exception" (bool): Indicates whether an exception occurred.
+
+    Example:
+    create_test_slack(csv_file, 'test@example.com', 'password', 'test')
+    """
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
@@ -1074,6 +1319,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         logger.info("Login successful")
         valid_rows = []
         response = None
+        occured_errors = []
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1160,13 +1406,35 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                 else:
                     if "unmatched_skills" in json_data:
-                        return {
-                            "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
-                            "exception": True,
-                        }
-                        
-                    test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = "Not Created For This Title"
+                        occured_errors.append("Mismatching skills")
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                        # return {
+                        #     "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
+                        #     "exception": True,
+                        # }
+                    
+                    elif "error" in json_data:
+                        occured_errors.append(json_data["error"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = json_data["error"]
+                        # return {
+                        #     "errors": [json_data["error"]],
+                        #     "exception": True,
+                        # }
+
+                    elif "skills" in json_data:
+                        occured_errors.append(json_data["skills"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                                            
+                    else:
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = "Not Created For This Title Because of it is not suiatable for checkin type test"
+                    
+                        occured_errors.append("Not Created For This Title Because of it is not suiatable for checkin type test")
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1185,12 +1453,21 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             # Delete the csv file
             os.remove('test_name_test_code_map.csv')
 
-            return {
-                "success": True,
+            print('occured', len(occured_errors))
+            if len(occured_errors)> 0:
+                return {
                 "message": "Test created successfully",
-                'errors': [],
+                'errors': occured_errors,
+                "exception": True,
                 'file_response': file_response,
             }
+            else:
+                return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
 
         except Exception as e:
             logger.error(e)
@@ -1206,7 +1483,47 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
 
 def create_test_orchestrated_conversation_slack(csv_file, email, password, subdomain_prefix):
+    """
+    This function creates orchestrated conversation tests in Slack based on the data provided in a CSV file.
 
+    The function first logs into Slack using the provided email, password, and subdomain prefix. It then reads the CSV file and checks each row for null or empty values in the 'Title', 'Context', 'EMAIL_ADDRESS_LIST', and 'SCENARIO_CASE' columns. If any of these columns are missing or have null or empty values, an exception is raised.
+
+    The function then formats the data from each valid row according to the API requirements for creating an orchestrated conversation test and sends a POST request to the Slack API to create the test. If the API call is successful, the test code is stored in a dictionary with the test name as the key.
+
+    After all valid rows have been processed, the function writes the test name to test code mapping to a CSV file, sends the file as a response, and then deletes the file.
+
+    Args:
+        csv_file (file): A CSV file containing the data for creating the orchestrated conversation tests.
+        email (str): The email address to use for logging into Slack.
+        password (str): The password to use for logging into Slack.
+        subdomain_prefix (str): The subdomain prefix to use for logging into Slack.
+
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'success': A boolean indicating whether the tests were created successfully.
+            - 'message': A string containing a success message if the tests were created successfully.
+            - 'errors': A list of strings containing error messages if any errors occurred.
+            - 'file_response': A HttpResponse object containing the CSV file with the test name to test code mapping if the tests were created successfully.
+            - 'exception': A boolean indicating whether an exception occurred.
+
+    Raises:
+        Exception: If any required columns are missing or have null or empty values in the CSV file.
+        Exception: If the API call fails.
+
+    Example:
+        >>> csv_file = open('test_data.csv', 'r')
+        >>> email = 'user@example.com'
+        >>> password = 'password'
+        >>> subdomain_prefix = 'example'
+        >>> create_test_orchestrated_conversation_slack(csv_file, email, password, subdomain_prefix)
+        {
+            'success': True,
+            'message': 'Test created successfully',
+            'errors': [],
+            'file_response': <HttpResponse status_code=200, "text/csv">,
+            'exception': False
+        }
+    """
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
@@ -1218,6 +1535,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
         logger.info("Login successful")
         valid_rows = []
         response = None
+        occured_errors = []
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1291,17 +1609,27 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         raise Exception("API call failed")
                 else:
                     if "last_question_for_user" in json_data:
-                        return {
-                            "errors": [json_data['last_question_for_user']],
-                            "exception": True,
-                        }
+                        occured_errors.append(json_data['last_question_for_user'])
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = json_data['last_question_for_user']
+                        # return {
+                        #     "errors": [json_data['last_question_for_user']],
+                        #     "exception": True,
+                        # }
                     elif "error" in json_data:
-                        return {
-                            "errors": [json_data["error"]],
-                            "exception": True,
-                        }
-                    test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = "Not Created For This Title"
+                        occured_errors.append(json_data["error"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = json_data["error"]
+                        # return {
+                        #     "errors": [json_data["error"]],
+                        #     "exception": True,
+                        # }
+                    else:
+                        occured_errors.append("Not Created For This Title, Reason: Check-in type")
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                                ] = "Not Created For This Title, Reason: Check-in type"
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1320,12 +1648,21 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             # Delete the csv file
             os.remove('test_name_test_code_map.csv')
 
-            return {
-                "success": True,
+            print('occured', len(occured_errors))
+            if len(occured_errors)> 0:
+                return {
                 "message": "Test created successfully",
-                'errors': [],
+                'errors': occured_errors,
+                "exception": True,
                 'file_response': file_response,
             }
+            else:
+                return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
 
         except Exception as e:
             logger.error(e)

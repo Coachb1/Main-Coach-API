@@ -6,13 +6,16 @@ from rest_framework.response import Response
 import pytz
 import datetime
 import json
+from django.http import StreamingHttpResponse
+import time
+import anthropic
 
 from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
 from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from commons.utils import generic_completion
-from tests.helpers import get_meeting_report_from_test_attempt_session
+from tests.helpers import get_meeting_report_from_test_attempt_session, get_conversation_summary,create_scenario_from_transcript
 from tests.helpers import get_skills_tracker_data, calculate_similarity
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
@@ -25,20 +28,25 @@ from tests.helpers import (send_report_link_to_email, send_report_link_to_email_
 from tests.choices import TestTypeChoices, ScenarioCaseChoices
 import logging
 from email_sender.helpers import send_feedbackd_email, send_bot_conversation_email,send_feedback_conversation_email
-from users.models import UserAttribute, SignatureBot, BotAttribute
+from users.models import UserAttribute, SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile, CoachCoacheeConnection
 from skills.helpers import (feedback_summary, calulate_summary_for_culture_and_normal_skill, evaluate_skills_explanation,
                             evaluate_culture_skills_explanation, evaluate_skills_explanation_conversation, evaluate_culture_skills_explanation_conversation)
 
 from coaching_conversations.models import CoachingConversation
 
-from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info
+from utilities.helpers import get_session_notes, save_session_notes, get_session_notes_data, update_session_notes, get_fitness_analysis_score,save_user_action_info,save_bot_engagement
 from coaching_conversations.helpers import get_bot_conversation_data_user
 from skills.helpers import json_extraction
-from utilities.models import UserActionInfo, BotQnA
+from utilities.models import UserActionInfo, BotQnA, BotEngagement
+from utilities.helpers import cal_score_for_fitment
+from users.choices import CoachCoacheeConnectionStatusChoice
+from commons.utils import get_bot_engagements
+from commons.notifications import send_error_notification
 
 
 
 logger = logging.getLogger(__name__)
+ANTHROPIC_KEY = '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'
 
 
 class TestAttemptSessionViewSet(ApiViewSet,
@@ -99,15 +107,19 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = serializer.validated_data["participant_id"]
         test_invite_id = serializer.validated_data.get("test_invite_id")
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
+        is_idp_discussion_opted = serializer.validated_data.get("is_idp_discussion_opted")
+        intake_id = serializer.validated_data.get("intake_id")
 
-        print("is_signature_bot =========>", is_signature_bot)
+        print("is_signature_bot =========>", is_signature_bot, "is_idp", is_idp_discussion_opted)
 
         session = create_test_question_answer_session(
             tenant=request.tenant,
             test_id=test_id,
             test_invite_id=test_invite_id,
             participant_id=participant_id,
-            is_signature_bot=is_signature_bot
+            is_signature_bot=is_signature_bot,
+            is_idp_discussion_opted = is_idp_discussion_opted,
+            intake_id = intake_id,
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
@@ -229,7 +241,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id =  request.query_params.get("user_id")
 
         # Filter the test_attempt_session with the given participant_id 
-        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed)
+        test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
         checkin_type_sessions_count = test_attempt_sessions.filter(is_checkin_type=1).count()
 
         test_codes = set()
@@ -257,17 +269,51 @@ class TestAttemptSessionViewSet(ApiViewSet,
                                     user_id=participant_id).attributes
             candidate_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
             
-            send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
+            try:
+                send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                send_error_notification("submit_feedback","Error in sending feedback email",{"participant_id":participant_id,"session_id":session_id,"feedback":feedback,"rating":rating,"test_id":test_id,"test_title":test_title})
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            send_error_notification("submit_feedback","Error in submit feedback",{"participant_id":participant_id,"session_id":session_id,"feedback":feedback,"rating":rating,"test_id":test_id,"test_title":test_title})
             return Response({"status": "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     @action(methods=["POST"], detail=False, url_path="send-report-email")
     def send_report_email(self, request, *args, **kwargs):
+        """
+            Objective: The objective of this method is to send a test report email to the participant or send whatsapp report and do some calculation like feedback_summary and all ,  for a specific test attempt session.
+            
+            Explanation:
+
+            The method first retrieves the necessary parameters from the request query parameters, such as the test_attempt_session_id, report_url, and is_whatsapp.
+            It then checks if the test is free or not.
+            If the is_whatsapp parameter is True or the report_url is empty or not provided, it uses the report_url stored in the test attempt session object.
+            If the test type is coaching, process training, dynamic MCQ, MCQ, or transcript only, it calls the send_report_link_to_email function to send the test report email.
+            If is_whatsapp is True and the test type is not interview or the scenario case is not employee feedback, it calls the send_report_link_to_whatsapp function to send the test report via WhatsApp.
+            It then calculates the skills summary and feedback summary for the test attempt session.
+            If the test is not free, it evaluates the skills explanation and culture skills explanation based on the test type and conversation data.
+            The updated fields are saved in the test attempt session object.
+            If the test type is orchestrated conversation or dynamic discussion and there is an email address list specified for the test, it calls the send_report_link_to_email_orch function to send the test report email.
+            Otherwise, if there is an email address list specified for the test, it calls the send_report_link_to_email function to send the test report email.
+            Finally, it returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.
+
+            Parameters:
+
+                request: The HTTP request object.
+                test_attempt_session_id: The ID of the test attempt session for which the report email is to be sent.
+                report_url: The URL of the test report.
+                is_whatsapp: A boolean indicating whether the report should be sent via WhatsApp.
+
+            Input: The method expects the test_attempt_session_id, report_url, and is_whatsapp parameters to be provided in the request query parameters.
+
+            Output: The method returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.             Eg {"status": "sent"}
+
+        """
         try:
             logger.info("send_report_email")
             test_attempt_session_id = request.query_params.get("test_attempt_session_id")
@@ -404,10 +450,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
-                    send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
+                    try:
+                        send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
+                    except Exception as e:
+                        send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
             else:
                 if test.email_address_list:
-                    send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                    try:
+                        send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                    except Exception as e:
+                        send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -417,6 +469,21 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=False, url_path="set-name-and-email")
     def set_name_email(self, request, *args, **kwargs):
+        """
+        Objective: The objective of the set_name_email method is to set the name and email of a participant in the system.
+
+        Explanation: This method is used to update the name and email of a participant in the system. It receives the participant ID, name, and email as query parameters in the request. It then retrieves the user associated with the participant ID and updates their name and email fields. It also updates the user attributes related to the participant's profile, such as real name, username, and email. Finally, it saves the updated user attributes.
+
+        Params:
+        participant_id: The ID of the participant for whom the name and email need to be set.
+        name: The new name of the participant.
+        email: The new email of the participant.
+
+        Input: The method receives the participant ID, name, and email as query parameters in the request.
+
+        Output: The method returns a response with a status code indicating the success or failure of the operation. If the name and email are successfully updated, the response will have a status code of 200 (OK) and a JSON body with the status "updated". If there is an error, the response will have a status code indicating the type of error (e.g., 400 for a bad request or 500 for an internal server error) and a JSON body with the status "error". Eg : {"status": "updated"}
+
+        """
         try:
             participant_id = request.query_params.get("participant_id")
             name = request.query_params.get("name")
@@ -457,6 +524,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
     @action(methods=["GET"], detail=False, url_path="check-session-data-exist")
     def check_session_data_exist(self, request, *args, **kwargs):
+        """
+        Check if session data exists for a specific test attempt session.
+
+        Parameters:
+        - request: The HTTP request object.
+        - session_id: The UID of the test attempt session.
+
+        Returns:
+        - Response: The HTTP response object containing the result of the check.
+            - check (bool): True if session data exists, False otherwise.
+            - {"check": true}
+        """
         session_id = request.query_params.get('session_id')
 
         try:
@@ -473,6 +552,54 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_next_mcq_question_options")
     def get_next_mcq_question_options(self,request, *args, **kwargs):
+        """
+        Retrieves the next multiple-choice question options for a specific test attempt session.
+
+        Parameters:
+            - test_attempt_session_id (str): The UID of the test attempt session.
+            - description (str): The description of the question.
+            - question_text (str): The text of the question.
+            - option_a (str): The text of option A.
+            - option_b (str): The text of option B.
+            - option_selected (str): The selected option.
+
+        Returns:
+            - options_data (dict): A dictionary containing the next question options data.
+
+        Raises:
+            - HTTP 400 Bad Request: If the test attempt session with the given UID does not exist.
+
+        Description:
+            This method retrieves the next multiple-choice question options for a specific test attempt session. It takes the UID of the test attempt session, the description of the question, the text of the question, the text of option A, the text of option B, and the selected option as parameters.
+
+            First, it retrieves the test attempt session object using the provided UID. If the test attempt session does not exist, it returns an HTTP 400 Bad Request response.
+
+            Then, it retrieves the test object associated with the test attempt session.
+
+            Next, it counts the total number of responses for the test attempt session.
+
+            It updates the feedback summary of the test attempt session with the question text.
+
+            If the total number of responses is equal to the total number of questions minus one, it calls the get_last_mcq_question_options_promt() function to get the last question options prompt. Otherwise, it calls the get_next_mcq_question_options_prompt() function to get the next question options prompt.
+
+            It then enters a loop with a maximum of 5 retries. In each iteration, it calls the generic_completion() function with the next question options prompt and a timeout of 600 seconds to generate a response. It extracts the options data from the response using the extract_mcq_options_from_response() function.
+
+            If the similarity between option A and option B is greater than 75%, it continues to the next iteration. Otherwise, it breaks out of the loop.
+
+            Finally, it returns the options_data dictionary containing the next question options.
+
+        Example:
+            GET /test-attempt-sessions/get_next_mcq_question_options?test_attempt_session_id=123&description=Question%20description&question_text=What%20is%20the%20capital%20of%20France%3F&option_a=Paris&option_b=London&option_selected=option_a
+
+            Response:
+            {
+                "options_data": {
+                    "option_a": "Paris",
+                    "option_b": "London"
+                }
+            }
+        """
+   
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         description = request.query_params.get('description')
         question_text = request.query_params.get('situation')
@@ -522,13 +649,50 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
 
 
-    @action(methods=['GET'],detail=False,url_path="send-bot-transcript-email")
+    @action(methods=['GET', 'POST'],detail=False,url_path="send-bot-transcript-email")
     def send_bot_transcript_email(self,request, *args, **kwargs):
+        
+        """
+        Sends a bot transcript email for a specific test attempt session.
+
+        Parameters:
+            - request: The HTTP request object.
+            - test_attempt_session_id: The ID of the test attempt session for which the bot transcript email is to be sent.
+            - submitted_email: The email address to which the bot transcript email should be sent.
+
+        Returns:
+            - Response: The HTTP response object containing the status of the email sending process.
+
+        Objective:
+            This method is used to send a bot transcript email for a specific test attempt session. The bot transcript email contains the conversation between the participant and the bot during the test session.
+
+        Process:
+            1. Retrieve the test attempt session ID and the submitted email address from the request query parameters.
+            2. Get the test attempt session object based on the tenant ID and the test attempt session ID.
+            3. Get the signature bot object based on the tenant ID and the test ID of the test attempt session.
+            4. Get the user email address and the bot owner email address from the user attributes.
+            5. Save the action point for the participant and the bot owner.
+            6. Get the conversation data between the participant and the bot for the test attempt session.
+            7. Send the bot conversation email to the submitted email address, the bot owner email address, and the default email address.
+
+        Input Requirements:
+            - The test_attempt_session_id parameter must be a valid ID of a test attempt session.
+            - The submitted_email parameter must be a valid email address.
+
+        Output:
+            - The HTTP response object containing the status of the email sending process. The status can be "sent" if the email is successfully sent, or "error" if there is an error during the email sending process.
+            - {"status": "sent"}
+        """
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
+        access_token = request.headers.get('Authorization')
+        session_qna_data = request.data.get('session_qna_data')
+        
+        logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
         logger.info({"message":"##################################### Request Received for sending bot transcript email #####################################",
-                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email})
+                     "test_attempt_session_id":test_attempt_session_id, "submitted_email":submitted_email,
+                     "session_qna_data":session_qna_data})
 
         try:
             test_attempt_session = TestAttemptSession.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session_id)
@@ -537,7 +701,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
+            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
+            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
@@ -545,6 +710,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
         user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
         bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
 
+        try:
+            coachee_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id, tenant_id=request.tenant.uid)
+            coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=signature_bot.user_id, tenant_id=request.tenant.uid)
+            connection = CoachCoacheeConnection.objects.get(deleted=False,coachee_id=coachee_profile.uid,coach_id=coach_profile.uid,
+                                                            status=CoachCoacheeConnectionStatusChoice.accepted, tenant_id=request.tenant.uid)
+            connected = True
+        except Exception as e:
+            logger.exception(e)
+            connected = False
         # previous_conversations = CoachingConversation.objects.filter(
         # tenant_id=self.request.tenant.uid,
         # test_attempt_session_id=test_attempt_session.uid,
@@ -555,37 +729,100 @@ class TestAttemptSessionViewSet(ApiViewSet,
         #         "participant_message_text",
         #         "coach_message_text",
         #     )
-        
         participant_id = test_attempt_session.participant_id
         candidate_name = f"""{get_user_display_name(
-            get_user_by_id(participant_id)).capitalize()} {user_email}"""
+            get_user_by_id(participant_id)).capitalize()}"""
         tenant = self.request.tenant
-        save_user_action_info(tenant,participant_id,"transcript_email_sent") # saving action point
-        save_user_action_info(tenant,signature_bot.user_id,"transcript_email_recieved")
+        save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
+        save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
 
         # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
-        sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
-        conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
-        conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+        # sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
+        # conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+        # conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
+        
+        conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
+        
+        conversation_summary = get_conversation_summary(conv)
+        
+        logger.info({"********************* conversation_summary":conversation_summary})
 
-        for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
-            send_bot_conversation_email(candidate_name, conv, email)
+        test_attempt_session.conversation_summary = conversation_summary
+        test_attempt_session.save(update_fields=["conversation_summary"]) # saving session summary
+        
+        created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+        
+        logger.info({"********************* created_scenarios":created_scenarios})
 
+        
+
+        # for email in [submitted_email, bot_owner_email,"info@coachbots.com"]:
+            # send_bot_conversation_email(candidate_name, conv, recepients)
+        recepients = [submitted_email,"info@coachbots.com"]
+        if connected:
+            recepients.append(bot_owner_email)
+        # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","info@coachbots.com"]
+        
+        logger.info(f"************** session_qna_data conv: {conv}")
+        try:
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_profile.name,bot_att.bot_name, allow_reply=True)
+        except Exception as e:
+            logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+            send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
+        
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
     def send_feedback_transcript_email(self,request, *args, **kwargs):
+        """
+        Sends a feedback transcript email for a specific test attempt session.
+        Parameters:
+           Input Requirements:
+            - The request object must contain the required query parameters:
+                - bot_id: The ID of the bot.
+                - conversation: The conversation data.
+                - type_of_email: The type of email to be sent.
+                - user_email: The email of the user.
+
+
+        Objective:
+                This method is used to send a feedback transcript email for a specific test attempt session.
+
+
+            Process:
+                1. Retrieve the necessary parameters from the request query parameters:
+                    - tenant: The tenant object.
+                    - bot_id: The ID of the bot.
+                    - conversation: The conversation data.
+                    - type_of_email: The type of email to be sent.
+                    - user_email: The email of the user.
+
+
+                2. Retrieve the user ID associated with the bot.
+                3. Save the user action information for the feedback received.
+                4. Retrieve the bot owner's email address.
+                5. Prepare the conversation data for the email, if the type of email is 'feedback_conv'.
+                6. Send the feedback conversation email to the bot owner and the default email address.
+                7. Return a success response.
+        
+        Output:
+                - Response: The HTTP response object with a success status.
+                -          {
+                        "status": "sent"
+                    }
+
+        """
         tenant = self.request.tenant
         bot_id = request.query_params.get('bot_id')
         conversation = request.query_params.get('conversation')
         type_of_email = request.query_params.get('type_of_email')
+        is_positive = request.query_params.get('is_positive','False')
         user_email = request.query_params.get('user_email')
 
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
 
         try:
-            user_id= SignatureBot.objects.get(tenant_id= tenant.uid, bot_id = bot_id).user_id
-            save_user_action_info(tenant,user_id,"feedback_recieved")
+            user_id= SignatureBot.objects.get(deleted=False, tenant_id= tenant.uid, bot_id = bot_id).user_id
             bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=user_id).attributes['email']
 
         except Exception as e:
@@ -596,6 +833,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         conv = []
         if  type_of_email == 'feedback_conv':
+            save_user_action_info(tenant.uid,user_id,"feedback_recieved")
             conversation = json.loads(conversation)
             for key, value in conversation.items():
                 conv.append({
@@ -604,13 +842,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 })
 
         for email in [bot_owner_email,"info@coachbots.com"]:
-            send_feedback_conversation_email(user_email,conv,email,type_of_email)
-
-
-
-
-
-
+            try:
+                send_feedback_conversation_email(user_email,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
+            except Exception as e:
+                logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+                send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
 
         return Response({'status': 'sent'}, status=status.HTTP_200_OK)
     
@@ -619,15 +855,43 @@ class TestAttemptSessionViewSet(ApiViewSet,
         """
         Save or retrieve session notes for a user in a specific context.
 
-        Args:
-            request (HttpRequest): The HTTP request object.
-            user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
-            context (str): The context in which the session notes are being saved/retrieved.
-            mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
-            mode (str): The mode of operation, either 'mentor' or 'mentee'.
-        
+        This method allows for saving or retrieving session notes for a user in a specific context. The session notes are associated with a user and can be saved or retrieved based on the provided parameters.
+
+        Parameters:
+        - request (HttpRequest): The HTTP request object.
+        - user_id (str): The ID of the user for whom the session notes are being saved/retrieved.
+        - context (str): The context in which the session notes are being saved/retrieved.
+        - mentor_id (str, optional): The ID of the mentor (required only when saving session notes as a mentor).
+        - mode (str): The mode of operation, either 'mentor' or 'mentee'.
+        - access_token (str, optional): The access token for authentication (required only when saving session notes as a mentor).
+
         Returns:
-            Response: The response containing the saved or retrieved session notes data.
+        - Response: The response containing the saved or retrieved session notes data.
+        - {"data": session notes data}
+
+        Process:
+        1. Extract the necessary parameters from the request and validate them.
+        2. Determine the mode of operation (mentor or mentee).
+        3. If the mode is 'mentor':
+        - Call the 'save_session_notes' function with the provided parameters to save the session notes.
+        - If there are any errors, return a response with the error message.
+        - Otherwise, return a response with the saved session notes data.
+        4. If the mode is 'mentee':
+        - Call the 'get_session_notes' function with the provided user ID and mentor ID to retrieve the session notes.
+        - Return a response with the retrieved session notes data.
+        5. If the mode is neither 'mentor' nor 'mentee', return a response indicating that the 'for' parameter is not found.
+
+        Input Requirements:
+        - The request object must contain the necessary parameters: user_id, context, mode.
+        - The mode parameter must be either 'mentor' or 'mentee'.
+
+        Output:
+        - If the mode is 'mentor':
+        - If the session notes are successfully saved, return a response with the saved session notes data.
+        - If there are any errors, return a response with the error message.
+        - If the mode is 'mentee':
+        - Return a response with the retrieved session notes data.
+        - If the mode is neither 'mentor' nor 'mentee', return a response indicating that the 'for' parameter is not found.
         """
         try:
             tenant_id = self.request.tenant.uid
@@ -636,10 +900,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             mentor_id = request.query_params.get('mentor_id')
             mode = request.query_params.get('for')
             access_token = request.query_params.get('token', None)
+            simulation_codes = request.query_params.get('simulation_codes', None)
             logger.info(f"************************** details: {mode}, userid: {user_id}, mentor_id; {mentor_id} \nQueryparams: {request.query_params}")
 
             if mode == 'mentor':
-                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token)
+                data, errors = save_session_notes(user_id,mentor_id,tenant_id,context,access_token,simulation_codes)
                 logger.info(f"######################################## save_session_notes data: {data} \nErrors : {errors}")
                 if "error" in errors:
                     return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
@@ -656,11 +921,56 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_or_update_session_notes")
     def get_or_update_session_notes(self,request, *args, **kwargs):
+        """
+    Retrieves or updates session notes data.
+
+    Returns:
+        - If the 'mode' parameter is set to 'get':
+            - Response: A JSON response containing the session notes data.
+        - If the 'mode' parameter is set to 'update':
+            - Response: A JSON response containing the updated session notes data.
+        - If the 'mode' parameter is not provided or is invalid:
+            - Response: A JSON response indicating the error.
+
+    
+    Objective:
+        This method is used to retrieve or update session notes data for a user in a specific context.
+
+    Process:
+        - The method first checks the 'mode' parameter to determine the operation to be performed.
+        - If the 'mode' parameter is set to 'get', the method retrieves the session notes data using the 'get_session_notes_data' function.
+        - If the 'mode' parameter is set to 'update', the method checks if the 'recommendations' and 'session_note_id' parameters are provided.
+        - If the parameters are provided, the method updates the session notes data using the 'update_session_notes' function.
+        - If the parameters are not provided, the method returns an error response.
+        - If the 'mode' parameter is not provided or is invalid, the method returns an error response.
+
+    Input/Parameters:
+        - mode (str): The mode of operation. Valid values are 'get' and 'update'.
+        - session_note_id (str): The ID of the session note to be updated.
+        - recommendations (str): The updated recommendations for the session note.
+
+    Output:
+        - If the 'mode' parameter is set to 'get':
+            - data (dict): A dictionary containing the session notes data.
+        - If the 'mode' parameter is set to 'update':
+            - data (dict): A dictionary containing the updated session notes data.
+        - If the 'mode' parameter is not provided or is invalid:
+            - details (str): A string indicating the error.
+
+    Example Usage:
+        - To retrieve session notes data:
+            GET /api/test-attempt-sessions/get_or_update_session_notes?mode=get
+
+        - To update session notes data:
+            GET /api/test-attempt-sessions/get_or_update_session_notes?mode=update&session_note_id=123&recommendations=Lorem%20ipsum
+
+    """
         try:
             tenant_id = self.request.tenant.uid
             mode = request.query_params.get('mode',None)
             session_note_id = request.query_params.get('session_note_id',None)
             recommendations = request.query_params.get('recommendations',None)
+            simulation_codes = request.query_params.get('simulation_codes', None)
 
             if mode == 'get':
                 data = get_session_notes_data(tenant_id)
@@ -669,7 +979,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if not recommendations or not session_note_id:
                     return Response({"Error": "recommendations or session_note_id not found"}, status=status.HTTP_400_BAD_REQUEST)
 
-                data = update_session_notes(session_note_id,recommendations)
+                data = update_session_notes(session_note_id,recommendations,simulation_codes)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             else:
                 return Response({"details": 'Mode parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
@@ -682,6 +992,60 @@ class TestAttemptSessionViewSet(ApiViewSet,
     @action(methods=['POST'],detail=False,url_path="get-fitness-analysis-score")
     def get_fitness_analysis_score(self,request, *args, **kwargs):
 
+        """
+        Retrieves the fitness analysis score based on the provided fitness analysis data.
+
+        Parameters: which will in raw body not params
+            - bot_id: The ID of the signature bot.
+            - fitness_analysis_data: The fitness analysis data provided by the user.
+            - participant_id: The ID of the participant.
+
+        Returns:
+            - Response: The HTTP response object containing the fitness analysis score.
+
+        Raises:
+            - Exception: If there is an error while retrieving the fitness analysis score.
+
+        Process:
+            - Retrieves the fitness analysis data from the request.
+            - Retrieves the signature bot and bot attributes based on the provided bot ID.
+            - Compares the user's fitness analysis data with the mentor's answers.
+            - Calculates the matching percentage of answers.
+            - Classifies the fitness analysis score based on the matching percentage.
+            - Saves the fitness analysis Q&A and scores in the database.
+            - Returns the fitness analysis score as the HTTP response.
+
+        Input Requirements:
+            - The request must contain the following data:
+                - bot_id: The ID of the signature bot.
+                - fitness_analysis_data: The fitness analysis data provided by the user.
+                - participant_id: The ID of the participant.
+
+        Output:
+            - The fitness analysis score as a JSON object containing the following fields:
+                - bottom: The classification for the bottom third.
+                - mid: The classification for the middle third.
+                - top: The classification for the top third.
+                - msg: The overall classification message.
+                - score: The count of matching answers.
+
+        Example Usage:
+            POST /get-fitness-analysis-score
+            {
+                "bot_id": "12345",
+                "fitness_analysis_data": "{\"question1\": {\"cochee\": \"answer1\"}, \"question2\": {\"cochee\": \"answer2\"}}",
+                "participant_id": "67890"
+            }
+
+            Response:
+            {
+                "bottom": "Not a good fit",
+                "mid": "Potential fit",
+                "top": "Good fit",
+                "msg": "Potential fit",
+                "score": 1
+            }
+        """
         # try:
         #     logger.info(f"fitness analysis score request: {request.data}")
         #     signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=request.data['bot_id'])
@@ -698,68 +1062,58 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         try:
             logger.info(f"fitness analysis score request: {request.data}")
-            bot_id = request.data.get("bot_id")
+            bot_id = request.data.get("bot_id",None)
             user_response = request.data.get("fitness_analysis_data",None)
             participant_id = request.data.get("participant_id",None)
             logger.info(f"{bot_id},{self.request.tenant.uid}")
 
-            signature_bot = SignatureBot.objects.get(tenant_id=self.request.tenant.uid, bot_id=bot_id)
-            bot_att = BotAttribute.objects.get(tenant_id=self.request.tenant.uid, bot_id=signature_bot.uid)
-            mentor_answers = bot_att.fitment_answers['mentor_answer']
-            fitment_measures = bot_att.fitment_data['fitment_measures']
-            user_answers = (json.loads(user_response).values())
-            user_answers = [v['cochee'] for v in user_answers]
-
-            count_matching_answers = sum(1 for ua, ma in zip(user_answers, mentor_answers) if ua.strip().lower() == ma.strip().lower())
-
-            total_answers = len(user_answers)  # Assuming both lists are of the same length
-
-            # Calculate the percentage of matching answers
-            matching_percentage = (count_matching_answers / total_answers) * 100
-            print(count_matching_answers,matching_percentage)
-
-            # Define the thresholds for bottom, middle, and top thirds
-            bottom_threshold = 34
-            top_threshold = 67
-
-            msg = ''
             score = {}
-            # Classify based on percentage
-            if matching_percentage < bottom_threshold:
-                msg = fitment_measures['bottom']
-                score['bottom'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-            elif bottom_threshold <= matching_percentage < top_threshold:
-                msg = fitment_measures['mid']
-                score['mid'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-            else:
-                msg = fitment_measures['top']
-                score['top'] = msg
-                score['msg'] = msg
-                score['score'] = count_matching_answers
-
-            # saving fitemtn qna and scores
-            BotQnA.objects.create(
-                tenant_id = self.request.tenant.uid,
-                bot_id = signature_bot.uid,
-                participant_id = participant_id,
-                participant_qna = json.loads(user_response),
-                qna_type = 'fitment',
-                fitment_score = score
-            )        
+            if bot_id:
+                qna = BotQnA.objects.filter(tenant_id=self.request.tenant.uid, participant_id= participant_id, qna_type = 'fitment' ).order_by("-id")
+                if qna.count()>0:
+                    score = cal_score_for_fitment(
+                        user_response=qna.first().participant_qna,
+                        bot_id=bot_id,
+                        tenant_id= self.request.tenant.uid
+                    )
+                       
 
             return Response(score, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
     @action(methods=['GET'],detail=False,url_path="get-or-save-action-point")
     def get_or_save_action_point(self,request, *args, **kwargs):
+        
+        """
+        Retrieves or saves the action points for a user.
+
+        Parameters:
+            - mode (can be get or save) , user_id, for(if mode is "save"): for is name of the action which we want to increase
+
+        Returns:
+            - If the 'mode' parameter is set to 'get':
+                - Returns the action points for the specified user.
+            - If the 'mode' parameter is set to 'save':
+                - Saves the action points for the specified user and returns a success message.
+
+        Raises:
+            - If the 'mode' parameter is not provided or is invalid:
+                - Returns a 400 Bad Request response with an error message.
+            - If the action info for the specified user is not found:
+                - Returns a 400 Bad Request response with an error message.
+
+        Example usage:
+            - To retrieve the action points for a user:
+                GET /api/test-attempt-sessions/get-or-save-action-point?mode=get&user_id=<user_id>
+
+            - To save the action points for a user:
+                GET /api/test-attempt-sessions/get-or-save-action-point?mode=save&user_id=<user_id>&for=<for_>
+
+        """
         try:
             mode = request.query_params.get('mode',None)
             tenant = self.request.tenant
@@ -783,28 +1137,81 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
                 for_ = request.query_params.get('for',None)
-                save_user_action_info(tenant,user_id,for_)
+                save_user_action_info(tenant.uid,user_id,for_)
 
                 data['message'] = "Action point increased."
 
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
 
     @action(methods=['GET'],detail=False,url_path="get-fitment-analysis-by-user")
     def get_fitment_analysis_by_user(self,request, *args, **kwargs):
+        
+        """
+        Retrieves fitment analysis data for a specific user and bot.
 
+        Parameters:
+            - request: The HTTP request object.
+            - user_id: The ID of the user for whom the fitment analysis is being retrieved.
+            - bot_id: The ID of the bot for which the fitment analysis is being retrieved.
+
+        Returns:
+            - data: A dictionary containing fitment analysis data for the user and bot.
+                - fitment_data: A list of fitment questions and their corresponding scores.
+                    - qna: The fitment question.
+                    - score: The fitment score for the question.
+                - proceed: A boolean indicating whether the user can proceed based on the fitment scores.
+                    - True: The user can proceed.
+                    - False: The user cannot proceed.
+
+        Raises:
+            - Exception: If there is an error retrieving the fitment analysis data.
+
+        Description:
+            This method retrieves fitment analysis data for a specific user and bot. It takes the user ID and bot ID as query parameters in the HTTP request. The method first retrieves the signature bot object based on the bot ID and the tenant ID from the request. Then, it queries the BotQnA model to retrieve fitment questions and their scores for the specified user and bot. The fitment questions are ordered in descending order based on their IDs. The fitment questions and scores are then added to a list in the format of a dictionary. Finally, the method constructs a response dictionary containing the fitment data and a boolean indicating whether the user can proceed based on the fitment scores.
+
+        Example:
+            HTTP GET Request:
+            GET /api/test-attempt-sessions/get-fitment-analysis-by-user?user_id=123&bot_id=456
+
+            Response:
+            {
+                "fitment_data": [
+                    {
+                        "qna": "What are your strengths?",
+                        "score": 3
+                    },
+                    {
+                        "qna": "What are your weaknesses?",
+                        "score": 2
+                    }
+                ],
+                "proceed": true
+            }
+        """
         try:
             tenant = self.request.tenant
             data= {}
             user_id = request.query_params.get('user_id')
             bot_id = request.query_params.get('bot_id')
             logger.info({"user_id, bot_id": f"{user_id}, {bot_id}"})
-            signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=tenant.uid,bot_id=bot_id)
-            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
-            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"})
+
+            fitment_qnas = BotQnA.objects.filter(tenant_id = tenant.uid, participant_id= user_id, qna_type = 'fitment' ).order_by("-id")
+            logger.info({"fitments================================================>": f"{fitment_qnas} {fitment_qnas.count()}"} )
+            if (fitment_qnas).count()> 0:
+                score = cal_score_for_fitment(fitment_qnas.first().participant_qna,bot_id,tenant.uid)
+                score = score['score']
+                data['msg'] = f'Score: {score}'
+                if int(score) >=2:
+                    data["proceed"] = True
+                else:
+                    data['proceed'] = False
+            else:
+                data['msg'] = f'Have not created yet!'
+                data['proceed'] = False
             
             fitment_data = []
             for qna in fitment_qnas:
@@ -816,26 +1223,134 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             data['fitment_data'] = fitment_data
 
-            if len(fitment_data) == 0:
-                data['proceed'] = False
-            elif fitment_qnas.count() > 0:
-                fitment_scores = fitment_qnas[0].fitment_score
-                score = fitment_scores['score'] if 'score' in fitment_scores else 0
-                # score_key = fitment_scores.keys()
-                # if 'top' in score_key or 'mid' in score_key:
-                #     data['proceed'] = True
-                # else:
-                #     data["proceed"] = False
-                
-                if score >= 2:
-                    data['proceed'] = True
-                else: 
-                    data['proceed'] = False
-
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
         
         
+        
+    @action(methods=['GET','POST'],detail=False,url_path="create-or-get-bot-engagements")
+    def create_or_get_bot_engagements(self,request, *args, **kwargs):
+        """
+        Handles the creation or retrieval of bot engagements based on the provided parameters. This method supports both GET and POST requests to either fetch existing bot engagement data or create/update bot engagement records.
+
+        Objective:
+        The primary goal of this method is to manage bot engagements, which include tracking user interactions with bots, such as the number of times a button was clicked or a session was attempted with the bot. It allows for both querying existing engagement data and incrementing engagement metrics.
+
+        Process:
+        - For GET requests, it filters and returns bot engagement data based on optional parameters like `bot_id`, `user_id`, and `by_date`.
+        - For POST requests, it creates or updates a bot engagement record for a specific bot and user on the current date, incrementing a specified field.
+
+        Input Requirements:
+        - `bot_id` (query parameter): The ID of the bot involved in the engagement. Required for both GET and POST requests.
+        - `user_id` (query parameter): The ID of the user involved in the engagement. Required for POST requests and optional for GET requests.
+        - `by_date` (query parameter, optional for GET): Filters the engagements to those that occurred on a specific date.
+        - `by_user` (query parameter, optional for GET): Filters the engagements to those associated with a specific user.
+        - `field_name` (query parameter, required for POST): Specifies the field to increment in the bot engagement record.
+
+        Expected Output:
+        - For GET requests, returns a JSON object containing an array of bot engagement records and summary statistics. Each record includes details such as `bot_id`, `user_id`, `interacted_on`, `num_button_clicked`, `num_of_attempted_sessions`, and `attempted_bot_questions`.
+        - For POST requests, returns a JSON object with a message indicating the bot engagement was successfully increased.
+
+        Example:
+        GET request with `bot_id=1` and `by_date=2023-04-01` might return:
+        ```
+        {
+            "results": [
+                {
+                    "bot_id": "1",
+                    "user_id": "123",
+                    "interacted_on": "2023-04-01",
+                    "num_button_clicked": 5,
+                    "num_of_attempted_sessions": 2,
+                    "attempted_bot_questions": 3
+                }
+            ],
+            "total_engagement_with_question_count": 10,
+            "total_without_question_count": 7
+        }
+        ```
+
+        POST request with `bot_id=1`, `user_id=123`, and `field_name=num_of_clicked_button` might return:
+        ```
+        {"msg": "Bot engagement increased"}
+        ```
+
+        Note: The method also handles exceptions by logging them and returning an appropriate error message and status code.
+        """
+
+        try:
+            data = {}
+            bot_id = request.query_params.get('bot_id',None)
+            user_id = request.query_params.get('user_id',None)
+            tenant = self.request.tenant
+            logger.info(f"===================bot_id : {bot_id}, user_id: {user_id}")
+            try:
+                signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid,deleted=False,bot_id=bot_id)
+            except Exception as e:
+                logger.exception(e)
+                return Response({"msg": "Bot Not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if request.method == 'GET':
+                by_date = request.query_params.get('by_date',None)
+                by_user = request.query_params.get('by_user',None)
+                data = get_bot_engagements(tenant_id=tenant.uid,bot_id=signature_bot.uid,by_date=by_date,by_user=by_user)
+                
+
+            elif request.method == 'POST':
+                field_name = request.query_params.get('field_name',None)
+                save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=user_id,field_name=field_name)
+
+                data = {'msg': 'Bot engagement increased'}
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"create_or_get_bot_engagements failed with {e}")
+            return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
+    @action(methods=['GET'],detail=False,url_path="testing")
+    def testing_simulations(self,request,*args,**kwargs):
+
+        from tests.helpers import simulate_llm_resposne
+
+        simulate_llm_resposne()
+
+        return Response("ok",status=status.HTTP_200_OK)
+    
+def stream(request):
+    conv_id = request.GET.get('conv_id')
+    logger.info(f"################################### Conv ID: {conv_id}")
+
+    try:
+        conv = CoachingConversation.objects.get(uid=conv_id)
+    except Exception as e:
+        logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+        def event_stream():
+            yield 'data: %s\n\n' % "Conversation not found"
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    
+    logger.info(f"################################### Prompt: {conv.coach_message_metadata}")
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+
+    try:
+        prompt = conv.coach_message_metadata['prompt']
+    except Exception as e:
+        logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
+        def event_stream():
+            yield 'data: %s\n\n' % "Error in generating response"
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    def event_stream():
+        with client.messages.stream(
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+            model="claude-2.1",
+        ) as stream:
+            for text in stream.text_stream:
+                yield 'data: %s\n\n' % text
+
+    return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
 

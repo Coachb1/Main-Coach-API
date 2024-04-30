@@ -26,6 +26,29 @@ logger = logging.getLogger(__name__)
 
 
 def is_skill_matched(skill_list, rating_list):
+    """ This function is_skill_matched checks if all elements in the rating_list are present in the skill_list.
+
+    The function first normalizes both lists by stripping leading/trailing whitespaces and converting all elements to lowercase. If all elements of rating_list are found in skill_list, the function returns True.
+
+    If not all elements are found, the function applies the Porter Stemming algorithm to reduce all words in both lists to their root form. This is done to account for different forms of the same word (e.g., 'running' and 'runner' both stem to 'run').
+
+    The function then checks again if all stemmed elements of rating_list are found in the stemmed skill_list. If they are, the function returns True, otherwise it returns False.
+
+    Parameters:
+
+    skill_list (list of str): The list of skills. Each element should be a string representing a skill.
+    rating_list (list of str): The list of ratings. Each element should be a string representing a rating.
+    Returns:
+
+    bool: True if all elements in rating_list are found in skill_list (either in their original or stemmed form), False otherwise.
+    Example:
+
+    >>> is_skill_matched(['Running', 'Jumping'], ['run', 'jump'])
+    True
+    >>> is_skill_matched(['Running', 'Jumping'], ['run', 'swim'])
+    False
+
+    """
     # Initialize the Porter Stemmer
     skill_list = [element.strip().lower() for element in skill_list]
     rating_list = [element.strip().lower() for element in rating_list]
@@ -81,6 +104,23 @@ def to_dict(string, skills = None):
     return None
     
 def json_extraction_for_competency(text):
+    """ This function, json_extraction_for_competency, is designed to extract a JSON object from a given text string.
+
+    The function works by identifying the first and last occurrence of the curly braces { and } which are typically used to denote the start and end of a JSON object.
+
+    The function takes one argument:
+
+    text (str): The input string from which the JSON object is to be extracted. This string should contain a JSON object.
+    The function begins by finding the index of the first occurrence of { and the last occurrence of } in the text. If both are found, it slices the text from the start index to the end index (inclusive) to extract the JSON object.
+
+    If a JSON object is successfully extracted, the function logs the extracted JSON and returns it. If no JSON object is found, the function logs an error message and returns the original text.
+
+    Expected output:
+
+    If a JSON object is found, it returns the JSON object as a string.
+    If no JSON object is found, it returns the original text.
+    Example: text = "Hello, this is a sample text with a JSON {"key": "value"} inside it." output = json_extraction_for_competency(text) print(output) # Outputs: "{"key": "value"}" """
+
     start_index = text.find('{')
     end_index = text.rfind('}')
 
@@ -141,6 +181,9 @@ def json_extractor_for_explaination(text):
 
 @timeit
 def evaluate_response(test_question_response, question_text, response_text, skills, test_description, test_title, test_code, session_id):
+    """
+    calculates skills_rating for a question.
+    """
     # prompt = f'''
     # "TITLE:" {test_title};
 
@@ -156,7 +199,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     # - Completeness: Does the answer provide a comprehensive response to the question?
     # - Clarity: Is the answer well-written and easy to understand?
 
-    # "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answer on a scale of 0-10, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}".
     
     # NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -183,7 +226,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
     - Completeness: Does the answer provide a comprehensive response to the question?
     - Clarity: Is the answer well-written and easy to understand?
 
-    "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score. 
+    "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score. 
 
     NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -286,7 +329,9 @@ def evaluate_response(test_question_response, question_text, response_text, skil
 
 @timeit
 def evaluate_relevacy(test_question_response, question_text, response_text,test_description, test_title,is_free=False):
-    
+    """
+    It evalutes relevancy of a Question and Answer.
+    """
     prompt = f'''
     \n\nHuman:
     "TITLE:" {test_title};
@@ -297,7 +342,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     "ANSWER:" {response_text};
 
-    "REQUIRED FROM ANTHROPIC:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
+    "REQUIRED FROM LLM:" Please check whether the answer provided is even slightly related to the question asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant response and 0 being completely irrelevant response. ONLY when the entire answer is completely random and unrelated to the question and description give the relevancy score value as 0.
     NOTE: Please Reply in a valid JSON format only and no other format will be accepted.
 
     NOTE: Don't put any other text in the reply other than the JSON.
@@ -475,6 +520,9 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
         return response, True
 
 def get_competency_prompt_or_output(skills,is_prompt_only=False):
+    """
+    It fetches prompt based on competency.
+    """
     os.chdir(f"{Path(__file__).resolve().parent}")
     df = pd.read_csv(r"prompts - Competency prompts.csv")
     prompts_str = ""
@@ -505,7 +553,28 @@ def get_competency_prompt_or_output(skills,is_prompt_only=False):
 
 @timeit
 def evaluate_competency_data(description, conversation,test_attempt_session,skills,is_free=False):
+    """
+Evaluates the competency data based on the provided description, conversation, test attempt session, and skills.
 
+This function generates a prompt based on the provided description, conversation, and skills. It then attempts to evaluate the competency data using various APIs (anthropic, text_bison_compeletion, gpt3_completion) in a specific order until it succeeds or exhausts all options. If all attempts fail, it assigns a default value to the response.
+
+Args:
+    description (str): The description of the competency.
+    conversation (str): The conversation related to the competency.
+    test_attempt_session (obj): The test attempt session object.
+    skills (list): A list of skills to be evaluated.
+    is_free (bool, optional): A flag to determine if the evaluation should be free or not. Defaults to False.
+
+Returns:
+    tuple: A tuple containing the response and a boolean indicating if the evaluation was successful. The response is a dictionary where each key is a skill and the value is another dictionary with 'rating' and 'level' as keys. If the evaluation was not successful, the response will be a default value.
+
+Example:
+    >>> evaluate_competency_data("description", "conversation", test_attempt_session, ["skill1", "skill2"])
+    ({"skill1": {"rating": "8", "level": "3"}, "skill2": {"rating": "6", "level": "2"}}, True)
+
+Raises:
+    Exception: If all attempts to evaluate the competency data fail.
+"""
     competency_prompt = get_competency_prompt_or_output(skills=skills,is_prompt_only=True)
 
     prompt = """
@@ -516,7 +585,7 @@ def evaluate_competency_data(description, conversation,test_attempt_session,skil
 
         ${competency_prompts}
 
-        "Required from anthropic:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
+        "Required from LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9. Rate the skills only from a scale of 1-9. For the given responses assign a level to the skills based on the given criteria for each level of each skill. Evaluate the responses to see which of the given levels resonates most closely  to the given responses for each skill. 
         If any of the skill is not related to the given conversation, rate that skills as 0. Only when the skill is not even slightly related to the conversation give the rating as 0.
 
         "competency_list:" "${competency_list}"
@@ -694,7 +763,33 @@ def evaluate_competency_data(description, conversation,test_attempt_session,skil
 
 @timeit
 def evaluate_rating_for_process_training(test_question_response, question_text, response_text,correct_answer, test_title,is_free=False):
-    
+    """
+    Evaluates the rating for a given response to a test question during a training process.
+
+    This function uses various AI models (Anthropic, Text Bison, GPT-3) to evaluate the candidate's response to a test question. 
+    The evaluation is based on a comparison between the candidate's answer and the correct answer. 
+    The function tries to use the AI models in a certain order until it gets a valid evaluation. 
+    If all attempts fail, it assigns a default rating and sends an error message to a Slack channel.
+
+    Args:
+        test_question_response (object): The test question response object.
+        question_text (str): The text of the test question.
+        response_text (str): The candidate's response to the test question.
+        correct_answer (str): The correct answer to the test question.
+        test_title (str): The title of the test.
+        is_free (bool, optional): A flag indicating whether the evaluation is free or not. Defaults to False.
+
+    Returns:
+        tuple: A tuple containing two elements:
+            - dict: A dictionary containing the evaluation result. The keys are the skills and the values are the ratings.
+              Example: {"rating": 7.5}
+            - bool: A flag indicating whether the evaluation was successful or not.
+
+    Raises:
+        Exception: If an error occurs during the evaluation process.
+
+    """
+
     prompt = '''
     \n\nHuman:
     Question:  %s
@@ -864,7 +959,34 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
 
 
 @timeit
-def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code,skills,user_skill_prompt,is_free=False):
+def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code, skills, user_skill_prompt, is_free=False):
+    """
+    This function evaluates a user's response to a test based on a set of skills.
+
+    The function generates a prompt based on the test title, description, conversation, and skills. It then uses either the anthropic_completion or text_bison_compeletion function to generate a response. If these functions fail, it falls back to gpt3_completion. If all these fail, it assigns a random score to each skill.
+
+    Parameters:
+    test_attempt_session (object): The test attempt session object.
+    conversation (str): The conversation string.
+    test_title (str): The title of the test.
+    test_description (str): The description of the test.
+    test_code (str): The code of the test.
+    skills (list): A list of skills to be evaluated.
+    user_skill_prompt (str): The user skill prompt.
+    is_free (bool, optional): A flag to determine if the evaluation is free. Defaults to False.
+
+    Returns:
+    tuple: A tuple containing:
+        - A list of dictionaries, where each dictionary represents the skills rating for a particular skill.
+        - A boolean indicating whether the evaluation was successful.
+
+    Raises:
+    ValueError: If the skills found in the response are not in the skills list.
+
+    Example:
+    >>> evaluate_response_skill(test_attempt_session, "Hello, how are you?", "Test Title", "Test Description", "Test Code", ["skill1", "skill2"], "User Skill Prompt")
+    ([{'skill1': 4.5, 'skill2': 9.0}], True)
+    """
     skills_rating =skills
 
     # prompt = f'''
@@ -880,7 +1002,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     # - Completeness: Does the answers provide a comprehensive response to the questions?
     # - Clarity: Are the answers well-written and easy to understand?
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{skills_rating}"
 
@@ -906,7 +1028,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
     #     - Clarity: Is the answer well-written and easy to understand?
 
-    #     "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
+    #     "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
 
     #     NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -940,7 +1062,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         - Clarity: Is the answer well-written and easy to understand?
 
-        "REQUIRED FROM ANTHROPIC:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given conversation i.e. all answers on a scale of 1-9, with scores in increments of 0.5 for each skill in the list in JSON: "{skills}" in such a way that no two skills can have the exact same score.
 
         NOTE: Please put properties of JSON enclosed in double quotes.
 
@@ -1181,6 +1303,23 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
 @timeit
 def find_top_low_skills(skill_ratings, num_top_skills=2):
+    """
+    This function identifies the top and lowest rated skills from a given dictionary of skill ratings.
+
+    The function sorts the skill_ratings dictionary in descending order to find the top skills and in ascending order to find the lowest skills. The number of top and lowest skills returned is determined by the num_top_skills parameter.
+
+    Args:
+        skill_ratings (dict): A dictionary where the keys are the skill names (str) and the values are the skill ratings (int or float). 
+            Example: {'python': 5, 'java': 3, 'c++': 4}
+        num_top_skills (int, optional): The number of top and lowest skills to return. Defaults to 2.
+
+    Returns:
+        tuple: A tuple containing two dictionaries. The first dictionary contains the top skills and their ratings, and the second dictionary contains the lowest skills and their ratings.
+            Example: ({'python': 5, 'c++': 4}, {'java': 3})
+
+    Note:
+        If there are more skills with the same rating as the last skill in the top or lowest skills, they will not be included in the result. The function strictly returns the number of skills specified by num_top_skills.
+    """
     sorted_skills = sorted(skill_ratings.items(), key=lambda x: x[1], reverse=True)
     top_skills = {skill: score for skill, score in sorted_skills[:num_top_skills]}
 
@@ -1565,7 +1704,9 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
 
 @timeit
 def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code,is_free=False):
-
+    """
+    It evaluates the cultural rating for a scenario (test,trainer type)
+    """
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
@@ -1582,7 +1723,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     # - Completeness: Does the answers provide a comprehensive response to the questions?
     # - Clarity: Are the answers well-written and easy to understand?
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -1607,7 +1748,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         # - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?  
         # - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)? 
 
-        # "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
+        # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
         # "cultural_list:" "{cultural_skills}"
 
         # NOTE: Please put properties of JSON enclosed in double quotes.
@@ -1644,7 +1785,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)?
 
-        "Required from anthropic:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
 
         "cultural_list:" "{cultural_skills}"
 
@@ -1868,6 +2009,9 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
 @timeit
 def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code,is_free=False):
+    """
+    It evaluates the cultural rating for a scenario (group discussion)
+    """
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
@@ -1876,7 +2020,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -1890,7 +2034,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON.
 
     # "cultural_list:" "{cultural_skills}"
 
@@ -1906,7 +2050,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         \n\nHuman:
         "Objective:" {objective}; 
         "Conversation:" {conversation}; 
-        "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
+        "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this cultural_list in JSON. 
         "cultural_list:" "{cultural_skills}" 
         Please put properties of JSON enclosed in double quotes. 
         Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}} 
@@ -2120,6 +2264,9 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
 @timeit
 def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate,is_free=False):
+    """
+    It evaluates the normal skills rating for a scenario (group discussion)
+    """
     skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
         skills_to_evaluate, str) else skills_to_evaluate
 
@@ -2128,7 +2275,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
 
     # "skills_list:" "{skills_to_evaluate}"
 
@@ -2144,7 +2291,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
     # "Conversation:" {conversation};
 
-    # "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
+    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" on a scale of 0-10, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only in this conversation for each behaviour trait in this skills_list in JSON in such a way that no two skills can have the exact same score.
 
     # "skills_list:" "{skills_to_evaluate}"
 
@@ -2164,7 +2311,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     "Objective:" {objective};
     "Conversation:" {conversation};
 
-    "Required from anthropic:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
+    "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
     "skills_list:" "{skills_to_evaluate}"
     Please put properties of JSON enclosed in double quotes.
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
@@ -2918,6 +3065,47 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
 @timeit
 def top_N_leadership_board(skills, N, tenant_id):
+    """
+    This function generates a leadership board for the top N participants based on their average skill ratings.
+
+    The function first fetches all the `SkillsRating` objects for a given tenant. It then iterates over these objects, 
+    and for each object, it fetches the corresponding `User` object (if it exists and is not excluded). 
+
+    The function then calculates the average score for the skills specified in the `skills` parameter. If 'all' is passed 
+    in the `skills` list, it calculates the average score for all the skills. The average score and other details are 
+    then appended to the `participants` list.
+
+    Finally, the function sorts the `participants` list in descending order of the average score and returns the top N 
+    participants.
+
+    Parameters:
+    skills (list): A list of skills to consider for the average score calculation. If ['all'] is passed, all skills are considered.
+    N (int): The number of top participants to return.
+    tenant_id (str): The tenant_id to filter the `SkillsRating` objects.
+
+    Returns:
+    list: A list of dictionaries, where each dictionary contains the following keys:
+        - participant_id: The id of the participant.
+        - name: The display name of the participant.
+        - total_questions_attempted: The total number of questions attempted by the participant.
+        - total_tests_attempted: The total number of tests attempted by the participant.
+        - average_score: The average score of the participant for the specified skills.
+        - skills_info: A dictionary containing the skill ratings of the participant for the specified skills.
+
+    Example:
+    >>> top_N_leadership_board(['math', 'science'], 5, 'tenant1')
+    [
+        {
+            'participant_id': 'user1',
+            'name': 'John Doe',
+            'total_questions_attempted': 50,
+            'total_tests_attempted': 5,
+            'average_score': 85.0,
+            'skills_info': {'math': {'average_score': 90.0, 'total_questions': 30}, 'science': {'average_score': 80.0, 'total_questions': 20}}
+        },
+        ...
+    ]
+    """
     # Get all skills_rating objects of this tenant
     skill_rating_objects = SkillsRating.objects.filter(
         deleted=0,
@@ -2964,6 +3152,33 @@ def top_N_leadership_board(skills, N, tenant_id):
 
 @timeit
 def get_participant_info(participant: User):
+    """
+    This function retrieves and returns detailed information about a participant.
+
+    The function first queries the SkillsRating model to get the participant's skills information, total questions attempted, and total tests attempted. It then uses the get_user_display_name function to get the participant's display name. All this information is then packaged into a dictionary and returned.
+
+    Args:
+        participant (User): The User object for which information is to be retrieved. The User object should have a 'uid' attribute which is used to filter the SkillsRating objects.
+
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'name': The display name of the user. This is obtained by calling the get_user_display_name function with the User object.
+            - 'role': The role of the user, obtained directly from the User object.
+            - 'skills_info': A dictionary containing the skills information of the user. If no skills information is found, an empty dictionary is returned.
+            - 'total_questions_attempted': The total number of questions attempted by the user. If this information is not found, 0 is returned.
+            - 'total_tests_attempted': The total number of tests attempted by the user. If this information is not found, 0 is returned.
+
+    Example:
+        >>> user = User.objects.get(uid='some-uid')
+        >>> get_participant_info(user)
+        {
+            'name': 'John Doe',
+            'role': 'admin',
+            'skills_info': {'python': 5, 'java': 4},
+            'total_questions_attempted': 50,
+            'total_tests_attempted': 10
+        }
+    """
     participant_skill_rating_object = SkillsRating.objects.filter(
         deleted=0,
         participant_id=participant.uid
@@ -2973,13 +3188,14 @@ def get_participant_info(participant: User):
         'total_tests_attempted'
     )
 
+    logger.info(f"participant_skill_rating obj : {participant_skill_rating_object}")
 
     participant_info = {
         "name": get_user_display_name(participant),
         "role": participant.role,
-        "skills_info": participant_skill_rating_object[0].get('skills_info', {}),
-        "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0),
-        "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0)
+        "skills_info": participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object)>0 else {},
+        "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0) if len(participant_skill_rating_object)>0 else {},
+        "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0) if len(participant_skill_rating_object)>0 else {}
     }
 
     return participant_info
@@ -2987,6 +3203,29 @@ def get_participant_info(participant: User):
 
 @timeit
 def get_top_participant_skills(skills, q_set, top_n=10):
+    """
+    This function retrieves the top participants based on their skills from a given queryset.
+
+    The function first checks if the skills are provided as a string and splits them into a list if necessary. 
+    It then filters the queryset for entries that are not deleted and have any of the specified skills. 
+    The filtered queryset is then ordered by the average score of each skill in descending order. 
+    The function finally returns the top 'n' participants based on this ordering.
+
+    Parameters:
+    skills (str or list): A string of skills separated by commas or a list of skills. 
+                          Each skill is a string representing the skill name.
+    q_set (QuerySet): A Django QuerySet from which to retrieve the participants.
+    top_n (int, optional): The number of top participants to return. Defaults to 10.
+
+    Returns:
+    QuerySet: A QuerySet containing the top 'n' participants based on their skill average scores. 
+              Each entry in the QuerySet is a dictionary with details of a participant.
+
+    Example:
+    >>> get_top_participant_skills('skill1,skill2', User.objects.all(), 5)
+    <QuerySet [{'id': 1, 'name': 'User1', 'skills_info': {'skill1': {'average_score': 4.5}, 'skill2': {'average_score': 4.0}}}, ...]>
+    """
+    
     skills = skills.split(",") if isinstance(skills, str) else skills
     top_participant_skills = q_set.filter(
         deleted=0,
@@ -3001,6 +3240,9 @@ def get_top_participant_skills(skills, q_set, top_n=10):
 
 @timeit
 def save_the_custom_rating(custom_rating, custom_rating_object):
+    """
+    To save custom rating to database
+    """
     custom_rating_object.custom_rating = custom_rating
     custom_rating_object.save()
 
@@ -3008,6 +3250,9 @@ def save_the_custom_rating(custom_rating, custom_rating_object):
 @timeit
 def upsert_into_skill_index(tenant_id: str,
                             skills: list):
+    """
+    saving skills into skillIndex table"
+    """
     if not skills:
         return
 

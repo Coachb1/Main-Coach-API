@@ -23,6 +23,7 @@ from apis.frontend_api.report_types import ReportType
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion, gpt_wishper_api, num_tokens_for_prompt
 from commons.timeit import timeit
+from commons.fcfs_handler import FcfsHandler
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
 from email_sender.helpers import send_email, send_generic_email
@@ -63,7 +64,7 @@ import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
 import re
-from commons.google_apis import speech_to_text, text_bison_compeletion
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
@@ -75,9 +76,14 @@ from skills.helpers import evaluate_rating_for_process_training , evaluate_compe
 from readability import Document
 from test_bulk_upload.constants import get_skills
 from django.db.models import Q
+from utilities.models import ScenarioCreationDetails
+from commons.notifications import send_error_notification
+from skills.helpers import json_extraction
 
 
 logger = logging.getLogger(__name__)
+
+fcfs_handler = FcfsHandler(2)
 
 STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
 
@@ -91,6 +97,27 @@ def add_prefix(prefix, value):
 
 @timeit
 def get_unique_test_code(tenant: Tenant) -> str:
+    """
+    Generate a unique test code for a given tenant.
+
+    This function generates a random string of a specified length, using uppercase ASCII characters and digits. 
+    The generated string is prefixed with 'Q'. The function then checks if a test with the same code already exists 
+    for the given tenant. If such a test exists, the function retries the generation process up to a maximum number 
+    of retries. If the maximum number of retries is reached, the length of the test code is increased by one and 
+    the retry count is reset to zero. This process continues until a unique test code is generated.
+
+    Parameters:
+    tenant (Tenant): The tenant for which the test code is being generated. This should be an instance of the Tenant model.
+
+    Returns:
+    str: A unique test code for the given tenant. The test code is a string starting with 'Q', followed by a combination 
+    of uppercase ASCII characters and digits.
+
+    Example:
+    >>> tenant = Tenant.objects.get(name='example_tenant')
+    >>> get_unique_test_code(tenant)
+    'Q3FZ7A'
+    """
     global TEST_CODE_LENGTH
 
     test_code = get_random_string(
@@ -164,7 +191,129 @@ def create_test(tenant: Tenant,
                 creator_user_id:str,
                 competency_group: str,
                 area_domain:str,
-                tab_category:str) -> tuple[Test, list[TestQuestion]]:
+                tab_category:str,
+                is_recommended:bool,
+                visual_tags: str,
+                page_name: str,
+                scenario_summary:str,
+                creator_email:str) -> tuple[Test, list[TestQuestion]]:
+    """
+    This function creates a new test and its associated questions in the database.
+
+    The function first validates the creator_id, then creates a new Test object with the provided parameters.
+    It then iterates over the list of questions, creating a new TestQuestion object for each one and appending it to the test_questions list.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        creator_id (str): The unique identifier of the test creator.
+        title (str): The title of the test.
+        description (str): The description of the test.
+        candidate_type (str): The type of candidate for the test.
+        email_address_list (str): The list of email addresses to send the test to.
+        max_test_allowed (int): The maximum number of tests allowed.
+        send_only_to_email (bool): Flag to determine if the test should only be sent to the email.
+        interaction_mode (str): The mode of interaction for the test.
+        test_type (str): The type of the test.
+        gpt_prompt_override (str): The GPT prompt override for the test.
+        email_candidate (bool): Flag to determine if the candidate should be emailed.
+        test_related_context (str): The context related to the test.
+        orchestrated_conversation_details (dict): The details of the orchestrated conversation.
+        description_media (str): The media description of the test.
+        is_single_bot (bool): Flag to determine if the test is a single bot.
+        is_checkin_type (bool): Flag to determine if the test is a checkin type.
+        skills_to_evaluate (str): The skills to evaluate in the test.
+        tedtalk_and_hbr_case (str): The TED Talk and HBR case for the test.
+        is_learner_path (bool): Flag to determine if the test is a learner path.
+        is_email_type (bool): Flag to determine if the test is an email type.
+        scenario_case (str): The scenario case for the test.
+        is_game_type (bool): Flag to determine if the test is a game type.
+        is_free (bool): Flag to determine if the test is free.
+        is_micro (bool): Flag to determine if the test is micro.
+        image_url (str): The URL of the image for the test.
+        rating (str): The rating of the test.
+        source (str): The source of the test.
+        client_name (str): The name of the client.
+        questions (list): The list of questions for the test.
+        goals (str): The goals of the test.
+        course (str): The course of the test.
+        industry (str): The industry of the test.
+        exp_level (str): The experience level of the test.
+        total_question (int): The total number of questions in the test.
+        certificate_details (dict): The details of the certificate for the test.
+        ui_information (dict): The UI information for the test.
+        is_self_created (bool): Flag to determine if the test is self created.
+        is_logged_in (bool): Flag to determine if the user is logged in.
+        is_immersive (bool): Flag to determine if the test is immersive.
+        media_props (dict): The media properties for the test.
+        is_transcript_only (bool): Flag to determine if the test is transcript only.
+        is_pitch (bool): Flag to determine if the test is a pitch.
+        articles (str): The articles for the test.
+        bot_name (str): The name of the bot for the
+        creator_user_id (str): The unique identifier of the user who created the test.
+        competency_group (str): The competency group for the test.
+        area_domain (str): The area domain for the test.
+        tab_category (str): The tab category for the test.
+
+    Returns:
+        tuple: A tuple containing the created Test object and a list of created TestQuestion objects.
+
+    Raises:
+        serializers.ValidationError: If the creator_id does not exist in the database.
+
+    Example:
+        >>> tenant = Tenant(uid='123')
+        >>> creator_id = 'abc'
+        >>> title = 'Test Title'
+        >>> description = 'Test Description'
+        >>> candidate_type = 'Type1'
+        >>> email_address_list = 'test@example.com'
+        >>> max_test_allowed = 10
+        >>> send_only_to_email = False
+        >>> interaction_mode = 'Mode1'
+        >>> test_type = 'Type2'
+        >>> gpt_prompt_override = 'Override1'
+        >>> email_candidate = True
+        >>> test_related_context = 'Context1'
+        >>> orchestrated_conversation_details = {}
+        >>> description_media = 'Media1'
+        >>> is_single_bot = True
+        >>> is_checkin_type = False
+        >>> skills_to_evaluate = 'Skill1, Skill2'
+        >>> tedtalk_and_hbr_case = 'Case1'
+        >>> is_learner_path = False
+        >>> is_email_type = True
+        >>> scenario_case = 'Case2'
+        >>> is_game_type = False
+        >>> is_free = True
+        >>> is_micro = False
+        >>> image_url = 'http://example.com/image.jpg'
+        >>> rating = '5'
+        >>> source = 'Source1'
+        >>> client_name = 'Client1'
+        >>> questions = ['Question1', 'Question2']
+        >>> goals = 'Goal1, Goal2'
+        >>> course = 'Course1'
+        >>> industry = 'Industry1'
+        >>> exp_level = 'Level1'
+        >>> total_question = 2
+        >>> certificate_details = {}
+        >>> ui_information = {}
+        >>> is_self_created = True
+        >>> is_logged_in = True
+        >>> is_immersive = False
+        >>> media_props = {}
+        >>> is_transcript_only = False
+        >>> is_pitch = True
+        >>> articles = 'Article1, Article2'
+        >>> bot_name = 'Bot1'
+        >>> creator_user_id = 'abc'
+        >>> competency_group = 'Group1'
+        >>> area_domain = 'Domain1'
+        >>> tab_category = 'Category1'
+        >>> create_test(tenant, creator_id, title, description, candidate_type, email_address_list, max_test_allowed, send_only_to_email, interaction_mode, test_type, gpt_prompt_override, email_candidate, test_related_context, orchestrated_conversation_details, description_media, is_single_bot, is_checkin_type, skills_to_evaluate, tedtalk_and_hbr_case, is_learner_path, is_email_type, scenario_case, is_game_type, is_free, is_micro, image_url, rating, source, client_name, questions, goals, course, industry, exp_level, total_question, certificate_details, ui_information, is_self_created, is_logged_in, is_immersive, media_props, is_transcript_only, is_pitch, articles, bot_name, creator_user_id, competency_group, area_domain, tab_category)
+        (<Test: Test object (1)>, [<TestQuestion: TestQuestion object (1)>, <TestQuestion: TestQuestion object (2)>])
+    """
+
     try:
         creator = User.objects.get(
             tenant_id=tenant.uid, uid=creator_id, deleted=0)
@@ -224,6 +373,11 @@ def create_test(tenant: Tenant,
             competency_group=competency_group,
             area_domain=area_domain,
             tab_category=tab_category,
+            is_recommended=is_recommended,
+            visual_tags=visual_tags,
+            page_name=page_name,
+            scenario_summary=scenario_summary,
+            creator_email=creator_email
         )
 
         test_questions = []
@@ -280,6 +434,30 @@ def create_test_invite(tenant: Tenant,
                        test_id: str,
                        participant_id: str,
                        expires_at: str) -> TestInvite:
+    """
+    This function creates a new test invitation in the database.
+
+    The function first validates the test_id and participant_id by checking if they exist in the database. 
+    If either does not exist, it raises a ValidationError. 
+    If both exist, it creates a new TestInvite object with the provided parameters and returns it.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        test_id (str): The unique identifier of the test.
+        participant_id (str): The unique identifier of the participant.
+        expires_at (str): The expiration date of the invitation in string format (YYYY-MM-DD HH:MM:SS).
+
+    Returns:
+        TestInvite: The newly created TestInvite object.
+
+    Raises:
+        serializers.ValidationError: If the test_id or participant_id does not exist.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant1')
+        >>> create_test_invite(tenant, 'test1', 'participant1', '2022-12-31 23:59:59')
+        <TestInvite: TestInvite object (1)>
+    """
     try:
         test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
     except Test.DoesNotExist as e:
@@ -312,7 +490,39 @@ def create_test_question_answer_session(tenant: Tenant,
                                         test_id: str,
                                         test_invite_id: str,
                                         participant_id: str,
-                                        is_signature_bot: bool) -> TestAttemptSession:
+                                        is_signature_bot: bool,
+                                        is_idp_discussion_opted:bool,
+                                        intake_id: str) -> TestAttemptSession:
+    """
+    Creates a test question answer session for a participant.
+
+    This function is responsible for creating a new test attempt session for a given participant. It first checks if the participant is not a signature bot and if the test has not exceeded the maximum allowed attempts. If the test has a limit on the number of attempts and it's not zero, it decreases the count by one. 
+
+    If a test invite ID is provided, it validates the existence of the test invite. It also validates the existence of the participant. 
+
+    If the participant is a signature bot, it retrieves the signature bot object and assigns its UID to the test ID. 
+
+    Finally, it creates a new TestAttemptSession object with the provided details and the current time as the start time. The session is set to expire 30 minutes from the start time.
+
+    Args:
+        tenant (Tenant): The tenant object.
+        test_id (str): The ID of the test.
+        test_invite_id (str): The ID of the test invite.
+        participant_id (str): The ID of the participant.
+        is_signature_bot (bool): Indicates if the participant is a signature bot.
+        is_idp_discussion_opted (bool): Indicates if the participant opted for IDP discussion.
+
+    Returns:
+        TestAttemptSession: The created test question answer session object.
+
+    Raises:
+        serializers.ValidationError: If the test ID, test invite ID, or participant ID is invalid, or if the maximum number of test attempts has been exceeded.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant1')
+        >>> create_test_question_answer_session(tenant, 'test1', 'invite1', 'participant1', False, False)
+        <TestAttemptSession: TestAttemptSession object (1)>
+    """
     try:
         if not is_signature_bot:
             test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
@@ -365,6 +575,8 @@ def create_test_question_answer_session(tenant: Tenant,
         started_at=now,
         expires_at=now + datetime.timedelta(minutes=30),
         is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
+        is_idp_discussion_opted=is_idp_discussion_opted,
+        intake_id=intake_id,
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
@@ -379,6 +591,34 @@ def create_test_question_answer(tenant: Tenant,
                                 response_file: str = None,
                                 response_text: str = None,
                                 is_whatsapp: bool = False) -> TestQuestionResponse:
+    """
+    Creates a TestQuestionResponse object for a given test attempt session and question.
+
+    This function first retrieves the TestAttemptSession and TestQuestion objects using the provided IDs. 
+    If the question is for the user and no response file or text is provided, it raises a ValidationError. 
+    It then attempts to create a TestQuestionResponse object with the provided details. 
+    If the creation fails, it retrieves the first existing TestQuestionResponse object with the same test_attempt_session_id and question_id. 
+    Depending on the test type and the question for, it processes the response differently.
+
+    Args:
+        tenant (Tenant): The Tenant object for which the TestQuestionResponse is to be created.
+        test_attempt_session_id (str): The unique identifier of the TestAttemptSession.
+        question_id (str): The unique identifier of the TestQuestion.
+        response_file (str, optional): The response file. Defaults to None.
+        response_text (str, optional): The response text. Defaults to None.
+        is_whatsapp (bool, optional): A flag indicating whether the response is from WhatsApp. Defaults to False.
+
+    Raises:
+        serializers.ValidationError: If the TestAttemptSession or TestQuestion does not exist, or if the question is for the user and no response file or text is provided.
+
+    Returns:
+        TestQuestionResponse: The created or retrieved TestQuestionResponse object.
+
+    Example:
+        >>> tenant = Tenant.objects.get(uid='tenant_uid')
+        >>> create_test_question_answer(tenant, 'test_attempt_session_id', 'question_id', response_text='This is a response')
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     try:
         test_attempt_session = TestAttemptSession.objects.get(
             tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
@@ -433,14 +673,32 @@ def create_test_question_answer(tenant: Tenant,
 
 
 def delete_test_response(test_response):
+    """
+    it soft delete test response
+    """
     test_response.deleted = test_response.deleted + 1
     test_response.save()
 
 
 
 #*********************** Process MCQ response start *******************************
-
+@timeit
 def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes the response of a multiple-choice question (MCQ) from a test session.
+
+    The function retrieves the test question and test session related to the response. It then generates a comment on the user's decision using a generic completion function. The selected skill from the MCQ options is also identified and saved. The function updates the evaluation status of the test question response to 'success'. If the processed question is the last one in the test session, the function marks the session as completed and generates a summary of the user's decisions throughout the test. It also updates the SkillsRating object related to the participant.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object that needs to be processed.
+    is_whatsapp (bool, optional): A flag indicating if the test was taken on WhatsApp. Defaults to False.
+
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+
+    Example:
+    Given a TestQuestionResponse object with uid '123', question_id '456', test_attempt_session_id '789', and response_text 'Option A', the function will update the feedback_text, mcq_skill, and evaluation_status fields of the object. If this is the last question in the test session, the function will also update the status and finished_at fields of the related TestAttemptSession object, and update the total_questions_attempted and total_tests_attempted fields of the related SkillsRating object.
+    """
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -554,8 +812,32 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
 
 
 #*********************** Process Dynamic MCQ response start *******************************
-
+@timeit
 def extract_mcq_options_from_response(text):
+    """
+    This function extracts multiple choice question (MCQ) options from a given text.
+
+    The function uses regular expressions to search for a specific pattern in the text. The pattern is defined as follows:
+    "Situation:(.*?)Choice 1:(.*?)Choice 2:", where (.*?) is a non-greedy match for any characters. 
+
+    The function then extracts the matched groups and assigns them to the variables 'next_question', 'choice1', and 'choice2'. 
+    The 'next_question' and 'choice1' are extracted directly from the regex match, while 'choice2' is extracted by splitting the text on "Choice 2:" and taking the second part.
+
+    If the pattern is not found in the text, the function logs an error message.
+
+    Args:
+        text (str): The input text from which to extract the MCQ options. The text should be formatted as follows: 
+        "Situation: <situation text> Choice 1: <choice 1 text> Choice 2: <choice 2 text>"
+
+    Returns:
+        dict: A dictionary containing the next situation and the two choices. The keys of the dictionary are 'next_situation', 'option_a', and 'option_b'. 
+        If the pattern is not found in the text, the function returns None.
+
+    Example:
+        >>> extract_mcq_options_from_response("Situation: You see a cat. Choice 1: Pet the cat. Choice 2: Ignore the cat.")
+        {'next_situation': 'You see a cat.', 'option_a': 'Pet the cat.', 'option_b': 'Ignore the cat.'}
+        
+    """
     pattern = re.compile(r"Situation:(.*?)Choice 1:(.*?)Choice 2:", re.DOTALL)
 
     # Search for the pattern in the text
@@ -575,7 +857,33 @@ def extract_mcq_options_from_response(text):
     else:
         logger.error(f"Pattern not found in the text ==> {text}")
 
+@timeit
 def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes the response of a dynamic multiple-choice question (MCQ) in a test session.
+
+    The function retrieves the related test question and test attempt session from the database. It checks if the test session is already completed, and if so, it returns the test question response without further processing. 
+
+    The function then updates the metadata of the test question response with the question from the test attempt session's feedback summary. It also retrieves the related test from the database.
+
+    The function generates a comment on the user's decision using the `generic_completion` function and updates the test question response with this comment. It also sets the `mcq_skill` field to 'NA' and the `evaluation_status` field to 'success'.
+
+    If the current question is the last question in the test, the function marks the test session as completed and generates a summary of the user's decisions throughout the test. It also generates a list of skills using the `get_dynamic_mcq_skills_prompt` and `generic_completion` functions.
+
+    The function then generates a session report link and updates the `SkillsRating` object related to the participant with the total number of questions attempted and total tests attempted.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object to be processed.
+    is_whatsapp (bool, optional): A flag indicating whether the test is conducted on WhatsApp. Defaults to False.
+
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+
+    Example:
+    >>> process_dynamic_mcq_response(test_question_response_obj)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """    
+    
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -701,6 +1009,36 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
 
 @timeit
 def process_test_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """
+    This function processes a test question response and updates the test attempt session status if the question is the last one.
+
+    The function first retrieves the question and test attempt session associated with the given test question response. 
+    If the test attempt session is already completed, the function returns the test question response without any further processing.
+
+    If the question is the last one in the test, the function enters a loop where it waits for all previous questions to be processed. 
+    This is done by checking the count of not yet evaluated test responses. If all previous questions are processed or a time limit is reached, 
+    the loop is exited.
+
+    If the question is the last one and the test type is not 'dynamic_mcq', the function attempts to update the test attempt session status to 'completed'. 
+    If the update is successful, the function calls the '__process_test_response' function to further process the test question response.
+
+    Finally, the function refreshes the test question response from the database to reflect any changes made during the processing and returns it.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response to be processed.
+        is_whatsapp (bool, optional): A flag indicating whether the response is from WhatsApp. Defaults to False.
+
+    Returns:
+        TestQuestionResponse: The processed test question response.
+
+    Raises:
+        ValueError: If unable to evaluate response within the time limit.
+        Exception: If there is an error while updating the test attempt session status.
+
+    Example:
+        >>> process_test_response(test_question_response_obj, is_whatsapp=True)
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     question = TestQuestion.objects.get(uid=test_question_response.question_id)
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id
@@ -788,6 +1126,32 @@ def process_test_response(test_question_response: TestQuestionResponse, is_whats
 
 @timeit
 def evaluate_relevence_thread(question, test_question_response, test, test_attempt_session):
+    """
+    This function evaluates the relevance of a test question response.
+
+    The function uses the `evaluate_relevacy` helper function to determine the relevance score of the response to the question.
+    If the evaluation fails, the test question response is marked as failed and deleted. If the evaluation is successful, the relevance score is saved in the `relevance` field of the `test_question_response` object.
+
+    Parameters:
+    question (Question): The Question object that the response is for.
+    test_question_response (TestQuestionResponse): The TestQuestionResponse object that contains the response to be evaluated.
+    test (Test): The Test object that the question and response are part of.
+    test_attempt_session (TestAttemptSession): The TestAttemptSession object that represents the session of the test attempt.
+
+    Returns:
+    None. The function updates the `relevance` field of the `test_question_response` object in-place.
+
+    Raises:
+    ValueError: If the evaluation fails and a relevance score cannot be obtained.
+
+    Example:
+    >>> question = Question.objects.get(id=1)
+    >>> test_question_response = TestQuestionResponse.objects.get(id=1)
+    >>> test = Test.objects.get(id=1)
+    >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+    >>> evaluate_relevence_thread(question, test_question_response, test, test_attempt_session)
+    """
+
     relevancy_score = {}
     relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                         question.question,
@@ -814,6 +1178,31 @@ def evaluate_relevence_thread(question, test_question_response, test, test_attem
 
 @timeit
 def evaluate_rating_thread(question, test_question_response, test, test_attempt_session):
+    """
+    Evaluates the rating for a given response to a test question during a training process in a separate thread.
+
+    This function uses the `evaluate_rating_for_process_training` function to evaluate the candidate's response to a test question. 
+    The evaluation is based on a comparison between the candidate's answer and the correct answer. 
+    If the evaluation is successful, the rating is saved in the `test_question_response` object. 
+    If the evaluation fails, the `test_question_response` object is marked as failed and deleted.
+
+    Args:
+        question (object): The test question object.
+        test_question_response (object): The test question response object.
+        test (object): The test object.
+        test_attempt_session (object): The test attempt session object.
+
+    Raises:
+        ValueError: If the evaluation fails.
+
+    Example:
+        >>> question = TestQuestion.objects.get(id=1)
+        >>> test_question_response = TestQuestionResponse.objects.get(id=1)
+        >>> test = Test.objects.get(id=1)
+        >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+        >>> evaluate_rating_thread(question, test_question_response, test, test_attempt_session)
+        # This will evaluate the rating for the given response and save it in the `test_question_response` object.
+    """
     raiting_score = {}
     raiting_score, is_evaluated = evaluate_rating_for_process_training(test_question_response,
                                         question.question,
@@ -841,6 +1230,18 @@ def evaluate_rating_thread(question, test_question_response, test, test_attempt_
 
 @timeit
 def evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session,competency_skill):
+    """ 
+    This function evaluates the competency data for a given test attempt session. It constructs a conversation string from the provided test question responses and then calls the evaluate_competency_data function to evaluate the competency data based on the test description, the constructed conversation, the test attempt session, and the competency skills. The evaluated competency data is then saved to the test attempt session.
+
+    Args: question (obj): The question object. test_question_response (list): A list of test question response objects. test (obj): The test object. test_attempt_session (obj): The test attempt session object. competency_skill (list): A list of competency skills to be evaluated.
+
+    Returns: None. The function saves the evaluated competency data to the test attempt session.
+
+    Example: >>> evaluate_competency_data_thread(question, test_question_response, test, test_attempt_session, ["skill1", "skill2"]) # This will evaluate the competency data for the given test attempt session and save it to the test attempt session.
+
+    Note: This function does not return any value. The evaluated competency data is directly saved to the test attempt session. 
+    
+    """
     competency_data = {}
     conversation = ""
     count = 1
@@ -875,6 +1276,28 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
 
 @timeit
 def set_language_skills_in_thread(user_response,test_attempt_session):
+    """
+    This function is used to evaluate the English language ability of a user based on their response. 
+    It uses the Anthropic API to generate a language ability score on a scale of 1 to 10.
+
+    The function constructs a prompt that includes the user's response and sends it to the Anthropic API. 
+    The API then generates a completion based on the prompt, which is interpreted as the language ability score. 
+    This score is then saved in the `language_skills` field of the `test_attempt_session` object.
+
+    Args:
+        user_response (str): The user's response that needs to be evaluated. It should be a string of the user's speech.
+        test_attempt_session (TestAttemptSession): The test attempt session object where the language skills score will be stored.
+
+    Returns:
+        None. The function doesn't return anything but updates the `language_skills` field of the `test_attempt_session` object.
+
+    Example:
+        >>> user_response = "Hello, my name is John Doe. I am a software engineer."
+        >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+        >>> set_language_skills_in_thread(user_response, test_attempt_session)
+        # This will update the `language_skills` field of the `test_attempt_session` object with the score generated by the Anthropic API.
+    """
+
     language_skills_prompt = f"""
     \n\nHuman:
     Please provide an English language ability score (on a scale of 1 to 10) to a person based on the below recorded speech.
@@ -894,15 +1317,105 @@ def set_language_skills_in_thread(user_response,test_attempt_session):
 
 @timeit
 def speech_metrics_in_thread(test_question_response, transcript):
+    """
+    Calculate speech metrics for a test question response in a separate thread.
+
+    This function calculates the speech metrics for a given test question response in a separate thread. It uses the CoachMetricApi to get the speech metrics from the audio file associated with the test question response. The calculated speech metrics are then saved to the test question response object.
+
+    Parameters:
+    - test_question_response (TestQuestionResponse): The test question response object for which to calculate the speech metrics.
+    - transcript (str): The transcript of the audio file associated with the test question response.
+
+    Returns:
+    None
+
+    Example Usage:
+    speech_metrics_in_thread(test_question_response, transcript)
+    """
     speech_met = coach_metric_api.get_speech_metrics_from_audio(
                             test_question_response.response_file,transcript)
     test_question_response.speech_metrics = speech_met
     test_question_response.save(update_fields=["speech_metrics"])
 
-
+@timeit
 def __process_test_response(question: TestQuestion, test: Test, test_attempt_session: TestAttemptSession,
                             test_question_response: TestQuestionResponse, is_whatsapp: bool = False,
                             last_question_number: int = 0):
+    """
+    Process the test response for a given question in a test attempt session.
+
+    Args:
+        question (TestQuestion): The question object for which the response is being processed.
+        test (Test): The test object to which the question belongs.
+        test_attempt_session (TestAttemptSession): The test attempt session object for the participant.
+        test_question_response (TestQuestionResponse): The response object to be processed.
+        is_whatsapp (bool, optional): Indicates if the response is from WhatsApp. Defaults to False.
+        last_question_number (int, optional): The question number of the last question in the test. Defaults to 0.
+
+    Returns:
+        TestQuestionResponse or None: The processed response object or None if the response is view-only.
+
+    Raises:
+        ValueError: If the relevancy score cannot be obtained for the response.
+
+    Description:
+        This function processes the test response for a given question in a test attempt session. It performs the following steps:
+
+        1. Logs the start of the process.
+        2. Refreshes the test attempt session from the database.
+        3. Checks the test type and calls the appropriate processing function.
+        4. Updates the current and next question indices in the test attempt session.
+        5. Saves the updated fields in the test attempt session.
+        6. If the question is view-only, sets the evaluation status to success and saves the response.
+        7. If the interaction mode is not text, processes the response based on the interaction mode.
+        8. Generates a transcription for audio or video responses using the GPT Whisper API or the Speech-to-Text API.
+        9. If the test is not free and not transcript-only, and the scenario case is not process training, calculates speech metrics for the response.
+        10. Saves the updated fields in the test question response.
+        11. If the response text is empty, saves the response again.
+        12. If the scenario case is not feedback_role_play, generates the feedback prompt based on the test type and scenario case.
+        13. If the test is an email type or employee feedback or English support, generates the feedback using the appropriate prompt template.
+        14. If the prompt is overridden, generates the feedback using the overridden prompt.
+        15. If the prompt is not overridden, generates the feedback using the chat conversation prompt.
+        16. If the response length is too low, sets the feedback text to indicate that no feedback can be generated.
+        17. If the scenario case is process_training or the test is transcript-only, sets the feedback text to indicate no feedback.
+        18. Generates the feedback using the appropriate model (Anthropic Completion, TextBison Completion, or GPT-3 Completion).
+        19. If the feedback text does not meet the criteria, repeats steps 15-18 up to 3 times.
+        20. Sets the metadata and feedback text in the test question response.
+        21. If the test is pitch-based, sets the language skills in a separate thread.
+        22. Sets the evaluation status to success and saves the updated fields in the test question response.
+        23. If the evaluation status is not success, saves the response again.
+        24. If the test attempt session is completed, updates the finished_at field and calculates the skills rating.
+        25. Generates the session report URL.
+        26. If the test is free, generates the summary feedback session report URL.
+        27. Sends the report link via email if email addresses are provided.
+        28. Sends the report link via WhatsApp if the response is from WhatsApp and the test type is not interview.
+        29. Logs the end of the process.
+
+    Examples:
+        # Example 1: Processing an MCQ response
+        question = TestQuestion.objects.get(id=1)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=1)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns the processed response object
+
+        # Example 2: Processing a dynamic MCQ response
+        question = TestQuestion.objects.get(id=2)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=2)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns the processed response object
+
+        # Example 3: Processing a view-only response
+        question = TestQuestion.objects.get(id=3)
+        test = Test.objects.get(id=1)
+        test_attempt_session = TestAttemptSession.objects.get(id=1)
+        test_question_response = TestQuestionResponse.objects.get(id=3)
+        response = __process_test_response(question, test, test_attempt_session, test_question_response)
+        # Returns None
+    """
     logger.info(
         f"[__process_test_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
     logger.info(f"{test_attempt_session.uid} - start __process_test_response")
@@ -1164,6 +1677,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     user_feedback_prompt=user_feedback_prompt
             )
 
+        elif test.scenario_case == ScenarioCaseChoices.english_support:
+            prompt = get_english_support_feedback_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt
+            )
+
         else:
             if question.gpt_prompt_override or test.gpt_prompt_override:
                 prompt = get_overridden_prompt(
@@ -1183,7 +1706,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     question_context=question.subjective_answer,
                     candidate_reply=test_question_response.response_text,
                     user_feedback_prompt=user_feedback_prompt,
-                    articles=test.articles)
+                    articles= test.articles,
+                    scenario_summary=test.scenario_summary,
+                    )
 
 
         feedback_text = ''
@@ -1233,7 +1758,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     candidate_reply=test_question_response.response_text,
                                     user_feedback_prompt=user_feedback_prompt
                             )
-
+                            
+                        elif test.scenario_case == ScenarioCaseChoices.english_support:
+                                    prompt = get_english_support_feedback_prompt(
+                                                            prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                                            test_title=test.title,
+                                                            test_description=test.description,
+                                                            question=question.question,
+                                                            candidate_reply=test_question_response.response_text,
+                                                            user_feedback_prompt=user_feedback_prompt
+                                                    )
                         else:
                             if question.gpt_prompt_override or test.gpt_prompt_override:
                                 prompt = get_overridden_prompt(
@@ -1253,7 +1787,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     question_context=question.subjective_answer,
                                     candidate_reply=response_text,
                                     user_feedback_prompt=user_feedback_prompt,
-                                    articles=test.articles)
+                                    articles=test.articles,
+                                    scenario_summary=test.scenario_summary,)
 
                     max_retry -= 1
 
@@ -1326,7 +1861,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(
         update_fields=updated_fields)
-    
+
+    test_question_response.refresh_from_db()
     if test_question_response != TestQuestionResponseEvaluationStatusChoices.success:
         test_question_response.save(
         update_fields=updated_fields)
@@ -1354,7 +1890,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
     # from another prompt and skill for individual qustion is deprecated
     # because now we are cal skill_ratings at the end of conversation
     if test.test_type == TestTypeChoices.trainer_thread:
-        threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
+        if user_info.evaluate_relevency:
+            threading.Thread(target=evaluate_relevence_thread, args=(question, test_question_response, test, test_attempt_session)).start()
         if test.scenario_case == ScenarioCaseChoices.process_training:
             threading.Thread(target=evaluate_rating_thread, args=(question, test_question_response, test, test_attempt_session)).start()
     else:
@@ -1371,14 +1908,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                                 True
                                                 )
         else:
-            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                                question.question,
-                                                test_question_response.response_text,
-                                                test.description,
-                                                test.title,
-                                                )
+            if user_info.evaluate_relevency:
+                relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                    question.question,
+                                                    test_question_response.response_text,
+                                                    test.description,
+                                                    test.title,
+                                                    )
 
-        if not is_evaluated:
+        if user_info.evaluate_relevency and not is_evaluated:
             test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.failed
             # delete this response
             delete_test_response(test_question_response)
@@ -1490,6 +2028,33 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
 @timeit
 def process_orchestrated_test_response_by_user(test_question_response: TestQuestionResponse):
+    """
+    Process the orchestrated test response by the user.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object.
+
+    Returns:
+        TestQuestionResponse: The updated test question response object.
+
+    Raises:
+        Exception: If there is an error while generating the transcription or speech metrics.
+
+    This function processes the test question response provided by the user. It updates the current and next question status
+    in the test attempt session, generates the transcript for the response, and calculates the speech metrics if applicable.
+    For dynamic discussion tests, it generates feedback, evaluates relevance, and extracts key learnings and key learning points.
+
+    The function takes a TestQuestionResponse object as input, which contains the response file, response text, and other relevant information.
+
+    Example:
+        test_question_response = TestQuestionResponse(
+            test_attempt_session_id="123",
+            question_id="456",
+            response_file="audio.wav",
+            response_text="This is my response."
+        )
+        processed_response = process_orchestrated_test_response_by_user(test_question_response)
+    """
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
@@ -1734,21 +2299,25 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         question_context=question.subjective_answer,
                                         candidate_reply=test_question_response.response_text,
                                         user_feedback_prompt="",
-                                        articles=test.articles)
+                                        articles=test.articles,
+                                        scenario_summary=test.scenario_summary,)
         
         feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
             
         test_question_response.feedback_text = feedback_text
         update_fields.append("feedback_text")
         logger.info(f"************dynamic discussion feedback : {feedback_text}")
+        
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
 
-        relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                            question_text,
-                                            test_question_response.response_text,
-                                            test.description,
-                                            test.title,
-                                            test.is_free
-                                            )
+        if user_info.evaluate_relevency:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                question_text,
+                                                test_question_response.response_text,
+                                                test.description,
+                                                test.title,
+                                                test.is_free
+                                                )
 
         relevance = 1
         if "relevance" in relevancy_score:
@@ -1762,6 +2331,10 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
             logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
             kls = generic_completion(kls_prompt, 50,'no kls' )
+            
+            # retry kls if it is not received
+            if kls is None or kls == 'no kls' or kls == '':
+                kls = text_bison_compeletion(kls_prompt)
 
             klp_prompt = f"""
                 TestTitle: {test.title}
@@ -1772,6 +2345,10 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
             klp = generic_completion(klp_prompt, 50, 'no klp')
+
+            # retry klp if it is not received
+            if klp is None or klp == 'no klp' or klp == '':
+                klp = text_bison_compeletion(klp_prompt)
             
             test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
             update_fields.append("kls_klp")
@@ -1782,6 +2359,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
     update_fields.extend(["evaluation_status", "updated"])
     test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
     test_question_response.save(update_fields=update_fields)
+    logger.info(f"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$######################IMP :::::::: dynamic discussion response saved : {test_question_response}")
 
     total_questions = TestQuestion.objects.filter(
         test_id=test.uid, deleted=0).count()
@@ -1817,6 +2395,9 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
 @timeit
 def get_transcript(test_question_response):
+    """
+    fetches transcript from a response url
+    """
     transcript_length = 0
     transcript = ""
     try:
@@ -1841,6 +2422,9 @@ def get_transcript(test_question_response):
 
 @timeit
 def get_speech_metrics(test_question_response,transcript):
+    """
+    To generate speech metrics  from a response_url and transcript.
+    """
     max_tries = 2
     retry = 0
     while True:
@@ -1861,7 +2445,29 @@ def get_speech_metrics(test_question_response,transcript):
 
 
 @timeit
-def get_feedback(question, test_question_response,question_text,test):
+def get_feedback(question, test_question_response, question_text, test):
+    """
+    This function generates feedback for a given test question response.
+
+    The function first checks if the test conversation should start with a user message. If so, it generates a dynamic discussion prompt. If not, it checks if there is a background context. If there is, it generates an interview feedback prompt. If there is no background context, it checks if there is a gpt prompt override either at the question level or at the test level. If there is, it generates an overridden prompt. If there is no gpt prompt override, it generates a chat conversation prompt.
+
+    The generated prompt is then passed to the `generic_completion` function to generate the feedback text. The feedback text is then saved to the `feedback_text` field of the `test_question_response` object.
+
+    Args:
+        question (Question): The Question object for which feedback is to be generated.
+        test_question_response (TestQuestionResponse): The TestQuestionResponse object for which feedback is to be generated.
+        question_text (str): The text of the question.
+        test (Test): The Test object for which feedback is to be generated.
+
+    Returns:
+        None. The function saves the generated feedback text to the `feedback_text` field of the `test_question_response` object.
+
+    Example:
+        >>> get_feedback(question_obj, test_question_response_obj, "What is your name?", test_obj)
+        # This will generate feedback for the given question and save it to the `feedback_text` field of the `test_question_response_obj`.
+    """
+    # function implementation
+    
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     background = test.orchestrated_conversation_details.get('background')
 
@@ -1891,7 +2497,8 @@ def get_feedback(question, test_question_response,question_text,test):
                                     question_context=question.subjective_answer,
                                     candidate_reply=test_question_response.response_text,
                                     user_feedback_prompt="",
-                                    articles=test.articles)
+                                    articles=test.articles,
+                                    scenario_summary=test.scenario_summary,)
         
     test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
@@ -1900,43 +2507,109 @@ def get_feedback(question, test_question_response,question_text,test):
 
 @timeit
 def get_relevency_kls_klp(test_question_response, question_text, test):
-    update_fields = []
-    relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
-                                            question_text,
-                                            test_question_response.response_text,
-                                            test.description,
-                                            test.title,
-                                            )
+    """
+    This function evaluates the relevance of a test question response, and generates key learning and skills (KLS) and key learning points (KLP) for the question.
 
-    relevance = 1
-    if "relevance" in relevancy_score:
-        relevance = int(relevancy_score['relevance'])
+    The function first calls the `evaluate_relevacy` function to get a relevance score for the test question response. The relevance score is then saved to the `relevance` field of the `test_question_response` object.
 
-    test_question_response.relevance = relevance
-    update_fields.append("relevance")
+    Next, the function generates a KLS prompt and uses the `generic_completion` function to get the KLS for the question. The KLS is then saved to the `kls_klp` field of the `test_question_response` object.
 
-    kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
-    logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-    kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
+    Finally, the function generates a KLP prompt and uses the `generic_completion` function to get the KLP for the question. The KLP is then saved to the `kls_klp` field of the `test_question_response` object.
 
-    klp_prompt = f"""
-        TestTitle: {test.title}
-        Question: {question_text}
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object to evaluate.
+        question_text (str): The text of the question.
+        test (Test): The test object that the question belongs to.
 
-        For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
-        """
+    Returns:
+        None. The function updates the `relevance` and `kls_klp` fields of the `test_question_response` object in-place.
 
-    logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-    klp = generic_completion(klp_prompt, 50, 'no klp')
-    
-    test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
-    update_fields.append("kls_klp")
-    logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+    Example:
+        >>> get_relevency_kls_klp(test_question_response, "What is the capital of France?", test)
+        # This will update the `relevance` and `kls_klp` fields of the `test_question_response` object.
+    """
+    try:
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ getting relevancy, kls, klp  for question ==> {question_text} @@@@@@@@@@@@@@@@@@@@@@")    
+        test_attempt_session = TestAttemptSession.objects.get(
+            uid=test_question_response.test_attempt_session_id
+            )
+        user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
+        update_fields = []
+        if user_info.evaluate_relevency:
+            relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
+                                                    question_text,
+                                                    test_question_response.response_text,
+                                                    test.description,
+                                                    test.title,
+                                                    )
 
-    test_question_response.save(update_fields=update_fields)
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
+        relevance = 1
+        if "relevance" in relevancy_score:
+            relevance = int(relevancy_score['relevance'])
+
+        test_question_response.relevance = relevance
+        update_fields.append("relevance")
+
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
+        kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
+        
+        logger.info(f"@@@@@@@@@@@@@@@@ kls : {kls} @@@@@@@@@@@@@@@@@@@@@@")
+
+        klp_prompt = f"""
+            TestTitle: {test.title}
+            Question: {question_text}
+
+            For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+            """
+
+        logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
+        klp = generic_completion(klp_prompt, 50, 'no klp')
+        logger.info(f"@@@@@@@@@@@@@@@@ klp : {klp} @@@@@@@@@@@@@@@@@@@@@@")
+        
+        test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
+        update_fields.append("kls_klp")
+        logger.info(f"************dynamic discussion kls and klp : {test_question_response.kls_klp}")
+        
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+        update_fields.append("evaluation_status")
+        test_question_response.save(update_fields=update_fields)
+        logger.info(f"************respone after saving relevancy, kls, klp : {test_question_response.kls_klp}")
+        
+        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ done getting relevancy, kls, klp in THREAD for question ===> {question_text} @@@@@@@@@@@@@@@@@@@@@@")
+
+    except Exception as e:
+        logger.error(f"@@@@@@@@@@@!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
 
 @timeit
 def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
+    """
+    This function processes the response of a user in a dynamic thread test scenario. It updates the test attempt session's 
+    current and next question status, calculates speech metrics if the interaction mode is audio or video, and generates 
+    feedback and relevancy scores for the response. If it's the last response in the test, it also updates the test attempt 
+    session status to 'completed' and generates a report.
+
+    Parameters:
+    test_question_response (TestQuestionResponse): An instance of the TestQuestionResponse model. This represents the 
+    user's response to a test question.
+
+    Process:
+    1. Fetches the related test attempt session and test.
+    2. Updates the current and next question indices in the test attempt session.
+    3. Checks if the current response is the last response in the test.
+    4. If the interaction mode is audio or video, it generates a transcript of the response and calculates speech metrics.
+    5. If the test type is 'dynamic_discussion_thread', it generates feedback and relevancy scores for the response.
+    6. If it's the last response in the test, it updates the test attempt session status to 'completed', calculates group 
+       discussion report metrics, and generates a report.
+
+    Returns:
+    test_question_response (TestQuestionResponse): The updated TestQuestionResponse instance.
+
+    Example:
+    >>> process_dynamic_threads_response_by_user(test_question_response)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """
     test_attempt_session = TestAttemptSession.objects.get(
         uid=test_question_response.test_attempt_session_id, deleted=0)
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
@@ -2055,6 +2728,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
                                 }).start()
             
             if not test.is_free:
+                logger.info(f"@@@@@@@@@@@@@@@@ getting relevancy, kls, klp in THREAD @@@@@@@@@@@@@@@@@@@@@@")
                 threading.Thread(target=get_relevency_kls_klp, kwargs={
                                     "test_question_response":test_question_response,
                                     "question_text":question_text,
@@ -2096,8 +2770,34 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
 @timeit
 def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQuestionResponse, is_whatsapp=False):
     """
-       bot_llm response is always a text;; ignore test mode or question response type
-   """
+    bot_llm response is always a text;; ignore test mode or question response type
+
+    This function processes the response of a bot to a test question in an orchestrated test scenario. 
+
+    The function first checks if the bot already has a response. If it does, the function updates the evaluation status to 'success' and saves the response. If not, it retrieves the question, test attempt session, and test details. It then updates the current and next question indices in the test attempt session.
+
+    The function generates a prompt for the test, test attempt session, and question. It then tries to retrieve previous bot responses. If there are no previous responses, it sets an empty list.
+
+    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and text_bison_compeletion for the third. 
+
+    It then checks the similarity between the current and previous bot responses. If the similarity is over 80%, it logs the information and continues to the next iteration. If the similarity is less than or equal to 80%, it logs the information and breaks the loop.
+
+    If no bot response is generated, it increments the 'deleted' field of the test question response, saves it, and raises a ValueError. If a bot response is generated, it updates the metadata, response text, and evaluation status of the test question response, and saves it.
+
+    Args:
+        test_question_response (TestQuestionResponse): The test question response object that needs to be processed.
+        is_whatsapp (bool, optional): A flag indicating whether the test is being conducted over WhatsApp. Defaults to False.
+
+    Returns:
+        TestQuestionResponse: The updated test question response object.
+
+    Raises:
+        ValueError: If no bot response is generated after three attempts.
+
+    Example:
+        >>> process_orchestrated_test_response_by_bot_llm(test_question_response_obj, is_whatsapp=True)
+        <TestQuestionResponse: TestQuestionResponse object (1)>
+    """    
 
     # ignore processing if bot already has a response; useful in case of initial messages
     if test_question_response.response_text:
@@ -2152,11 +2852,23 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if i == 0:
-                bot_llm_response_text = anthropic_completion(prompt, 300)
+                try:
+                    bot_llm_response_text = anthropic_completion(prompt, 300)
+                except Exception as e:
+                    logger.error(f"Error in anthropic completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
             elif i == 1:
-                bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                try:
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                except Exception as e:
+                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                    bot_llm_response_text = text_bison_compeletion(prompt)
             else:
-                bot_llm_response_text = text_bison_compeletion(prompt)
+                try:
+                    bot_llm_response_text = text_bison_compeletion(prompt)
+                except Exception as e:
+                    logger.error(f"Error in text_bison completion: {e}. retrying ...")
+                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
 
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
@@ -2198,6 +2910,29 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
 @timeit
 def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This function calculates the metrics for a group discussion test attempt.
+
+    It first retrieves the user persona and objective from the test details, and then gets the chat conversation.
+    The function then evaluates the cultural skills rating and the skills rating for the group discussion.
+    If the score for any skill is greater than 8.5, it is trimmed to 8.5. If it's less than 1.5, it is set to 1.5.
+    The function then calculates the average skills rating and updates the skills rating if the scores are the same.
+    It also calculates the test score and average score.
+    If the test is not free, it also gets the meeting summary and areas of improvement.
+    Finally, it updates the SkillsRating object for the participant with the new scores and saves it.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): The test attempt session object for which the metrics are to be calculated.
+    test (Test): The test object which contains the details of the test.
+
+    Returns:
+    TestAttemptSession: The updated test attempt session object with the calculated metrics.
+
+    Example:
+    >>> test_attempt_session = TestAttemptSession.objects.get(uid='some-uid')
+    >>> test = Test.objects.get(uid='some-uid')
+    >>> updated_test_attempt_session = calc_group_discussion_report_metrics(test_attempt_session, test)
+    """
 
     temp_rating = {}
     skills_count = {}
@@ -2398,6 +3133,60 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
 @timeit
 def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttemptSession):
+    """
+    This function generates a comprehensive report from a test attempt session.
+
+    The function takes a TestAttemptSession object as an input and processes the data related to the test attempt session. 
+    It retrieves the participant's information, test details, chat conversation, and other relevant data. 
+    It also calculates the average speech metrics if the test type is dynamic discussion or dynamic discussion thread. 
+    The function then organizes all this information into a dictionary and returns it.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): An instance of the TestAttemptSession model. This object contains all the information related to a specific test attempt session.
+
+    Returns:
+    dict: A dictionary containing the following keys:
+        - participant_name: The name of the participant.
+        - date: The date when the test was started.
+        - title: The title of the test.
+        - objective: The objective of the test.
+        - chat_conversation: A list of chat conversations.
+        - meeting_summary: The summary of the meeting.
+        - areas_of_improvement: Areas where the participant can improve.
+        - culture_skills: The rating of the participant's culture skills.
+        - feedback_summary: The summary of the feedback.
+        - skill_summary: The summary of the skills.
+        - start_with_user: A boolean indicating whether the conversation started with the user.
+        - speech_metrics_avg: The average speech metrics.
+        - response_relevance: A boolean indicating whether the response was relevant.
+        - flashcards: A list of flashcards (only if the test type is dynamic discussion or dynamic discussion thread).
+        - mindmap_data: A dictionary containing the test name and content for the mindmap (only if the test type is dynamic discussion or dynamic discussion thread).
+        - skills_rating: The rating of the participant's skills.
+        - certificate_details: The details of the certificate.
+        - ui_information: The UI information of the test.
+
+    Example:
+    {
+        'participant_name': 'John Doe',
+        'date': '01 January 2022',
+        'title': 'Test Title',
+        'objective': 'Test Objective',
+        'chat_conversation': [{'user_name': 'John Doe', 'message': 'Hello', 'is_bot': False}],
+        'meeting_summary': 'Summary of the meeting',
+        'areas_of_improvement': 'Area of improvement',
+        'culture_skills': {'Communication': 4},
+        'feedback_summary': 'Summary of the feedback',
+        'skill_summary': 'Summary of the skills',
+        'start_with_user': True,
+        'speech_metrics_avg': {'Fluency Percentage': 95.0},
+        'response_relevance': True,
+        'flashcards': [{'text': 'Key learning point'}],
+        'mindmap_data': {'test_name': 'Test Title', 'content': [{'question': 'Question', 'ideal_answer': 'Ideal answer', 'learnings': ['Learning 1', 'Learning 2']}]},
+        'skills_rating': {'Communication': 4},
+        'certificate_details': 'Certificate details',
+        'ui_information': 'UI information'
+    }
+    """    
     test_attempt_session_id = test_attempt_session.uid
 
     participant_id = test_attempt_session.participant_id
@@ -2407,6 +3196,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
     title = test.title
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
     objective = test.orchestrated_conversation_details.get("objective")
 
@@ -2418,6 +3209,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     chat_conversation += get_group_discussion_chat_conversation(
         test_attempt_session, user_persona, is_report=True)
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:   chat_conversation: {chat_conversation}, objectives: {objective} , user_persona: {user_persona} ###############")
 
     chat_conversation_with_details = []
     flashcards = []
@@ -2445,7 +3238,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
         test_data = []
         for test_response in test_responses:
-            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text,})
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "Feedback couldn't be generated.",})
         logger.info({"************test_responses":test_data})
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
@@ -2455,8 +3248,11 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     else:
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text)
-                key_learning_point = test_response.kls_klp.get('klp')
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
+                
+                logger.info(f"############### get_meeting_report_from_test_attempt_session:  kls_klp_in_response: {test_response.kls_klp} ###############")
+                
+                key_learning_point = test_response.kls_klp.get('klp') if test_response.kls_klp else 'No key learning point found.'
                 flashcards.append({'text':key_learning_point})
                 chat_conversation_with_details.append(data)
                 count += 1
@@ -2464,7 +3260,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     {
                         "question":data["question"],
                         "ideal_answer": key_learning_point,
-                        "learnings": test_response.kls_klp.get('kls').strip().split(','),
+                        "learnings": test_response.kls_klp.get('kls').strip().split(',') if test_response.kls_klp else [],
                     }
                 )
                 data = {}
@@ -2475,6 +3271,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             
             if test_response.speech_metrics:
                 speech_metrics = test_response.speech_metrics
+                logger.info(f"############### get_meeting_report_from_test_attempt_session:  speech_metrics: {speech_metrics} ###############")
 
                 # We only need ['pace', 'filler_word_percentage', 'power_word_percentage', 'silence_number','fluency_percentage'] from speech_metrics
                 speech_metrics = {k: v for k, v in speech_metrics.items(
@@ -2488,6 +3285,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                 all_speech_metrics.append(speech_metrics)
 
         # Get the averaged speech metrics for the test attempt session
+        logger.info(f"############### get_meeting_report_from_test_attempt_session:  all_speech_metrics: {all_speech_metrics} ###############")
         for metric in all_speech_metrics:
             for k, v in metric.items():
                 if isinstance(v, str) and "%" in v:
@@ -2544,6 +3342,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "speech_metrics_avg" : speech_metrics_avg,
         "response_relevance" : response_relevance
     }
+    
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
 
     if data["start_with_user"]:
         data["bot_name"] = test.orchestrated_conversation_details.get('initial_messages')[0].split(":", 1)[0].strip('" \'')
@@ -2572,6 +3372,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             "content": mindmap_contents
         }
         
+    logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
+        
     if test_attempt_session.skills_rating:
         skills_rating = test_attempt_session.skills_rating
         skills_rating = {key.strip('"\'' ): value for key, value in skills_rating.items()}  # to strip extra qoutes from key
@@ -2594,12 +3396,34 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
     data["certificate_details"] = test.certificate_details
     data['ui_information'] = test.ui_information
+    
+    
 
     return data
 
 
 @timeit
 def get_group_discussion_summary(objective: str, chat_conversation: str):
+    """
+    This function generates a summary of a group discussion based on the provided objective and conversation.
+
+    The function constructs a prompt using the objective and conversation, and then uses the `generic_completion` function to generate a summary. If the `generic_completion` function fails to generate a summary, it retries once before defaulting to "Could not generate".
+
+    The function is decorated with the `timeit` decorator, which logs the time taken to execute the function.
+
+    Args:
+        objective (str): The objective of the group discussion. This should be a string describing the purpose or goal of the discussion.
+        chat_conversation (str): The conversation of the group discussion. This should be a string containing the entire conversation text.
+
+    Returns:
+        str: A string containing the summary of the group discussion. If the summary cannot be generated, the function returns "Could not generate".
+
+    Example:
+        >>> objective = "Discuss the new product launch"
+        >>> chat_conversation = "Alice: I think we should launch next month. Bob: I agree, but we need to sort out the marketing first."
+        >>> get_group_discussion_summary(objective, chat_conversation)
+        'The group discussed the new product launch and agreed to schedule it for next month after sorting out the marketing.'
+    """
     prompt = f"""
     \n\nHuman:
     [Objective of Discussion]: {objective};
@@ -2630,6 +3454,29 @@ def get_group_discussion_summary(objective: str, chat_conversation: str):
 
 @timeit
 def get_areas_of_improvement(objective: str, chat_conversation: str, user_persona: str):
+    """
+    This function generates areas of improvement for a given user persona based on a chat conversation and an objective.
+
+    The function constructs a prompt using the objective, chat conversation, and user persona. This prompt is then passed to the `anthropic_completion` function, which generates a response using the Anthropic API. The response is expected to be an analysis of the efficiency and efficacy of the meeting in relation to the predefined areas of improvement. 
+
+    If the `anthropic_completion` function fails to generate a response, a default response indicating that generation was not possible is returned.
+
+    Args:
+        objective (str): The objective of the discussion.
+        chat_conversation (str): The conversation that took place during the meeting.
+        user_persona (str): The persona for which the areas of improvement are to be evaluated.
+
+    Returns:
+        dict: A dictionary where the keys are the areas of improvement and the values are the generated responses. If the response generation fails, the values will be "Could not generate".
+
+    Example:
+        >>> get_areas_of_improvement("Increase sales", "We discussed various strategies...", "Sales Manager")
+        {
+            "Sticking to Agenda": "The Sales Manager was able to...",
+            "Driving to decision": "The Sales Manager could improve...",
+            "Sticking to Positive behavior": "The Sales Manager demonstrated..."
+        }
+    """
     areas_of_improvement = ["Sticking to Agenda",
                             "Driving to decision", "Sticking to Positive behavior"]
 
@@ -2677,6 +3524,31 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
 @timeit
 def get_group_discussion_chat_conversation(test_attempt_session: TestAttemptSession, test_user_persona: str,
                                            is_report: bool = False):
+    """
+    This function retrieves the conversation of a group discussion from a test attempt session.
+
+    The function iterates over the responses in the test attempt session, and for each response, it checks the responder type.
+    If the responder is a user, it appends the user's persona and response text to the conversation.
+    If the responder is not a user, it appends the responder's display name and response text to the conversation.
+    The function then checks if the conversation is for a report. If it is, it returns the conversation as a list of strings.
+    If it's not for a report, it returns the conversation as a single string.
+
+    Parameters:
+    test_attempt_session (TestAttemptSession): The test attempt session object from which to retrieve the conversation.
+    test_user_persona (str): The persona of the user in the test attempt session.
+    is_report (bool): A flag indicating whether the conversation is for a report. Default is False.
+
+    Returns:
+    If is_report is True, it returns a list of strings where each string is a line of the conversation.
+    If is_report is False, it returns a single string that contains the entire conversation.
+
+    Example:
+    >>> get_group_discussion_chat_conversation(test_attempt_session, "User1", True)
+    ['User1: Hello', 'Bot: Hi', 'User1: How are you?', 'Bot: I am fine.']
+
+    >>> get_group_discussion_chat_conversation(test_attempt_session, "User1", False)
+    'User1: Hello\nBot: Hi\nUser1: How are you?\nBot: I am fine.'
+    """
     current_conversation = ''
     conversation_list = []
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
@@ -2705,9 +3577,19 @@ def calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
 @timeit
 def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
-    """
-    This function calculates the score for the test attempt session and update the skills_rating field in this object
-    Also it uses these skills rating to update the skills table
+    """ 
+    This function _calc_score calculates the score for a given test attempt session and updates the skills_rating field in the TestAttemptSession object. It also uses these skills ratings to update the skills table.
+
+    Parameters: test_attempt_session (TestAttemptSession): An instance of the TestAttemptSession model. This represents a single attempt of a test by a participant. test (Test): An instance of the Test model. This represents the test that the participant is attempting.
+
+    Process: The function first retrieves all the responses for the participant in the test attempt session. It then calculates various scores and ratings based on these responses, such as the average score, speech score, and skills rating. If the test is not free, it also calculates the speech metrics and feedback text. The function then calculates the skills rating for each response and updates the skills_rating field in the TestAttemptSession object. If the test has a speech metric, it also updates the speech_score field. The function finally updates the SkillsRating table with the calculated skills ratings.
+
+    Input Requirements: The test_attempt_session parameter must be an instance of the TestAttemptSession model, and the test parameter must be an instance of the Test model.
+
+    Output: The function does not return any value. However, it updates the skills_rating, test_score, avg_score, finished_at, and speech_score fields in the TestAttemptSession object. It also updates the SkillsRating table with the calculated skills ratings.
+
+    Example: Let's assume we have a TestAttemptSession instance tas and a Test instance t. We can call the function as follows: _calc_score(tas, t) This will update the tas object and the SkillsRating table based on the responses in the tas object for the test t. 
+
     """
 
     logger.info(f"{test_attempt_session.uid} - start last response calculation")
@@ -2930,45 +3812,45 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
 
 
-    if not test.is_self_created:
-        # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
-                                                                            tenant_id=test_attempt_session.tenant_id)
+    
+    # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+                                                                        tenant_id=test_attempt_session.tenant_id)
 
-        updated_fields = []
+    updated_fields = []
 
-        skills_rating_object.skills_info = skills_rating_object.skills_info or {}
-        total_test_attmepted = skills_rating_object.total_tests_attempted
+    skills_rating_object.skills_info = skills_rating_object.skills_info or {}
+    total_test_attmepted = skills_rating_object.total_tests_attempted
 
-        for skill, rating in skills_rating_score.items():
+    for skill, rating in skills_rating_score.items():
 
-            if skill in skills_rating_object.skills_info:
-                skills_rating_object.skills_info[skill]['score'] += rating
-                skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
-            else:
-                skills_rating_object.skills_info[skill] = {
-                    'score': rating,
-                    'question_count': skills_count[skill]
-                }
+        if skill in skills_rating_object.skills_info:
+            skills_rating_object.skills_info[skill]['score'] += rating
+            skills_rating_object.skills_info[skill]['question_count'] += skills_count[skill]
+        else:
+            skills_rating_object.skills_info[skill] = {
+                'score': rating,
+                'question_count': skills_count[skill]
+            }
 
-            if skills_count[skill] == 0:
-                skills_rating_object.skills_info[skill]['average_score'] = 0
-            else:
-                required_average_score = rating / skills_count[skill]
-                skills_rating_object.skills_info[skill]['average_score'] = required_average_score
+        if skills_count[skill] == 0:
+            skills_rating_object.skills_info[skill]['average_score'] = 0
+        else:
+            required_average_score = rating / skills_count[skill]
+            skills_rating_object.skills_info[skill]['average_score'] = required_average_score
 
-        skills_rating_object.total_questions_attempted += attempted_count
-        skills_rating_object.total_tests_attempted += 1
+    skills_rating_object.total_questions_attempted += attempted_count
+    skills_rating_object.total_tests_attempted += 1
 
-        updated_fields.append("skills_info")
-        updated_fields.append("total_questions_attempted")
-        updated_fields.append("total_tests_attempted")
-        updated_fields.append("updated")
+    updated_fields.append("skills_info")
+    updated_fields.append("total_questions_attempted")
+    updated_fields.append("total_tests_attempted")
+    updated_fields.append("updated")
 
+    skills_rating_object.save(update_fields=updated_fields)
+
+    if skills_rating_object.total_tests_attempted == total_test_attmepted:
         skills_rating_object.save(update_fields=updated_fields)
-
-        if skills_rating_object.total_tests_attempted == total_test_attmepted:
-            skills_rating_object.save(update_fields=updated_fields)
 
     logger.info(f"{test_attempt_session.uid} - end last response calculation")
     
@@ -2980,6 +3862,28 @@ def round_off_rating(number):
 
 @timeit
 def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id, test_attempt_session):
+    """
+    This function is designed to increment the average score of a participant's skills rating based on their past successful sessions.
+
+    The function first retrieves the total number of successful sessions for the participant excluding the current one. If the total successful sessions are only one, it returns the current skills rating and average score without any modification.
+
+    If there are more than one successful sessions, it calculates the average score of the last 5 sessions. If the average score is less than 5, it returns the current skills rating and average score without any modification.
+
+    If the average score is 5 or more, it increments the skills rating by a certain percentage (up to 10%) based on the total number of successful sessions. The incremented skills rating is then used to calculate the new average score.
+
+    Parameters:
+    skills_rating (dict): A dictionary where keys are skill names and values are the corresponding ratings. Each rating should be a float.
+    avg_score (float): The current average score of the participant.
+    participant_id (str): The ID of the participant.
+    test_attempt_session (TestAttemptSession): The current test attempt session object.
+
+    Returns:
+    tuple: A tuple containing the updated skills rating dictionary and the new average score.
+
+    Example:
+    Given a skills_rating = {'skill1': 7.5, 'skill2': 8.0}, avg_score = 7.75, participant_id = '123', and a valid test_attempt_session,
+    the function might return ({'skill1': 8.25, 'skill2': 8.8}, 8.525) assuming there were 10 successful past sessions and the average score of the last 5 sessions was 5 or more.
+    """
     # Get number of interactions for that candidate which are completed but are not the current one
     total_successful_sessions = TestAttemptSession.objects.filter(participant_id=participant_id,
                                                                   status=TestAttemptSessionStatusChoices.completed,
@@ -3031,6 +3935,10 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
 
 @timeit
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This method generate session report link save it in testattemptsession.report_url
+    """
+
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3060,6 +3968,9 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
 
 @timeit
 def generate_summary_feedback_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
+    """
+    This method generate summary_feedback_session_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3081,6 +3992,9 @@ def generate_summary_feedback_session_report_link(test_attempt_session: TestAtte
 
 @timeit
 def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
+    """
+    This method generate meeting_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3103,6 +4017,9 @@ def generate_meeting_report_link(test_attempt_session: TestAttemptSession):
 
 @timeit
 def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSession):
+    """
+    This method generate dynamic_discussion_report_link save it in testattemptsession.report_url
+    """
     if test_attempt_session.report_url:
         return test_attempt_session.report_url
 
@@ -3126,6 +4043,30 @@ def generate_dynamic_discussion_report_link(test_attempt_session: TestAttemptSes
 
 @timeit
 def modify_skills_rating_if_same(skills):
+    """
+    This function modifies the skill ratings to ensure uniqueness and a multiple of 0.25. 
+    It is designed to handle situations where multiple skills have the same rating, which can cause issues in further analysis.
+
+    The function works by iterating over the skills dictionary, which is sorted by the rating value. 
+    For each skill, it checks if the rating is already present in the `value_counts` dictionary (which keeps track of the frequency of each rating). 
+    If the rating is not unique (i.e., it appears more than once), the function will increment or decrement the rating by 0.25 until it becomes unique. 
+    The increment or decrement is chosen randomly. 
+    The function also ensures that the final rating is between 0 and 9 (inclusive).
+
+    If the function takes more than 2 seconds to find a unique rating, it will log a message and break out of the loop.
+
+    Parameters:
+    skills (dict): A dictionary where the keys are skill names (str) and the values are their corresponding ratings (float). 
+                   The ratings should be between 0 and 10 (inclusive).
+
+    Returns:
+    modified_skills (dict): A dictionary with the same keys as the input, but the values may be modified to ensure uniqueness. 
+                            The values will be rounded to 2 decimal places.
+
+    Example:
+    Input: {'skill1': 5.0, 'skill2': 5.0, 'skill3': 6.0}
+    Output: {'skill1': 5.0, 'skill2': 5.25, 'skill3': 6.0}
+    """
     logger.info(f"skills before: {skills}")
     modified_skills = {}
     value_counts = {}
@@ -3283,6 +4224,32 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 @timeit
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
                               is_whatsapp: bool = False):
+    """
+    Sends a report link via email to a participant and a list of other recipients.
+
+    This function first checks if the report has already been sent to the participant's email. If it has, the function returns immediately.
+    It retrieves the participant's attributes, including their name and email, and the list of additional email recipients from the test object.
+    It then prepares the data for the email, including the report URL, test name, and participant's name.
+    The email subject is formatted to include the test name, participant's name, and the date the test was completed.
+    If the test object indicates that the participant should receive the email, the function attempts to send the email to the participant.
+    It then sends the email to each of the additional recipients.
+    Finally, it logs a success message and updates the 'is_report_sent_to_email' field of the test attempt session object to True.
+
+    Parameters:
+    test (Test): The test object, which contains information about the test and the list of additional email recipients.
+    test_attempt_session (TestAttemptSession): The test attempt session object, which contains information about the participant and the test attempt.
+    report_url (str): The URL of the report to be sent.
+    is_whatsapp (bool, optional): A flag indicating whether the participant is using WhatsApp. Defaults to False.
+
+    Returns:
+    None
+
+    Raises:
+    Exception: If there is an error sending the email to the participant, an exception is raised and logged.
+
+    Example:
+    send_report_link_to_email(test_object, test_attempt_session_object, 'http://example.com/report')
+    """
     if test_attempt_session.is_report_sent_to_email:
         return
 
@@ -3319,7 +4286,16 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
-        "profile", {}).get("email")
+        "profile", {}).get("email") or participant_attributes.get('email',None)
+
+    for to_email in email_address_list:
+        try:
+            send_email(to_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception(e)
+            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
+
+    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     if test.email_candidate:
         try:
@@ -3327,12 +4303,9 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         except Exception as e:
             logger.exception("failed to send email to participant %s email %s, err: %s",
                              participant_id, participant_email, e)
+            send_error_notification("send_report_link_to_email",f"failed to send email to participant {participant_id} email {participant_email}, err: {e}",e)
             raise e
 
-    for to_email in email_address_list:
-        send_email(to_email, email_subject, data=data)
-
-    logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
     test_attempt_session.is_report_sent_to_email = True
     test_attempt_session.save(update_fields=["is_report_sent_to_email"])
@@ -3377,12 +4350,16 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
-        "profile", {}).get("email")
+        "profile", {}).get("email") or participant_attributes.get('email')
 
     
 
     for to_email in email_address_list:
-        send_email(to_email, email_subject, data=data)
+        try:
+            send_email(to_email, email_subject, data=data)
+        except Exception as e:
+            logger.exception(e)
+            send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
@@ -3392,6 +4369,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         except Exception as e:
             logger.exception("failed to send email to participant %s email %s, err: %s",
                              participant_id, participant_email, e)
+            send_error_notification("send_report_link_to_email_orch",f"failed to send email to participant {participant_id} email {participant_email}, err: {e}",data)
             raise e
 
     test_attempt_session.is_report_sent_to_email = True
@@ -3400,6 +4378,9 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
 @timeit
 def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSession, report_url: str):
+    """
+    This method send report link to whatsapp
+    """
     if test_attempt_session.is_report_sent_to_whatsapp:
         return
 
@@ -3441,6 +4422,34 @@ def send_report_link_to_whatsapp(test: Test, test_attempt_session: TestAttemptSe
 
 @timeit
 def calc_culture_skills_rating(test_attempt_session, responses, test):
+    """ 
+    This function calc_culture_skills_rating is used to calculate the cultural skills rating for a given test attempt session.
+
+    It takes three parameters:
+
+    test_attempt_session: This is an instance of a TestAttemptSession model. It represents a specific attempt of a test by a user.
+    responses: This is a list of response objects. Each response object should have a question_id attribute which corresponds to the ID of a question in the TestQuestion model, and a response_text attribute which is the text of the user's response to that question.
+    test: This is an instance of the Test model. It represents the test that the user is attempting.
+    The function first constructs a conversation string by iterating over the responses. For each response, it fetches the corresponding question from the TestQuestion model and appends the question and response text to the conversation string.
+
+    Then, it calls the evaluate_conversation function to evaluate the conversation. If the test is free, it passes True for the is_free parameter of evaluate_conversation, otherwise it passes False.
+
+    The evaluate_conversation function returns a dictionary where the keys are the names of the cultural skills and the values are the ratings for those skills. If the evaluation fails, evaluate_conversation returns None and calc_culture_skills_rating also returns None.
+
+    Finally, the function trims any skill ratings that are outside the range 1.5 to 8.5 and returns the dictionary of cultural skills ratings.
+
+    Example:
+
+    test_attempt_session = TestAttemptSession.objects.get(uid='some-uid')
+    responses = [
+        {'question_id': 'q1', 'response_text': 'This is my response to question 1'},
+        {'question_id': 'q2', 'response_text': 'This is my response to question 2'},
+    ]
+    test = Test.objects.get(test_code='some-test-code')
+
+    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+    # Returns: {'hierarchy': 8.5, 'consensual': 7.0, 'indirect negative feedback': 6.5, 'relationship-based': 5.0, 'high context communication': 4.5, 'Persuasion': 4.0, 'argumentative': 3.5}
+    """
     culture_skills_rating = {}
 
     conversation = ""
@@ -3483,6 +4492,30 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
 @timeit
 def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
+    """
+    This function calculates the skills rating for a test attempt session based on the responses provided by the user.
+
+    The function first constructs a conversation string by iterating over the responses. Each response is associated with a question from the test, and the conversation string is formed by concatenating the question and response texts. 
+
+    The conversation string, along with other test details and skills, is then passed to the `evaluate_response_skill` function, which evaluates the conversation based on the specified skills. If the test is free, the `evaluate_response_skill` function is called with an additional flag set to True.
+
+    Parameters:
+    test_attempt_session (object): The test attempt session object.
+    responses (list): A list of response objects. Each response object should have a `question_id` and `response_text` attribute.
+    test (object): The test object. It should have `title`, `description`, `test_code`, and `is_free` attributes.
+    skills (list): A list of skills to be evaluated.
+    user_skill_prompt (str): The user skill prompt.
+
+    Returns:
+    dict: A dictionary where each key is a skill and the corresponding value is the rating for that skill. If the evaluation is not successful, the function returns None.
+
+    Raises:
+    Exception: If the evaluation is not successful.
+
+    Example:
+    >>> calc_skills_rating(test_attempt_session, responses, test, ["skill1", "skill2"], "User Skill Prompt")
+    {'skill1': 4.5, 'skill2': 9.0}
+    """
     skills_rating = {}
 
     conversation = ""
@@ -3517,6 +4550,9 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
 @timeit
 def get_interview_feedback(title,description,background, question_text,candidate_comment):
+    """
+    to get interview feedback prompt
+    """
     prompt = Template("""
             \n\nHuman:
 
@@ -3584,7 +4620,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question_context: str,
                                     candidate_reply: str,
                                     user_feedback_prompt:str,
-                                    articles:str = None):
+                                    articles:str = None,
+                                    scenario_summary:str = None):
+    """
+    this method used to get prompt for feedback.
+    """
     article_information = ''
     if articles:
         for url in articles.split(','):
@@ -3592,6 +4632,9 @@ def get_chat_conversation_prompt_v3(test_title: str,
             if articles_data:
                 articles_data = articles_data['article_content']
                 article_information += f"\n articles_data"
+
+    if scenario_summary:
+        article_information += scenario_summary
     
     if len(article_information) == 0:
         articles = None
@@ -3755,6 +4798,30 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
 @timeit
 def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
+    """
+    Generate a dynamic discussion prompt for providing feedback on manager, team member, or sales rep comments.
+
+    Parameters:
+    - scenario (str): Type of scenario, possible values: 'manager-team', 'team-manager', 'sales-customer', 'customer-sales'.
+    - test_title (str): Title of the test.
+    - test_description (str): Description of the test.
+    - comment (str): Manager, team member, or sales rep comment.
+    - bot_response (str): Bot response (applicable for 'team-manager' and 'customer-sales' scenarios).
+    - question_number (int): Question number, used to determine the structure of the prompt.
+
+    Returns:
+    - str: Generated discussion prompt.
+
+    Examples:
+    >>> get_user_first_dynamic_discussion_prompt('manager-team', 'Leadership Skills Test', 'Evaluate the manager’s leadership skills.', 'The manager's comment is...', '', 1)
+    # Returns the generated discussion prompt for providing feedback on a manager's comment.
+
+    >>> get_user_first_dynamic_discussion_prompt('team-manager', 'Team Collaboration Test', 'Assess the team member’s collaboration skills.', 'The team member's comment is...', 'The bot response is...', 2)
+    # Returns the generated discussion prompt for providing feedback on a team member's comment along with the bot response.
+
+    >>> get_user_first_dynamic_discussion_prompt('sales-customer', 'Sales Pitch Test', 'Evaluate the sales rep’s pitch.', 'The sales rep's comment is...', '', 1)
+    # Returns the generated discussion prompt for providing feedback on a sales rep's comment.
+    """
     match scenareo:
         case 'manager-team':
             if question_number == 1:
@@ -4296,6 +5363,30 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 def get_orchestrated_test_conversation_prompt(test: Test,
                                               test_attempt_session: TestAttemptSession,
                                               question: TestQuestion):
+    """
+    This function generates a conversation prompt for an orchestrated test.
+
+    The function first retrieves the main context, user persona, initial messages, and other details from the test. It then constructs the current conversation based on these details and the responses from the test attempt session. If a response text is not immediately available, the function waits for it to be populated, with a maximum wait time of 30 seconds.
+
+    The function then generates a prompt based on the test type and other conditions. The prompt is a string that includes the main context, current conversation, and the question text, formatted according to specific rules.
+
+    Parameters:
+    - test (Test): The test object. It should have an 'orchestrated_conversation_details' attribute which is a dictionary containing details about the test.
+    - test_attempt_session (TestAttemptSession): The test attempt session object. It is used to retrieve the responses for the test.
+    - question (TestQuestion): The question object. The question text is included in the prompt.
+
+    Returns:
+    - str: The generated prompt. The prompt includes the main context, current conversation, and the question text, formatted according to specific rules.
+
+    Example:
+    >>> test = Test.objects.get(id=1)
+    >>> test_attempt_session = TestAttemptSession.objects.get(id=1)
+    >>> question = TestQuestion.objects.get(id=1)
+    >>> prompt = get_orchestrated_test_conversation_prompt(test, test_attempt_session, question)
+    >>> print(prompt)
+    'Human: Main context : This is the main context. Current conversation : This is the current conversation. Candidate response : This is the question text. NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response. Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem. Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before. NOTE: The question should not be more than 25 words. NOTE: Do not show the word count. NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question. Assistant:'
+    """
+
     test_main_context = test.orchestrated_conversation_details.get(
         "test_main_context")
     test_user_persona = test.orchestrated_conversation_details.get(
@@ -4638,6 +5729,65 @@ def get_overridden_prompt(prompt_template: str,
                                    prompt_template=prompt_template,
                                    candidate_reply=candidate_reply,
                                    user_feedback_prompt=user_feedback_prompt)
+    
+
+@timeit
+def get_english_support_feedback_prompt(prompt_template: str,
+                        test_title: str,
+                        test_description: str,
+                        question: str,
+                        candidate_reply: str,
+                        user_feedback_prompt:str):
+        template = Template(
+            """
+            \n\nHuman:
+            Title: ${test_title}. 
+            Test Description: ${test_description}
+            Customer question:  ${question} 
+            Evaluation Criteria: ${prompt_template} 
+            Candidate answer:  ${candidate_reply}
+
+            Please provide feedback on the English speaking proficiency of a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on areas such as grammar, vocabulary usage, fluency, and overall clarity of communication. 
+
+            Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. 
+
+            Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
+
+            - Key insights to improve the response
+
+            - What went well ?
+
+            - What did not work ?
+
+            - A sample candidate answer 
+
+            NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
+
+            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
+
+            NOTE: Only provide feedback on the English proficiency of the candidate.
+
+            NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+            NOTE: Never give any feedback on the Question or anybody asking the question.
+
+            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Minimum response length is 300 words. Always adhere to the same.
+
+            ${user_feedback_prompt}
+            \n\nAssistant:
+            """
+        )
+        
+        return template.substitute(test_title=test_title,
+                            test_description=test_description,
+                            question=question,
+                            prompt_template=prompt_template,
+                            candidate_reply=candidate_reply,
+                            user_feedback_prompt=user_feedback_prompt)
+
+    
 @timeit
 def emplyee_feedback_prompt(prompt_template: str,
                           test_title: str,
@@ -4680,6 +5830,20 @@ def emplyee_feedback_prompt(prompt_template: str,
 @timeit
 def get_question_key_learning_point(test_title,
                                     test_question):
+    """
+    Generate a prompt to extract a key learning point from an ideal answer to a given question.
+
+    Parameters:
+    - test_title (str): Title of the test.
+    - test_question (str): Text of the question.
+
+    Returns:
+    - str: Extracted key learning point.
+
+    Examples:
+    >>> get_question_key_learning_point('Leadership Skills Test', 'What qualities make a great leader?')
+    # Returns the extracted key learning point from an ideal answer to the given question.
+    """
     prompt = Template(
         """
         \n\nHuman:
@@ -4714,6 +5878,21 @@ def get_question_key_learning_point(test_title,
 @timeit
 def get_question_key_learning_skills(test_title,
                                      test_question):
+    """
+    Generate a prompt to extract key learning skills from an ideal answer to a given question.
+
+    Parameters:
+    - test_title (str): Title of the test.
+    - test_question (str): Text of the question.
+
+    Returns:
+    - str: Extracted key learning skills, separated by commas.
+
+    Examples:
+    >>> get_question_key_learning_skills('Leadership Skills Test', 'What qualities make a great leader?')
+    # Returns the extracted key learning skills from an ideal answer to the given question.
+    """
+
     skills_name_list = [skill['name'] for skill in skills]
     prompt = Template(
         """
@@ -4761,6 +5940,39 @@ Output:
 
 @timeit
 def get_test_report(test: Test, only_data=False):
+    """
+    Generates a test report for a given test.
+
+    This function retrieves all completed test attempt sessions for a given test, 
+    calculates the scores for each participant, and sorts them in descending order. 
+    It then counts the total number of questions in the test. 
+    If the `only_data` flag is set to True, it returns a dictionary containing the test name, 
+    total number of questions, total number of test attempts, test scores, and test code. 
+    If the `only_data` flag is set to False, it generates a PDF report using the test data, 
+    saves it as a document in the system, and returns the URL of the document.
+
+    Args:
+        test (Test): The test object for which the report is to be generated.
+        only_data (bool, optional): A flag to determine whether to return only the test data 
+                                     or to generate a PDF report. Defaults to False.
+
+    Returns:
+        str or dict: If `only_data` is True, returns a dictionary containing the test data. 
+                     If `only_data` is False, returns a string representing the URL of the generated PDF report.
+
+    Example:
+        >>> get_test_report(test_object, only_data=True)
+        {
+            'test_name': 'Sample Test',
+            'total_questions': 10,
+            'total_tests_attempts': 5,
+            'test_scores': [{'score': 80, 'avg_score': 80, 'speech_score': 80, 'participant': 'John Doe'}, ...],
+            'test_code': 'TEST123'
+        }
+
+        >>> get_test_report(test_object, only_data=False)
+        'https://example.com/document/test_report_123.pdf'
+    """
     test_attempt_sessions = TestAttemptSession.objects.filter(
         tenant_id=test.tenant_id,
         test_id=test.uid,
@@ -4837,6 +6049,9 @@ def get_test_report(test: Test, only_data=False):
 
 @timeit
 def generate_test_from_objective_anthropic(objective: str):
+    """
+    this method used to create scenario format using anthropic 
+    """
     skills_name_list = [skill['name'] for skill in skills]
 
     prompt = f"""
@@ -4924,6 +6139,20 @@ def generate_test_from_objective_anthropic(objective: str):
 
 @timeit
 def categorize_skills(skill_dict, skills_object):
+    """
+    Categorize skills based on their scores and descriptions.
+
+    Parameters:
+    - skill_dict (dict): Dictionary containing skills as keys and their scores as values.
+    - skills_object (dict): Dictionary containing skills as keys and their descriptions as values.
+
+    Returns:
+    - list: List of dictionaries containing categorized skills, scores, and descriptions.
+
+    Example:
+    >>> categorize_skills({'communication': 0.8, 'leadership': 0.9}, {'Communication': 'Effective communication...', 'Leadership': 'Ability to lead...'})
+    # Returns a list of dictionaries with categorized skills, scores, and descriptions.
+    """
     categorized_skills = []
     skill_list = [skill.capitalize() for skill in skills_object.keys()]
 
@@ -4943,6 +6172,48 @@ def categorize_skills(skill_dict, skills_object):
 
 @timeit
 def get_skills_tracker_data(participant_id):
+    """
+    This function retrieves and processes skills tracking data for a given participant.
+
+    The function first filters the TestAttemptSession objects based on the provided participant_id and orders them by id in descending order. If the count of these sessions is more than 15, it limits the sessions to the latest 15. If there are no sessions, it returns None.
+
+    For each TestAttemptSession, it retrieves the corresponding Test object and extracts the candidate_type. If the candidate_type is None, it defaults to 'Manager'. It also retrieves the participant's name and the skills rating for the session.
+
+    The function then categorizes the skills ratings into four categories: People, Partnership, Process, and Personality, based on the candidate_type. It returns a dictionary containing the participant's name, the interaction date, and a list of dictionaries for each category with the category name and the categorized skills.
+
+    Args:
+        participant_id (str): The id of the participant for whom to retrieve and process the skills tracking data.
+
+    Returns:
+        dict: A dictionary containing the participant's name, the interaction date, and a list of dictionaries for each category with the category name and the categorized skills. Returns None if there are no TestAttemptSession objects for the given participant_id.
+
+    Example:
+        >>> get_skills_tracker_data('123')
+        {
+            'data': {
+                'participant_name': 'John Doe',
+                'interaction_date': '01 Jan 2022',
+                'mylist': [
+                    {
+                        'chart_name': 'People',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Partnership',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Process',
+                        'trends': {...}
+                    },
+                    {
+                        'chart_name': 'Personality',
+                        'trends': {...}
+                    }
+                ]
+            }
+        }
+    """
     # Filter the test_attempt_session with the given participant_id and ordered by created
     test_attempt_sessions = TestAttemptSession.objects.filter(
         is_checkin_type=1, participant_id=participant_id, deleted=0).order_by("-id")
@@ -5069,6 +6340,16 @@ def admin_panel_updates(interaction_per_month,interaction_repeatation,logo_url,t
 
 @timeit
 def update_prompt_user_attributes(user_id, var_dict):
+    """
+    Update user attributes for the given user_id in the UserAttribute model.
+
+    Parameters:
+    - user_id (str): Unique identifier for the user.
+    - var_dict (dict): Dictionary containing attribute names as keys and their updated values as values.
+
+    Example:
+    >>> update_prompt_user_attributes('123456', {'attribute1': 'value1', 'attribute2': 'value2'})
+    """
     # Retrieve the UserAttribute object for the given user_id
     user_att = UserAttribute.objects.filter(user_id=user_id).first()
 
@@ -5094,6 +6375,27 @@ def submit_feedback(
         question_id,
         response_file,
 ):
+    """
+    This function is used to submit feedback for a given test question response. It first fetches the relevant test, question, and test attempt session objects based on the provided session_id, tenant_id, and question_id. It then creates or retrieves a TestQuestionResponse object and updates it with the response file and its transcript.
+
+    Based on the difficulty level of the user, it appends the appropriate feedback prompts. If the test is of email type or employee feedback scenario, it generates a specific prompt. Otherwise, it generates a prompt based on whether there is a gpt_prompt_override or not.
+
+    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the text_bison_compeletion function and if that fails too, it uses the anthropic_completion function.
+
+    Finally, it updates the TestQuestionResponse object with the generated feedback and the metadata related to the gpt prompt and response, and saves it.
+
+    Args:
+        session_id (str): The unique identifier of the test attempt session.
+        tenant_id (str): The unique identifier of the tenant.
+        question_id (str): The unique identifier of the question.
+        response_file (str): The path to the response file.
+
+    Returns:
+        str: The feedback text generated for the response.
+
+    Example:
+        >>> submit_feedback('session123', 'tenant123', 'question123', 'path/to/response/file')
+    """
     test_attempt_session = TestAttemptSession.objects.filter(tenant_id=tenant_id,uid=session_id,deleted=0).first()
     question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
     test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
@@ -5164,7 +6466,8 @@ def submit_feedback(
                 question_context=question.subjective_answer,
                 candidate_reply=test_question_response.response_text,
                 user_feedback_prompt=user_feedback_prompt,
-                articles=test.articles)
+                articles=test.articles,
+                scenario_summary=test.scenario_summary,)
 
 
     feedback_text = ''
@@ -5230,7 +6533,8 @@ def submit_feedback(
                                 question_context=question.subjective_answer,
                                 candidate_reply=response_text,
                                 user_feedback_prompt=user_feedback_prompt,
-                                articles=test.articles)
+                                articles=test.articles,
+                                scenario_summary=test.scenario_summary,)
 
                 max_retry -= 1
 
@@ -5275,6 +6579,20 @@ def submit_feedback(
     return test_question_response.feedback_text
 
 def scrape_meta_info(url):
+    """
+    Scrape meta information (title and description) from a given URL.
+
+    Parameters:
+    - url (str): The URL to scrape meta information from.
+
+    Returns:
+    - tuple: A tuple containing the title and description extracted from the meta tags.
+             If an error occurs, the tuple contains an error message.
+
+    Example:
+    >>> scrape_meta_info('https://example.com')
+    # Returns a tuple with the title and description extracted from the meta tags of the given URL.
+    """
     try:
         # Send an HTTP GET request to the URL
         response = requests.get(url)
@@ -5301,6 +6619,21 @@ def scrape_meta_info(url):
         return "Error: " + str(e), ""
 
 def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager"):
+    """
+    Extract information from a dynamic scenario text.
+
+    Parameters:
+    - text (str): The dynamic scenario text to extract information from.
+    - is_dynamic (bool): Indicates whether the scenario is dynamic.
+    - candidate_type (str): Type of candidate (e.g., 'Manager', 'Team Member').
+
+    Returns:
+    - tuple: A tuple containing title, description, question_info, rating, evaluation_skill_list, and orchestrated_conversation_details.
+
+    Example:
+    >>> extract_information_dynamic_scenario('Title: Test Title\nDescription: Test Description\nQuestion: What is your approach to leadership?\nRating: 5', is_dynamic=True, candidate_type='Manager')
+    # Returns a tuple with extracted information from the dynamic scenario text.
+    """
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
     question_pattern = re.compile(r'Question\s*:\s*(.+)')
@@ -5314,7 +6647,7 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     questions_match = question_pattern.search(text)
     rating_match = rating_pattern.search(text)
         
-    if not (title_match and description_match and rating_match and question_pattern.findall(text)):
+    if not (title_match and description_match and question_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
 
     title = title_match.group(1).strip()
@@ -5368,6 +6701,19 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     return title,description,question_info,rating
 
 def extract_scenarios_info_for_one_question(text):
+    """
+    Extract information from multiple scenarios in a text containing scenarios for one question.
+
+    Parameters:
+    - text (str): The text containing scenarios for one question.
+
+    Returns:
+    - list: A list of dictionaries containing extracted information for each scenario.
+
+    Example:
+    >>> extract_scenarios_info_for_one_question('Title: Test 1\nDescription: Description 1\nQuestions: Question 1\nRating: 5\nTitle: Test 2\nDescription: Description 2\nQuestions: Question 2\nRating: 4')
+    # Returns a list of dictionaries with extracted information for each scenario.
+    """
     # Define a regular expression pattern for extracting scenarios
     text = text.replace("Questions","Question")
     pattern = re.compile(r"""
@@ -5417,29 +6763,70 @@ def extract_scenarios_info_for_three_question(text):
 
     return scenarios_info
 
+def extract_text_only(input_text):
+    # Remove digits from the text
+    text_without_digits = re.sub(r'\d', '', input_text)
+    
+    # Remove extra whitespaces
+    cleaned_text = ' '.join(text_without_digits.replace("."," ").strip().split())
+    
+    return cleaned_text
+
 def extract_information(text):
+    """
+    Extract information from a given text containing details about a scenario.
+
+    Parameters:
+    - text (str): The text containing information about a scenario.
+
+    Returns:
+    - tuple: A tuple containing title, description, question_info, skill_to_evaluate, and rating.
+
+    Example:
+    >>> extract_information('Title: Test\nDescription: Test Description\nQuestion: What is your approach to leadership?\nPrompt: Provide your leadership style.\nTakeaway: Effective communication is key.\nSkills: Communication, Leadership\nRating: 5')
+    # Returns a tuple with extracted information from the scenario text.
+    """
     # Regular expressions for extracting title, description, questions, prompts, takeaways, and skills
     text = text.replace("KLS", "Skills")
-    # Replace KLP with Takeaway
     text = text.replace("KLP", "Takeaway")
     text = text.replace("Custom prompt", "Prompt")
 
-
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
-    question_pattern = re.compile(r'Question\s*(\d+)\s*:\s*(.+)')
-    prompt_pattern = re.compile(r'Prompt\s*(\d+)\s*:\s*(.+)')
-    takeaway_pattern = re.compile(r'Takeaway\s*(\d+)\s*:\s*(.+)')
-    skills_pattern = re.compile(r'Skills\s*(\d+)\s*:\s*(.+)')
+    question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
+    prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
+    takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
+    skills_pattern = re.compile(r'Skills\s*(\d*)\s*:\s*(.+)')
     rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
-    
 
     # Extracting information using regular expressions
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
-    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+
+    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
+
+    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+        invalid_fields = []
+
+        if not title_match:
+            invalid_fields.append("title")
+        if not description_match:
+            invalid_fields.append("description")
+        if not rating_match:
+            invalid_fields.append("rating")
+        if not question_pattern.findall(text):
+            invalid_fields.append("question pattern")
+        if not prompt_pattern.findall(text):
+            invalid_fields.append("prompt pattern")
+        if not takeaway_pattern.findall(text):
+            invalid_fields.append("takeaway pattern")
+        if not skills_pattern.findall(text):
+            invalid_fields.append("skills pattern")
+
+        raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
+
 
     title = title_match.group(1)
     description = description_match.group(1)
@@ -5447,7 +6834,7 @@ def extract_information(text):
 
     questions = []
     for match in question_pattern.finditer(text):
-        question_number = int(match.group(1))
+        question_number = match.group(1) if match.group(1) else len(questions) + 1
         question_text = match.group(2)
         prompt_match = prompt_pattern.search(text, match.end())
         takeaway_match = takeaway_pattern.search(text, prompt_match.end())
@@ -5463,39 +6850,55 @@ def extract_information(text):
             'skills': skills_text
         }
         questions.append(question_data)
-        
 
-    informations =  {
+    informations = {
         'title': title,
         'description': description,
         'rating': rating,
         'questions': questions
     }
-    
+
     title = informations['title']
     description = informations['description']
 
     question_info = []
-    skill_to_evalaute = ''
+    skill_to_evaluate = set()
     for que in informations['questions']:
         question_info.append({
             "question": que["text"],
             "question_type": "subjective",
             "gpt_prompt_override": que["prompt"],
             "subjective_answer": "",
-            "key_learning_point": que['takeaway'],
-            "key_learning_skills": que['skills'].strip()
+            "key_learning_point": extract_text_only(que['takeaway']),
+            "key_learning_skills": extract_text_only(que['skills'])
         })
-        skills_to_eva = set()
+
         for skill in que['skills'].split(','):
-            skills_to_eva.add(skill.strip().capitalize())
+            skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
 
-        for skill in skills_to_eva:
-            skill_to_evalaute += skill +", "
+    skill_to_evaluate = ', '.join(skill_to_evaluate)
 
-    return title, description, question_info, skill_to_evalaute, rating
+    return title, description, question_info, skill_to_evaluate, rating
 
 def extract_info_gpt(scenario):
+    """
+    Extracts information from a given scenario string and formats it into a structured output.
+
+    Args:
+        scenario (str): The input scenario string containing information about the title, description,
+                       questions, prompts, takeaways, and skills.
+
+    Returns:
+        tuple: A tuple containing the following elements:
+            - str: Title extracted from the scenario.
+            - str: Description extracted from the scenario.
+            - list of dict: Information about each question in the scenario, including question text,
+                            question type, GPT prompt override, subjective answer, key learning point,
+                            and key learning skills.
+            - str: Skills to evaluate, formatted as a comma-separated string.
+            - int: Rating extracted from the scenario.
+    """
+
     scenario = scenario.replace("KLS", "Skills")
     # Replace KLP with Takeaway
     scenario = scenario.replace("KLP", "Takeaway")
@@ -5557,7 +6960,7 @@ def get_prompt_for_feedback_bot(site_information):
 
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. Keep the context Indian. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
 
-                Title - Give a specific and relevant title for this description in less than 10 words.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
 
                 Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions. All the questions should be asked to the same person. If the situation is for team member only ask the questions from the team member.
 
@@ -5585,6 +6988,8 @@ def get_prompt_for_feedback_bot(site_information):
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
 
                 NOTE : Make sure the simulation is very advanced and tough.
@@ -5604,9 +7009,10 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
 
                         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-                        Title - Give a specific and relevant title for this description in less than 10 words.
-                        Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
+                        Questions - Give me the first question the manager will ask the team member based on the situation .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
                         Output format - Manager name: Question
+                        For example - Ajay: question?
                         Prompts - As given in the output format. 
 
                         Here the format looks like :
@@ -5634,9 +7040,14 @@ def get_one_scenario_prompt(site_information,prompt_type):
                         Do not include any response.
                         Always provide the output in the given format. 
 
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
                         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
                         
                         NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
                         \n\nAssistant: 
 
                     """%(site_information)  
@@ -5648,7 +7059,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
                 Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
 
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
-                Title - Give a specific and relevant title for this description in less than 10 words.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
                 Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
                 Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
@@ -5671,7 +7082,12 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
+
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                
+                NOTE: "Rating" must be included.
                 
                 NOTE : Make sure the simulation is very advanced and tough.
                 
@@ -5698,8 +7114,8 @@ def get_improved_title(title):
     title = title.split(':')[-1]
     return title
 
-
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None):
+@timeit
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -5760,32 +7176,88 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             scenario = ''
             title, description, question_info, skill_to_evalaute = "","","",""
             orchestrated_details = ""
-            for i in range(3):
-                logger.info(f'trying scenario creation palm for {i +1} time')
+            rating = 0 
+            for i in range(1):
+                
                 
                 try:
+                    #### generate scenario using anthropic
+                    """ logger.info(f'trying scenario creation anthropic for {i +1} time')
                     scenario = anthropic_completion(prompt,5000)
-                    print("anthropic",scenario)
-                    print("#"*100)
+                    logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
+                    
+                    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                    else:
+                        title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
+                    
+                    ### generate scenario using palm
+                    logger.info(f'trying scenario creation bison for {i +1} time')
+                    scenario = text_bison_compeletion(prompt)
+                    # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    # scenario = fcfs_handler.process_request(prompt)
+                    logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
+
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                         title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                     else:
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
-                except:
+
+
+                except Exception as e:
+                    logger.info(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
+                    scd = ScenarioCreationDetails.objects.create(
+                            tenant_id=tenant_id,
+                            creator_id = creator_user_id if creator_user_id else "system",
+                            input = f"{title} : {des}",
+                            output = scenario,
+                            status = "failed",
+                            reason_of_failure = f"failed to extract information from bison. Reason : {e}"
+                        )
+                    logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
                     try:
+                        
+                        #### generate scenario using anthropic
+                        """  logger.info(f'trying scenario creation anthropic for {i +1} time')
+                        scenario = anthropic_completion(prompt,5000)
+                        logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
+                        
+                        if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                        else:
+                            title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
+                        
+                        ### generate scenario using palm
+                        logger.info(f'**retrying scenario creation bison for {i +1} time')
                         scenario = text_bison_compeletion(prompt)
-                        print("palm",scenario)
-                        print("#"*100)
+                        # scenario = fcfs_handler.process(prompt)
+                        # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                        
+                        logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
+
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
-                    except:
-                        print('garbage scenario :',scenario)
+                    
+
+                    except Exception as e:
+                        # print('garbage scenario :',scenario)
                         garbage_scenarios.append(scenario)
                         rating = 0
+                        logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                        scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{title} : {des}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to generate scenario for following reason : {e}"
+                            )
 
-                if scenario == 'failed to generate scenario' or rating <= 6:
+
+
+                if scenario == 'failed to generate scenario':
                     # print(rating,"failed")
                     # if i+1 == 3:
                     #     for i in range(3):
@@ -5800,7 +7272,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
                     #         break
                     # else:
-                        continue
+                    continue
                 break
 
             # key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
@@ -5831,6 +7303,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "competency_group": competency,
                 "creator_user_id": creator_user_id,
             }
+            if scenario_summary:
+                test_json["scenario_summary"] = scenario_summary
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
 
@@ -5862,15 +7336,34 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
-                
+                scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{title} : {des}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                            )
                 raise e
 
         except Exception as e:
-            logger.error(e,exc_info=True)
+            logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+            scd = ScenarioCreationDetails.objects.create(
+                                tenant_id=tenant_id,
+                                creator_id = creator_user_id if creator_user_id else "system",
+                                input = f"{context}",
+                                output = scenario,
+                                status = "failed",
+                                reason_of_failure = f"failed to extract information for following reason : {e}"
+                            )
+            # send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
+
+
             if i+1 == max_retry:
                 logger.info(f"{'!'*100}  failed outer {max_retry} times  {'!'*100}")
                 # TODO: send email to user if creator_user_id is not None
                 if creator_user_id:
+                    send_error_notification("create_scenario_from_site_context",f"failed to generate scenario for following reason : {e}",e)
                     try:
                         user = User.objects.get(uid=creator_user_id)
                         send_generic_email(
@@ -5898,7 +7391,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         Read this {information} thoroughly. Now based on this information and your understanding create 5 advanced and detailed situations to practice the skills presented in the {information}. After creating the situation provide these:
 
         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description in less than 10 words.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
         Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
         Output format - Manager name: Question
 
@@ -5914,6 +7407,8 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
 
         Do not include any response.
         Repeat for 5 scenarios.
+        
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
 
         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
@@ -5930,7 +7425,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between two team members to practice the skills presented in the {information}. After creating the situation provide these:
 
         Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between two team members. Make the description specific based on data, industry, events, etc. Give the name of the team members. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description in less than 10 words.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
         Questions - Give me the first question the team member will ask another team member based on the situation. The question should be deep, contextual and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
         Output format - Name: Question
 
@@ -5943,6 +7438,8 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
         "Question:",
 
         Do not include any {responder} response.
+
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
 
         NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
         
@@ -6485,6 +7982,9 @@ def get_dynamic_mcq_skills_prompt(situation_decision_map, num_decisions):
 
 
 def calculate_similarity(sentence1, sentence2):
+    """
+    This method gives similarity percentage b/w two sentences.
+    """
     # Tokenize and remove stopwords
     stop_words = set(stopwords.words('english'))
     words1 = [word.lower() for word in word_tokenize(sentence1) if word.isalpha() and word.lower() not in stop_words]
@@ -6525,7 +8025,34 @@ def calculate_similarity(sentence1, sentence2):
 
 
 @timeit
+@timeit
 def scrape_article_data(url):
+    """
+    This function is designed to scrape the title and content of an article from a given URL.
+
+    The function sends a GET request to the provided URL and checks the response status. If the status code is 200, 
+    indicating a successful request, it proceeds to parse the HTML content using BeautifulSoup and the readability's Document module. 
+    The Document module is used to extract the title and the summary of the HTML content. BeautifulSoup is then used to further parse 
+    the summary content and extract the text within the 'div' tag and all 'p' tags, which are assumed to contain the main article content.
+
+    Parameters:
+    url (str): The URL of the web page to scrape. This should be a string containing a valid URL.
+
+    Returns:
+    dict: A dictionary containing the title and content of the article. The dictionary has the following structure:
+        {
+            'title': 'The title of the article',
+            'article_content': 'The content of the article'
+        }
+    If the GET request fails, the function logs an error message and returns an empty dictionary.
+
+    Example:
+    >>> scrape_article_data('https://example.com/article')
+    {
+        'title': 'Example Article',
+        'article_content': 'This is an example article...'
+    }
+    """
     # Send a GET request to fetch the HTML content
     response = requests.get(url)
     
@@ -6553,3 +8080,642 @@ def scrape_article_data(url):
     else:
         logger.error("Failed to retrieve the page.")
         return {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=============================================================================================================
+### these three funciton is for testing purpose only
+def test_model(model_name, num_tests=50):
+    results = []
+    context = "discussing next steps in career ladder & career development stretegies"
+
+    # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
+    prompt = get_one_scenario_prompt(site_information=context,prompt_type=TestTypeChoices.dynamic_discussion_thread)
+    for _ in range(num_tests):
+        scenario = ''
+        start_time = time.time()
+        try:
+            scenario = text_bison_compeletion(prompt,model_name)
+            print(scenario)
+            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+            print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
+            results.append((True, scenario,"",(time.time()-start_time)))
+        except Exception as e:
+            results.append((False, scenario,f"{e}",(time.time()-start_time)))
+    
+    return results
+
+def write_to_csv(output_file, results):
+    import csv
+    
+    with open(output_file, 'a', newline='') as csvfile:  # Use 'a' for append mode
+        fieldnames = ['Model', 'Test', 'Status', 'Output', 'Reason', 'Time']
+        
+        # Check if the file is empty, and write header only if it's empty
+        file_empty = csvfile.tell() == 0
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if file_empty:
+            writer.writeheader()
+
+        for model_name, test_results in results.items():
+            for test_num, (status, output, reason, time) in enumerate(test_results, start=1):
+                writer.writerow({'Model': model_name, 'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
+
+def testing_palm_models():
+    model_list = ['text-bison@001']  # Add your model names to test
+    num_tests = 20
+
+    results = {}
+    for model_name in model_list:
+        results[model_name] = test_model(model_name, num_tests)
+
+    success_output_file = 'success_output.csv'
+    failure_output_file = 'failure_output.csv'
+
+    write_to_csv("testing_palm_models.csv", results)
+    # write_to_csv(success_output_file,results)
+    # You can choose to write failure results to a different file or combine them as needed.
+    # write_to_csv(failure_output_file, results)
+
+
+def write_to_csv_v2(output_file, results):
+    import csv
+    #is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)
+    with open(output_file, 'a', newline='') as csvfile:  # Use 'a' for append mode
+        fieldnames = ['Model','Failed Scenarios', 'Test', 'Status', 'Output', 'Reason', 'Time']
+        
+        # Check if the file is empty, and write header only if it's empty
+        file_empty = csvfile.tell() == 0
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if file_empty:
+            writer.writeheader()
+
+        for model_name, test_results in results.items():
+            for test_num, (status,failed,output, reason, time) in enumerate(test_results, start=1):
+                writer.writerow({'Model': model_name,'Failed Scenarios': failed ,'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
+
+
+def test_scenario():
+    end_result = {}
+    results = []
+    context = "discussing next steps in career ladder & career development stretegies"
+
+    # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
+    for _ in range(20):
+        scenario = ''
+        start_time = time.time()
+        is_created, failed_scenarios, test_scenario, reasons = create_scenario_from_site_context('',"Basic MDU2MTUwZWYtYjliYS00NTRlLTkzYTYtMDliZDdjNzFlYjNiOjFkOWMwZGJhLTI0OTAtNDZmYS1hMTNiLTU3Yjg5NDdhNjMwMg==", "627ded98-8585-42a4-9497-ae6db7f31020",'{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }')
+        results.append((is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)))
+    
+    end_result[f'text-bison@001'] = results
+    
+        
+    write_to_csv_v2("testing_create_scenario_palm_models.csv", end_result)
+
+
+
+# def create_feedback_bot(name,profile_id,email,user_id,bio,project):
+    
+#     json_data = {
+#     "bot_type": "feedback_bot",
+#     "bot_name": name,
+#     "profile_id": profile_id,
+#     "email": email,
+#     "attributes": {
+#       "heading": "welcome to feedback bot",
+#       "feedback_questions": {
+#         "1": "As witnessed by you what would be some of my strengths and/or weaknesses, that you have come across?",
+#         "2": "Regarding workplace team management skills, how would you rate my skills?",
+#         "3": "I am trying to improve my project management skills. In the past quarter have you seen any examples? Examples would be great.",
+#         "4": "How would like to see me implement the feedback you have provided so far?"
+#       }
+#     },
+#     "feedback_questions": {
+#       "1": "As witnessed by you what would be some of my strengths and/or weaknesses, that you have come across?",
+#       "2": "Regarding workplace team management skills, how would you rate my skills?",
+#       "3": "I am trying to improve my project management skills. In the past quarter have you seen any examples? Examples would be great.",
+#       "4": "How would like to see me implement the feedback you have provided so far?"
+#     },
+#     "participant_id": user_id,
+#     "additional_data": {
+#       "short_profile_bio": bio,
+#       "current_projects": project,
+#       "suggested_projects": ""
+#     },
+#     "bot_base_url": "https://playground.coachbots.com"
+#   }
+
+#     import requests
+#     import json
+
+#     url = "http://localhost:8001/api/v1/accounts/create-bot-by-details/"
+
+#     payload = json.dumps(json_data)
+#     headers = {
+#     'Authorization': 'Basic Yzc3MjFmZGItYTllMC00YTYxLWEzMTYtNDRhODA1N2VkMjY0OjhjNWNlZWZlLTY2Y2QtNDliZi04MTY5LTBhNjMwMmU5NmZlMA==',
+#     'Content-Type': 'application/json'
+#     }
+
+#     response = requests.request("POST", url, headers=headers, data=payload)
+
+#     print(response.text)
+#     data = response.json()
+    
+
+#     return data['bot_id']
+
+
+# from users.models import CoachCoacheeMentorMenteeProfile
+
+# def create_feed():
+#     user_ids = [
+#         {'user_id': '2bc1aae5-0044-4091-ab06-b0415b0f460d'}, 
+#                 ]
+#     result = []
+
+#     for i in user_ids:
+#         user_id = i['user_id']
+        
+#         user = get_user_by_id(user_id)
+#         name = user.name
+#         profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=user_id)
+
+#         email = profile.email
+#         profile_id = profile.uid
+#         bio = profile.about
+#         project = ""
+
+#         result.append(create_feedback_bot(name,profile_id,email,user_id,bio,project))
+
+#     print(result)
+
+
+# def save_record(bot):
+#     ids = [bot
+#     ]
+
+#     for i in ids:
+#         si = SignatureBot.objects.get(bot_id=i)
+#         profile = CoachCoacheeMentorMenteeProfile.objects.get(user_id=si.user_id)
+#         about = profile.about
+#         si.bot_details['info'] = about
+#         si.bot_details['coach_name'] = profile.name
+#         si.save()
+
+
+def create_role_skill_bot():
+    from users.models import BotAttribute
+    from utilities.models import DirectoryPageInfo
+    bots = [
+        {
+            "bot_name": "Communication Skills",
+            "prompt": """User Situation : ${user_intake}
+User Context : ${user_context}
+
+Provide some guidance and tips to the user who's asking a problem related to Communication at workplace in User Context. 
+The background information is provided in User Situation.  
+Use a checklist kind of approach to give guidance or tips.
+Provide tailored advice to help users become better communicators. 
+The advice should be in the form of checklists that the user can do to solve the particular problem.
+Customize the response to make it suitable to the situation. 
+Also explain how the person can implement the tips in their particular situation. 
+
+Add this line during the conversation wherever it's most suitable, "You can visit the coachbots library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
+It doesn't need to be in every response, only give them wherever it makes sense. 
+
+NOTE: ONLY provide guidance on communication skills.
+NOTE: If the given User Context is not directly related to "Communication at Workplace" please just respond with "I am specifically trained for the subject matter described as defined in my page. Unfortunately I can not answer this question."
+NOTE: NEVER provide any kind of explanation or summary of the response.
+NOTE: NEVER start with any kind of introduction sentence. Do not provide any kind of heading or introduction text in the output. 
+NOTE: Start directly with the response and only provide the response.
+""",
+            "intake": {
+                "1": "What are your current challenges?",
+                "2": "What outcomes do you wish to achieve?"
+            },
+            "about": "The Communication Skills bot is equipped with practical techniques and tailored advice, it helps you enhance your verbal and non-verbal communication abilities. From active listening to assertiveness, it provides personalized coaching to boost your confidence in any conversation or presentation. With clear, straightforward guidance, it empowers you to convey your message effectively and build stronger connections in both personal and professional settings."
+        }
+    ]
+    user_id = "eb1a3c1b-33a6-4025-ae80-cb5d013c48d9"
+    tenant_id = "62d76be2-b439-4528-9ae4-2af389abb5f5"
+    result = []
+    for bot in bots:
+        bot_id = bot['bot_name'].lower().replace(" ","-")+ '-' + user_id[:5]
+        singature_bot = SignatureBot.objects.create(
+            tenant_id =tenant_id,
+            bot_id = bot_id,
+            user_id=user_id,
+            bot_type='coachbots',
+            bot_scenario_case= 'skill_bot',
+            attributes= {"heading": f"welcome to {bot['bot_name']} bot"},
+            custom_prompt = bot['prompt'],
+            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbots", "is_login_required": False, "is_strict_login_required": False},
+            is_approved = True
+        )
+
+        BotAttribute.objects.create(
+                                    tenant_id=tenant_id,
+                                    bot_id=singature_bot.uid,
+                                    bot_name=bot['bot_name'],
+                                    coach_name = "Coachbots",
+                                    coach_email = "mail@coachbots.com",
+                                    initial_qnas = bot['intake'],
+                                    about = bot['about'],
+                                    )
+        
+        DirectoryPageInfo.objects.create(
+            name = bot["bot_name"],
+            department = 'HR',
+            profile_pic_url = 'https://res.cloudinary.com/dtbl4jg02/image/upload/v1709723404/v6olyb3foi7a0l8rubk8.jpg',
+            profile_type = 'coachbots',
+            description = bot['about'],
+            is_visible = True,
+            is_approved = True,
+            avatar_bot_id = bot_id,
+            avatar_bot_url = f'https://playground.coachbots.com/subject-expert/{bot_id}',
+            profile_id = 'de30992a-bb4d-41eb-ba1b-4e0447704f64'
+        )
+
+        result.append(bot_id)
+
+    return result
+
+
+
+
+def get_conversation_summary(conv):
+            
+    transcript_summary_prompt = f"""
+        Conversation : ${conv}
+
+        Summarize this coaching conversation. Create the summary like an action plan and provide it in bullet points. Do not leave out any important information. The summary should be a quarter of the length of the original Conversation.
+
+        NOTE : Never start with any kind of introduction sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary .
+    """
+    transcript_summary = anthropic_completion(transcript_summary_prompt, 1000)
+    return transcript_summary
+
+def  get_relevant_session_summary(conversation_summeries,intake_summery,only_rel_json=False):
+
+
+    summary = ""
+    for index, conv in enumerate(conversation_summeries,start=1):
+        summary += f" summary_text_{index}: {conv}\n\n"
+
+    prompt = """
+    \n\nHuman: 
+
+    "Conversation Summaries": ${conversation_summeries}
+
+    "Intake Summary": ${intake_summery}
+
+    "REQUIRED FROM LLM:" Please check whether the summaries provided in "Conversation Summaries"list individually is even slightly related to the "Intake Summary" asked and the description provided. Assign a relevancy score between 0 to 10, 10 being highly relevant  and 0 being completely irrelevant . ONLY when the entire summary is completely random and unrelated to the inake summary and description give the relevancy score value as 0. 
+    NOTE: Please Reply in a valid JSON format only and no other format will be accepted. 
+    NOTE: Don't put any other text in the reply other than the JSON. NOTE: Output Format Example: {{"summary_text_1":"1"},"summery_text_2":"5",..} 
+    NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above. 
+    
+    \n\nAssistant:
+    
+    """
+
+    prompt = Template(prompt).substitute(
+        conversation_summeries = summary,
+        intake_summery = intake_summery
+    )
+
+    summary_data = anthropic_completion(prompt, 1000)
+    json_data = json_extraction(summary_data)
+    logger.info(f"summary_data: {summary_data}, json: {json_data}")
+    json_data = json.loads(json_data)
+
+    if only_rel_json:
+        return json_data
+
+    
+    sorted_summary_rating = sorted(json_data.items(), key=lambda x: x[1], reverse=True)
+    logger.info(f"summary: {sorted_summary_rating}")
+    try:
+        rel_summary = conversation_summeries[int(sorted_summary_rating[0][0].split('_')[-1]) - 1]
+    except Exception as e:
+        logger.exception(f"failed with error: {e}")
+        rel_summary = conversation_summeries[-1]
+
+    
+    return rel_summary
+
+
+
+
+
+def create_scenario_from_transcript(conversation,access_token, tenant_id, context=None, source=None, competency=None, creator_user_id=None):
+    simulation_prompt = f"""
+    Information : ${conversation}
+
+    Read this {{Information}} thoroughly. This is the conversation summary between a coach/mentor and coachee. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills discussed in the {{Information}}. After creating the situation provide these:
+
+    Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion. It should not be about writing an email.
+    Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+    Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+    Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {{Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}}
+    KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+    KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+    The Question, Custom Prompt, KLP, KLS should be numbered.
+
+    Here the format looks like :
+
+    "Title",
+
+    "Description",
+
+    "Question 1",
+
+    "Prompt 1",
+
+    "Takeaway 1" ,
+
+    "Skills 1" repeated for {3} question(s). Do not include any {{responder}} response.
+
+    NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+    NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description. 
+
+    NOTE : Make sure the simulation is very advanced and tough.
+        """
+        
+        
+    scenario = create_scenario_from_site_context(None, access_token, tenant_id, json.dumps({'title': "",'data':{'information':''}}), origin=source, competency=competency, creator_user_id=creator_user_id, custom_prompt=simulation_prompt)
+    
+    return scenario
+
+
+
+def simulate_llm_resposne():
+    prompt = """
+        \n\nHuman:\n        
+        {Information} - ${coach_information}
+Conversation History : ${conversation}
+
+Context : ${intake}\n        
+Personality: None\n        IDP: None\n        Action Plan & Session Notes: None\n\n        Read this {Information} thoroughly and understand it deeply. Act as the individual described in the provided information, mimicking their 
+personality traits, speech patterns, and values throughout the responses. Understand the given instructions before creating a response. ALWAYS follow these instructions to generate the responses :\n        1. Act as the person whose information is given here {Information}. Include details about their background, achievements, and notable personality traits.\n        2. Analyze the personal stories, or responses given in {Information} to identify the person's speech patterns, vocabulary, and storytelling style. Utilize this information to generate conversational responses that reflect the user's natural language and tone.\n        3. Analyze the \"Speech Patterns\" and vocabulary of the person from the given FAQs given here {Information} and model it when creating the response. Pay 
+attention to their tone, expressions, and commonly used phrases to ensure authenticity.\n        4. Use their \"Values and Beliefs\" given here {Information} to ensure that generated response aligns with their worldview and perspectives.\n        5. Integrate their \"Frequently Used Phrases\" given here {Information} while generating the responses.  Weave these phrases seamlessly into the responses, ensuring they feel natural and consistent with the individual's communication style.\n        6. Analyze the \"Emotional Expressions\" from the given FAQs  given here {Information} to mimic emotional nuances while generating the responses, ensuring that the response reflects the person's emotional range and communication style accurately.\n        7. Analyze the \"Life Experiences\" given here {Information} . Draw on these experiences when crafting personalized narratives or offering advice, creating a deeper connection with the coachee and enhancing the realism of the responses.\n        8. Analyze and imitate the \"Problem-Solving Approach\" given here {Information} to generate a response that reflects the person's decision-making style and problem-solving approach to resolve situations.\n        Use all the information provided here {Information} to act as the coach and respond to the coachee. \n\n   
+     Conduct a session with a coachee who is sharing their concern in this context {context}. Understand the coachee's concern and problem before providing any advice or solution in the response. The response should be directly related to the concern shared by the coachee.  The personality of the coachee is given here {Personality}. Understand the coachee's personality and always tailor your response accordingly.\n        Understand the coachee's perspective to the question and provide the information they want. \n        Offer advice, coaching, and mentoring based on the coach's style and character traits given in {Information}. Consider any other relevant information to provide comprehensive coaching advice. \n        Provide a response based on all the information you have on the coach. Always provide accurate information about yourself as the coach when asked by the coachee. \n        The response should always be directly related to the question. \n        If the coachees' Individual Development Plan is given in the IDP, make sure the response is based on that information.\n        If the coachees' Action Plan is given in Action Plan, make sure the response is based on the plan provided and it should be short and precise.\n        Consider the prior conversation given in Conversation History when providing the response.\n        Offer actionable advice or solutions to the coachee\u2019s potential challenges.\n   
+     Break down complex ideas into practical steps.\n        Pose questions to the coachee to create engagement.\n        Encourage 
+self-reflection or thought-provoking moments.\n        Maintain a tone that feels friendly and approachable.\n        Use the Custom Knowledge base here {Information}. Always refer to {Information} first, before providing a response. \n        Never provide any answer about a subject the coach is not familiar with. If the user asks any questions about a subject that is not mentioned in  {Information} as Areas of expertise, please respond that you are not familiar with the topic.\n\n        Always provide the response in a 
+first-person tone.\n        Always ask a contextual question at the end to further understand the details.\n        Always respond as the coach.\n        NEVER give visual cues like smiles warmly etc.\n\n        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the 
+response.\n        NOTE : Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.\n\n        NOTE: Make sure to keep the response short. Get straight to the point without unnecessary elaboration or repetition. Eliminate redundant phrases or ideas that don't add value to the response. Choose words and phrases that convey your message clearly and directly. Make sure to give short answers but do not miss out any necessary information.\n\n        NOTE: Provide concise responses without exceeding a brief length constraint. Aim for brevity while delivering complete information and answers.\n\n  
+      \n\nAssistant:\n\n
+
+        """
+
+
+    
+
+    # print(anthropic_completion("what is value engineering?",1000))
+    # print(gpt3_completion("what is value engineering?",stop=['user','coachbots']))
+    questions = [
+        "How do you approach guiding individuals through significant life transformations, considering the unique challenges they may face at different stages of life?",
+        "In your experience as a senior coaching practitioner, what strategies have you found most effective in fostering sustainable and meaningful change in your clients' lives?",
+        "Could you share a particularly impactful success story where your coaching significantly influenced someone's journey towards personal growth and transformation?",
+        "Methodology?",
+        "Successes?"
+    ]
+    intakes= {
+"Please let me know more about you as a person that you think might be relevant to our session today.": "I am a straightforward person who likes to get to the point, very precise and short answers to my questions. I prefer when people validate their approach before jumping on to provide solutions.",
+"What do you want to achieve with your session with me today - let me know the goals you have in mind.": "I want to solve for how do I go about finding focus in my life.",
+"What specific problems you are facing currently that are a priority for you? What have you tried so far in terms of finding your solutions?": "I easily get distracted with so many goals that I have set for myself.",
+"Do you believe your solutions have worked so far? Why or why not?": "Haven't really given it much thought."
+}   
+    intake = ""
+    for key, value in intakes.items():
+        intake += f" Question: {key}, Answer: {value} \n"
+
+    coach_data = {
+        "media_data": {
+            "extracted_from_article": {
+                "https://hbr.org/2023/12/8-essential-qualities-of-successful-leaders": "Becoming a great leader is a journey of continuous learning and growth. It’s a process — one that thrives on embracing challenges, seeking feedback, fostering connections, and cultivating understanding. In this article, the author outlines the eight most essential leadership qualities, according to Harvard Business School professor Linda Hill, one of the world’s top experts on leadership. Star leaders aren’t born with superhuman capabilities, Linda explains. Rather, they tend to have intentionally put themselves in situations where they have to learn, adapt, and grow — a crucible for developing the tenacity and fortitude to motivate and guide others."
+            },
+            "extracted_from_youtube": {
+                "https://www.youtube.com/watch?v=vLFxOOEyhUE": "okay hi everyone oh god you're like a bunch of high school kids in the morning my name is John Muldoon that was quite the intro by the way thank you I am the principal of the high school here on the pusci campus of Shanghai American school and I'll tell you I'm also I'm a little nervous to be standing up here today i-i've still in this stage a lot this year and I've talked with a lot of different people but there's something about that like red-dot back there on the ground that is intimidating and part about my part of what I'm going to talk about tonight is about being honest with yourself and other people and so I figure what better way to start then say that I'm a little nervous by be and be honest with you ah see you laughed a lot during the last one which I think makes the bar pretty high for me so here's the thing I I'm gonna talk to you a little bit about and I there's a disclaimer here in a very unscientific art of why I'm nervous as I saw our school psychologist out here and I'm sure there is yeah so I'm sure that the psychologist in the crowd is going to be very analytical with the advice I give all of you so I hope none of it is malpractice here's the thing our brains are supremely powerful organs and we don't often think about how we're using them right I actually I can pinpoint the first time I actually thought about how we use our brain I was in sixth grade so has in sixth grade and I'll be asked to do my family's going through a really hard time a really horrible time actually and we're spending a lot of time in the car so my dad's driving him and I'm sitting next to him up front my sister and my brother and I are in the back cramps it's always a good recipe for something right and my father is compulsively listening to motivational tapes right yeah cassette tapes right yeah so he's listening cassette tapes with all these people who are telling me and my family through the speakers of the car how great life is and how awesome we are and how everything is gonna be amazing it was like the worst great hey it was objectively the worst thing ever and totally not what I wanted to hear when I was going through some horrible things that I could not control and I'll never forget I remember this one and particularly this guy I chefs my dad if you still as a team so this guy says that the key to happiness is to talk to yourself but not just like talk to yourself right to say like really great thinks yourself he's like you should wake up every day this and it sounded so ridiculous to actually listen to it right he he's like you get up every day and you go to the mirror and you look at yourself and you're like you look good today is gonna be awesome right hey said if you do this all the time you'll actually get little voices that develop in your head that say nice things to you all day long and so here I am I'm like 11 or 12 years old and I'm like training your brain to get little voices that talk to you all day long yeah like I'm pretty sure that's the mark of something not good right I mean I can't tell how many fights we had about this as a family mostly started by me right like why can't we just listen to the radio like a normal family but I'll never forget it part of it is because we were going through what was probably the darkest chapter of my father's life and he was show he chose to listen to somebody tell him good things it was a choice he made I didn't understand that back then so you fast forward a little bit I had just become an assistant principal in my life right so I guess we're fast working a lot I'm feeling pretty good and I find out that my favorite teacher ever my 6th grade social studies teacher is retiring so I'm like I'm gonna stop by and see him that day like that day I found I drove to the school I didn't tell him I was coming I just went I don't know why I did he was my favorite teacher he helped me through so much in that same time period in my life when I went through so much so I I just walked no one stopped me it was amazing I walk right down the hallway right to his old classroom he's still there like he always was right I opened the door and I go in he looks up at me and he goes holy hell well actually that's not what he said I can't tell you what he said on the stage but he said something like that and he comes over and he gives me this big hug and he says John Muldoon I can't believe you're still alive right and I'm like are you confusing me with another John Logan but but he wasn't and actually the truth is that he was he was right we talked a lot about it he only knew me at that time period in my life well I and I got I'll be tell you I was so angry right and he he our parting thought he left me with so he's not around anymore it's a little sad to think about but the party thought that he left me with was how proud he was of seeing me and how happy I seems because he said in over 35 years of teaching he had never met an anger kid than me and it's kind of funny but it's also kind of tragic that I remember him so fondly and I think about that's his memory of me of like all the anger anyways the change didn't happen overnight for me if you fast forward a little bit or actually rewind from when I became an assistant principal I was in ninth grade I was in high school things were still not going well for me I was actually angrier than I had been in sixth grade was just saying something I didn't have any friends I mean I was so isolated my grades were awful they got I am not ashamed to tell you I was just about to fail out of high school by the middle of the year of my freshman year and I had the assist my history teacher another history teacher that took an interest in me right it's probably my second favorite teacher maybe why I became a history teacher myself actually and he was like a Jedi right like I actually like I owe this man my life he conducted what I can only call psychological warfare on me he got me so angry that he tricked me into wanting to do well at school I don't know how he did it like I think about it now I have no idea how it happened but it did in the trip I mean like please do not underestimate the magnitude of this transformation I was talking with my counselor about how I was not going to be coming back to school next year if I didn't turn things around right and and all of a sudden I was getting all A's and B's and I was being nicer to people and I actually maybe was working my way towards making friends right like actually yeah whatever I the transformation it was so severe my father sat me down and he asked me if I was on drugs right like and that's pretty messed up when you think like like son you know your grades have just gotten really good and you know it looks like maybe you have some friends now and you're not so miserable to be around are you on the drugs greatly that's that's actually how it went but this rosy period in my life was not destined to last because as I think everybody here knows you really can't trick a halfway intelligent teenager into doing something they don't want to do for too long and so by the end of the year the the gig was up and I had this huge confrontation with this teacher which like if we're being asked was not smart I mean to pick a verbal fight with a like Jedi psychological warfare mind master but I left the Year feeling so angry and deflated and confused and and thinking though is the key word I left the year thinking like how did this happen and I was thinking about it because I was so angry they did that myself actually that I had let him trick me and so I didn't know it at the time but I was in search of an epiphany and I wish I could tell you that it happened and it was amazing and it was like this moment that changed everything right away and it was on top of a mountain and right but that's actually it's not how it happened it I was at work at this Lake horrible summer job and it wasn't something that happened and changed my life right away but I'm standing there I'm at work and this mom comes in with this little kid and he's given I was like little matchbox model cars right you know what I'm talking about she's got this little matchbox car and I hope you're ready for this it was a model of my dad's old car like the same crazy sparkly gold paint with the weird white roof like it was though it was a model of my dad's old car I could practically hear the tape of the guy with the voices in your head talking to me right like my brain hurt when I saw that car and I I'm like this it's all within a week of getting out of school and I stand there there's no coincidence in my mind it cannot be a coincidence that this guy tricked me tricked my brain and I thought I was pretty smart he tricked me into doing something I didn't want to do and then a couple days later I'm reminded of this other time in my life where someone told me you can trick your brain into doing anything so I started thinking about it there has to be a connection and I know now and we all know now there is a connection right your brain is so powerful there are so many studies in your brain there's a lot of studies on the patterns of thinking in your brain and the words that emerge and the patterns of that thinking literally how you talk to yourself and the power of it you know some of these examples I'm gonna share with you are fresh in my mind cuz I was just reading an NPR article but there's so many you should look at them 19:11 the scoober psychologist and most people think this is when we first really started thinking about patterns of thinking by accident one day they noticed and I guess in 1911 like really fashionable for a woman to wear really big hats right so they noticed that women when they walk through doorways with these hats on they had to dock and kind of tilt their head they did it even when they didn't wear their hats and they were like why is that so they studied it and they figured out that if you have a pattern that established itself in your brain absent a conscious decision not to do it you'll do it it's not rocket science right it's pretty deductive for us now there's a lot of studies on it there's another one about doors oddly enough right in 2013 there's a group of scientists that are working with young woman that have anorexia and they notice that they don't walk through the door the way they were expecting them to despite the fact that all of them were on the smaller side and the doors were double doors like we have the back the auditorium here they walked through sideways like they were sneaking past someone right or squeezing through despite the fact that there was plenty of room so they looked at it they added it to their study expanding the scope of their study and they wanted to figure it out and they found that they had such patterns of disordered thinking in the brain that it influenced so many of their behaviors and the crazy thing of like how they walked through doors and the crazy thing about it is that they had no idea that they had these patterns of thinking running that way in their brain and they were not aware of the influence on their behavior all the time you know there's so many there's another one and then I'll stop sharing studies with you there's one from the University of Pennsylvania they actually found when they studied football players that by imagining throwing a football properly you have a similar performance gain to when you actually practice it physically that's crazy right you can you can practice doing something in your mind and it has not quite the same magnitude of effect but a similar effect it's doing it physically is really unbelievable now I didn't know any of this then right I didn't know that the patterns in your brain start being established when you're young all of the messages that you all hear when you're when you were younger all the messages that you hear right now even the ones you're not aware of they get in somehow and the more you hear something the more it takes root the more your brain accepts it even if you disagree with it and these roots grow and if we use the kind of vernacular from the audio cassette guy that's when the voices start right that's when you start having patterns of behavior influence other ways that you think the way you feel and the things that you do this is why some people and we see this right we all know people like this they've been told from when they were really young that if they work really hard and they don't give up that they can do anything right those people act differently and then people they get it the opposite message that they can never do anything right even though they probably disagree with the message that they can never do anything right take it another level and this is when like thinking about it I wonder if I've really lost my mind sometimes the voices in your head if that's what we're calling them they talk to each other they're having a conversation in your head I'm a visual thinker so I like to think about it like speed-dating event right we're in a big auditorium and all these little like positive and negative patterns of behavior moving from table to table talking to each other and what happens is when they're interacting with each other the positive patterns lessen the effect of the negative patterns the negative patterns lessen the effect of the positive patterns right it's in Crimea it makes sense but it's incredible and this when you like look at it on a macro level is why someone who's supremely positive bounces back from bad news much faster than someone who's not they are less fazed by a setback in their life because they have a lot of other positive thought processes that counteract the negative impact of it it doesn't make them less likely to understand what's happening but they feel differently about it and they might act differently the converse is true right the sweet sweet joy of an unbelievable moment in life might be fleeting for someone that has predominantly negative thought patterns anyways I didn't know any of this when I was 15 right but I had listened to a lot of motivational tapes back in the day so here I am I am going to conduct an experiment I decide on myself we have a scientist out there I just like shaking his head no you can't conduct an experiment on yourself but I was 15 right I'm using experiment and research very loosely and so i decide i am going to get cool right but not just like cool like ridiculously cool and and here's the thing like it's really hard to believe i wasn't cool in high school right my students are telling me this right now but the truth of the matter is i was so not cool and I knew it and that's okay I own it so I'm like I'm gonna do exactly what that guy in the tape said I should do so I woke up and and so none of this is a surprise to anyone that knows me I'm a very intense person right I woke up every day and I looked in that mirror and I told myself how amazingly cool I was right I was like the best-looking coolest kid that went to my school and and I this is actually really embarrassing but I mean my wife said I shouldn't share this part but I'm going to share this part I actually got blue paint blues my favorite color and I I painted on the wall across from my bed four big letters c ool right and I'm like I'm going for broke and then I don't know if it's because I was 15 if it's because I was like desperate for something positive in my life or what but after a while I convinced myself that I was in fact pretty cool right Jeremy our school psychologist now you're gonna have to unpack that later but and then something amazing happens cuz we all know right like I didn't really change that much about me I was changing the way I was thinking about me but my sister my younger sister who by the way was super cool and always really popular she comes bursting through the door one day while I'm singing my bed literally talking to myself about how cool I am and she just like can't take it anymore she's like you are so not cool if you have to tell yourself that you're cool you are not cool even worse if you have to tell other people that you're cool you're hurting yourself even more and then like I know she's amazing now but at the time oh my god right she looks at me and she's like maybe and this is brilliant she didn't mean it to be brilliant but it was brilliant maybe you should not try to be cool maybe you should just try to be happy for a little bit so that we're not all miserable being around you right harsh so she leaves and not the norm for me at the time I didn't react I just kind of sat there in my bed like crushed my experiment of failure thinking about how uncool iam but also thinking like it's not that I don't feel happy I also don't feel unhappy and that was so weird for me to think about and I realized and I had never like thought about it like my my predominant emotion my like real only emotion that I was consistently feeling was anger I was mad and and I did the smartest thing I've ever done in my life still to this day I asked myself why why was I so mad and I went all the way back it's a sixth grade and I started think about all the things that had happened and how they were all out of my control I was pulling it all the threads it was horrible it was painful to think about and it I I didn't pick up another experiment right away took me a little while as I'm thinking about all this thinking about how I was thinking and think about how I was feeling but eventually I decided that I couldn't take my sister's advice I couldn't try to be happy was just too big right I was gonna do a second experiment I was just going to try to be thankful for some things in my life there were good every day but I attacked it with the same intensity I attacked trying to be cool right so like I I mean I was an animal I was thanking everyone for everything right you let me borrow a pencil was the best thing that ever happened to me right and and I mean like I would show up in your doorstep five years after you did something if I was grasping at straws for something to thank someone for and I would thank you for something you did five years ago and and people didn't really know how to take me it was kind of like back when I had that rapid transformation during the school year nobody knew who what was going on with me nobody could explain it some people actually thought when I thanked them for things I was making fun of them and actually my dad asked me if I was on drugs again but something this this was like the watershed moment in my life I actually started to realize there were so many good things in my life that I was missing because I was so busy being angry at everything and I also realized that thinking about how is always anger things helped me realize when I was getting angry and stop it and I actually was feeling happier right so while I'm going through all this I start making all of these rules like these rules for life I I call them like trade secrets for not being a jerk right actually that's pretty negative I call them trade secrets we can call them trade secrets for like being a good person and I can share some of them with you let's share two of them the first one is what I've been doing every day since I was 15 years old my first rule I give sincere thanks three times a day three times a day that's it right now I do it a lot more than that but I give sincere thanks three times a day the second rule is be great and it's not like be great like objectively oh he's great that's not what it is right this is something I subject everybody here to all the time if you ask me how I'm doing right like ask me how I'm doing I'm great I'm the best I've ever been I'm living the dream these are all things I say every day the people when they ask me how I'm doing but that's actually not where it stops right like sometimes people tell you to do that like everyone hears it like fake it till you make it right that's a lie you're lying to yourself I'm not saying I'm great because I'm trying to convince myself I'm great I respond so over-the-top so positive because that's a signal to me it's actually a moment that I take every time somebody asked me how I'm doing to check in how do I actually feel and most of the time I feel really great I'm an intense person we've already established that so I feel really great and that's awesome 99.9 percent of the time I'm not lying to you point one percent of the time I don't know I say I'm great I might not actually feel great I might take a second and I might look at you and I might say actually I'm not feeling great and depend on how well we know each other I might say more I might not I don't know but think about how many times a day you were asked how you are or what's up that's how many times a day I think actively about how I'm feeling and why I'm feel and next up what am I gonna do about it because if we don't actively manage these patterns in our brain they manage to us and if you don't think about how you're gonna do that if you don't have a system or something that works for you you're just letting it go you're just letting things happen I couldn't clearly write we saw where that got me in my life I couldn't do it so there's a couple things that go with this right I told you there's a very unscientific Chua lis have a way that they type in behavioral sciences have a way that they talk about this and I never say them in the right order so I have a flashcard what they actually say is that the first thing you do is that you have to identify the emotion in the pattern right you have to recognize you're having it you have to put a name on it I'm angry I'm sad and whatever the second thing is you have to source it it's not enough just to say I'm angry why are you angry where's that anger coming from you have to pull it those threads it's not easy takes time it's pretty painful sometimes the next thing you have to do is identify what you actually want to be if you're sad do you want to be happy that's also not so easy sometimes and then the next one and this makes us sound awfully like you're a computer you have to consciously manage the way you think about that thing and the pattern that controls those things in your brain so that you like overwrite the bad pattern with the good pattern new pet old pattern with the new pattern and that's how you go about changing the way your brain works from a very unscientific I used to call this mind over matter right that was like my mantra when I was growing up mind over matter today's gonna be great I'm gonna make it great but I don't call it that anymore I call it being your own coach I think it's much more accurate we all deserve a great coach in our life we should start with ourselves it's hard work being a coach is really hard work I've coached a lot of things in my life to do it well it's really hard anyone can be a coach but to be a really great coach the kind of coach you want that's a lot of work gonna be your own coach forget it's a full-time job but it's worth it I mean my sixth grade teacher thought I was gonna die before I was 30 that's horrible I used to teach sixth grade I never thought that about any of my kids even the ones that I was really worried about so this isn't the system for everyone this is what worked for me the power of your brain is undisputed you can't just let it do its own thing you need to think intentionally about what's going on in there you also need to be aware there are a lot of critics to what I'm talking about right now right there's a lot of critics for all the resources out there there are people that say that you're deceiving yourself when you do this it's not really honest and I have two answers for that the first answer is that this is all about honesty it doesn't work if you're not honest right if you wake up every day and you're just trying to be cool right or you tell yourself that you're great when you're not and you don't think about why you're not really great how you really feel doesn't work so the deception critique doesn't hold up for me but if I'm being asked today I asked I don't care right this works for me like I just said my sixth grade teacher thought I was gonna make it I was so unhappy and angry that's no way to go through life I don't want to say that thinking like this and finding this way in the system that works for me save me from death but definitely saved my life in more ways than it didn't and I'm so profoundly thankful for all the happy little accidents along the way of my life that helped me to stumble onto it so think about your thinking listen to the voices in your head and be your own best coach thank you for having me tonight [Applause]"
+            }
+        },
+        "additional_data": {
+            "department": "External",
+            "experience": "10 - 15 years",
+            "area_domain": "Life Transformation",
+            "profile_type": "icons_by_ai",
+            "article_links": "https://hbr.org/2023/12/8-essential-qualities-of-successful-leaders",
+            "youtube_links": "https://www.youtube.com/watch?v=vLFxOOEyhUE",
+            "admired_leaders": "Brene Brown, Simon Sinek",
+            "profile_description": "I am an experienced psychologist and certified life coach with over 10 years of experience in behavior analysis, competency modeling, and coaching. As an ICF-accredited professional certified coach (PCC), she specializes in utilizing psychometric assessments, ability tests, and techniques like REBT and NLP to provide impactful coaching. \nGopika has designed and implemented assessment processes, tools, and frameworks to evaluate behaviors, personalities, and competencies. She conducts development centers, 360-degree feedback, and counseling sessions focused on capability building. \nHer experience includes coaching and counseling corporate executives, managers, and employees across industries to help them become more effective leaders. She is adept at situational leadership, is empathetic, and is passionate about enabling positive behavioral change in her clients to drive superior performance. (Names are changed on request to protect privacy). ",
+            "mentoring_frameworks": "Situational Leadership Model\nEmotional Intelligence Coaching\nSolution-Focused Coaching",
+            "mentoring_preferences": "Coaching (Reflection)",
+            "dominant_point_of_view": "Empathy and self-awareness are foundational for effective leadership and personal growth. By understanding ourselves and others, we can drive positive change and achieve superior performance.",
+            "problem_solving_approach": "In terms of problem-solving, my general approach revolves around facilitating deep reflection, challenging limiting beliefs, and identifying practical strategies for overcoming obstacles. I utilize techniques like Rational Emotive Behavior Therapy (REBT) and Neuro-Linguistic Programming (NLP) to empower clients to navigate challenges, embrace discomfort for growth, and adopt new perspectives. I create a safe and non-judgmental space where clients can explore and address their concerns, ultimately driving meaningful behavioral change and sustainable growth in their personal and professional lives.",
+            "provide_answers_using_emojis": False,
+            "discuss_how_you_helped_others_in_coachMentoring": "Context Action Result (CAR) #1:\nContext: Sarah, a young professional struggling with career dissatisfaction, reached out to Gopika for guidance in exploring a career change. \nAction: Gopika conducted thorough assessments of Sarah's skills, interests, and values. She provided resources to help Sarah identify alternative career paths aligned with her passion for writing.\nResult: Sarah successfully transitioned into a new role in content creation, finding fulfillment and renewed motivation in her career.\n\nCAR #2:\nContext: John, a working father, felt overwhelmed by the demands of his job and family responsibilities, leading to burnout and stress.\nAction: Gopika worked with John to create a personalized work-life balance plan, emphasizing task prioritization, time management strategies, and boundary setting.\nResult: John achieved a healthier work-life balance, experiencing reduced stress levels, improved productivity, and strengthened relationships with his family.\n\nCAR #3:\nContext: Emily and Mark, a couple facing communication issues and conflict struggles, sought help from Gopika to enhance their relationship.\nAction: Gopika facilitated couples counseling sessions focusing on communication skills, empathy-building exercises, and conflict resolution techniques.\nResult: Emily and Mark developed stronger communication skills, a deeper understanding of each other's perspectives, and a more harmon"
+        }
+    }
+    
+    coach_info =''
+    for key, value in coach_data.items():
+        coach_info += f"{key}: {value}\n"
+
+    
+    conversation_history = {}
+        
+    # for index, que in enumerate(questions,start=1):
+    #     history = ""
+    #     for key, value in conversation_history.items():
+    #         history += f"User: {key}, Coach: {value}\n"
+
+
+    #     prompt = Template(prompt).substitute(conversation=history,
+    #                                             coach_information = coach_info,
+    #                                             intake = intake
+    #                                             )
+
+    #     # response = anthropic_completion(prompt,1000)
+
+    #     # print(f"(Anthropic){index}   User: {que}, coach: {response}")
+
+    #     # response = gpt3_completion(prompt,stop=['user','coachbots'])
+
+    #     # print(f"(gpt){index}   User: {que}, coach: {response.text}")
+
+    #     response = gemini_competions(prompt)
+
+    #     # print(f"(gemini){index}   User: {que}, coach: {response}")
+
+    #     conversation_history[que] = response
+
+    # h = ""
+    # for key, value in conversation_history.items():
+    #     h += f"User: {key}, Coach: {value}\n\n"
+
+    # print('rsponse',h)
+
+    signature_bot = SignatureBot.objects.get(deleted=False,bot_id="avatar_bot-87b15-lyfe.-life-transformation-by-a-senior-coaching-practitioner.")
+    provide_answers_using_emojis = signature_bot.data.get('additional_data')
+    if provide_answers_using_emojis:
+
+        provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
+        print(provide_answers_using_emojis,'a')
+    else:
+        provide_answers_using_emojis = False
+
+    # if provide_answers_using_emojis:
+
+    prompt  = prompt.split('Assistant:')
+    prompt.insert(-1, f"Note: Always use emojis and icons in response to make the responses lively where applicable. \n\nAssistant:")
+    prompt = '\n'.join(prompt)
+    print(prompt)
+
+
+
+
+
+def summaries():
+    from coaching_conversations.helpers import get_bot_conversation_data_user
+    tenant_id = '62d76be2-b439-4528-9ae4-2af389abb5f5'
+    bot_id = "fcd73746-845b-4349-a4c7-53eb46fa7f57"
+    user_id = "ae8981a7-bcad-42c8-9c57-1f0df47b5182"
+    tenant = Tenant.objects.get(uid=tenant_id)
+    sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant_id,test_id=bot_id,participant_id=user_id)
+    conversation_data = get_bot_conversation_data_user(sessions,tenant,user_id,only_converation=True)
+    conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
+    print(conversation_history)
+    print("="*10)
+
+    summery = get_conversation_summary(conversation_history)
+    print('summary',summery)
+    print("="*10)
+
+    for s in sessions:
+        if s.conversation_summary:
+            print(s.conversation_summary)
+            print('='*10)
+
+
+    
+
+def update_scenarios(test):
+
+    title = test.get("Title")
+    description = test.get('Test description')
+
+    question = []
+    prompt = []
+    kls = []
+    klps = []
+    for key, value in test.items():
+        if key.startswith('Question'):
+            print(key)
+            question.append(value)
+
+        if key.startswith('Custom Prompt'):
+            print(key)
+            prompt.append(value)
+
+        if key.startswith('KLS'):
+            print(key)
+            kls.append(value)
+
+        if key.startswith('KLP'):
+            print(key)
+            klps.append(value)
+
+
+    print(f"title: {title}, desc : {description}")
+    print(f"{question}, {prompt}, {kls}, {klps}")
+
+    code = test.get('Test code')
+    test_obj = Test.objects.get(deleted=False,test_code = code)
+
+    print(test_obj.title)
+    print(test_obj.description)
+    print(test_obj.skills_to_evaluate)
+    skills = []
+
+    for s in kls:
+        skills.extend([sk.strip().capitalize() for sk in s.split(',')])
+
+    skills = ",".join(set(skills))
+    print(skills)
+    test_obj.title = title
+    test_obj.description = description
+    test_obj.skills_to_evaluate = skills
+
+    test_obj.save()
+
+    test_ques = TestQuestion.objects.filter(test_id=test_obj.uid)
+
+    for index, que in enumerate(test_ques):
+
+        print(f'{index}{que.question}')
+        que.question = question[index]
+        que.gpt_prompt_override = prompt[index]
+        que.key_learning_point = klps[index]
+        que.key_learning_skills = kls[index]
+
+        que.save()
+
+        print(f"""
+         {question[index]},
+         {prompt[index]},
+         {klps[index]},
+         {kls[index]}
+        """)
+
+
+    print(f"{'*'*100}{code}")
+
+
+
+def get_low_skill_scenarios(tenant,test_codes=None,min_skill_count=4):
+
+    scenarios = []
+    tests = Test.objects.filter(deleted=False,tenant_id=tenant.uid)
+
+    if test_codes:
+        test_codes = [test.strip() for test in test_codes.split(",")]
+        tests = tests.filter(test_code__in=test_codes)
+
+
+    for test in tests:
+    
+        skills_to_evaluate = test.skills_to_evaluate
+
+        if skills_to_evaluate:
+            unique_skills = set([skill.strip() for skill in skills_to_evaluate.split(',')])
+            if len(unique_skills) < min_skill_count:
+                scenarios.append({
+                "Test Code": test.test_code,
+                "Skills": ",".join(unique_skills),
+                "Skill count": len(unique_skills)
+            })
+
+
+    return scenarios
+
+
+
+        

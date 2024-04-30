@@ -1,6 +1,7 @@
 from django.db import models
 from tenants.models import TenantAwareModel
 from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice
+from utilities.choices import UserCanJoinAsChoices
 
 class JotUrlSession(models.Model):
     email = models.CharField(max_length=255)
@@ -39,17 +40,21 @@ class SessionNotesRecommendations(models.Model):
     mentee_id = models.CharField(max_length=255)
     session_notes = models.TextField(default=None,null=True,blank=True)
     recommendations = models.TextField(default=None,null=True,blank=True)
+    simulation_codes = models.CharField(max_length=255,default=None,null=True,blank=True)
 
     class Meta:
         db_table = "session_notes_and_recommendations"
 
 class BotQnA(TenantAwareModel):
     participant_id = models.CharField(max_length=255)
-    bot_id = models.CharField(max_length=255)
+    bot_id = models.CharField(max_length=255,default=None,null=True,blank=True)
     participant_qna = models.JSONField(default=None,null=True,blank=True)
     is_positive = models.BooleanField(null=True,default=False)
-    qna_type = models.CharField(max_length=255,default=None,null=True,blank=True)
+    qna_type = models.CharField(max_length=255,default=None,null=True,blank=True) # choice can be 'feedback' and "fitment" and "initial_qna"
     fitment_score = models.JSONField(default=None,null=True,blank=True)
+    intake_summary = models.TextField(default=None,null=True,blank=True)
+    is_anonymous = models.BooleanField(null=True,default=False)
+
 
     class Meta:
         db_table = "bot_qna"
@@ -64,10 +69,26 @@ class UserActionInfo(TenantAwareModel):
     transcript_email_recieved = models.IntegerField(null=True,blank=True,default=0)
     chat_attempted = models.IntegerField(null=True,blank=True,default=0)
     interaction_attempted = models.IntegerField(null=True,blank=True,default=0)
+    avatar_bot_count = models.IntegerField(null=True,blank=True,default=0)
+    subject_matter_bot_count = models.IntegerField(null=True,blank=True,default=0)
+    session_notes_count = models.IntegerField(null=True,blank=True,default=0)
+    avatar_ids = models.TextField(null=True,blank=True,default=None)
+    subject_matter_bot_ids = models.TextField(null=True,blank=True,default=None)
 
     class Meta:
         db_table = "user_action_info"
 
+class BotEngagement(TenantAwareModel):
+    bot_id = models.CharField(max_length=255)
+    user_id = models.CharField(max_length=255)
+    interacted_on = models.DateField()
+    num_of_clicked_button = models.IntegerField(null=True,blank=True,default=0)
+    attempted_bot_questions = models.IntegerField(null=True,blank=True,default=0)
+    num_of_bot_sessions = models.IntegerField(null=True,blank=True,default=0)
+
+    class Meta:
+        db_table = 'bot_engagements'
+        unique_together = ('tenant_id', 'deleted', 'bot_id','user_id','interacted_on')
 
 class UserIDP(TenantAwareModel):
     user_id = models.CharField(max_length=255)
@@ -88,6 +109,7 @@ class UserIDP(TenantAwareModel):
     recommended_hbr = models.TextField(null=True,blank=True,default=None)
     recommended_ted_talk = models.TextField(null=True,blank=True,default=None)
     recommended_scenarios = models.JSONField(null=True,blank=True,default=None)
+    learning_communities = models.TextField(null=True,blank=True,default=None)
     report = models.TextField(null=True,blank=True,default=None)
     success = models.BooleanField(default=False, null=True,blank=True)
     total_scenarios_created = models.IntegerField(null=True, blank=True, default=0)
@@ -100,23 +122,73 @@ class UserIDP(TenantAwareModel):
 class DirectoryPageInfo(models.Model):
     name = models.CharField(max_length=255)
     profile_id = models.CharField(max_length=255)
-    department = models.CharField(max_length=255)
-    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
+    department = models.CharField(max_length=255,null=True,blank=True,default=None)
+    bot_type = models.CharField(max_length=255,choices=BotTypeChoice,null=True,blank=True,default=None)
     profile_pic_url = models.CharField(max_length=255,default=None,null=True,blank=True)
     profile_type = models.CharField(max_length=255, choices=ProfileTypeChoice)
     description = models.TextField()
     experience = models.CharField(max_length=255,default=None,null=True,blank=True)
     expertise = models.CharField(max_length=255,default=None,null=True,blank=True)
     status = models.CharField(max_length=255,null=True,blank=True,choices=StatusChoice,default=StatusChoice.available)
-    avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default='avatar')
+    avatar_bot_id = models.CharField(max_length=400,null=True,blank=True,default=None)
     feedback_wall = models.CharField(max_length=500,default=None,null=True,blank=True)
     skills = models.CharField(max_length=400,null=True,blank=True,default="communication skills")
     is_visible = models.BooleanField(blank=True,default=False)
     is_approved = models.BooleanField(blank=True,default=False)
     avatar_snippit = models.TextField(default=None,null=True,blank=True)
     avatar_bot_url = models.TextField(default=None,null=True,blank=True)
+    custom_user_bot_url = models.TextField(null=True,blank=True,default=None)
+    custom_user_bot_id = models.TextField(null=True,blank=True,default=None)
+    timer_enabled = models.BooleanField(null=True,default=False)
+    time_value_in_days = models.CharField(max_length=255,null=True,blank=True,default=None)
+    timer_reset = models.BooleanField(null=True,default=False)
+    visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
+    ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
+    _previous_is_approved = models.BooleanField(null=True,default=False)
+
+    
     class Meta:
         db_table = "directory_information"
 
 
     
+class ScenarioCreationDetails(models.Model):
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    creator_id = models.CharField(max_length=255)
+    input = models.TextField(null=True,blank=True,default=None)
+    output = models.TextField(null=True,blank=True,default=None)
+    status = models.CharField(max_length=255)
+    reason_of_failure = models.TextField(null=True,blank=True,default=None)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "scenario_creation_details"
+
+
+
+class CoachCoacheeJoiningPreviledge(TenantAwareModel):
+    email = models.CharField(max_length=255)
+    client_name = models.CharField(max_length=255)
+    can_join_as = models.CharField(max_length=255, choices=UserCanJoinAsChoices, default=UserCanJoinAsChoices.coachee)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "coach_coachee_joining_previledge"
+        unique_together = ('email', 'client_name', 'tenant_id')
+        
+        
+        
+class EmailSentDetails(TenantAwareModel):
+    bot_name = models.CharField(max_length=255)
+    owner_name = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+    sent_by = models.CharField(max_length=255)
+    sent_to = models.CharField(max_length=255)
+    status = models.CharField(max_length=255)
+    is_sent = models.BooleanField(default=False)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "email_sent_details"
