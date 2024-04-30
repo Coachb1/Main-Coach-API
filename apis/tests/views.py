@@ -30,7 +30,7 @@ from commons.openai_gpt import gpt3_completion
 from commons.google_apis import text_bison_compeletion
 import time
 import base64
-from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context
+from tests.helpers import create_scenario_from_site_context, fetch_test_codes_by_site_context, get_low_skill_scenarios
 from skills.helpers import json_extraction
 from commons.langchain import download_and_transcribe_audio
 import json
@@ -1232,4 +1232,19 @@ class TestViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception({"got error in update_scenarios api": e})
+            return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['GET'],detail=False,url_path="get_low_skill_count_test")
+    def get_low_skill_count_test(self,request,*args, **kwargs):
+        try:
+            min_skill_count = request.query_params.get('min_skill_count')
+            test_codes = request.query_params.get('test_codes')
+            tenant = request.tenant
+
+            scenarios = get_low_skill_scenarios(tenant=tenant,test_codes=test_codes,min_skill_count=int(min_skill_count) if min_skill_count  else 4)
+
+            return Response(scenarios, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception({"got error in get_low_skill_count_test api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
