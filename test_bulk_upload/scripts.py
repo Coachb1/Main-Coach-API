@@ -866,6 +866,7 @@ def format_test_data_slack(raw_data):
                     skills_list.add(skill.strip().capitalize())
         skills_list = list(skills_list)
 
+        # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
         unmatched_skills = []
@@ -875,6 +876,11 @@ def format_test_data_slack(raw_data):
 
         if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
             return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
+
+        unique_skill_count = len(set(skills_list))
+
+        if unique_skill_count < 4:
+            return {"skills": set(skills_list), "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -1417,6 +1423,13 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         #     "errors": [json_data["error"]],
                         #     "exception": True,
                         # }
+
+                    elif "skills" in json_data:
+                        occured_errors.append(json_data["skills"])
+
+                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                                            
                     else:
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
                                                 ] = "Not Created For This Title Because of it is not suiatable for checkin type test"
