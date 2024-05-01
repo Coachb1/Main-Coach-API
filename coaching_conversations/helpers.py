@@ -1406,7 +1406,7 @@ def create_user_profile_and_bot(data,auth):
             is_send_email = False
     
     if is_send_email != None and is_send_email == False:
-        user_email = 'info@coachbots.com'
+        user_email = 'coachbots@googlegroups.com'
     else:
         if profile_type == 'icons_by_ai':
             user_email = ''

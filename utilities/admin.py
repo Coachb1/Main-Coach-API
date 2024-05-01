@@ -112,7 +112,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     if instance.is_approved:
             try:
                 subject = 'Your profile has been approved'
-                emails = ["info@coachbots.com"]
+                emails = ["coachbots@googlegroups.com"]
                 
                 bot_owner = get_user_by_id(coach_profile.user_id if coach_profile else instance.profile_id)
                 bot_owner_name = get_user_display_name(bot_owner)

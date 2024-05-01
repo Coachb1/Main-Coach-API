@@ -698,7 +698,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                     </table>
                     """
         user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id).attributes
-        emails = [user_att['email'],"info@coachbots.com"]
+        emails = [user_att['email'],"coachbots@googlegroups.com"]
         for email in emails:
             send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {user_name}!')
 
