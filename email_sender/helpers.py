@@ -76,7 +76,7 @@ def send_email(to_email, subject, data):
     server.quit()
 
 
-def send_generic_email(subject, content, to_email = 'info@coachbots.com'):
+def send_generic_email(subject, content, to_email = 'coachbots@googlegroups.com'):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 
@@ -136,7 +136,7 @@ def send_learner_path_email(tests, user):
 def send_feedbackd_email(candidate_name, test_code, test_name, session_id, rating, feedback):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
-    to_email = [FROM_EMAIL,"info@coachbots.com"]
+    to_email = [FROM_EMAIL,"coachbots@googlegroups.com"]
 
 
     msg = MIMEMultipart('alternative')
@@ -163,7 +163,7 @@ def send_feedbackd_email(candidate_name, test_code, test_name, session_id, ratin
 def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,mentee_name,session_note):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
-    to_email.append("info@coachbots.com")
+    to_email.append("coachbots@googlegroups.com")
 
 
     
@@ -264,7 +264,7 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
     server.sendmail(from_email, to_email, msg_str)
     server.quit()
 
-def send_email_with_html_template(subject, html_content, to_email = 'info@coachbots.com',title='Hey!'):
+def send_email_with_html_template(subject, html_content, to_email = 'coachbots@googlegroups.com',title='Hey!'):
     """
     please enter html content like this (can reference from it):
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
