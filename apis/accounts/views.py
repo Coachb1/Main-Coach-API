@@ -2577,7 +2577,7 @@ class AccountsViewSet(ApiViewSet,
                     html_content = f"""
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
                             """
-                    for email in ['info@coachbots.com', user_email]:
+                    for email in ['coachbots@googlegroups.com', user_email]:
                         try:
                             send_email_with_html_template(subject,html_content,email)
                         except Exception as e:
