@@ -8,24 +8,23 @@ from utilities.models import DirectoryPageInfo, BotQnA
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('uid','profile_type','name', 'email', 'is_approved',)
+    list_display = ('id','uid','profile_type','name', 'email')
     list_filter = ('profile_type','status','department','is_approved')
     search_fields = ('name', 'email', 'unique_id', 'user_id', 'low_rating_characteristics','high_rating_characteristics','mentoring_preferences'
                     ,'voice_sample','coaching_level',
                         'coach_same_department',
                         'coaching_style',
                         'time_commitment',
-                        'is_approved',)
-    list_editable = ('is_approved',)
+                        )
     ordering = ('-id',)
 
 
 class SignatureBotAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('uid','bot_id','bot_type','is_approved','is_system_bot','is_sample_bot','use_google_context','is_active')
-    list_filter = ('is_approved','is_system_bot','is_sample_bot','use_google_context')
+    list_display = ('id','uid','bot_id','bot_type','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active')
+    list_filter = ('is_system_bot','is_sample_bot','use_google_context')
     search_fields = ('bot_name','bot_id')
-    list_editable = ('is_approved','is_system_bot','is_sample_bot','use_google_context','is_active')
+    list_editable = ('is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context')
     ordering = ('-id',)
 
 class BotUserMappingAdmin(admin.ModelAdmin):
@@ -37,10 +36,10 @@ class BotUserMappingAdmin(admin.ModelAdmin):
 
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','client_name','member_emails','member_mob_numbers','avatar_bot_creation','feedback_bot_creation','subject_matter_bot_creation','number_of_conversation_per_month','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    list_display = ('id','client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
     list_filter = ('client_name',)
     search_fields = ('client_name',)
-    list_editable = ('client_name','member_emails','member_mob_numbers','avatar_bot_creation','feedback_bot_creation','subject_matter_bot_creation','number_of_conversation_per_month','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    list_editable = ('client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
     ordering = ('-id',)
 
 
