@@ -1276,6 +1276,10 @@ class AccountsViewSet(ApiViewSet,
                                         """
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
+                                    html = f"""
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{coach_profile.name} created a bot/profile. Please check it out and approve it from Django Admin Panel.</p>
+                                        """
+                                    send_email_with_html_template(subject=subject,html_content=html)
                             
                                 except Exception as e:
                                     logger.exception(f"Ai frame creation email is failed reason: {e}")
