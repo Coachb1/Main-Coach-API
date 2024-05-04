@@ -87,6 +87,7 @@ IS_RECOMMENDED = 'Is Recommended'
 VISUAL_TAGS = 'Visual Tags'
 PAGE_NAME = 'Page Name'
 USER_EMAIL = 'User Email'
+COMPETENCY_SKILLS= 'Competency Skill'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -280,6 +281,10 @@ def format_test_orchestrated_conversation(raw_data):
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
+                
+        if COMPETENCY_SKILLS in input_dict:
+            if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
+                output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
 
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
@@ -824,6 +829,10 @@ def format_test_data_slack(raw_data):
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
+
+        if COMPETENCY_SKILLS in input_dict:
+            if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
+                output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
         
         if CURRENT_NEWS in input_dict:
             if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
