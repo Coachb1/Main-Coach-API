@@ -774,7 +774,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_name,bot_att.bot_name, allow_reply=True)
+            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_name,bot_att.bot_name, allow_reply=True, no_reply=True if signature_bot.bot_scenario_case == 'icons_by_ai' else False)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
