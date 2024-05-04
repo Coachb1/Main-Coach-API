@@ -208,6 +208,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
         transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
+        email_wrapper = ""
         if no_reply:
             email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
         else:    
