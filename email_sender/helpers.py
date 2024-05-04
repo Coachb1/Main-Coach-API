@@ -189,7 +189,7 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False):
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False,no_reply=False):
     msg_str = ""
     try:
         from_password = APP_PASSWORD
@@ -198,14 +198,21 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
 
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"Transcript + Summary with bot {coach_name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        msg['From'] = "Coachbots  <mail@coachbots.com>"
+        if no_reply:
+            msg['From'] = "Coachbots  <NoReplyTranscript@coachbots.com>"
+        else:
+            msg['From'] = "Coachbots  <mail@coachbots.com>"
 
         if allow_reply:
             msg['To'] = ', '.join(to_email)
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
         transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
-        email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Always reply all to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)')
+        email_wrapper = ""
+        if no_reply:
+            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
+        else:    
+            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Always "reply all" to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)')
 
         msg.attach(MIMEText(email_wrapper, 'html'))
         msg_str = msg.as_string()
