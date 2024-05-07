@@ -704,6 +704,63 @@ class AccountsViewSet(ApiViewSet,
                 serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
+
+                for_reapproval = request.query_params.get('for_reapproval',None).lower().strip() == 'true' if request.query_params.get('for_reapproval',None) else False
+                
+
+                # sending for reapproval to directory page info
+                logger.info(f"sending for reapproval: {request.query_params.get('for_reapproval',None)}, {for_reapproval}")
+
+                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
+                if directory and for_reapproval:
+
+                    DirectoryPageInfo.objects.create(
+                        name = directory.name,
+                        profile_id = directory.profile_id,
+                        department = directory.department,
+                        bot_type = directory.bot_type,
+                        profile_pic_url = directory.profile_pic_url,
+                        profile_type = directory.profile_type,
+                        description = directory.description,
+                        experience = directory.experience,
+                        expertise = directory.expertise,
+                        status = directory.status,
+                        avatar_bot_id = directory.avatar_bot_id,
+                        feedback_wall = directory.feedback_wall,
+                        skills = directory.skills,
+                        is_visible = directory.is_visible,
+                        is_approved = False,
+                        avatar_snippit = directory.avatar_snippit,
+                        avatar_bot_url = directory.avatar_bot_url,
+                        custom_user_bot_url = directory.custom_user_bot_url,
+                        custom_user_bot_id = directory.custom_user_bot_id,
+                        timer_enabled = directory.timer_enabled,
+                        time_value_in_days = directory.time_value_in_days,
+                        timer_reset = directory.timer_reset,
+                        visual_tag = directory.visual_tag,
+                        ai_email = directory.ai_email
+                    )
+
+
+                    # directory.save()
+                    try:
+                        subject = "AI Frame Updation"
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI frame/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                            """
+
+                        send_email_with_html_template(subject=subject,html_content=html,to_email=profile.email,title=f'Hey {profile.name}!')
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{profile.name} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
+                            """
+                        send_email_with_html_template(subject=subject,html_content=html)
+
+                    except Exception as e:
+                        logger.error(f"Got error in sending email for reapproval : {e}")
+                        send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                        
+                    directory.delete()
+
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
@@ -1299,9 +1356,9 @@ class AccountsViewSet(ApiViewSet,
                             DirectoryPageInfo.objects.create(
                             name=coach_profile.name if coach_profile else user.name,
                             department=coach_profile.department if coach_profile else "",
-                            profile_id=coach_profile.uid if coach_profile else user.uid, # in case of user_bot if there is not profile_id then storing user id instead of profile id
+                            profile_id= user.uid, # in case of user_bot storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
-                            profile_type=coach_profile.profile_type if coach_profile else ProfileTypeChoice.knowledge_bot,
+                            profile_type= ProfileTypeChoice.knowledge_bot,
                             description=coach_profile.about if coach_profile else "No Description",
                             experience=coach_profile.experience if coach_profile else "",
                             expertise=coach_profile.area_domain if coach_profile else "",
@@ -1354,52 +1411,53 @@ class AccountsViewSet(ApiViewSet,
 
                 directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
                 if directory and for_reapproval:
-                    DirectoryPageInfo.objects.create(
-                        name = directory.name,
-                        profile_id = directory.profile_id,
-                        department = directory.department,
-                        bot_type = directory.bot_type,
-                        profile_pic_url = directory.profile_pic_url,
-                        profile_type = directory.profile_type,
-                        description = directory.description,
-                        experience = directory.experience,
-                        expertise = directory.expertise,
-                        status = directory.status,
-                        avatar_bot_id = directory.avatar_bot_id,
-                        feedback_wall = directory.feedback_wall,
-                        skills = directory.skills,
-                        is_visible = directory.is_visible,
-                        is_approved = False,
-                        avatar_snippit = directory.avatar_snippit,
-                        avatar_bot_url = directory.avatar_bot_url,
-                        custom_user_bot_url = directory.custom_user_bot_url,
-                        custom_user_bot_id = directory.custom_user_bot_id,
-                        timer_enabled = directory.timer_enabled,
-                        time_value_in_days = directory.time_value_in_days,
-                        timer_reset = directory.timer_reset,
-                        visual_tag = directory.visual_tag,
-                        ai_email = directory.ai_email
-                    )
+                    if directory.profile_type == ProfileTypeChoice.knowledge_bot:
+                        DirectoryPageInfo.objects.create(
+                            name = directory.name,
+                            profile_id = directory.profile_id,
+                            department = directory.department,
+                            bot_type = directory.bot_type,
+                            profile_pic_url = directory.profile_pic_url,
+                            profile_type = directory.profile_type,
+                            description = directory.description,
+                            experience = directory.experience,
+                            expertise = directory.expertise,
+                            status = directory.status,
+                            avatar_bot_id = directory.avatar_bot_id,
+                            feedback_wall = directory.feedback_wall,
+                            skills = directory.skills,
+                            is_visible = directory.is_visible,
+                            is_approved = False,
+                            avatar_snippit = directory.avatar_snippit,
+                            avatar_bot_url = directory.avatar_bot_url,
+                            custom_user_bot_url = directory.custom_user_bot_url,
+                            custom_user_bot_id = directory.custom_user_bot_id,
+                            timer_enabled = directory.timer_enabled,
+                            time_value_in_days = directory.time_value_in_days,
+                            timer_reset = directory.timer_reset,
+                            visual_tag = directory.visual_tag,
+                            ai_email = directory.ai_email
+                        )
 
 
-                    # directory.save()
-                    try:
-                        subject = "AI Frame Updation"
-                        html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI frame/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
-                            """
+                        # directory.save()
+                        try:
+                            subject = "AI Frame Updation"
+                            html = f"""
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your Knowledge Bot. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                """
 
-                        send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
-                        html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
-                            """
-                        send_email_with_html_template(subject=subject,html_content=html)
+                            send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
+                            html = f"""
+                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated Knowledge Bot (Bot-id: {directory.custom_user_bot_id}). Please check it out and re-approve it from Django Admin Panel.</p>
+                                """
+                            send_email_with_html_template(subject=subject,html_content=html)
 
-                    except Exception as e:
-                        logger.error(f"Got error in sending email for reapproval : {e}")
-                        send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
-                        
-                    directory.delete()
+                        except Exception as e:
+                            logger.error(f"Got error in sending email for reapproval : {e}")
+                            send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                            
+                        directory.delete()
 
 
 
