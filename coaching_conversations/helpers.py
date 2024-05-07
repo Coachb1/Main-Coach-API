@@ -1649,12 +1649,14 @@ def create_user_profile_and_bot(data,auth):
                     client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
 
                     if profile.get('profile_type') == 'icons_by_ai':
-                        accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
-                        client.accessed_bot_ids = accessed_bot_id
+                        unique_bot_ids = set(client.accessed_bot_ids.strip().split(',') if client.accessed_bot_ids else [])
+                        unique_bot_ids.add(response.get('bot_id'))
+                        client.accessed_bot_ids = ','.join(unique_bot_ids)
                         client.save(update_fields=['accessed_bot_ids'])
                     else:
-                        member_emails = client.member_emails + f",{email}" if client.member_emails else email
-                        client.member_emails = member_emails
+                        unique_email_ids = set(client.member_emails.strip().split(',') if client.member_emails else [])
+                        unique_email_ids.add(email)
+                        client.member_emails = ','.join(unique_email_ids)
                         client.save(update_fields=['member_emails'])
 
             except Exception as e:
@@ -1675,12 +1677,14 @@ def create_user_profile_and_bot(data,auth):
                 client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
 
                 if profile.get('profile_type') == 'icons_by_ai':
-                    accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
-                    client.accessed_bot_ids = accessed_bot_id
-                    client.save(update_fields=['accessed_bot_ids'])
+                        unique_bot_ids = set(client.accessed_bot_ids.strip().split(',') if client.accessed_bot_ids else [])
+                        unique_bot_ids.add(response.get('bot_id'))
+                        client.accessed_bot_ids = ','.join(unique_bot_ids)
+                        client.save(update_fields=['accessed_bot_ids'])
                 else:
-                    member_emails = client.member_emails + f",{email}" if client.member_emails else email
-                    client.member_emails = member_emails
+                    unique_email_ids = set(client.member_emails.strip().split(',') if client.member_emails else [])
+                    unique_email_ids.add(email)
+                    client.member_emails = ','.join(unique_email_ids)
                     client.save(update_fields=['member_emails'])
 
         except Exception as e:
