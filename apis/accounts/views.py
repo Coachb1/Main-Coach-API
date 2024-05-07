@@ -1356,9 +1356,9 @@ class AccountsViewSet(ApiViewSet,
                             DirectoryPageInfo.objects.create(
                             name=coach_profile.name if coach_profile else user.name,
                             department=coach_profile.department if coach_profile else "",
-                            profile_id=coach_profile.uid if coach_profile else user.uid, # in case of user_bot if there is not profile_id then storing user id instead of profile id
+                            profile_id= user.uid, # in case of user_bot storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
-                            profile_type=coach_profile.profile_type if coach_profile else ProfileTypeChoice.knowledge_bot,
+                            profile_type= ProfileTypeChoice.knowledge_bot,
                             description=coach_profile.about if coach_profile else "No Description",
                             experience=coach_profile.experience if coach_profile else "",
                             expertise=coach_profile.area_domain if coach_profile else "",
