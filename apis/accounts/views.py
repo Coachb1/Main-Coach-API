@@ -1381,8 +1381,27 @@ class AccountsViewSet(ApiViewSet,
                         ai_email = directory.ai_email
                     )
 
+
+                    # directory.save()
+                    try:
+                        subject = "AI Frame Updation"
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI frame/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                            """
+
+                        send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
+                            """
+                        send_email_with_html_template(subject=subject,html_content=html)
+
+                    except Exception as e:
+                        logger.error(f"Got error in sending email for reapproval : {e}")
+                        send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                        
                     directory.delete()
-                    directory.save()
+
+
 
                 try:
                     signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
@@ -1391,6 +1410,14 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
                 
                 updated_data = data.get("updated_data",None)
+
+                if signature_bot.bot_type == BotTypeChoice.user_bot:
+                    knowledge_bot_faqs =  data.get('faqs',None)
+                    if knowledge_bot_faqs:
+                        signature_bot.faqs = json.loads(knowledge_bot_faqs) if type(knowledge_bot_faqs) == str else knowledge_bot_faqs
+                        signature_bot.save(update_fields=['faqs'])
+                    
+
 
                 if updated_data:
                     
