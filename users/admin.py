@@ -36,10 +36,10 @@ class BotUserMappingAdmin(admin.ModelAdmin):
 
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    list_display = ('id','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
     list_filter = ('client_name',)
-    search_fields = ('client_name',)
-    list_editable = ('client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    search_fields = ('client_name','domain_name')
+    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
     ordering = ('-id',)
 
 

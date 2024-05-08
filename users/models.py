@@ -158,7 +158,7 @@ class BotAndUserMapping(TenantAwareModel):
 
 class ClientUserInfo(TenantAwareModel):
     client_name = models.CharField(max_length=255)
-    owner_id = models.CharField(max_length=255)
+    owner_id = models.CharField(max_length=255,null=True, blank=True, default=None)
     attributes = models.JSONField(null=True, blank=True, default=None)
     member_emails = models.TextField(null=True, blank=True, default=None)
     member_mob_numbers = models.TextField(null=True, blank=True, default=None)
@@ -178,6 +178,7 @@ class ClientUserInfo(TenantAwareModel):
     is_coach_mentor_previledge = models.BooleanField(null=True, default=False)
     restricted_pages = models.TextField(null=True, blank=True, default=None)
     restricted_features = models.TextField(null=True, blank=True, default=None)
+    domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
 
 
 
