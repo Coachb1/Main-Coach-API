@@ -2886,7 +2886,7 @@ class AccountsViewSet(ApiViewSet,
                 for client in clients:
                     client_data.append(
                         {
-                            "client_name": client.name,
+                            "client_name": client.client_name,
                             "client_id": client.uid
                         }
                     )
