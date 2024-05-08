@@ -1798,7 +1798,7 @@ def get_client_user_data(tenant):
 
     for client in clients:
         client_data = []
-        member_emails = [email.strip() for email in client.member_emails.split(',') if len(email.strip())>0]
+        member_emails = [email.strip() for email in client.member_emails.split(',') if len(email.strip())>0] if client.member_emails else []
         user_ids = list(Identity.objects.filter(
             deleted=False,
             tenant_id=tenant.uid,
@@ -1855,23 +1855,23 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
         old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=old_client_id)
         # remove user_email from old client
 
-        emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
+        emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0] if old_client.member_emails else []  # Split the string into a list of emails
         emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-        old_client.member_emails = ",".join(emails_list)
+        old_client.member_emails = ",".join(set(emails_list))
         old_client.save(update_fields=['member_emails'])
 
     else:
         all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=user_email)
         for client in all_client_of_user:
-            emails_list = [email.strip() for email in client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
+            emails_list = [email.strip() for email in client.member_emails.split(',') if len(email.strip()) > 0] if client.member_emails else []  # Split the string into a list of emails
             emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-            client.member_emails = ",".join(emails_list)
+            client.member_emails = ",".join(set(emails_list))
             client.save(update_fields=['member_emails'])
 
             
     # add user_email to new_client
     new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=new_client_id)
-    unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0])
+    unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0] if new_client.member_emails else [])
     unique_emails.add(user_email)
     new_client.member_emails = ",".join(unique_emails)
     new_client.save(update_fields=['member_emails'])
@@ -1932,6 +1932,66 @@ def get_client_user_info(client,email):
 
     return user_info
 
-# def create_client_id():
+def is_business_email(email):
+    import re
+    # Define a regular expression pattern for personal email domains
+    personal_email_pattern = r'@(gmail|yahoo|hotmail)\.(com|net|org)'
+    
+    # Use re.search to find if the email matches the pattern
+    match = re.search(personal_email_pattern, email)
+    
+    # If match is found, it's not a business email, otherwise it is
+    if match:
+        return False
+    else:
+        return True
 
-#     # first needs to check 
+
+def create_client_id(domain):
+    client = ClientUserInfo.objects.create(
+        client_name =  domain.split(".")[0].capitalize(),
+        domain_name = domain,
+    )
+    return client
+
+def create_or_assign_client_id(email,tenant,create_new_client=False):
+
+    # first needs to check if email already assigned
+
+    already_assigned_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,member_emails__contains=email)
+    if already_assigned_client.count() > 0:
+        return already_assigned_client.first().client_name
+    assigned = False
+    client = None
+
+    if is_business_email(email):
+        domain = email.split('@')[-1]
+        already_exist_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,domain_name=domain)
+        if already_exist_client.count() == 0:
+            if create_new_client:
+                client = create_client_id(domain)
+        else:
+            client = already_exist_client.first()
+            
+        if client:
+            unique_emails = set([email for email in client.member_emails.split(",") if len(email.strip()) > 0] if client.member_emails else [])
+            unique_emails.add(email)
+            client.member_emails = ",".join(unique_emails)
+            client.save(update_fields=['member_emails'])
+
+            assigned = True
+
+
+    if not assigned:
+        client = ClientUserInfo.objects.get(tenant_id=tenant.uid,deleted=False,uid='9f07b64c-2dee-4a92-9ac2-1d041ff26205')  # assigning to first-demo
+        unique_emails = set([email for email in client.member_emails.split(",") if len(email.strip()) > 0] if client.member_emails else [])
+        unique_emails.add(email)
+        client.member_emails = ",".join(unique_emails)
+        client.save(update_fields=['member_emails'])
+
+
+    return client.client_name if client else None
+
+
+    
+       
