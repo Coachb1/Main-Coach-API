@@ -1759,37 +1759,38 @@ def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4
 
 def get_client_user_data(tenant):
     """
-    Retrieves detailed user information for all clients associated with a given tenant.
+    Retrieves detailed user information for each client associated with a given tenant.
 
-    This function filters out all client users linked to the specified tenant that have not been marked as deleted. 
-    For each client, it extracts and processes member emails to fetch corresponding user identities. 
-    It then gathers additional user attributes and compiles a comprehensive list of user details including user ID, name, email, and associated client information.
+    This function filters through all clients linked to a specific tenant that have not been marked as deleted. For each client, it gathers the emails of its members, retrieves their corresponding user IDs from the Identity model, and fetches user attributes and additional client-specific information using these IDs. The function compiles a dictionary containing detailed user information, including user-specific and client-specific attributes, for each client under the given tenant.
 
     Parameters:
-    - tenant (Tenant): An object representing the tenant for which client user data is to be fetched. 
-                       The object must have a 'uid' attribute which is used to filter client records.
+    - tenant (Tenant): An instance of the Tenant model. This object must have a valid 'uid' attribute that corresponds to the tenant ID.
 
     Returns:
-    - dict: A dictionary where each key is a client name and the value is a list of dictionaries. 
-            Each dictionary in the list contains details of a user associated with that client, including:
-            - 'user_id': The unique identifier of the user.
-            - 'name': The name of the user.
-            - 'email': The email address of the user (if available in user attributes).
-            - 'client_id': The unique identifier of the client.
-            - 'client_name': The name of the client.
+    - dict: A dictionary where each key is a client name and each value is a list of dictionaries. Each dictionary in the list contains comprehensive user information, including user ID, name, client ID, and other attributes specific to the client and user.
 
     Example:
-    Assuming there is a tenant object with uid 'tenant123', and there are users associated with clients under this tenant,
-    the function might return:
-    {
-        'ClientX': [
-            {'user_id': 'user123', 'name': 'John Doe', 'email': 'john.doe@example.com', 'client_id': 'client1', 'client_name': 'ClientX'},
-            {'user_id': 'user124', 'name': 'Jane Smith', 'email': 'jane.smith@example.com', 'client_id': 'client1', 'client_name': 'ClientX'}
-        ],
-        'ClientY': [
-            {'user_id': 'user125', 'name': 'Alice Johnson', 'email': 'alice.j@example.com', 'client_id': 'client2', 'client_name': 'ClientY'}
-        ]
-    }
+    ```python
+    tenant_instance = Tenant(uid='12345')
+    user_data = get_client_user_data(tenant_instance)
+    print(user_data)
+    # Output:
+    # {
+    #   'ClientXYZ': [
+    #       {
+    #           'user_id': 'user123',
+    #           'name': 'John Doe',
+    #           'client_id': 'client789',
+    #           'client_name': 'ClientXYZ',
+    #           'avatar_bot_creation': False,
+    #           'feedback_bot_creation': True,
+    #           ... (additional user and client-specific information)
+    #       },
+    #       ... (more user dictionaries)
+    #   ],
+    #   ... (more clients)
+    # }
+    ```
     """
     # Function implementation continues here...
     # get the client user associated with a Client Id
@@ -1823,31 +1824,38 @@ def get_client_user_data(tenant):
 
 def update_client_id(tenant, old_client_id, new_client_id, user_email):
     """
-    Updates the membership of a user from one client to another within the same tenant.
-
-    This function transfers a user's email from the member_emails list of an old client to the member_emails list of a new client. It ensures that the email is removed from the old client and added to the new client, avoiding duplicates in the new client's list.
+    Updates the membership of a user identified by their email across client records within a specific tenant.
+    This function removes the user's email from an old client's member list and adds it to a new client's member list.
 
     Parameters:
-    - tenant (Tenant): The tenant object associated with the clients. Must have a 'uid' attribute.
-    - old_client_id (str): The unique identifier for the old client from which the user email will be removed.
-    - new_client_id (str): The unique identifier for the new client to which the user email will be added.
-    - user_email (str): The email address of the user to be transferred.
+    - tenant (Tenant): The tenant object representing the current tenant context.
+    - old_client_id (str): The unique identifier of the old client from which the user's email will be removed. If None, the email will be removed from all clients where it appears.
+    - new_client_id (str): The unique identifier of the new client to which the user's email will be added.
+    - user_email (str): The email address of the user to be updated.
 
     Process:
-    1. Fetch the old client using the tenant ID and old client ID where the client is not marked as deleted.
-    2. Fetch the new client similarly.
-    3. Remove the user's email from the old client's member_emails list if present.
-    4. Add the user's email to the new client's member_emails list, ensuring no duplicates.
-    5. Save the updated email lists back to the respective client records in the database.
+    - If an old_client_id is provided:
+        1. Fetch the old client based on the tenant and old_client_id.
+        2. Remove the user_email from the old client's member_emails list.
+        3. Save the updated list back to the database.
+    - If no old_client_id is provided:
+        1. Fetch all clients associated with the tenant that contain the user_email in their member_emails.
+        2. Remove the user_email from each of these clients' member_emails list.
+        3. Save the updated lists back to the database.
+    - For the new client:
+        1. Fetch the new client based on the tenant and new_client_id.
+        2. Add the user_email to the new client's member_emails list ensuring no duplicates.
+        3. Save the updated list back to the database.
 
     Returns:
-    None. The function directly modifies the database records of the clients involved.
+    None
 
     Example:
     >>> tenant = Tenant(uid="12345")
     >>> update_client_id(tenant, "old_client123", "new_client456", "user@example.com")
-    # This will transfer 'user@example.com' from 'old_client123' to 'new_client456' under tenant '12345'.
+    This will remove "user@example.com" from "old_client123" and add it to "new_client456" within the tenant "12345".
     """
+    # Function implementation follows
 
     logger.info(f"==================================================data: tenant: {tenant},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
     
@@ -1877,8 +1885,79 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
     new_client.save(update_fields=['member_emails'])
 
 
+def disable_or_enable_client(email,is_disable,tenant):
+    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=email).first()
+    if client:
+        if is_disable:
+            unique_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
+            unique_emails.add(email)
+            client.restricted_ids = ",".join(unique_emails)
+            client.save(update_fields=['restricted_ids'])
+        else:
+            emails_list = [email.strip() for email in client.restricted_ids.split(',') if len(email.strip()) > 0] if client.restricted_ids else []  # Split the string into a list of emails
+            emails_list = [email for email in emails_list if email != email]  # Remove the specified email
+            client.restricted_ids = ",".join(set(emails_list))
+            client.save(update_fields=['restricted_ids'])
+        
 
-def get_client_user_info(client,email):
+def get_client_user_info(client, email):
+    """
+    Retrieves comprehensive user information based on client settings and user email, 
+    including restrictions and demo user status.
+
+    This function checks if the provided email is in the client's restricted or demo lists.
+    If the email is found in the demo list, it further checks if the demo period (2 weeks from account creation) 
+    has expired, which may change the user's restricted status and demo user flag. It then compiles a dictionary 
+    of user information including client-specific settings and user status.
+
+    Parameters:
+    - client (Client object): The client object containing attributes like restricted_ids, demo_ids, 
+      client_name, avatar_bot_creation, feedback_bot_creation, subject_matter_bot_creation, 
+      number_of_conversation_per_month, required_form_fields, accessed_bot_ids, coach_skills, 
+      coach_expertise, departments, restricted_pages, and restricted_features.
+    - email (str): The email address of the user to check against client's restricted and demo lists.
+
+    Returns:
+    - dict: A dictionary containing various pieces of user information such as:
+        - client_name: Name of the client
+        - avatar_bot_creation: Information about avatar bot creation settings
+        - feedback_bot_creation: Information about feedback bot creation settings
+        - subject_matter_bot_creation: Information about subject matter bot creation settings
+        - monthly_conversation_limit: Monthly conversation limit for the user
+        - required_form_details: Form details required from the user, processed into a structured format
+        - is_restricted: Boolean indicating if the user is restricted
+        - is_demo_user: Boolean indicating if the user is a demo user
+        - accessed_bot_ids: IDs of bots the user has access to
+        - coach_skills: Skills of the coach associated with the client
+        - coach_expertise: Expertise areas of the coach associated with the client
+        - departments: Departments within the client organization
+        - restricted_pages: Pages the user is restricted from accessing
+        - restricted_features: Features the user is restricted from using
+        - user_email: The email of the user
+
+    Example:
+    >>> client = Client(client_name="ExampleCorp", restricted_ids="user@example.com", demo_ids="demo@example.com")
+    >>> email = "demo@example.com"
+    >>> get_client_user_info(client, email)
+    {
+        'client_name': 'ExampleCorp',
+        'avatar_bot_creation': None,
+        'feedback_bot_creation': None,
+        'subject_matter_bot_creation': None,
+        'monthly_conversation_limit': None,
+        'required_form_details': None,
+        'is_restricted': False,
+        'is_demo_user': True,
+        'accessed_bot_ids': None,
+        'coach_skills': None,
+        'coach_expertise': None,
+        'departments': None,
+        'restricted_pages': None,
+        'restricted_features': None,
+        'user_email': 'demo@example.com'
+    }
+    """
+    # Function implementation continues here...
     restricted = False
     demo_user = False
     
