@@ -47,7 +47,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id
+from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id, create_or_assign_client_id
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
@@ -437,7 +437,7 @@ class AccountsViewSet(ApiViewSet,
 
                 for client in client_info:
                     client_and_emails_map.append({"group": client.client_name,
-                                                "emails": [email for email in client.member_emails.split(',')]
+                                                "emails": [email for email in client.member_emails.split(',')] if client.member_emails else []
                                                 })
                 
                 data['my_lib'] = client_and_emails_map
@@ -1911,7 +1911,7 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"Retrieving directory information for email: {email}")
             if email:
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -1990,7 +1990,7 @@ class AccountsViewSet(ApiViewSet,
             if request.method == "GET":
                 email = request.query_params.get('email')
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 by_category = request.query_params.get('by_category')
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
@@ -2149,7 +2149,7 @@ class AccountsViewSet(ApiViewSet,
             # sending only that client members data
             email = request.query_params.get('email')
             client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-            emails = client.member_emails.split(',')
+            emails = client.member_emails.split(',') if client.member_emails else []
             emails = [email.strip() for email in emails]
             user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
             user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -2336,7 +2336,7 @@ class AccountsViewSet(ApiViewSet,
             if request.method == "GET":
                 email = request.query_params.get('email')
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -2921,3 +2921,19 @@ class AccountsViewSet(ApiViewSet,
 
             return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
 
+    @action(methods=['POST'], detail=False, url_path='create-or-assign-client-id')
+    def create_or_assign_client(self, request, *args, **kwargs):
+
+        if request.method == 'POST':
+            tenant = request.tenant
+            email = request.data.get('email',None)
+            create_client = request.data.get('create_client_if_not_exists',None)
+
+            if not email:
+                return Response({'msg':f"Please ensure that the email is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+
+            
+            create_client = str(create_client).lower() == 'true' if create_client else False
+            client_name = create_or_assign_client_id(email,tenant,create_client)
+            
+            return Response({'msg': f'assigned {email} to {client_name}'}, status=status.HTTP_200_OK)

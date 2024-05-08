@@ -130,7 +130,7 @@ def weekly_remider_to_login():
             tenant_id = client.tenant_id
             member_emails = []
             if client.member_emails:
-                member_emails = [email.strip() for email in client.member_emails.split(',')]
+                member_emails = [email.strip() for email in client.member_emails.split(',')] if client.member_emails else []
 
             user_ids = Identity.objects.filter(deleted=False,tenant_id=tenant_id,value__in = member_emails)
             user_ids = list(user_ids.values_list('user_id', 'value'))
