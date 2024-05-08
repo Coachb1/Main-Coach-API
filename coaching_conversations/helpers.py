@@ -23,7 +23,7 @@ import json
 from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
-from users.models import BotAndUserMapping, ClientUserInfo
+from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
@@ -33,6 +33,7 @@ from utilities.prompts import get_intake_summary_prompt
 from commons.utils import remove_punctuations
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
+from identities.models import Identity
 
 logger = logging.getLogger(__name__)
 
@@ -1753,3 +1754,120 @@ def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4
 
 
         return "Summeries updated successfully!"
+
+def get_client_user_data(tenant):
+    """
+    Retrieves detailed user information for all clients associated with a given tenant.
+
+    This function filters out all client users linked to the specified tenant that have not been marked as deleted. 
+    For each client, it extracts and processes member emails to fetch corresponding user identities. 
+    It then gathers additional user attributes and compiles a comprehensive list of user details including user ID, name, email, and associated client information.
+
+    Parameters:
+    - tenant (Tenant): An object representing the tenant for which client user data is to be fetched. 
+                       The object must have a 'uid' attribute which is used to filter client records.
+
+    Returns:
+    - dict: A dictionary where each key is a client name and the value is a list of dictionaries. 
+            Each dictionary in the list contains details of a user associated with that client, including:
+            - 'user_id': The unique identifier of the user.
+            - 'name': The name of the user.
+            - 'email': The email address of the user (if available in user attributes).
+            - 'client_id': The unique identifier of the client.
+            - 'client_name': The name of the client.
+
+    Example:
+    Assuming there is a tenant object with uid 'tenant123', and there are users associated with clients under this tenant,
+    the function might return:
+    {
+        'ClientX': [
+            {'user_id': 'user123', 'name': 'John Doe', 'email': 'john.doe@example.com', 'client_id': 'client1', 'client_name': 'ClientX'},
+            {'user_id': 'user124', 'name': 'Jane Smith', 'email': 'jane.smith@example.com', 'client_id': 'client1', 'client_name': 'ClientX'}
+        ],
+        'ClientY': [
+            {'user_id': 'user125', 'name': 'Alice Johnson', 'email': 'alice.j@example.com', 'client_id': 'client2', 'client_name': 'ClientY'}
+        ]
+    }
+    """
+    # Function implementation continues here...
+    # get the client user associated with a Client Id
+    clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+    client_user_data = {}
+
+    for client in clients:
+        client_data = []
+        member_emails = [email.strip() for email in client.member_emails.split() if len(email.strip())>0]
+        user_ids = list(Identity.objects.filter(
+            deleted=False,
+            tenant_id=tenant.uid,
+            member_emails__in=member_emails
+        ).values_list('user_id', flat=True))
+
+        for user_id in user_ids:
+            user_info = {}
+            user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=user_id)
+            user_att = UserAttribute.objects.get(user_id=user_id).attributes
+            user_info['user_id'] = user_id
+            user_info['name'] = user.name
+            user_info['email'] = user_att.get('email',None) if user_att else None
+            user_info['client_id'] = client.uid
+            user_info['client_name'] = client.name
+
+            client_data.append(user_info)
+
+        client_user_data[client.name] = client_data
+
+    return client_user_data
+
+
+def update_client_id(tenant, old_client_id, new_client_id, user_email):
+    """
+    Updates the membership of a user from one client to another within the same tenant.
+
+    This function transfers a user's email from the member_emails list of an old client to the member_emails list of a new client. It ensures that the email is removed from the old client and added to the new client, avoiding duplicates in the new client's list.
+
+    Parameters:
+    - tenant (Tenant): The tenant object associated with the clients. Must have a 'uid' attribute.
+    - old_client_id (str): The unique identifier for the old client from which the user email will be removed.
+    - new_client_id (str): The unique identifier for the new client to which the user email will be added.
+    - user_email (str): The email address of the user to be transferred.
+
+    Process:
+    1. Fetch the old client using the tenant ID and old client ID where the client is not marked as deleted.
+    2. Fetch the new client similarly.
+    3. Remove the user's email from the old client's member_emails list if present.
+    4. Add the user's email to the new client's member_emails list, ensuring no duplicates.
+    5. Save the updated email lists back to the respective client records in the database.
+
+    Returns:
+    None. The function directly modifies the database records of the clients involved.
+
+    Example:
+    >>> tenant = Tenant(uid="12345")
+    >>> update_client_id(tenant, "old_client123", "new_client456", "user@example.com")
+    # This will transfer 'user@example.com' from 'old_client123' to 'new_client456' under tenant '12345'.
+    """
+
+    logger.info(f"==================================================data: tenant: {tenant},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
+    
+    old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=old_client_id)
+    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=new_client_id)
+
+    # remove user_email from old client
+
+    emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
+    emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+    old_client.member_emails = ",".join(emails_list)
+    old_client.save(update_fields=['member_emails'])
+
+    # add user_email to new_client
+    unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0])
+    unique_emails.add(user_email)
+    new_client.member_emails = ",".join(unique_emails)
+    new_client.save(update_fields=['member_emails'])
+
+
+
+# def create_client_id():
+
+#     # first needs to check 

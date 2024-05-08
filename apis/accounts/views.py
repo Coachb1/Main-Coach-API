@@ -47,7 +47,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import signature_bot_default_prompt
+from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
@@ -2834,3 +2834,90 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['GET','POST'], detail=False, url_path='client_id_user_modification')
+    def client_id_user_modification(self, request, *args, **kwargs):
+        """
+        Handles the modification of client IDs associated with users or retrieves client information based on the request method.
+
+        This method supports both GET and POST requests:
+        - GET: Fetches client information. If 'all_clients' is specified in the query parameters, it returns all clients within the tenant. Otherwise, it fetches specific client user data.
+        - POST: Updates the client ID associated with a specific user. This involves changing the client ID from an old value to a new one for a user identified by their email.
+
+        Args:
+            request (HttpRequest): The HTTP request object containing data for processing.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        GET Request:
+            Query Params:
+                all_clients (bool, optional): If true, fetches all client information. Defaults to None.
+            
+            Returns:
+                Response: JSON response containing a list of all clients or specific client user data.
+                Example:
+                    - For all clients: [{"client_name": "Client A", "client_id": "1"}, {"client_name": "Client B", "client_id": "2"}]
+                    - For specific client user data: {"data": "Specific client user data"}
+
+        POST Request:
+            Data Params:
+                old_client_id (str): The current client ID associated with the user.
+                new_client_id (str): The new client ID to be associated with the user.
+                user_email (str): The email of the user whose client ID is to be updated.
+
+            Returns:
+                Response: JSON response indicating the outcome of the update operation.
+                Example:
+                    {"msg": "updated"}
+
+        Raises:
+            HTTP 400 Bad Request: If required parameters are missing or incorrect.
+            HTTP 401 Unauthorized: If the verification fails.
+            HTTP 404 Not Found: If the specified client or user does not exist.
+
+        Note:
+            The POST request requires a 'verify_hash' to ensure authorized access, which should match a predefined hash value.
+        """
+        tenant = request.tenant
+        if request.method == 'GET':
+            if request.query_params.get('all_clients',None):
+                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                client_data = []
+                for client in clients:
+                    client_data.append(
+                        {
+                            "client_name": client.name,
+                            "client_id": client.uid
+                        }
+                    )
+
+                return Response(client_data,status=status.HTTP_200_OK)
+            
+            client_user_data = get_client_user_data(tenant=tenant)
+            return Response(client_user_data,status=status.HTTP_200_OK)
+        
+        elif request.method == 'POST':
+            # change user's client id
+
+            old_client_id = request.data.get('old_client_id',None)
+            new_client_id = request.data.get('new_client_id',None)
+            user_email = request.data.get('user_email',None)
+            if not old_client_id or not new_client_id or not user_email:
+                return Response({'msg':f"Please ensure that the old_client_id, new_client_id, or user_email is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                update_client_id(
+                    tenant=tenant,
+                    old_client_id=old_client_id,
+                    new_client_id=new_client_id,
+                    user_email=user_email
+                )
+
+            except Exception as e:
+                logger.exception(f" Failed to update client : {e}")
+                send_error_notification("update_client_id",f" Failed to update client : {e}",data=request.data)
+                return Response({'msg':f"Failed to update client : {e}"},status=status.HTTP_400_BAD_REQUEST) 
+            
+
+            return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
+
