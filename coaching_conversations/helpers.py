@@ -1979,6 +1979,12 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
             client.member_emails = ",".join(unique_emails)
             client.save(update_fields=['member_emails'])
 
+            # by default we will add it to restricted ids
+            restricted_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
+            restricted_emails.add(email)
+            client.restricted_ids = ",".join(restricted_emails)
+            client.save(update_fields=['restricted_ids'])
+
             assigned = True
 
 
@@ -1989,6 +1995,11 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
         client.member_emails = ",".join(unique_emails)
         client.save(update_fields=['member_emails'])
 
+        # by default we will add it to restricted ids
+        restricted_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
+        restricted_emails.add(email)
+        client.restricted_ids = ",".join(restricted_emails)
+        client.save(update_fields=['restricted_ids'])
 
     return client.client_name if client else None
 
