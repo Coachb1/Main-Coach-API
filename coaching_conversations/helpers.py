@@ -1851,17 +1851,26 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
 
     logger.info(f"==================================================data: tenant: {tenant},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
     
-    old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=old_client_id)
-    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=new_client_id)
+    if old_client_id:
+        old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=old_client_id)
+        # remove user_email from old client
 
-    # remove user_email from old client
+        emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
+        emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+        old_client.member_emails = ",".join(emails_list)
+        old_client.save(update_fields=['member_emails'])
 
-    emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
-    emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-    old_client.member_emails = ",".join(emails_list)
-    old_client.save(update_fields=['member_emails'])
+    else:
+        all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=user_email)
+        for client in all_client_of_user:
+            emails_list = [email.strip() for email in client.member_emails.split(',') if len(email.strip()) > 0]  # Split the string into a list of emails
+            emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+            client.member_emails = ",".join(emails_list)
+            client.save(update_fields=['member_emails'])
 
+            
     # add user_email to new_client
+    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=new_client_id)
     unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0])
     unique_emails.add(user_email)
     new_client.member_emails = ",".join(unique_emails)
@@ -1917,7 +1926,8 @@ def get_client_user_info(client,email):
         "coach_expertise": client.coach_expertise,
         "departments": client.departments,
         "restricted_pages": client.restricted_pages,
-        "restricted_features": client.restricted_features
+        "restricted_features": client.restricted_features,
+        "user_email": email
     }
 
     return user_info

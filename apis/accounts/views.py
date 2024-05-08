@@ -2902,8 +2902,8 @@ class AccountsViewSet(ApiViewSet,
             old_client_id = request.data.get('old_client_id',None)
             new_client_id = request.data.get('new_client_id',None)
             user_email = request.data.get('user_email',None)
-            if not old_client_id or not new_client_id or not user_email:
-                return Response({'msg':f"Please ensure that the old_client_id, new_client_id, or user_email is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+            if  not new_client_id or not user_email:
+                return Response({'msg':f"Please ensure that the new_client_id, or user_email is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
                 
             try:
                 update_client_id(
