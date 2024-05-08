@@ -34,6 +34,8 @@ from commons.utils import remove_punctuations
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
 from identities.models import Identity
+import datetime
+from utilities.helpers import extract_fields
 
 logger = logging.getLogger(__name__)
 
@@ -1796,26 +1798,25 @@ def get_client_user_data(tenant):
 
     for client in clients:
         client_data = []
-        member_emails = [email.strip() for email in client.member_emails.split() if len(email.strip())>0]
+        member_emails = [email.strip() for email in client.member_emails.split(',') if len(email.strip())>0]
         user_ids = list(Identity.objects.filter(
             deleted=False,
             tenant_id=tenant.uid,
-            member_emails__in=member_emails
+            value__in=member_emails
         ).values_list('user_id', flat=True))
-
         for user_id in user_ids:
-            user_info = {}
             user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=user_id)
             user_att = UserAttribute.objects.get(user_id=user_id).attributes
+            email = user_att.get('email',None) if user_att else None
+
+            user_info = get_client_user_info(client,email)
             user_info['user_id'] = user_id
             user_info['name'] = user.name
-            user_info['email'] = user_att.get('email',None) if user_att else None
             user_info['client_id'] = client.uid
-            user_info['client_name'] = client.name
 
             client_data.append(user_info)
 
-        client_user_data[client.name] = client_data
+        client_user_data[client.client_name] = client_data
 
     return client_user_data
 
@@ -1867,6 +1868,59 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
     new_client.save(update_fields=['member_emails'])
 
 
+
+def get_client_user_info(client,email):
+    restricted = False
+    demo_user = False
+    
+    restricted_emails = []
+    if client.restricted_ids:
+        restricted_emails = [e.strip() for e in client.restricted_ids.split(',')]
+    demo_emails = []
+    if client.demo_ids:
+        demo_emails = [e.strip() for e in client.demo_ids.split(',')]
+
+    
+    if email in restricted_emails:
+        restricted = True
+    if email in demo_emails:
+        demo_user = True
+
+    if demo_user:
+        user_account = Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email)
+        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
+
+        # Get today's date
+        current_date = datetime.datetime.now()
+
+        # Calculate the difference between today's date and the specific date
+        time_difference = current_date - specific_date
+
+        # Check if the difference is greater than or equal to 2 weeks
+        if time_difference >= datetime.timedelta(weeks=2):
+            restricted = True
+            demo_user = False
+
+        logger.info(f"time difference: {time_difference} ")
+
+    user_info = {
+        "client_name": client.client_name,
+        "avatar_bot_creation": client.avatar_bot_creation,
+        "feedback_bot_creation": client.feedback_bot_creation,
+        "subject_matter_bot_creation": client.subject_matter_bot_creation,
+        "monthly_conversation_limit": client.number_of_conversation_per_month,
+        "required_form_details": extract_fields(client.required_form_fields) if client.required_form_fields else None,
+        "is_restricted": restricted,
+        "is_demo_user": demo_user,
+        "accessed_bot_ids": client.accessed_bot_ids,
+        "coach_skills": client.coach_skills,
+        "coach_expertise": client.coach_expertise,
+        "departments": client.departments,
+        "restricted_pages": client.restricted_pages,
+        "restricted_features": client.restricted_features
+    }
+
+    return user_info
 
 # def create_client_id():
 
