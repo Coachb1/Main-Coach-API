@@ -1097,7 +1097,7 @@ class AccountsViewSet(ApiViewSet,
 
                             }
                         },
-                        is_approved=bot_approved
+                        is_approved= True if bot_type == BotTypeChoice.deep_dive else bot_approved 
                     )
 
                     bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
@@ -1290,16 +1290,18 @@ class AccountsViewSet(ApiViewSet,
                             status=StatusChoice.available,
                             skills=coach_profile.high_rating_characteristics if coach_profile else "",
                             is_visible= False,
-                            is_approved = False,
                             ai_email = generate_email(coach_profile.name,coach_profile.id) if coach_profile else None
                             )
                             
                             if bot_type == BotTypeChoice.user_bot:
                                 new_dir.custom_user_bot_url = bot_url
                                 new_dir.custom_user_bot_id = bot_id
+                                new_dir.is_approved = False,
                             elif bot_type == BotTypeChoice.deep_dive:
                                 new_dir.deep_dive_bot_url = bot_url
                                 new_dir.deep_dive_bot_id = bot_id
+                                new_dir.is_approved = True,
+
 
                             new_dir.save()
                             # if directory:
