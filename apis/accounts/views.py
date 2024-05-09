@@ -717,7 +717,7 @@ class AccountsViewSet(ApiViewSet,
 
                     except Exception as e:
                         logger.error(f"Got error in sending email for reapproval : {e}")
-                        send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                        send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
 
@@ -1426,7 +1426,7 @@ class AccountsViewSet(ApiViewSet,
 
                 logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
-                if media_data and signature_bot.bot_type != [BotTypeChoice.feedback_bot,]:
+                if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     media_data = json.loads(media_data) if isinstance(media_data, str) else media_data
                     if 'youtube_links' in media_data:
                         # logger.info(f"################# youtube_links: {media_data['youtube_links']}")
