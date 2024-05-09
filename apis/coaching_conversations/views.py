@@ -18,6 +18,7 @@ from users.db import get_user_display_name, get_user_by_id
 from coaching_conversations.helpers import create_user_profile_and_bot
 import csv
 from commons.notifications import send_error_notification
+from identities.helpers import get_user_via_identity
 
 import logging
 
@@ -500,6 +501,14 @@ class CoachingConversationViewSet(ApiViewSet,
                 if not email:
                     return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
                 
+                user = get_user_via_identity(
+                    tenant=tenant,
+                    identity_type= 'deepchat_unique_id',
+                    identity_value=email
+                )
+                if user.role in ['admin', 'super_admin','client_admin']:
+                    return Response({"has_access": True}, status=status.HTTP_200_OK)
+
                 client = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False, member_emails__contains=email).first()
                 if client:
                     
