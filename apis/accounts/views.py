@@ -371,6 +371,7 @@ class AccountsViewSet(ApiViewSet,
 
         if signature_bot.bot_type == 'deep_dive':
             data['deep_dive_data'] = signature_bot.data
+            data['deepdive_prompt'] = signature_bot.custom_prompt
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
