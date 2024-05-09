@@ -493,21 +493,22 @@ class CoachingConversationViewSet(ApiViewSet,
         try:
             if request.method == 'GET':
                 tenant = request.tenant
-                email = request.query_param('email')
+                email = request.query_params.get('email')
                 has_access = False
 
 
                 if not email:
                     return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
                 
-                client = ClientUserInfo.objects.filter(tenant_id=tenant.id, deleted=False, member_emails__contains=email).first()
+                client = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False, member_emails__contains=email).first()
                 if client:
                     
                     if client.deepdive_accessed_emails and (email in client.deepdive_accessed_emails):
                         has_access = True
                         
 
-                return Response({"access": has_access}, status=status.HTTP_200_OK)
+                return Response({"has_access": has_access}, status=status.HTTP_200_OK)
 
         except Exception as e:
+            logger.exception(f"Got error in deepdive-bot: {e}")
             return Response({"error": f"Got error in deepdive-bot: {e}"}, status=status.HTTP_400_BAD_REQUEST)
