@@ -63,6 +63,7 @@ from coaching_conversations.choices import BotScenarioCaseChoice
 from coaching_conversations.helpers import generate_title_and_objective_for_deep_dive
 import traceback
 from documents.utils import get_document_summary
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +368,9 @@ class AccountsViewSet(ApiViewSet,
         data['is_system_bot'] = signature_bot.is_system_bot
         data['additional_data'] = signature_bot.data.get('additional_data',None)
         data['scenario_case'] = signature_bot.bot_scenario_case
+
+        if signature_bot.bot_type == 'deep_dive':
+            data['deep_dive_data'] = signature_bot.data
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
@@ -1008,8 +1012,9 @@ class AccountsViewSet(ApiViewSet,
                         return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
                     bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(random.sample(range(1, 9), 5)), " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
-                    if existing_bots.count() > 0:
+                    if existing_bots.count() > 0 and bot_type != 'deep_dive':
                         return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
 
                     try:
@@ -1053,11 +1058,12 @@ class AccountsViewSet(ApiViewSet,
                     
 
                     all_data = {}
-
+                    deep_dive_data = {}
                     if bot_type == BotTypeChoice.deep_dive:
                         deep_dive_data = generate_title_and_objective_for_deep_dive(context)
                         all_data['bot_title'] = deep_dive_data['bot_title']
                         all_data['bot_objective'] = deep_dive_data['bot_objective']
+                        deep_dive_data = all_data
 
                     all_data['coach_data'] = coach_data
 
@@ -1308,7 +1314,7 @@ class AccountsViewSet(ApiViewSet,
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                     
-                    return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
+                    return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
                     logger.exception("Got error while creating bot: {e}")
