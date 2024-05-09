@@ -60,6 +60,7 @@ from utilities.prompts import get_intake_summary_prompt
 from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
 from coaching_conversations.choices import BotScenarioCaseChoice
+from coaching_conversations.helpers import generate_title_and_objective_for_deep_dive
 import traceback
 from documents.utils import get_document_summary
 
@@ -734,6 +735,8 @@ class AccountsViewSet(ApiViewSet,
                         avatar_bot_url = directory.avatar_bot_url,
                         custom_user_bot_url = directory.custom_user_bot_url,
                         custom_user_bot_id = directory.custom_user_bot_id,
+                        deep_dive_bot_url = directory.deep_dive_bot_url,
+                        deep_dive_bot_id = directory.deep_dive_bot_id,
                         timer_enabled = directory.timer_enabled,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
@@ -847,6 +850,8 @@ class AccountsViewSet(ApiViewSet,
         if bot_type:
             all_bots = all_bots.filter(bot_type=bot_type)
         
+
+        deepdive_bot_access = None
         if client_name:
             user_ids = []
             bot_user_ids = list(all_bots.values_list('user_id',flat=True))
@@ -854,6 +859,8 @@ class AccountsViewSet(ApiViewSet,
                 user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=u_id).attributes.get('email',None)
                 client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
                 if client:
+                    if bot_type == BotTypeChoice.deep_dive:
+                        deepdive_bot_access = client.deepdive_accessed_emails.spllit(',') if client.deepdive_accessed_emails else []
                     if client.client_name == client_name:
                         user_ids.append(u_id)
 
@@ -864,8 +871,11 @@ class AccountsViewSet(ApiViewSet,
             serializer = SignatureBotSerializer(bot)
             bot_att = BotAttribute.objects.get(bot_id=bot.uid)
             botser = BotAttributeSerializer(bot_att)
-            data.append({"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
-                            "bot_attributes": botser.data})
+            all_bots_data = {"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
+                            "bot_attributes": botser.data}
+            if deepdive_bot_access:
+                all_bots_data['deepdive_access'] = deepdive_bot_access
+            data.append(all_bots_data)
         return Response({"data": data},status=status.HTTP_200_OK)
         
 
@@ -981,8 +991,12 @@ class AccountsViewSet(ApiViewSet,
                     if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                         return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                     
-                    if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot and bot_type != BotTypeChoice.user_bot:
+                    if (profile_id is None or profile_id == '' ) and bot_type not in [BotTypeChoice.feedback_bot ,BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                    context = data.get('context')
+                    if (context is None or context == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "context is required"},status=status.HTTP_400_BAD_REQUEST)
 
 
                     participant_id = data.get('participant_id')
@@ -1040,6 +1054,11 @@ class AccountsViewSet(ApiViewSet,
 
                     all_data = {}
 
+                    if bot_type == BotTypeChoice.deep_dive:
+                        deep_dive_data = generate_title_and_objective_for_deep_dive(context)
+                        all_data['bot_title'] = deep_dive_data['bot_title']
+                        all_data['bot_objective'] = deep_dive_data['bot_objective']
+
                     all_data['coach_data'] = coach_data
 
                     extracted_media_data = {}
@@ -1072,116 +1091,6 @@ class AccountsViewSet(ApiViewSet,
                         },
                         is_approved=bot_approved
                     )
-
-
-                    #******** process media data ********
-
-                    # if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                    #     logger.info(f"media_data: {media_data}")
-                    #     if 'youtube_links' in media_data:
-                    #         youtube_links = media_data['youtube_links']
-                    #         youtube_links = [link.strip() for link in youtube_links.split(',')]
-
-
-                    #         #* save these links in bot attributes
-                    #         """ extracted_from_youtube = {}
-                    #         for link in youtube_links:
-                                
-                    #             if link != '':
-                    #                 transcript_data = download_and_transcribe_audio(link)
-                    #                 extracted_from_youtube[link] = transcript_data
-                            
-                    #         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
-
-                    #         threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
-
-
-                    #     if 'article_links' in media_data:
-                    #         article_links = media_data['article_links']
-                    #         article_links = [link.strip() for link in article_links.split(',')]
-
-                    #         logger.info(f"******************* article_links: {article_links}")
-                    #         #* save these links in bot attributes
-                    #         extracted_from_article = {}
-                    #         for link in article_links:
-                                
-                    #             if link != '':
-                    #                 transcript_data = scrape_article_data(link).get('article_content',None)
-                    #                 extracted_from_article[link] = transcript_data
-                            
-                    #         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
-                    #         extracted_media_data['extracted_from_article'] = extracted_from_article
-
-
-                    #     if 'pdf_data' in data:
-                    #         pdf_data = data.getlist('pdf_data')
-                    #         extracted_from_pdf = {}
-                    #         logger.info(f"******************* pdf_data: {doc_data}")
-
-                    #         if len(pdf_data) > 0:
-                    #             for index, pdf in enumerate(pdf_data):
-                    #                 extracted_from_pdf[index+1] = pdf
-                    #         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                    #     if 'doc_data' in data:
-                    #         doc_data = data.getlist('doc_data')
-                    #         extracted_from_doc = {}
-
-
-                    #         logger.info(f"******************* doc_data: {doc_data}")
-                    #         if len(doc_data) > 0:
-                    #             for index, doc in enumerate(doc_data):
-                    #                 extracted_from_doc[index+1] = doc
-
-                    #         logger.info(f"******************* doc_data: {extracted_from_doc}")
-                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    #     if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
-                    #         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
-                    #         doc_names = []
-                    #         extracted_from_doc = {}
-
-                    #         for file in attached_docs:
-                    #             # logger.info(f"file name : {file.name}, {file.read()}")
-                    #             doc_names.append(file.name)
-                    #             path = default_storage.save(file.name, ContentFile(file.read()))
-                    #             doc_content = extract_text_from_doc(path)
-                    #             default_storage.delete(path)
-                    #             extracted_from_doc[file.name] = doc_content
-
-                            
-                    #         logger.info(f"attached_docs: {extracted_from_doc}")
-
-                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    #     if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
-                    #         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
-                    #         pdf_names = []
-                    #         extracted_from_pdf = {}
-
-                    #         for file in attatched_pdfs:
-                    #             # logger.info(f"file name : {file.name}, {file.read()}")
-                    #             pdf_names.append(file.name)
-                    #             path = default_storage.save(file.name, ContentFile(file.read()))
-                    #             pdf_content = extract_text_from_pdf(path)
-                    #             default_storage.delete(path)
-                    #             extracted_from_pdf[file.name] = pdf_content
-
-                    #         logger.info(f"attached_PDFS: {extracted_from_pdf}")
-
-                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                    # if extracted_media_data:
-                    #     signature_bot_media_data = signature_bot.data['media_data']
-                    #     for key, value in extracted_media_data.items():
-                    #         signature_bot_media_data[key] = value
-                    #     all_data['media_data'] = signature_bot_media_data
-
-
-
 
                     bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
                                                         bot_id=signature_bot.uid,
@@ -1245,6 +1154,12 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.custom_prompt = prompt
                         updated_fields.append("custom_prompt")
 
+                    if bot_type == BotTypeChoice.deep_dive:
+                        prompt = signature_bot_default_prompt(bot_type)
+                        signature_bot.custom_prompt = prompt
+                        updated_fields.append("custom_prompt")
+                        
+
                     if all_data:
                         bot_data = {**signature_bot.data,**all_data}
                         signature_bot.data = bot_data
@@ -1276,7 +1191,7 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.about = additional_data.get("profile_description",None)
                         updated_fields.append('about')
 
-                    if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
+                    if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         bot_att.initial_qnas = initial_qna
                         updated_fields.append("initial_qnas")
 
@@ -1297,6 +1212,8 @@ class AccountsViewSet(ApiViewSet,
                             bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
                         elif bot_type == BotTypeChoice.user_bot:
                             bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
+                        elif bot_type == BotTypeChoice.deep_dive:
+                            bot_url = f"{bot_base_url}/deep-dive/{bot_id}"
 
                         bot_snippet = f"""
                                     <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
@@ -1352,13 +1269,13 @@ class AccountsViewSet(ApiViewSet,
                                 directory.feedback_wall = bot_url
                                 directory.save(update_fields=['feedback_wall'])
 
-                        if bot_type == BotTypeChoice.user_bot:
-                            DirectoryPageInfo.objects.create(
+                        if bot_type in [BotTypeChoice.user_bot, BotTypeChoice.deep_dive] :
+                            new_dir = DirectoryPageInfo.objects.create(
                             name=coach_profile.name if coach_profile else user.name,
                             department=coach_profile.department if coach_profile else "",
-                            profile_id= user.uid, # in case of user_bot storing user id instead of profile id
+                            profile_id= user.uid, # in case of user_bot or deep_dive storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
-                            profile_type= ProfileTypeChoice.knowledge_bot,
+                            profile_type= ProfileTypeChoice.knowledge_bot if bot_type == BotTypeChoice.user_bot else BotTypeChoice.deep_dive,
                             description=coach_profile.about if coach_profile else "No Description",
                             experience=coach_profile.experience if coach_profile else "",
                             expertise=coach_profile.area_domain if coach_profile else "",
@@ -1366,10 +1283,17 @@ class AccountsViewSet(ApiViewSet,
                             skills=coach_profile.high_rating_characteristics if coach_profile else "",
                             is_visible= False,
                             is_approved = False,
-                            custom_user_bot_url = bot_url,
-                            custom_user_bot_id = bot_id,
                             ai_email = generate_email(coach_profile.name,coach_profile.id) if coach_profile else None
                             )
+                            
+                            if bot_type == BotTypeChoice.user_bot:
+                                new_dir.custom_user_bot_url = bot_url
+                                new_dir.custom_user_bot_id = bot_id
+                            elif bot_type == BotTypeChoice.deep_dive:
+                                new_dir.deep_dive_bot_url = bot_url
+                                new_dir.deep_dive_bot_id = bot_id
+
+                            new_dir.save()
                             # if directory:
                             #     if directory.custom_user_bot_url:
                             #         directory.custom_user_bot_url += f",{bot_url}"
@@ -1432,6 +1356,8 @@ class AccountsViewSet(ApiViewSet,
                             avatar_bot_url = directory.avatar_bot_url,
                             custom_user_bot_url = directory.custom_user_bot_url,
                             custom_user_bot_id = directory.custom_user_bot_id,
+                            deep_dive_bot_url = directory.deep_dive_bot_url,
+                            deep_dive_bot_id = directory.deep_dive_bot_id,
                             timer_enabled = directory.timer_enabled,
                             time_value_in_days = directory.time_value_in_days,
                             timer_reset = directory.timer_reset,
