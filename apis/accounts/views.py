@@ -1013,7 +1013,7 @@ class AccountsViewSet(ApiViewSet,
 
                     bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
                     if bot_type == BotTypeChoice.deep_dive:
-                        bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(random.sample(range(1, 9), 5)), " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+                        bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
 
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
