@@ -36,6 +36,8 @@ from documents.utils import get_document_summary
 from identities.models import Identity
 import datetime
 from utilities.helpers import extract_fields
+from string import Template
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -1234,6 +1236,29 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         NOTE: Always respond in less than 50 tokens. Never mention the token count.
         """
 
+    elif bot_type == BotTypeChoice.deep_dive:
+        return """
+        Please act as a bot. Please administer an open questions and answer session, where the respondent will submit his feedback about the 
+
+        Title: ${title}
+        Objective: ${objective}
+
+        Custom Prompt: The session should aim to gather the participants' viewpoints on the Title and Objection. Each time you manage the bot, ensure to pose questions. Stick to asking one question at a time. The questions should be related to the title and objective and should be advanced in nature. Begin by asking questions without providing any title and objective. Refrain from mentioning the count of questions. Simply proceed to the next question, irrespective of the response. The focus should solely be on asking questions, without providing any other details. Continue asking questions indefinitely. Avoid asking questions on the title and objective to seek clarity on any related matter. Only pose questions that are relevant to them. Do not provide any welcome sentence or visual cues. The format should be: Question.
+
+        NOTE: Always ask one question at a time.
+        NOTE: Do not provide any title and objective in questions.
+        NOTE: Do not ask any questions on title and objective.
+        NOTE: Do not mention the count of questions.
+        NOTE: Move to the next question regardless of the response, even if you don't understand the response. Do not ask for any clarification or anything.
+        NOTE: Only ask questions, do not provide any other details.
+        NOTE: Continue asking questions indefinitely.
+        NOTE: Do not ask questions on the title and objective for clarity.
+        NOTE: Only pose questions that are relevant to them.
+        NOTE: Do not provide any welcome sentence or visual cues.
+        NOTE: Always just ask the question, do not add any other thing to the question.
+        NOTE: The format should be: Question.
+        """
+
 
 @timeit
 def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
@@ -2084,4 +2109,76 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
 
 
     
-       
+# ============================ Deep Dive Bot Helpers =============================
+
+def extracter_for_deep_dive(text):
+    title_match = re.search(r'Title:\s*(.*)\n', text, re.DOTALL)
+    objective_match = re.search(r'Objective:\s*(.*)', text, re.DOTALL)
+
+    title = title_match.group(1).strip() if title_match else None
+    objective = objective_match.group(1).strip() if objective_match else None
+
+    if not title or not objective:
+        logger.info(f"failed to extract required information, raw data : tile_match {title_match}, objective_match {objective_match}")
+        raise ValueError("Failed to Extract required INformations: {title} and obj: {objective}")
+
+    return title, objective
+
+
+def generate_title_and_objective_for_deep_dive(context):
+    
+    prompt = """
+    \n\nHuman:
+    {Information} - ${info}
+
+    Read this {information} thoroughly. Now based on this information and your understanding create an advanced title and objective for quantitative method secondary research in the {information}. After creating provide these:
+
+    Objective - Define the situation, and the problem. Never mention any characters or character names in the objective. Make the objective specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the Objective in 100 to 200 words. Do not add any conclusion.
+    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+
+    Always follow this format:
+
+    Title:
+    Objective: 
+
+    NOTE: The title should NEVER be less than 8 words. Make the title detailed for the objective.
+
+    NOTE : Based on the title and objective this information {information} please evaluate it provides good practice to improve the research. Evaluate whether the title and objective is relevant and understandable. Do not include any other explanation about information and evaluation.
+
+
+    NOTE: Just give title and objective, not any information or evaluation.
+
+    NOTE: Make sure the title and objective is very advanced.
+
+    NOTE: Never mention secondary research study or quantitative research or related terms in title and objective.
+
+    \n\nAssistant:
+
+    """
+
+    prompt = Template(prompt).substitute(
+        info = context
+    )
+    title, objective, response = '','', ''
+    for i in range(3):
+        logger.info(f"Trying to extract information for the {i+1}")
+        try:
+            response = anthropic_completion(prompt,max_tokens=1000)
+            title, objective = extracter_for_deep_dive(response)        
+        except Exception as e:
+            logger.info(f"failed to extract required information, raw data : {response}")
+            if i+1 == 3:
+                raise ValueError("Failed to Extract required INformations: {title} and obj: {objective}")
+            continue
+
+        break
+
+
+    logger.info(f"RAw response: {response} and title: title")
+
+    return {
+        'bot_title': title,
+        "bot_objective": objective
+    }
+
+

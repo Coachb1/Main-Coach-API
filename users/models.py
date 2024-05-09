@@ -179,6 +179,8 @@ class ClientUserInfo(TenantAwareModel):
     restricted_pages = models.TextField(null=True, blank=True, default=None)
     restricted_features = models.TextField(null=True, blank=True, default=None)
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
+    deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
+
 
 
 

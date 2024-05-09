@@ -24,6 +24,7 @@ class ProfileTypeChoice(DjangoChoices):
     icons_by_ai = ChoiceItem('icons_by_ai')
     knowledge_bot = ChoiceItem('knowledge_bot')
     customer_avatar = ChoiceItem('customer_avatar')
+    deep_dive = ChoiceItem("deep_dive")
 
 
 class BotTypeChoice(DjangoChoices):
@@ -33,6 +34,7 @@ class BotTypeChoice(DjangoChoices):
     helper_bot = ChoiceItem("helper_bot")
     coachbots = ChoiceItem("coachbots")
     user_bot = ChoiceItem("user_bot")
+    deep_dive = ChoiceItem("deep_dive")
 
 
 

@@ -13,7 +13,7 @@ from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User, SignatureBot, BotAttribute
+from users.models import User, SignatureBot, BotAttribute, ClientUserInfo
 from users.db import get_user_display_name, get_user_by_id
 from coaching_conversations.helpers import create_user_profile_and_bot
 import csv
@@ -486,3 +486,28 @@ class CoachingConversationViewSet(ApiViewSet,
             send_error_notification("apis.coaching_conversations.views.create_user_profile_and_bot", "Failed create_user_profile_and_bot", {"data": data})
             return Response({"msg": f"Failed with {e}"}, status=status.HTTP_400_BAD_REQUEST)
         
+
+    @action(methods=['GET'], detail=False, url_path='get-deep-dive-create-access')
+    def get_deep_dive_create_access(self, request, *args, **kwargs):
+
+        try:
+            if request.method == 'GET':
+                tenant = request.tenant
+                email = request.query_param('email')
+                has_access = False
+
+
+                if not email:
+                    return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                client = ClientUserInfo.objects.filter(tenant_id=tenant.id, deleted=False, member_emails__contains=email).first()
+                if client:
+                    
+                    if client.deepdive_accessed_emails and (email in client.deepdive_accessed_emails):
+                        has_access = True
+                        
+
+                return Response({"access": has_access}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Got error in deepdive-bot: {e}"}, status=status.HTTP_400_BAD_REQUEST)
