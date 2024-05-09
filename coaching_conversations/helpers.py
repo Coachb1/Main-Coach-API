@@ -711,7 +711,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
     prompt = new_coaching_prompt if bot_type == "avatar_bot" else generic_prompt 
 
-    if signature_bot.custom_prompt:
+    if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
                                                         uid=test_attempt_session_id,
@@ -847,6 +847,17 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv,
                 user_personality = personality
             )
+
+        elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+            if signature_bot.data:
+                bot_title = signature_bot.data.get('bot_title')
+                bot_objective = signature_bot.data.get('bot_objective')
+                logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
+
+                prompt = Template(prompt).substitute(
+                    title = bot_title,
+                    objective = bot_objective
+                )
 
         elif bot_type == 'helper_bot':
             try:
@@ -1080,19 +1091,31 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv
             )
 
-    provide_answers_using_emojis = signature_bot.data.get('additional_data')
-    if provide_answers_using_emojis:
+        elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+            if signature_bot.data:
+                bot_title = signature_bot.data.get('bot_title')
+                bot_objective = signature_bot.data.get('bot_objective')
+                logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
-        provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
-        print(provide_answers_using_emojis,'provide_answers_using_emojis')
-    else:
-        provide_answers_using_emojis = False
+                prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.deep_dive)).substitute(
+                    title = bot_title,
+                    objective = bot_objective
+                )
 
-    if provide_answers_using_emojis:
+    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+        provide_answers_using_emojis = signature_bot.data.get('additional_data')
+        if provide_answers_using_emojis:
 
-        prompt  = prompt.split('Assistant:')
-        prompt.insert(-1, f"Note: Always use only Smileys and People emojis in response to make the responses lively where applicable. \n\nAssistant:")
-        prompt = '\n'.join(prompt)
+            provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
+            print(provide_answers_using_emojis,'provide_answers_using_emojis')
+        else:
+            provide_answers_using_emojis = False
+
+        if provide_answers_using_emojis:
+
+            prompt  = prompt.split('Assistant:')
+            prompt.insert(-1, f"Note: Always use only Smileys and People emojis in response to make the responses lively where applicable. \n\nAssistant:")
+            prompt = '\n'.join(prompt)
 
     return prompt
 
