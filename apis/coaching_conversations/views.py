@@ -506,7 +506,7 @@ class CoachingConversationViewSet(ApiViewSet,
                     identity_type= 'deepchat_unique_id',
                     identity_value=email
                 )
-                if user.role in ['admin', 'super_admin','client_admin']:
+                if user.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
                     return Response({"has_access": True}, status=status.HTTP_200_OK)
 
                 client = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False, member_emails__contains=email).first()
