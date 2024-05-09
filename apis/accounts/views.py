@@ -47,7 +47,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id, create_or_assign_client_id, disable_or_enable_client
+from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
@@ -459,55 +459,8 @@ class AccountsViewSet(ApiViewSet,
                 user_info = []
 
                 for u in user:
-                    restricted = False
-                    demo_user = False
-                    
-                    restricted_emails = []
-                    if u.restricted_ids:
-                        restricted_emails = [e.strip() for e in u.restricted_ids.split(',')]
-                    demo_emails = []
-                    if u.demo_ids:
-                        demo_emails = [e.strip() for e in u.demo_ids.split(',')]
-
-                    
-                    if email in restricted_emails:
-                        restricted = True
-                    if email in demo_emails:
-                        demo_user = True
-
-                    if demo_user:
-                        user_account = Identity.objects.get(deleted=False,tenant_id=u.tenant_id,value=email)
-                        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
-
-                        # Get today's date
-                        current_date = datetime.datetime.now()
-
-                        # Calculate the difference between today's date and the specific date
-                        time_difference = current_date - specific_date
-
-                        # Check if the difference is greater than or equal to 2 weeks
-                        if time_difference >= datetime.timedelta(weeks=2):
-                            restricted = True
-                            demo_user = False
-
-                        logger.info(f"time difference: {time_difference} ")
-
-                    user_info.append({
-                        "client_name": u.client_name,
-                        "avatar_bot_creation": u.avatar_bot_creation,
-                        "feedback_bot_creation": u.feedback_bot_creation,
-                        "subject_matter_bot_creation": u.subject_matter_bot_creation,
-                        "monthly_conversation_limit": u.number_of_conversation_per_month,
-                        "required_form_details": extract_fields(u.required_form_fields) if u.required_form_fields else None,
-                        "is_restricted": restricted,
-                        "is_demo_user": demo_user,
-                        "accessed_bot_ids": u.accessed_bot_ids,
-                        "coach_skills": u.coach_skills,
-                        "coach_expertise": u.coach_expertise,
-                        "departments": u.departments,
-                        "restricted_pages": u.restricted_pages,
-                        "restricted_features": u.restricted_features
-                    })
+                    client_user_data = get_client_user_info(u,email)
+                    user_info.append(client_user_data)
 
                 if len(user_info) == 0:
                     user_info.append({"msg": "user not found",
@@ -1277,13 +1230,13 @@ class AccountsViewSet(ApiViewSet,
                                 directory.feedback_wall = bot_url
                                 directory.save(update_fields=['feedback_wall'])
 
-                        if bot_type in [BotTypeChoice.user_bot, BotTypeChoice.deep_dive] :
+                        if bot_type in [BotTypeChoice.user_bot] :
                             new_dir = DirectoryPageInfo.objects.create(
                             name=coach_profile.name if coach_profile else user.name,
                             department=coach_profile.department if coach_profile else "",
                             profile_id= user.uid, # in case of user_bot or deep_dive storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
-                            profile_type= ProfileTypeChoice.knowledge_bot if bot_type == BotTypeChoice.user_bot else BotTypeChoice.deep_dive,
+                            profile_type= ProfileTypeChoice.knowledge_bot,
                             description=coach_profile.about if coach_profile else "No Description",
                             experience=coach_profile.experience if coach_profile else "",
                             expertise=coach_profile.area_domain if coach_profile else "",
@@ -1296,20 +1249,16 @@ class AccountsViewSet(ApiViewSet,
                             if bot_type == BotTypeChoice.user_bot:
                                 new_dir.custom_user_bot_url = bot_url
                                 new_dir.custom_user_bot_id = bot_id
-                                new_dir.is_approved = False,
-                            elif bot_type == BotTypeChoice.deep_dive:
-                                new_dir.deep_dive_bot_url = bot_url
-                                new_dir.deep_dive_bot_id = bot_id
-                                new_dir.is_approved = True,
+                                new_dir.is_approved = False
+
+                            # elif bot_type == BotTypeChoice.deep_dive:
+                            #     new_dir.deep_dive_bot_url = bot_url
+                            #     new_dir.deep_dive_bot_id = bot_id
+                            #     new_dir.is_approved = True
 
 
                             new_dir.save()
-                            # if directory:
-                            #     if directory.custom_user_bot_url:
-                            #         directory.custom_user_bot_url += f",{bot_url}"
-                            #     else:
-                            #         directory.custom_user_bot_url = bot_url
-                            #     directory.save(update_fields=['custom_user_bot_url'])
+
 
                         
                     except Exception as e:
@@ -1477,7 +1426,7 @@ class AccountsViewSet(ApiViewSet,
 
                 logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
-                if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
+                if media_data and signature_bot.bot_type != [BotTypeChoice.feedback_bot,]:
                     media_data = json.loads(media_data) if isinstance(media_data, str) else media_data
                     if 'youtube_links' in media_data:
                         # logger.info(f"################# youtube_links: {media_data['youtube_links']}")

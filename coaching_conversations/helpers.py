@@ -1859,10 +1859,6 @@ def get_client_user_data(tenant):
             email = user_att.get('email',None) if user_att else None
 
             user_info = get_client_user_info(client,email)
-            user_info['user_id'] = user_id
-            user_info['name'] = user.name
-            user_info['client_id'] = client.uid
-
             client_data.append(user_info)
 
         client_user_data[client.client_name] = client_data
@@ -2022,8 +2018,13 @@ def get_client_user_info(client, email):
     if email in demo_emails:
         demo_user = True
 
+    user_account = get_user_by_id(Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email).user_id)
+    has_deep_dive_creator_access = False
+
+    if user_account.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
+        has_deep_dive_creator_access = True
+
     if demo_user:
-        user_account = Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email)
         specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
 
         # Get today's date
@@ -2054,13 +2055,18 @@ def get_client_user_info(client, email):
         "departments": client.departments,
         "restricted_pages": client.restricted_pages,
         "restricted_features": client.restricted_features,
-        "user_email": email
-    }
+        "user_email": email,
+        "name": user_account.name,
+        "has_deep_dive_creator_access":has_deep_dive_creator_access
 
+    }
+    user_info['user_id'] = user_account.uid
+    user_info['name'] = user_account.name
+    user_info['client_id'] = client.uid
+    
     return user_info
 
 def is_business_email(email):
-    import re
     # Define a regular expression pattern for personal email domains
     personal_email_pattern = r'@(gmail|yahoo|hotmail)\.(com|net|org)'
     
@@ -2106,11 +2112,11 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
             client.member_emails = ",".join(unique_emails)
             client.save(update_fields=['member_emails'])
 
-            # by default we will add it to restricted ids
-            restricted_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
-            restricted_emails.add(email)
-            client.restricted_ids = ",".join(restricted_emails)
-            client.save(update_fields=['restricted_ids'])
+            # by default we will add it to demo ids
+            demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
+            demo_emails.add(email)
+            client.demo_ids = ",".join(demo_emails)
+            client.save(update_fields=['demo_ids'])
 
             assigned = True
 
@@ -2122,11 +2128,11 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
         client.member_emails = ",".join(unique_emails)
         client.save(update_fields=['member_emails'])
 
-        # by default we will add it to restricted ids
-        restricted_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
-        restricted_emails.add(email)
-        client.restricted_ids = ",".join(restricted_emails)
-        client.save(update_fields=['restricted_ids'])
+        # by default we will add it to demo ids
+        demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
+        demo_emails.add(email)
+        client.demo_ids = ",".join(demo_emails)
+        client.save(update_fields=['demo_ids'])
 
     return client.client_name if client else None
 
