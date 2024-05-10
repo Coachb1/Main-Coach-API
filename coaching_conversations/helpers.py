@@ -34,10 +34,12 @@ from commons.utils import remove_punctuations
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
 from identities.models import Identity
+from identities.helpers import get_user_via_identity
 import datetime
 from utilities.helpers import extract_fields
 from string import Template
 import re
+from email_sender.helpers import send_email_with_html_template
 
 logger = logging.getLogger(__name__)
 
@@ -2133,6 +2135,24 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
         demo_emails.add(email)
         client.demo_ids = ",".join(demo_emails)
         client.save(update_fields=['demo_ids'])
+
+
+    # === sending email to business team
+
+    user = get_user_via_identity(
+        tenant = tenant,
+        identity_type = 'deepchat_unique_id',
+        identity_value = email
+    )
+
+    subject = f"New Trial Signup - {user.name}"
+
+    html_content = f"""
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                    A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
+                    </p>
+                    """
+    send_email_with_html_template(subject=subject,html_content=html_content)
 
     return client.client_name if client else None
 
