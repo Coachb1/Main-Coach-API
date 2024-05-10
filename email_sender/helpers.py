@@ -189,8 +189,9 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False,no_reply=False):
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, signature_bot, coach_name, bot_name,allow_reply = False,no_reply=False):
     msg_str = ""
+    bot_id = signature_bot.bot_id
     try:
         from_password = APP_PASSWORD
         from_email = FROM_EMAIL
@@ -207,7 +208,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
             msg['To'] = ', '.join(to_email)
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
-        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
+        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name,bot=signature_bot)
         email_wrapper = ""
         if no_reply:
             email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
@@ -1471,24 +1472,56 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
 
     return template
 
-def get_transcript_block(conversation, summary, simulation,coach_name):
+def get_transcript_block(conversation, summary, simulation,coach_name,bot):
 
     simulation_block = get_simulation_block(simulation)
     data = ""
     for index,i in enumerate(conversation):
-        
-        data += f'''
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
-                <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
-            </td>
-        </tr>
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
-                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{coach_name}: {i['coach']}</p>
-            </td>
-        </tr>
-    '''
+        if bot.bot_type == "deep_dive":
+            if index == 0:
+                data += f'''
+                    <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                            <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                        </td>
+                    </tr>
+                '''
+
+            elif index == len(conversation)-1:
+                    data += f'''
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                    '''
+            else:
+
+                data += f'''
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                            </td>
+                        </tr>
+                    '''
+        else:
+            data += f'''
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                    <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                    <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{coach_name}: {i['coach']}</p>
+                </td>
+            </tr>
+        '''
     template = """
     <td class="esd-stripe" align="center">
         <table bgcolor="#ffffff" class="es-content-body" align="center" cellpadding="0" cellspacing="0" width="600">
