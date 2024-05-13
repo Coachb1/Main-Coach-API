@@ -24,11 +24,15 @@ def get_default_values(choice:str):
 
     elif choice == "expertise":
         expertise =  [
-              "Career Management",
-              "Work Life Banlance",
-              "Project Management",
-              "Lateral Transfers",
-           ]
+                "Leadership Development",
+                "Stress Management",
+                "Hiring & Recruitment",
+                "People Management",
+                "Diversity & Inclusion",
+                "Career Navigation",
+                "Culture Alignment",
+                "Workplace Skills"
+                ]
         text = ",".join(expertise)
 
     return text
