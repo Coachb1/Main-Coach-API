@@ -27,7 +27,7 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
-from users.helpers import upsert_user_attributes
+from users.helpers import upsert_user_attributes, get_client_info_from_user_detail
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
 from users.choices import BotTypeChoice
 from tenants.models import Tenant
@@ -368,6 +368,11 @@ class AccountsViewSet(ApiViewSet,
         data['is_system_bot'] = signature_bot.is_system_bot
         data['additional_data'] = signature_bot.data.get('additional_data',None)
         data['scenario_case'] = signature_bot.bot_scenario_case
+        
+        client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
+        logger.info(f"Client: {client.client_name}")
+        if client:
+            data["allowed_ips"] = client.allowed_ips
 
         if signature_bot.bot_type == 'deep_dive':
             data['deep_dive_data'] = signature_bot.data
@@ -817,6 +822,7 @@ class AccountsViewSet(ApiViewSet,
                 user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=u_id).attributes.get('email',None)
                 client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
                 if client:
+                    # data.append({"allowed_ips": client.allowed_ips})
                     if bot_type == BotTypeChoice.deep_dive:
                         deepdive_bot_access = client.deepdive_accessed_emails.spllit(',') if client.deepdive_accessed_emails else []
                     if client.client_name == client_name:
