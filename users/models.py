@@ -32,6 +32,9 @@ def get_default_values(choice:str):
         text = ",".join(expertise)
 
     return text
+
+def get_default_allowed_ips():
+    return {"feedback_deep-dive":""}
     
 
 
@@ -180,6 +183,7 @@ class ClientUserInfo(TenantAwareModel):
     restricted_features = models.TextField(null=True, blank=True, default=None)
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
+    allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips())
 
 
 

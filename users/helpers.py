@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
-from users.models import User
+from users.models import User, ClientUserInfo
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens, logout_entity
 
@@ -120,3 +120,22 @@ def get_user_attribute(user: User,
         tag=tag
     ).last()
 
+
+
+def get_client_info_from_user_detail(tenant_id, email = None, user_uid = None):
+    if not email and not user_uid:
+        return None
+    
+    def get_client_from_email(email):
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=email).first()
+        return client
+    
+    if email:
+        return get_client_from_email(email)
+    
+    if user_uid:
+        user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_uid).attributes.get('email',None)
+        if not user_email:
+            return None
+        
+        return get_client_from_email(user_email)
