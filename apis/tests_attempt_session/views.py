@@ -687,6 +687,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         submitted_email = request.query_params.get('submitted_email')
         access_token = request.headers.get('Authorization')
         session_qna_data = request.data.get('session_qna_data')
+        submitted_name = request.query_params.get('submitted_name')
         
         logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
@@ -776,7 +777,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot, coach_name,bot_att.bot_name,allow_reply=True, no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False)
+            candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
+            send_bot_conversation_email( candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot, coach_name,bot_att.bot_name,allow_reply=True, no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False)
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
@@ -829,6 +831,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         type_of_email = request.query_params.get('type_of_email')
         is_positive = request.query_params.get('is_positive','False')
         user_email = request.query_params.get('user_email')
+        user_name = request.query_params.get('user_name')
 
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
 
@@ -854,7 +857,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         for email in [bot_owner_email,"coachbots@googlegroups.com"]:
             try:
-                send_feedback_conversation_email(user_email,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
+                send_feedback_conversation_email(f"{user_name}({user_email})",conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
