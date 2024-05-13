@@ -2223,7 +2223,7 @@ def generate_title_and_objective_for_deep_dive(context):
         break
 
 
-    logger.info(f"RAw response: {response} and title: title")
+    logger.info(f"RAw response: {response} and title: {title}, obj: {objective}")
 
     return {
         'bot_title': title,

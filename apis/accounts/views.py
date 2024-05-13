@@ -673,6 +673,16 @@ class AccountsViewSet(ApiViewSet,
                 directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
                 if directory and for_reapproval:
 
+                    avata_bot_id = directory.avatar_bot_id
+                    bot = SignatureBot.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,bot_id=avata_bot_id).first()
+                    if bot:
+                        bot.is_approved = False
+                        bot.save()
+
+                    profile.is_approved_email_sent = False
+                    profile.save()
+
+
                     DirectoryPageInfo.objects.create(
                         name = directory.name,
                         profile_id = directory.profile_id,
@@ -867,7 +877,7 @@ class AccountsViewSet(ApiViewSet,
         logger.info(f"extratedz youtube: {extracted_from_youtube}")
         signature_bot.refresh_from_db()
         bot_media_data = signature_bot.data['media_data']
-        if overwrite:
+        if overwrite and extracted_from_youtube:
             bot_media_data['extracted_from_youtube'] = extracted_from_youtube
         else:
             bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_from_youtube}
@@ -1290,12 +1300,22 @@ class AccountsViewSet(ApiViewSet,
                 profile_id = data.get("profile_id",None)
                 for_reapproval = data.get('for_reapproval',None).lower().strip() == 'true' if data.get('for_reapproval',None) else False
                 
+                try:
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
+                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+                except SignatureBot.DoesNotExist:
+                    return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
                 # sending for reapproval to directory page info
 
                 directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
                 if directory and for_reapproval:
                     if directory.profile_type == ProfileTypeChoice.knowledge_bot:
+                        signature_bot.is_approval_email_sent = False
+                        signature_bot.save()
+
+                        
                         DirectoryPageInfo.objects.create(
                             name = directory.name,
                             profile_id = directory.profile_id,
@@ -1347,12 +1367,7 @@ class AccountsViewSet(ApiViewSet,
 
 
 
-                try:
-                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
-                    bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-                except SignatureBot.DoesNotExist:
-                    return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
-                
+                                
                 updated_data = data.get("updated_data",None)
 
                 if signature_bot.bot_type == BotTypeChoice.user_bot:
@@ -1469,7 +1484,7 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_article:
                             bot_media_data['extracted_from_article'] = extracted_from_article
                         else:
                             bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_from_article}
@@ -1502,7 +1517,7 @@ class AccountsViewSet(ApiViewSet,
                         
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
                             bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
@@ -1535,7 +1550,7 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* doc_data: {extracted_from_doc}")
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
                             bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
@@ -1569,7 +1584,7 @@ class AccountsViewSet(ApiViewSet,
 
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
                             bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
@@ -1609,7 +1624,7 @@ class AccountsViewSet(ApiViewSet,
                     
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
                             bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
