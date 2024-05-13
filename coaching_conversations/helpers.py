@@ -2082,6 +2082,42 @@ def is_business_email(email):
         return True
 
 
+def shift_all_emails_to_domain_client(tenant_id,domain):
+    tenant = Tenant.objects.get(deleted=False,uid=tenant_id)
+    print(f'tenant: {tenant.uid}')
+    domain_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,domain_name=domain).first()
+    print(f"domain_client: {domain_client.domain_name}")
+    if domain_client:
+        all_email_with_domain = []
+        all_clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False)
+        for client in all_clients:
+            member_emails = client.member_emails.split(",") if client.member_emails else []
+            for member_email in member_emails:
+                member_domain = member_email.strip().split('@')[-1]
+                if member_domain == domain:
+                    print(f'member_domain: {member_domain} , domain: {domain}')
+
+                    member_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False, member_emails__contains=member_email).first()
+                    if member_client:
+                        unique_emails = set([email for email in member_client.member_emails.split(",") if len(email.strip()) > 0] if member_client.member_emails else [])
+                        unique_emails = [email for email in unique_emails if email != member_email]
+                        member_client.member_emails = ",".join(unique_emails)
+                        member_client.save(update_fields=['member_emails'])
+
+                    all_email_with_domain.append(member_email.strip())
+                
+        print(f"all_email_with_domain : {all_email_with_domain}")
+        if len(all_email_with_domain) > 0:
+            for email in all_email_with_domain:
+                unique_emails = set([email for email in domain_client.member_emails.split(",") if len(email.strip()) > 0] if domain_client.member_emails else [])
+                unique_emails.add(email)
+                domain_client.member_emails = ",".join(unique_emails)
+                domain_client.save(update_fields=['member_emails'])
+                
+
+
+
+
 def create_client_id(domain):
     client = ClientUserInfo.objects.create(
         client_name =  domain.split(".")[0].capitalize(),

@@ -5,6 +5,7 @@ from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMen
                  ,User,UserAttribute)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
+from coaching_conversations.helpers import shift_all_emails_to_domain_client
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
@@ -65,6 +66,16 @@ admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
 # admin.site.register(User,UserAdmin)
 # admin.site.register(UserAttribute,UserAttributesAdmin)
+
+@receiver(post_save, sender=ClientUserInfo)
+def new_create_client_info_activity(sender, instance, **kwargs):
+    if kwargs['created']:
+        client_domain = instance.domain_name
+        print(f"client_domain: {client_domain}")
+        shift_all_emails_to_domain_client(
+            tenant_id= instance.tenant_id,
+            domain= client_domain
+        )
 
 
 @receiver(post_save, sender=CoachCoacheeMentorMenteeProfile)
@@ -227,3 +238,4 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                     print(f'failed to update bot {e}')
 
 post_save.connect(sync_profile_and_bot_data, sender=CoachCoacheeMentorMenteeProfile)
+post_save.connect(new_create_client_info_activity, sender=ClientUserInfo)
