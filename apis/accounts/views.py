@@ -817,7 +817,7 @@ class AccountsViewSet(ApiViewSet,
         logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
         
         all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
-        if not approved_only:
+        if approved_only:
             all_bots = all_bots.filter(is_approved=True)
         data = []
 
