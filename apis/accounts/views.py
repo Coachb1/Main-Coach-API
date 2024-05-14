@@ -810,11 +810,15 @@ class AccountsViewSet(ApiViewSet,
         user_id = request.query_params.get('user_id',None)
         bot_type = request.query_params.get('bot_type',None)
         client_name = request.query_params.get('client_name',None)
+        approved_only = request.query_params.get('approved_only',None)
+        approved_only = True if approved_only is not None and approved_only in ["true","True"] else False
         tenant_id = self.request.tenant.uid
 
-        logger.info(f"===============user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name}")
+        logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
         
-        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,is_approved=True)
+        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
+        if not approved_only:
+            all_bots = all_bots.filter(is_approved=True)
         data = []
 
         if user_id:
