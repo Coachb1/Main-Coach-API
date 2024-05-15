@@ -1684,3 +1684,67 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             "errors": ["Invalid credentials"],
             "exception": True,
         }
+
+
+
+
+def create_coaches_and_bots_from_data(file, email, password, subdomain_prefix):
+    logger.info("########################## Creating Coaches and Bots from data ############################")
+    url = f'{BACKEND}/api/v1/coaching-conversations/create-user-profile-and-bot/'
+    data = []
+    
+    try:
+        csv_text = TextIOWrapper(file, encoding='utf-8-sig')
+        csv_reader = csv.DictReader(csv_text)
+        all_rows = list(csv_reader)
+        data = all_rows
+    except Exception as e:
+            logger.error(e)
+            return {
+                "errors": [f"Error occurred; Could not create tests {e.args}"],
+                "exception": True,
+            }
+    
+    # with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+    #     reader = csv.DictReader(csvfile)
+    #     for row in reader:
+    #         data.append(dict(row))
+    # print(data)
+
+    headers = {
+                "Authorization": f"Bearer {login_slack(email, password, subdomain_prefix)}",
+                'Content-Type': "application/json"
+            }
+    try:
+        response = requests.post(url,data=json.dumps({'data': data}),headers=headers)
+        print(response.json())
+        data = response.json()['data']
+        csv_file_path = 'coaches-bots-data.csv'
+        field_names = list(data[0].keys())
+
+        # Write the data to a CSV file
+        with open(csv_file_path, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=field_names)
+            writer.writeheader()
+            for row in data:
+                writer.writerow(row)
+                
+        with open(csv_file_path, 'rb') as fh:
+                file_response = HttpResponse(
+                    fh.read(), content_type="text/csv", status=200)
+                file_response['Content-Disposition'] = 'inline; filename=' + \
+                    os.path.basename(csv_file_path)
+
+        # Delete the csv file
+        os.remove(csv_file_path)
+
+        logger.info(f'CSV file "{csv_file_path}" created successfully.')
+        return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
+    except Exception as e:
+        logger.exception(e)
+        return {'errors':["Error occurred; Could not create coaches and bots"], "exception": True}
