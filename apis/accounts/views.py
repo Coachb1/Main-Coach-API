@@ -858,7 +858,7 @@ class AccountsViewSet(ApiViewSet,
         
 
     #************* utility methods ***************
-    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False):
+    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False, deleted_data = {}):
         extracted_from_youtube = {}
         extracted_media_data = {}
 
@@ -890,7 +890,11 @@ class AccountsViewSet(ApiViewSet,
         if overwrite and extracted_from_youtube:
             bot_media_data['extracted_from_youtube'] = extracted_from_youtube
         else:
-            bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_from_youtube}
+            prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
+            if "youtube_links" in deleted_data:
+                for link in deleted_data["youtube_links"].strip().split(","):
+                    prev_extracted_from_youtube.pop(link.strip(),None)
+            bot_media_data['extracted_from_youtube'] = {**prev_extracted_from_youtube,**extracted_from_youtube}
 
         signature_bot.data['media_data'] = bot_media_data
         signature_bot.save(update_fields=["data"])
@@ -1305,10 +1309,19 @@ class AccountsViewSet(ApiViewSet,
 
                     return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
             
+            
+            
+            
+            
+            
             elif request.method == "PATCH":
                 bot_id = data.get("bot_id",None)
                 profile_id = data.get("profile_id",None)
                 for_reapproval = data.get('for_reapproval',None).lower().strip() == 'true' if data.get('for_reapproval',None) else False
+                deleted_data = data.get('deleted_data',None)
+                deleted_data = json.loads(deleted_data) if deleted_data is not None else deleted_data
+                
+                logger.info(f"{'$'*100} deleted_data : {deleted_data}")
                 
                 try:
                     signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
@@ -1450,7 +1463,7 @@ class AccountsViewSet(ApiViewSet,
                     logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
                 extracted_media_data = {}
 
-                logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
+                logger.info(f"*************** Data in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     media_data = json.loads(media_data) if isinstance(media_data, str) else media_data
@@ -1471,7 +1484,7 @@ class AccountsViewSet(ApiViewSet,
                         
                         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
                     
-                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite)).start()
+                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite, deleted_data)).start()
 
 
                     if 'article_links' in media_data:
@@ -1497,7 +1510,14 @@ class AccountsViewSet(ApiViewSet,
                         if is_overwrite and extracted_from_article:
                             bot_media_data['extracted_from_article'] = extracted_from_article
                         else:
-                            bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_from_article}
+                            prev_extracted_from_article = bot_media_data.get('extracted_from_article',{})
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
+                            if  "article_links" in deleted_data:
+                                for link in deleted_data["article_links"].strip().split(","):
+                                    prev_extracted_from_article.pop(link.strip(),None)
+                                    
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
+                            bot_media_data['extracted_from_article'] = {**prev_extracted_from_article,**extracted_from_article}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1530,7 +1550,16 @@ class AccountsViewSet(ApiViewSet,
                         if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
-                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                            prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
+
+                            if "pdf_files" in deleted_data:
+                                for link in deleted_data["pdf_files"].strip().split(","):
+                                    prev_extracted_from_pdf.pop(link.strip(),None)
+                                    
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
+
+                            bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1563,7 +1592,11 @@ class AccountsViewSet(ApiViewSet,
                         if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
-                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                            prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                            if "doc_files" in deleted_data:
+                                for link in deleted_data["doc_files"].strip().split(","):
+                                    prev_extracted_from_doc.pop(link.strip(),None)
+                            bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1597,7 +1630,11 @@ class AccountsViewSet(ApiViewSet,
                         if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
-                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                            prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                            if "doc_files" in deleted_data:
+                                for link in deleted_data["doc_files"].strip().split(","):
+                                    prev_extracted_from_doc.pop(link.strip(),None)
+                            bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1637,7 +1674,11 @@ class AccountsViewSet(ApiViewSet,
                         if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
-                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                            prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                            if "pdf_files" in deleted_data:
+                                for link in deleted_data["pdf_files"].strip().split(","):
+                                    prev_extracted_from_pdf.pop(link.strip(),None)
+                            bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
