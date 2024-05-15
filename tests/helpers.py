@@ -89,6 +89,8 @@ STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
 
 TEST_CODE_LENGTH = 6
 TEST_CODE_GENERATION_MAX_RETRY = 4
+DEEPDIVE_CODE_LENGTH = 6
+DEEPDIVE_CODE_GENERATION_MAX_RETRY = 4
 
 
 def add_prefix(prefix, value):
@@ -140,6 +142,32 @@ def get_unique_test_code(tenant: Tenant) -> str:
         retries += 1
 
     return test_code
+
+@timeit
+def get_unique_deep_dive_access_code(tenant: Tenant) -> str:
+
+    global DEEPDIVE_CODE_LENGTH
+
+    access_code = get_random_string(
+        length=DEEPDIVE_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+
+    access_code = add_prefix('D', access_code)
+    retries = 0
+    while SignatureBot.objects.filter(tenant_id=tenant.uid,
+                              access_code=access_code,
+                              deleted=0).exists():
+        if retries >= DEEPDIVE_CODE_GENERATION_MAX_RETRY:
+            DEEPDIVE_CODE_LENGTH += 1
+            retries = 0
+            logger.info(
+                "[get_unique_deep_dive_access_code] increased length of code to %s", DEEPDIVE_CODE_LENGTH)
+
+        access_code = get_random_string(
+            length=DEEPDIVE_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+        access_code = add_prefix('D', access_code)
+        retries += 1
+
+    return access_code
 
 
 @timeit

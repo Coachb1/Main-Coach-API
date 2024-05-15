@@ -34,7 +34,7 @@ from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
-from tests.helpers import scrape_article_data
+from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
 
 
 from identities.models import Identity
@@ -368,6 +368,8 @@ class AccountsViewSet(ApiViewSet,
         data['is_system_bot'] = signature_bot.is_system_bot
         data['additional_data'] = signature_bot.data.get('additional_data',None)
         data['scenario_case'] = signature_bot.bot_scenario_case
+        data['bot_expires_at'] = signature_bot.bot_expires_at
+        data['access_code'] = signature_bot.access_code
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
@@ -377,10 +379,12 @@ class AccountsViewSet(ApiViewSet,
         if signature_bot.bot_type == 'deep_dive':
             data['deep_dive_data'] = signature_bot.data
             data['deepdive_prompt'] = signature_bot.custom_prompt
+
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
             data['ui_information'] = bot_att.ui_information
+            data['extracted_data'] = bot_att.extracted_documents
 
             if bot_att.fitment_data:
                 data['fitment_qna'] = bot_att.fitment_data['mentee_que']
@@ -1017,6 +1021,8 @@ class AccountsViewSet(ApiViewSet,
                     if not bot_base_url:
                         return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
                     
+                    expiry_date = data.get('expiry_date',datetime.datetime.today() + datetime.timedelta(weeks=2))
+                    
                     bot_approved = data.get('is_approved',False)
                     bot_scenario_case = data.get('bot_scenario_case',None)
                     
@@ -1150,6 +1156,18 @@ class AccountsViewSet(ApiViewSet,
                     if bot_type == BotTypeChoice.feedback_bot:
                         signature_bot.is_approved = True
                         updated_fields.append('is_approved')
+
+                    if bot_type == BotTypeChoice.deep_dive:
+                        signature_bot.bot_expires_at = expiry_date
+                        updated_fields.append('bot_expires_at')
+
+                        access_code = get_unique_deep_dive_access_code(tenant=self.request.tenant)
+                        signature_bot.access_code = access_code
+                        updated_fields.append('access_code')
+                        deep_dive_data['bot_expires_at'] = expiry_date
+                        deep_dive_data['access_code'] = access_code
+                        
+                    
 
                     if updated_fields:
                         signature_bot.save(update_fields=updated_fields)

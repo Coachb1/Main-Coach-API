@@ -1402,7 +1402,7 @@ def create_user_profile_and_bot(data,auth):
     provide_answers_using_emojis = data.get('Would you like your AI Avatar to provide expressive answers using emojis?'.strip().lower(),None)
     journey_and_background = data.get("Backstory".lower().strip(),None)
     voice_sample = data.get('Do you want to provide a voice sample, if you want an audio avatar?'.strip().lower(),None)
-
+    discussion_topic = data.get("Discussion Topic".lower().strip(),None)
 
 
 
@@ -1537,7 +1537,8 @@ def create_user_profile_and_bot(data,auth):
         'is_approved': True,
         "journey_and_background": journey_and_background,
         "voice_sample": voice_sample,
-        "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring
+        "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring,
+        "discussion_topic": discussion_topic
 
     }
 
@@ -1668,7 +1669,8 @@ def create_user_profile_and_bot(data,auth):
                       supported_outcome,
                 ],
                 "coach_qna": qna_for_coach,
-                "mentor_qna": qna_for_mentor
+                "mentor_qna": qna_for_mentor,
+                "discussion_topic": discussion_topic
             },
             "media_data": media_data,
             'is_approved': True,
