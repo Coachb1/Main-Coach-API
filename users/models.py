@@ -112,6 +112,8 @@ class SignatureBot(TenantAwareModel):
     use_idp = models.BooleanField(null=True,default=False)
     bot_scenario_case = models.CharField(max_length=255, null=True, blank=True, choices=BotScenarioCaseChoice, default=BotScenarioCaseChoice.general)
     is_approval_email_sent = models.BooleanField(null=True,default=False)
+    bot_expires_at = models.DateTimeField(null=True,default=None,blank=True)
+    access_code = models.CharField(max_length=10, blank=True, null= True, default=None)
     
 
     class Meta:
@@ -246,6 +248,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     journey_and_background = models.TextField(null=True, blank=True, default=None)
     mentorship_contribution = models.TextField(null=True, blank=True, default=None)
     is_approved_email_sent = models.BooleanField(null=True, blank=True, default=False)
+    discussion_topic = models.TextField(null=True, blank=True, default=None)
 
     
     
