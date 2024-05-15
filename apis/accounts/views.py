@@ -370,7 +370,7 @@ class AccountsViewSet(ApiViewSet,
         data['scenario_case'] = signature_bot.bot_scenario_case
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
-        logger.info(f"Client: {client.client_name}")
+
         if client:
             data["allowed_ips"] = client.allowed_ips
 
