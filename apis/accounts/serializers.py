@@ -73,7 +73,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'significant_challenges_and_solutions',
                 'common_phrases_and_expressions',
                 "journey_and_background",
-                "mentorship_contribution"
+                "mentorship_contribution",
+                "discussion_topic"
                 ]
 
         extra_kwargs = {
