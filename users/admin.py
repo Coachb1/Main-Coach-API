@@ -190,7 +190,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                             instance.supported_outcome,
                         ],
                         "coach_qna": qna_for_coach_mentor.get('coach'),
-                        "mentor_qna": qna_for_coach_mentor.get('mentor')
+                        "mentor_qna": qna_for_coach_mentor.get('mentor'),
+                        "discussion_topic": instance.discussion_topic
                     }
                     
 
