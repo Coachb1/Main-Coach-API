@@ -2980,11 +2980,13 @@ class AccountsViewSet(ApiViewSet,
             tenant = request.tenant
             if request.method == 'POST':
                 client_data = request.data
-                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
-                if client_data.get('domain_name',None):
-                    existing_client = existing_client.filter(domain_name=client_data.get('domain_name',None))
-                if existing_client.count() > 0:
-                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
+                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                # checking if with same name or domain client already exists
+                client_with_name = existing_client.filter(client_name=client_data.get('client_name',None))
+                client_with_domain = existing_client.filter(domain_name=client_data.get('domain_name',None))
+
+                if client_with_name.count() > 0 or client_with_domain.count() > 0:
+                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} or domain {client_data.get('domain_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
                 
                 client = update_or_create_client_id(
                     tenant_id=tenant.uid,
