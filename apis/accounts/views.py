@@ -64,6 +64,8 @@ from coaching_conversations.helpers import generate_title_and_objective_for_deep
 import traceback
 from documents.utils import get_document_summary
 import random
+from coaching_conversations.helpers import update_or_create_client_id
+from apis.accounts.serializers import clientUserInfoSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -2970,3 +2972,37 @@ class AccountsViewSet(ApiViewSet,
             client_name = create_or_assign_client_id(email,tenant,create_client)
             
             return Response({'msg': f'assigned {email} to {client_name}'}, status=status.HTTP_200_OK)
+
+
+    @action(methods=['POST','GET','PATCH'], detail=False, url_path='create-client-id')
+    def create_client_id(self, request, *args, **kwargs):
+        try:
+            tenant = request.tenant
+            if request.method == 'POST':
+                client_data = request.data
+                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
+                if existing_client.count() > 0:
+                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
+                
+                client = update_or_create_client_id(
+                    tenant_id=tenant.uid,
+                    client_data=client_data
+                )
+                return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+            
+            elif request.method == 'GET':
+                client_id = request.query_params.get('client_id',None)
+                client_name = request.query_params.get('client_name',None)
+                client = None
+                if client_id:
+                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=client_id)
+                elif client_name:
+                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,client_name=client_name)
+
+                return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+            
+            # elif request.method == 'PATCH':
+            #     return {'msg': "TODO"}
+        except Exception as e:
+            logger.exception(f"Error creating client: {e}")
+            return Response({'msg':f"Error creating client: {e}"},status=status.HTTP_400_BAD_REQUEST)

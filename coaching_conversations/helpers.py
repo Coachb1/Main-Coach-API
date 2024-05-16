@@ -2120,12 +2120,67 @@ def shift_all_emails_to_domain_client(tenant_id,domain):
                 
 
 
+def update_or_create_client_id(tenant_id,client_data,is_update=False):
+    if is_update:
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,uid=client_data.get('client_id',None)).first()
+        if client:
+           #TODO: update client
+           pass
+
+        return client
+    else:
+        client = create_client_id(
+            tenant_id=tenant_id,
+            client_name=client_data.get('client_name',None),
+            domain=client_data.get('domain_name',None),
+            demo_ids= client_data.get('demo_ids',None),
+            restricted_features= client_data.get('restricted_features',None),
+            restricted_ids=client_data.get('restricted_ids',None),
+            restricted_pages=client_data.get('restricted_pages',None),
+            allowed_ips= client_data.get('allowed_ips',None),
+            coach_expertise=client_data.get('coach_expertise',None),
+            coach_skills=client_data.get("coach_skills",None),
+            departments= client_data.get('departments',None),
+            accessed_bot_ids= client_data.get('accessed_bot_ids',None),
+            member_emails= client_data.get('member_emails',None)
+        )
+    return client
 
 
-def create_client_id(domain):
+
+
+def create_client_id(
+        tenant_id,
+        client_name,
+        domain,
+        demo_ids=None,
+        restricted_ids=None,
+        restricted_pages=None,
+        restricted_features=None,
+        allowed_ips=None,
+        coach_skills=None,
+        departments=None,
+        coach_expertise=None,
+        accessed_bot_ids=None,
+        member_emails=None
+        ):
+    
+    allowed_ips = {"feedback_deep-dive": allowed_ips if allowed_ips else ""}
+
     client = ClientUserInfo.objects.create(
-        client_name =  domain.split(".")[0].capitalize(),
+        tenant_id = tenant_id,
+        client_name =  client_name,
         domain_name = domain,
+        demo_ids = demo_ids,
+        restricted_ids = restricted_ids,
+        restricted_pages = restricted_pages,
+        restricted_features = restricted_features,
+        allowed_ips = allowed_ips,
+        coach_skills = coach_skills,
+        departments = departments,
+        coach_expertise = coach_expertise,
+        accessed_bot_ids = accessed_bot_ids,
+        member_emails = member_emails
     )
     return client
 
@@ -2144,7 +2199,11 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
         already_exist_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,domain_name=domain)
         if already_exist_client.count() == 0:
             if create_new_client:
-                client = create_client_id(domain)
+                client = create_client_id(
+                    tenant_id=tenant.uid,
+                    domain=domain,
+                    client_name=domain.split(".")[0].capitalize()
+                    )
         else:
             client = already_exist_client.first()
             
