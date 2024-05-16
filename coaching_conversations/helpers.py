@@ -1858,12 +1858,14 @@ def get_client_user_data(tenant):
             value__in=member_emails
         ).values_list('user_id', flat=True))
         for user_id in user_ids:
-            user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=user_id)
+            # user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=user_id)
             user_att = UserAttribute.objects.get(user_id=user_id).attributes
             email = user_att.get('email',None) if user_att else None
-
-            user_info = get_client_user_info(client,email)
-            client_data.append(user_info)
+            try:
+                user_info = get_client_user_info(client,email)
+                client_data.append(user_info)
+            except Exception as e:
+                logger.exception(f"Error getting user info for email : {email}")
 
         client_user_data[client.client_name] = client_data
 
