@@ -2980,9 +2980,13 @@ class AccountsViewSet(ApiViewSet,
             tenant = request.tenant
             if request.method == 'POST':
                 client_data = request.data
-                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
-                if existing_client.count() > 0:
-                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
+                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                # checking if with same name or domain client already exists
+                client_with_name = existing_client.filter(client_name=client_data.get('client_name',None))
+                client_with_domain = existing_client.filter(domain_name=client_data.get('domain_name',None))
+
+                if client_with_name.count() > 0 or client_with_domain.count() > 0:
+                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} or domain {client_data.get('domain_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
                 
                 client = update_or_create_client_id(
                     tenant_id=tenant.uid,
@@ -2995,14 +2999,17 @@ class AccountsViewSet(ApiViewSet,
                 client_name = request.query_params.get('client_name',None)
                 client = None
                 if client_id:
-                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=client_id)
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
                 elif client_name:
-                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,client_name=client_name)
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
 
-                return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                if client:
+                    return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "No client found"}, status=status.HTTP_400_BAD_REQUEST)
             
             # elif request.method == 'PATCH':
             #     return {'msg': "TODO"}
         except Exception as e:
             logger.exception(f"Error creating client: {e}")
-            return Response({'msg':f"Error creating client: {e}"},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg':f"Error create-client-id: {e}"},status=status.HTTP_400_BAD_REQUEST)
