@@ -2981,6 +2981,8 @@ class AccountsViewSet(ApiViewSet,
             if request.method == 'POST':
                 client_data = request.data
                 existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
+                if client_data.get('domain_name',None):
+                    existing_client = existing_client.filter(domain_name=client_data.get('domain_name',None))
                 if existing_client.count() > 0:
                     return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
                 
@@ -2995,14 +2997,17 @@ class AccountsViewSet(ApiViewSet,
                 client_name = request.query_params.get('client_name',None)
                 client = None
                 if client_id:
-                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=client_id)
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
                 elif client_name:
-                    client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,client_name=client_name)
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
 
-                return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                if client:
+                    return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "No client found"}, status=status.HTTP_400_BAD_REQUEST)
             
             # elif request.method == 'PATCH':
             #     return {'msg': "TODO"}
         except Exception as e:
             logger.exception(f"Error creating client: {e}")
-            return Response({'msg':f"Error creating client: {e}"},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg':f"Error create-client-id: {e}"},status=status.HTTP_400_BAD_REQUEST)
