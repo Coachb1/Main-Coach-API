@@ -2165,23 +2165,49 @@ def create_client_id(
         member_emails=None
         ):
     
-    allowed_ips = {"feedback_deep-dive": allowed_ips if allowed_ips else ""}
 
     client = ClientUserInfo.objects.create(
         tenant_id = tenant_id,
         client_name =  client_name,
-        domain_name = domain,
-        demo_ids = demo_ids,
-        restricted_ids = restricted_ids,
-        restricted_pages = restricted_pages,
-        restricted_features = restricted_features,
-        allowed_ips = allowed_ips,
-        coach_skills = coach_skills,
-        departments = departments,
-        coach_expertise = coach_expertise,
-        accessed_bot_ids = accessed_bot_ids,
-        member_emails = member_emails
+        domain_name = domain
     )
+
+    updated_fields = []
+    if coach_expertise:
+        client.coach_expertise=coach_expertise
+        updated_fields.append('coach_expertise')
+    if coach_skills:
+        client.coach_skills=coach_skills
+        updated_fields.append('coach_skills')
+    if departments:
+        client.departments= departments
+        updated_fields.append('departments')
+    if restricted_pages:
+        client.restricted_pages= restricted_pages
+        updated_fields.append('restricted_pages')
+    if restricted_features:
+        client.restricted_features= restricted_features
+        updated_fields.append('restricted_features')
+    if demo_ids:
+        client.demo_ids= demo_ids
+        updated_fields.append('demo_ids')
+    if restricted_ids:
+        client.restricted_ids= restricted_ids
+        updated_fields.append('restricted_ids')
+    if allowed_ips:
+        allowed_ips = {"feedback_deep-dive": allowed_ips if allowed_ips else ""}
+        client.allowed_ips= allowed_ips
+        updated_fields.append('allowed_ips')
+    if accessed_bot_ids:
+        client.accessed_bot_ids= accessed_bot_ids
+        updated_fields.append('accessed_bot_ids')
+    if member_emails:
+        client.member_emails= member_emails
+        updated_fields.append('member_emails')
+
+    if len(updated_fields)> 0:
+        client.save(update_fields=updated_fields)
+
     return client
 
 def create_or_assign_client_id(email,tenant,create_new_client=False):
