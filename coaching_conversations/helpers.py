@@ -2202,8 +2202,16 @@ def create_client_id(
         client.accessed_bot_ids= accessed_bot_ids
         updated_fields.append('accessed_bot_ids')
     if member_emails:
-        client.member_emails= member_emails
-        updated_fields.append('member_emails')
+        emails = [email.strip() for email in member_emails.split(',') if len(email) > 0]
+        new_emails = set()
+        for email in emails:
+            email_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=email)
+            if email_client.count() == 0:
+                new_emails.add(email)
+
+        if len(new_emails) > 0:
+            client.member_emails= ",".join(new_emails)
+            updated_fields.append('member_emails')
 
     if len(updated_fields)> 0:
         client.save(update_fields=updated_fields)
