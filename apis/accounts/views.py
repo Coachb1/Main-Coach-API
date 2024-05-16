@@ -891,9 +891,9 @@ class AccountsViewSet(ApiViewSet,
             bot_media_data['extracted_from_youtube'] = extracted_from_youtube
         else:
             prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
-            if "youtube_links" in deleted_data:
-                for link in deleted_data["youtube_links"].strip().split(","):
-                    prev_extracted_from_youtube.pop(link.strip(),None)
+            # if "youtube_links" in deleted_data:
+            #     for link in deleted_data["youtube_links"].strip().split(","):
+            #         prev_extracted_from_youtube.pop(link.strip(),None)
             bot_media_data['extracted_from_youtube'] = {**prev_extracted_from_youtube,**extracted_from_youtube}
 
         signature_bot.data['media_data'] = bot_media_data
@@ -1328,6 +1328,67 @@ class AccountsViewSet(ApiViewSet,
                     bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 except SignatureBot.DoesNotExist:
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+                
+                # delete files data specified in deleted_data
+                
+                
+                if deleted_data is not None:
+                    bot_media_data = signature_bot.data['media_data']
+                    #**** delete articles data ***
+                    if  "article_links" in deleted_data:
+                        prev_extracted_from_article = bot_media_data.get('extracted_from_article',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
+                        
+                        for link in deleted_data["article_links"].split(","):
+                            prev_extracted_from_article.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
+                        bot_media_data['extracted_from_article'] = prev_extracted_from_article
+                        
+                    
+                    #*** delete pdf's data ***
+
+                    if "pdf_files" in deleted_data:
+                        prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
+                        
+                        for link in deleted_data["pdf_files"].split(","):
+                            prev_extracted_from_pdf.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
+
+                        bot_media_data['extracted_from_pdf'] = prev_extracted_from_pdf
+                        
+                        
+                    #*** delete docs data ***
+                    
+                    if "doc_files" in deleted_data:
+                        prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_doc before: {prev_extracted_from_doc}")
+                        
+                        for link in deleted_data["doc_files"].split(","):
+                            prev_extracted_from_doc.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_doc after: {prev_extracted_from_doc}")
+                        bot_media_data['extracted_from_doc'] = prev_extracted_from_doc
+                    
+                    
+                    #*** delete youtube links ***
+                    
+                    if "youtube_links" in deleted_data:
+                        prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_youtube before: {prev_extracted_from_youtube}")
+                        
+                        for link in deleted_data["youtube_links"].split(","):
+                            prev_extracted_from_youtube.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_youtube after: {prev_extracted_from_youtube}")
+                        bot_media_data['extracted_from_youtube'] = prev_extracted_from_youtube
+
+                        
+                    signature_bot.data['media_data'] = bot_media_data
+                    signature_bot.save(update_fields=["data"])
 
 
                 # sending for reapproval to directory page info
@@ -1511,12 +1572,12 @@ class AccountsViewSet(ApiViewSet,
                             bot_media_data['extracted_from_article'] = extracted_from_article
                         else:
                             prev_extracted_from_article = bot_media_data.get('extracted_from_article',{})
-                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
-                            if  "article_links" in deleted_data:
-                                for link in deleted_data["article_links"].strip().split(","):
-                                    prev_extracted_from_article.pop(link.strip(),None)
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
+                            # if  "article_links" in deleted_data:
+                            #     for link in deleted_data["article_links"].strip().split(","):
+                            #         prev_extracted_from_article.pop(link.strip(),None)
                                     
-                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
                             bot_media_data['extracted_from_article'] = {**prev_extracted_from_article,**extracted_from_article}
                         
                         signature_bot.data['media_data'] = bot_media_data
@@ -1551,13 +1612,13 @@ class AccountsViewSet(ApiViewSet,
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
                             prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
-                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
 
-                            if "pdf_files" in deleted_data:
-                                for link in deleted_data["pdf_files"].strip().split(","):
-                                    prev_extracted_from_pdf.pop(link.strip(),None)
+                            # if "pdf_files" in deleted_data:
+                            #     for link in deleted_data["pdf_files"].strip().split(","):
+                            #         prev_extracted_from_pdf.pop(link.strip(),None)
                                     
-                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
 
                             bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
@@ -1631,9 +1692,9 @@ class AccountsViewSet(ApiViewSet,
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
                             prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
-                            if "doc_files" in deleted_data:
-                                for link in deleted_data["doc_files"].strip().split(","):
-                                    prev_extracted_from_doc.pop(link.strip(),None)
+                            # if "doc_files" in deleted_data:
+                            #     for link in deleted_data["doc_files"].strip().split(","):
+                            #         prev_extracted_from_doc.pop(link.strip(),None)
                             bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
                         
                         signature_bot.data['media_data'] = bot_media_data
@@ -1675,9 +1736,9 @@ class AccountsViewSet(ApiViewSet,
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
                             prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
-                            if "pdf_files" in deleted_data:
-                                for link in deleted_data["pdf_files"].strip().split(","):
-                                    prev_extracted_from_pdf.pop(link.strip(),None)
+                            # if "pdf_files" in deleted_data:
+                            #     for link in deleted_data["pdf_files"].strip().split(","):
+                            #         prev_extracted_from_pdf.pop(link.strip(),None)
                             bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
                         signature_bot.data['media_data'] = bot_media_data
