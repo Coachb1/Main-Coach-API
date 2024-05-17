@@ -26,10 +26,10 @@ class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'deep_dive_bot_id','deep_dive_bot_url','custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
-    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'deep_dive_bot_id','deep_dive_bot_url','custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise","avatar_bot_id","custom_user_bot_id")
+    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     ordering = ['-id']
 
 class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
