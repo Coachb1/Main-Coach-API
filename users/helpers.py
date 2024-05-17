@@ -106,6 +106,7 @@ def upsert_user_attributes(user: User, tag: str, attributes: dict) -> UserAttrib
 
 def get_user_skills_report_attribute(user: User) -> UserAttribute:
     return UserAttribute.objects.filter(
+        deleted=False,
         tenant_id=user.tenant_id,
         user_id=user.uid,
         tag="skills_report"
@@ -115,6 +116,7 @@ def get_user_skills_report_attribute(user: User) -> UserAttribute:
 def get_user_attribute(user: User,
                        tag: str) -> UserAttribute:
     return UserAttribute.objects.filter(
+        deleted=False,
         tenant_id=user.tenant_id,
         user_id=user.uid,
         tag=tag
