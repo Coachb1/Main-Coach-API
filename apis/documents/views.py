@@ -13,6 +13,10 @@ from commons.langchain import download_and_transcribe_audio
 from documents.utils import get_summary
 from commons.youtube_utils import get_youtube_transcript, repidapi_stt
 from commons.anthropic import anthropic_completion
+from commons.cloudinary import upload_image
+import logging
+
+logger = logging.getLogger("main")
 
 
 class DocumentViewSet(ApiViewSet,
@@ -120,3 +124,16 @@ class DocumentViewSet(ApiViewSet,
         prompt = request.query_params.get("prompt")
         response_text = anthropic_completion(prompt, 500)
         return Response({"response_text": response_text})
+    
+    
+    @action(methods=["POST"], detail=False,parser_classes = [MultiPartParser], url_path="upload-image")
+    def _upload_image(self, request, *args, **kwargs):
+        try:
+            image_file = request.data.get('image_file')
+            logger.info(f"<<<<<<<<<<<<<<<< image_file : {image_file} >>>>>>>>>>>>>>>>")
+            image_url = upload_image(image_file).get('secure_url')
+            logger.info(f"<<<<<<<<<<<<<<<<< image_url : {image_url} >>>>>>>>>>>>>>>>>>>>")
+            return Response({"image_url": image_url})
+        except Exception as e:
+            logger.exception("!!!!!!!!!!!!!!!!!!! Error in uploading image !!!!!!!!!!!!!!!!!",e)
+            return Response({"Error":e.args}, status=status.HTTP_400_BAD_REQUEST)
