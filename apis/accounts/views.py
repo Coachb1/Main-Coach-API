@@ -767,7 +767,7 @@ class AccountsViewSet(ApiViewSet,
                 else:
                     data['is_approved'] = False
 
-                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'])
                 if profile.count() > 0:
                     return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
                 
@@ -1282,7 +1282,7 @@ class AccountsViewSet(ApiViewSet,
 
                         if bot_type in [BotTypeChoice.user_bot] :
                             new_dir = DirectoryPageInfo.objects.create(
-                            name=coach_profile.name if coach_profile else user.name,
+                            name=bot_name,
                             department=coach_profile.department if coach_profile else "",
                             profile_id= user.uid, # in case of user_bot or deep_dive storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
@@ -1309,8 +1309,24 @@ class AccountsViewSet(ApiViewSet,
 
                             new_dir.save()
 
+                            try:
+                                subject = "Knowledge Bots"
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your knowledge bot- <b>{bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    """
 
+                                send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey!')
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} created a knowledge bot - {bot_name}. Please check it out and approve it from Django Admin Panel.</p>
+                                    """
+                                send_email_with_html_template(subject=subject,html_content=html)
                         
+                            except Exception as e:
+                                logger.exception(f"Knowledge bot creation email is failed reason: {e}")
+                                error_msg = f"Knowledge bot creation email is failed reason: {e}\n\n"
+                                error_msg += traceback.format_exc()
+                                send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
+
                     except Exception as e:
                         logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
                         error_msg = f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}\n\n"
