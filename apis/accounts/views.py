@@ -27,9 +27,9 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
-from users.helpers import upsert_user_attributes, get_client_info_from_user_detail
+from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
-from users.choices import BotTypeChoice
+from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating
@@ -47,7 +47,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
+from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import extract_file_and_text
@@ -252,15 +252,20 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-user-type")
     def get_user_type(self,request,*args, **kwargs):
         """
-            Retrieves the role of a user based on their user ID.
+            Retrieves the role of a user based on their user ID if user Id given else it retrives a list of all roles in our system.
         """
         user_id = request.query_params.get('user_id')
 
-        user = User.objects.get(uid=user_id)
+        if user_id:
+            user = User.objects.get(uid=user_id)
 
-        user_role = user.role
+            user_role = user.role
 
-        return Response({"user_role":user_role}, status=status.HTTP_200_OK)
+            return Response({"user_role":user_role}, status=status.HTTP_200_OK)
+        else:
+            # get all userRole in system
+            user_roles = list(UserRoleChoice.values.keys())
+            return Response({"user_roles":user_roles}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
     def get_mobile_number_res_list_whatsapp(self,request,*args, **kwargs):
@@ -2938,8 +2943,8 @@ class AccountsViewSet(ApiViewSet,
 
             try:
                 if new_client_id:
-                    update_client_id(
-                        tenant=tenant,
+                    update_member_client_id(
+                        tenant_id=tenant.uid,
                         old_client_id=old_client_id,
                         new_client_id=new_client_id,
                         user_email=user_email
@@ -2974,19 +2979,16 @@ class AccountsViewSet(ApiViewSet,
             return Response({'msg': f'assigned {email} to {client_name}'}, status=status.HTTP_200_OK)
 
 
-    @action(methods=['POST','GET','PATCH'], detail=False, url_path='create-client-id')
+    @action(methods=['POST','GET','PATCH'], detail=False, url_path='get-create-or-update-client-id')
     def create_client_id(self, request, *args, **kwargs):
         try:
             tenant = request.tenant
             if request.method == 'POST':
                 client_data = request.data
-                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
-                # checking if with same name or domain client already exists
-                client_with_name = existing_client.filter(client_name=client_data.get('client_name',None))
-                client_with_domain = existing_client.filter(domain_name=client_data.get('domain_name',None))
-
-                if client_with_name.count() > 0 or client_with_domain.count() > 0:
-                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} or domain {client_data.get('domain_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
+                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
+                # checking if with same name client already exists
+                if existing_client.count() > 0 :
+                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
                 
                 client = update_or_create_client_id(
                     tenant_id=tenant.uid,
@@ -3006,10 +3008,44 @@ class AccountsViewSet(ApiViewSet,
                 if client:
                     return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
                 else:
-                    return Response({"message": "No client found"}, status=status.HTTP_400_BAD_REQUEST)
+
+                    all_clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                    return Response({'all_clients': clientUserInfoSerializer(all_clients,many=True).data}, status=status.HTTP_200_OK)
+
             
-            # elif request.method == 'PATCH':
-            #     return {'msg': "TODO"}
+            elif request.method == 'PATCH':
+                client_id = request.data.get('client_id',None)
+                if not client_id:
+                    return Response({'msg':f"Please ensure that the client_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                
+                client = update_or_create_client_id(
+                    tenant_id=tenant.uid,
+                    client_data=request.data,
+                    is_update=True
+                )
+
+                return Response({'updated': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             logger.exception(f"Error creating client: {e}")
             return Response({'msg':f"Error create-client-id: {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['PATCH'], detail=False, url_path='update-user-account')
+    def update_user_account(self, request, *args, **kwargs):
+        try:
+            tenant = self.request.tenant
+            if request.method == 'PATCH':
+                user_id = request.data.get('user_id',None)
+                if not user_id:
+                    return Response({'msg':f"Please ensure that the user_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                
+                user = update_user_account(
+                    tenant_id=tenant.uid,
+                    user_id=user_id,
+                    user_data=request.data,
+                )
+                return Response({'updated': AccountSerializer(user).data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error update_user_account: {e}")
+            return Response({'msg':f"Error update_user_account: {e}"},status=status.HTTP_400_BAD_REQUEST)
