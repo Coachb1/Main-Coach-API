@@ -80,6 +80,7 @@ class UserAttribute(TenantAwareModel):
     test_previlage = models.TextField(null=True,blank=True,default=None)
     competency_data = models.JSONField(null=True,blank=True,default=default_competency_data())
     evaluate_relevency = models.BooleanField(null=True, blank = True, default=True)
+    allow_audio_interactions = models.BooleanField(null=True, default=False)
     
 
 
@@ -190,6 +191,7 @@ class ClientUserInfo(TenantAwareModel):
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips())
+    allow_audio_interactions = models.BooleanField(null=True, default=False)
 
 
 
