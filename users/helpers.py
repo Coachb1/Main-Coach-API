@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
-from users.models import User, ClientUserInfo
+from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile
 from users.models import UserAttribute
 from web_auth.helpers import create_new_tokens, logout_entity
 
@@ -139,3 +139,52 @@ def get_client_info_from_user_detail(tenant_id, email = None, user_uid = None):
             return None
         
         return get_client_from_email(user_email)
+    
+
+def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
+
+    user = User.objects.get(deleted=False,tenant_id=tenant_id,uid=user_id)
+
+    # updating user data
+    updated_fields = []
+
+    if user_data.get('name'):
+        user.name = user_data.get('name')
+        updated_fields.append('name')
+
+    if user_data.get('role'):
+        user.role = user_data.get('role')
+        updated_fields.append('role')
+
+    if len(updated_fields) > 0:
+        user.save(update_fields=updated_fields)
+
+    updated_fields = []
+    # updating user attributes
+
+    user_attribute = UserAttribute.objects.get(user_id=user.uid)
+
+    if user_data.get('email'):
+        user_attribute.attributes['email'] = user_data.get('email')
+        updated_fields.append('attributes')
+
+    if user_data.get('allow_audio_interactions'):
+        user_attribute.allow_audio_interactions = user_data.get('allow_audio_interactions')
+        updated_fields.append('allow_audio_interactions')
+
+    if len(updated_fields) > 0:
+        user_attribute.save(update_fields=updated_fields)
+
+    updated_fields = []
+
+    # updating profile if any
+    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, user_id= user.uid).last()
+    if profile:
+        if user_data.get('name'):
+            profile.name = user_data.get('name')
+            updated_fields.append('name')
+
+        if len(updated_fields) > 0:
+            profile.save(update_fields=updated_fields)
+
+    return user

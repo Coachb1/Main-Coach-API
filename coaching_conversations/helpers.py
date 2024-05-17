@@ -1872,13 +1872,13 @@ def get_client_user_data(tenant):
     return client_user_data
 
 
-def update_client_id(tenant, old_client_id, new_client_id, user_email):
+def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
     """
     Updates the membership of a user identified by their email across client records within a specific tenant.
     This function removes the user's email from an old client's member list and adds it to a new client's member list.
 
     Parameters:
-    - tenant (Tenant): The tenant object representing the current tenant context.
+    - tenant_id (str): The tenant_id .
     - old_client_id (str): The unique identifier of the old client from which the user's email will be removed. If None, the email will be removed from all clients where it appears.
     - new_client_id (str): The unique identifier of the new client to which the user's email will be added.
     - user_email (str): The email address of the user to be updated.
@@ -1902,15 +1902,15 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
 
     Example:
     >>> tenant = Tenant(uid="12345")
-    >>> update_client_id(tenant, "old_client123", "new_client456", "user@example.com")
+    >>> update_member_client_id(tenant, "old_client123", "new_client456", "user@example.com")
     This will remove "user@example.com" from "old_client123" and add it to "new_client456" within the tenant "12345".
     """
     # Function implementation follows
 
-    logger.info(f"==================================================data: tenant: {tenant},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
+    logger.info(f"==================================================data: tenant: {tenant_id},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
     
     if old_client_id:
-        old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=old_client_id)
+        old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=old_client_id)
         # remove user_email from old client
 
         emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0] if old_client.member_emails else []  # Split the string into a list of emails
@@ -1919,7 +1919,7 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
         old_client.save(update_fields=['member_emails'])
 
     else:
-        all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=user_email)
+        all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email)
         for client in all_client_of_user:
             emails_list = [email.strip() for email in client.member_emails.split(',') if len(email.strip()) > 0] if client.member_emails else []  # Split the string into a list of emails
             emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
@@ -1928,7 +1928,7 @@ def update_client_id(tenant, old_client_id, new_client_id, user_email):
 
             
     # add user_email to new_client
-    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant.uid,uid=new_client_id)
+    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=new_client_id)
     unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0] if new_client.member_emails else [])
     unique_emails.add(user_email)
     new_client.member_emails = ",".join(unique_emails)
@@ -1950,7 +1950,7 @@ def disable_or_enable_client(email,is_disable,tenant):
             client.save(update_fields=['restricted_ids'])
         
 
-def get_client_user_info(client, email):
+def get_client_user_info(client:ClientUserInfo, email:str):
     """
     Retrieves comprehensive user information based on client settings and user email, 
     including restrictions and demo user status.
@@ -2063,7 +2063,8 @@ def get_client_user_info(client, email):
         "restricted_features": client.restricted_features,
         "user_email": email,
         "name": user_account.name,
-        "has_deep_dive_creator_access":has_deep_dive_creator_access
+        "has_deep_dive_creator_access":has_deep_dive_creator_access,
+        "allow_audio_interactions": client.allow_audio_interactions
 
     }
     user_info['user_id'] = user_account.uid
@@ -2124,8 +2125,52 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
     if is_update:
         client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,uid=client_data.get('client_id',None)).first()
         if client:
-           #TODO: update client
-           pass
+            updated_fields = []
+            if client_data.get('coach_expertise'):
+                client.coach_expertise=client_data.get('coach_expertise')
+                updated_fields.append('coach_expertise')
+            if client_data.get('coach_skills'):
+                client.coach_skills=client_data.get('coach_skills')
+                updated_fields.append('coach_skills')
+            if client_data.get('departments'):
+                client.departments= client_data.get('departments')
+                updated_fields.append('departments')
+            if client_data.get('restricted_pages'):
+                client.restricted_pages= client_data.get('restricted_pages')
+                updated_fields.append('restricted_pages')
+            if client_data.get('restricted_features'):
+                client.restricted_features= client_data.get('restricted_features')
+                updated_fields.append('restricted_features')
+            if client_data.get('demo_ids'):
+                client.demo_ids= client_data.get('demo_ids')
+                updated_fields.append('demo_ids')
+            if client_data.get('restricted_ids'):
+                client.restricted_ids= client_data.get('restricted_ids')
+                updated_fields.append('restricted_ids')
+            if client_data.get('allowed_ips'):
+                allowed_ips = {"feedback_deep-dive": client_data.get('allowed_ips') if client_data.get('allowed_ips') else ""}
+                client.allowed_ips= allowed_ips
+                updated_fields.append('allowed_ips')
+            if client_data.get('accessed_bot_ids'):
+                client.accessed_bot_ids= client_data.get('accessed_bot_ids')
+                updated_fields.append('accessed_bot_ids')
+                
+            if client_data.get('member_emails'):
+                emails = [email.strip() for email in client_data.get('member_emails').split(',') if len(email) > 0]
+                for email in emails:
+                    update_member_client_id(
+                        tenant_id=tenant_id,
+                        old_client_id=None,
+                        new_client_id=client.uid,
+                        user_email=email
+                    )
+
+            if client_data.get('allow_audio_interactions'):
+                client.allow_audio_interactions = client_data.get('allow_audio_interactions')
+                updated_fields.append('allow_audio_interactions')
+
+            if len(updated_fields)> 0:
+                client.save(update_fields=updated_fields)
 
         return client
     else:
@@ -2142,7 +2187,8 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             coach_skills=client_data.get("coach_skills",None),
             departments= client_data.get('departments',None),
             accessed_bot_ids= client_data.get('accessed_bot_ids',None),
-            member_emails= client_data.get('member_emails',None)
+            member_emails= client_data.get('member_emails',None),
+            allow_audio_interactions= client_data.get('allow_audio_interactions',None)
         )
     return client
 
@@ -2162,7 +2208,8 @@ def create_client_id(
         departments=None,
         coach_expertise=None,
         accessed_bot_ids=None,
-        member_emails=None
+        member_emails=None,
+        allow_audio_interactions=None
         ):
     
 
@@ -2201,6 +2248,10 @@ def create_client_id(
     if accessed_bot_ids:
         client.accessed_bot_ids= accessed_bot_ids
         updated_fields.append('accessed_bot_ids')
+    if allow_audio_interactions:
+        client.allow_audio_interactions = allow_audio_interactions
+        updated_fields.append('allow_audio_interactions')
+
     if member_emails:
         emails = [email.strip() for email in member_emails.split(',') if len(email) > 0]
         new_emails = set()
