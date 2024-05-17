@@ -40,13 +40,29 @@ class AccountSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
+
+        user_att = UserAttribute.objects.get(deleted=False, user_id=instance.uid)
+        if user_att.attributes.get('email'):
+            data['email'] = user_att.attributes.get('email')
+
+        data['user_allow_audio_interactions'] = user_att.allow_audio_interactions
+
         try:
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
 
             data['profile_type'] = profile.profile_type
         except Exception as e:
-            logger.exception(f"Error fetching profile: {e}")
+            logger.error(f"Error fetching profile: {e}")
             pass
+        
+        if user_att.attributes.get('email'):
+            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
+            if client:
+                data['client_allow_audio_interactions'] = client.allow_audio_interactions
+
+
+        data['profile_type'] = profile.profile_type
+
 
         return data
 
