@@ -4,7 +4,7 @@ import re
 
 
 def get_user_by_id(user_id) -> User:
-    return User.objects.get(uid=user_id)
+    return User.objects.get(deleted=False,uid=user_id)
 
 
 def get_user_display_name(user: User):
