@@ -2024,7 +2024,12 @@ def get_client_user_info(client:ClientUserInfo, email:str):
     if email in demo_emails:
         demo_user = True
 
-    user_account = get_user_by_id(Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email).user_id)
+    try:
+        user_account = get_user_by_id(Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email).user_id)
+    except:
+        return {"msg": "user not found",
+                "is_restricted": False,
+                "is_demo_user": True}
     has_deep_dive_creator_access = False
 
     if user_account.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
