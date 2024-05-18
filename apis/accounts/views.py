@@ -481,8 +481,8 @@ class AccountsViewSet(ApiViewSet,
 
                 if len(user_info) == 0:
                     user_info.append({"msg": "user not found",
-                                      "is_restricted": True,
-                                      "is_demo_user": False},
+                                      "is_restricted": False,
+                                      "is_demo_user": True},
                                       )
 
                 data['user_info'] = user_info
@@ -1438,62 +1438,62 @@ class AccountsViewSet(ApiViewSet,
 
 
                 # sending for reapproval to directory page info
+                if signature_bot.bot_type == BotTypeChoice.user_bot:
 
-                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
-                if directory and for_reapproval:
-                    if directory.profile_type == ProfileTypeChoice.knowledge_bot:
-                        signature_bot.is_approval_email_sent = False
-                        signature_bot.save()
+                    directory = DirectoryPageInfo.objects.filter(profile_id=signature_bot.user_id).first()
+                    if directory and for_reapproval:
+                            signature_bot.is_approval_email_sent = False
+                            signature_bot.save()
 
-                        
-                        DirectoryPageInfo.objects.create(
-                            name = directory.name,
-                            profile_id = directory.profile_id,
-                            department = directory.department,
-                            bot_type = directory.bot_type,
-                            profile_pic_url = directory.profile_pic_url,
-                            profile_type = directory.profile_type,
-                            description = directory.description,
-                            experience = directory.experience,
-                            expertise = directory.expertise,
-                            status = directory.status,
-                            avatar_bot_id = directory.avatar_bot_id,
-                            feedback_wall = directory.feedback_wall,
-                            skills = directory.skills,
-                            is_visible = directory.is_visible,
-                            is_approved = False,
-                            avatar_snippit = directory.avatar_snippit,
-                            avatar_bot_url = directory.avatar_bot_url,
-                            custom_user_bot_url = directory.custom_user_bot_url,
-                            custom_user_bot_id = directory.custom_user_bot_id,
-                            deep_dive_bot_url = directory.deep_dive_bot_url,
-                            deep_dive_bot_id = directory.deep_dive_bot_id,
-                            timer_enabled = directory.timer_enabled,
-                            time_value_in_days = directory.time_value_in_days,
-                            timer_reset = directory.timer_reset,
-                            visual_tag = directory.visual_tag,
-                            ai_email = directory.ai_email
-                        )
-
-
-                        # directory.save()
-                        try:
-                            subject = "AI Frame Updation"
-                            html = f"""
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your Knowledge Bot. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
-                                """
-
-                            send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
-                            html = f"""
-                                <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated Knowledge Bot (Bot-id: {directory.custom_user_bot_id}). Please check it out and re-approve it from Django Admin Panel.</p>
-                                """
-                            send_email_with_html_template(subject=subject,html_content=html)
-
-                        except Exception as e:
-                            logger.error(f"Got error in sending email for reapproval : {e}")
-                            send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
                             
-                        directory.delete()
+                            DirectoryPageInfo.objects.create(
+                                name = directory.name,
+                                profile_id = directory.profile_id,
+                                department = directory.department,
+                                bot_type = directory.bot_type,
+                                profile_pic_url = directory.profile_pic_url,
+                                profile_type = directory.profile_type,
+                                description = directory.description,
+                                experience = directory.experience,
+                                expertise = directory.expertise,
+                                status = directory.status,
+                                avatar_bot_id = directory.avatar_bot_id,
+                                feedback_wall = directory.feedback_wall,
+                                skills = directory.skills,
+                                is_visible = directory.is_visible,
+                                is_approved = False,
+                                avatar_snippit = directory.avatar_snippit,
+                                avatar_bot_url = directory.avatar_bot_url,
+                                custom_user_bot_url = directory.custom_user_bot_url,
+                                custom_user_bot_id = directory.custom_user_bot_id,
+                                deep_dive_bot_url = directory.deep_dive_bot_url,
+                                deep_dive_bot_id = directory.deep_dive_bot_id,
+                                timer_enabled = directory.timer_enabled,
+                                time_value_in_days = directory.time_value_in_days,
+                                timer_reset = directory.timer_reset,
+                                visual_tag = directory.visual_tag,
+                                ai_email = directory.ai_email
+                            )
+
+
+                            # directory.save()
+                            try:
+                                subject = "AI Frame Updation"
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your Knowledge Bot. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    """
+
+                                send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated Knowledge Bot (Bot-id: {directory.custom_user_bot_id}). Please check it out and re-approve it from Django Admin Panel.</p>
+                                    """
+                                send_email_with_html_template(subject=subject,html_content=html)
+
+                            except Exception as e:
+                                logger.error(f"Got error in sending email for reapproval : {e}")
+                                send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                                
+                            directory.delete()
 
 
 
