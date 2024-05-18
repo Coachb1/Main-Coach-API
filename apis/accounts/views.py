@@ -1437,6 +1437,10 @@ class AccountsViewSet(ApiViewSet,
                     signature_bot.save(update_fields=["data"])
 
 
+                user = get_user_by_id(signature_bot.user_id)
+                user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
+
+
                 # sending for reapproval to directory page info
                 if signature_bot.bot_type == BotTypeChoice.user_bot:
 
@@ -1478,14 +1482,14 @@ class AccountsViewSet(ApiViewSet,
 
                             # directory.save()
                             try:
-                                subject = "AI Frame Updation"
+                                subject = "Knowledge Bots"
                                 html = f"""
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your Knowledge Bot. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your knowledge bot- <b>{bot_att.bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
                                     """
 
-                                send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {directory.name}!')
+                                send_email_with_html_template(subject=subject,html_content=html,to_email=user_att.attributes.get('email'),title=f'Hey!')
                                 html = f"""
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{directory.name} Updated Knowledge Bot (Bot-id: {directory.custom_user_bot_id}). Please check it out and re-approve it from Django Admin Panel.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} updated a knowledge bot - <b>{bot_att.bot_name}</b>. Please check it out and approve it from Django Admin Panel.</p>
                                     """
                                 send_email_with_html_template(subject=subject,html_content=html)
 
