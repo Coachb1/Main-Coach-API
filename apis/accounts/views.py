@@ -1142,7 +1142,12 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append('bot_scenario_case')
 
                     if faqs:
-                        signature_bot.faqs = faqs
+                        try:
+                            new_faqs = json.loads(faqs)
+                        except:
+                            new_faqs = faqs
+                            
+                        signature_bot.faqs = new_faqs
                         updated_fields.append("faqs")
 
                     if bot_type == BotTypeChoice.avatar_bot:
