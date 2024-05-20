@@ -192,6 +192,7 @@ class ClientUserInfo(TenantAwareModel):
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips())
     allow_audio_interactions = models.BooleanField(null=True, default=False)
+    make_new_user_in_trail = models.BooleanField(null=True, default=True)
 
 
 
