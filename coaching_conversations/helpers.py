@@ -1268,8 +1268,9 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         Title: ${title}
         Objective: ${objective}
 
-        Custom Prompt: The session should aim to gather the participants' viewpoints on the Title and Objection. Each time you manage the bot, ensure to pose questions. Stick to asking one question at a time. The questions should be related to the title and objective and should be advanced in nature. Begin by asking questions without providing any title and objective. Refrain from mentioning the count of questions. Simply proceed to the next question, irrespective of the response. The focus should solely be on asking questions, without providing any other details. Continue asking questions indefinitely. Avoid asking questions on the title and objective to seek clarity on any related matter. Only pose questions that are relevant to them. Do not provide any welcome sentence or visual cues. The format should be: Question.
+        Custom Prompt: The session should aim to gather the participants' viewpoints on the Title and Objection. Each time you manage the bot, ensure to pose questions. Always start by asking "Please let us know more about your context for this survey such as role , impact  and whatever else you may feel comfortable with.". Stick to asking one question at a time. The questions should be related to the title and objective and should be advanced in nature. Begin by asking questions without providing any title and objective. Refrain from mentioning the count of questions. Simply proceed to the next question, irrespective of the response. The focus should solely be on asking questions, without providing any other details. Continue asking questions indefinitely. Avoid asking questions on the title and objective to seek clarity on any related matter. Only pose questions that are relevant to them. Do not provide any welcome sentence or visual cues. The format should be: Question.
 
+        NOTE: Always start by asking "Please let us know more about your context for this survey such as role , impact  and whatever else you may feel comfortable with."       
         NOTE: Always ask one question at a time.
         NOTE: Do not provide any title and objective in questions.
         NOTE: Do not ask any questions on title and objective.
@@ -1301,10 +1302,19 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     logger.info(f"user_id: {user.uid}")
     user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid)
     logger.info(f"bot_user_Id: {bot.user_id}")
-    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id)
-    bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
-    bot_user_name = bot_user_profile.name or bot_user.name
-    bot_user_mob_no = bot_user_profile.mob_number
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=bot.user_id)
+    bot_email = ''
+    bot_user_name = ''
+    bot_user_mob_no = ''
+
+    if bot_user_profile.count()> 0:
+        bot_user_profile = bot_user_profile.first()
+        bot_email = bot_user_profile.email
+        bot_user_name = bot_user_profile.name or bot_user.name
+        bot_user_mob_no = bot_user_profile.mob_number
+    else:
+        bot_email = get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
+        bot_user_name = bot_user.name
 
     user_email = get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
     user_name = user.name
@@ -2304,10 +2314,11 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
             client.save(update_fields=['member_emails'])
 
             # by default we will add it to demo ids
-            demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
-            demo_emails.add(email)
-            client.demo_ids = ",".join(demo_emails)
-            client.save(update_fields=['demo_ids'])
+            if client.make_new_user_in_trail:
+                demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
+                demo_emails.add(email)
+                client.demo_ids = ",".join(demo_emails)
+                client.save(update_fields=['demo_ids'])
 
             assigned = True
 
@@ -2320,28 +2331,29 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
         client.save(update_fields=['member_emails'])
 
         # by default we will add it to demo ids
-        demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
-        demo_emails.add(email)
-        client.demo_ids = ",".join(demo_emails)
-        client.save(update_fields=['demo_ids'])
+        if client.make_new_user_in_trail:
+            demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
+            demo_emails.add(email)
+            client.demo_ids = ",".join(demo_emails)
+            client.save(update_fields=['demo_ids'])
 
 
     # === sending email to business team
+    if client.make_new_user_in_trail:
+        user = get_user_via_identity(
+            tenant = tenant,
+            identity_type = 'deepchat_unique_id',
+            identity_value = email
+        )
 
-    user = get_user_via_identity(
-        tenant = tenant,
-        identity_type = 'deepchat_unique_id',
-        identity_value = email
-    )
+        subject = f"New Trial Signup - {user.name}"
 
-    subject = f"New Trial Signup - {user.name}"
-
-    html_content = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-                    A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
-                    </p>
-                    """
-    send_email_with_html_template(subject=subject,html_content=html_content)
+        html_content = f"""
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                        A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
+                        </p>
+                        """
+        send_email_with_html_template(subject=subject,html_content=html_content)
 
     return client.client_name if client else None
 

@@ -223,7 +223,11 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
         server.starttls()
         server.login(LOGIN_EMAIL, from_password)
-        sent_status = server.sendmail(from_email, to_email, msg_str)
+        if not allow_reply:
+            for email in to_email:
+                sent_status = server.sendmail(from_email, email, msg_str)
+        else:
+            sent_status = server.sendmail(from_email, to_email, msg_str)
         server.quit()
         
         print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ", sent_status)
@@ -1424,7 +1428,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td align="center" class="esd-block-text">
-                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) Coachbots 2024. Powered by Answer Cloud Technology Pvt. Ltd.</p>
+                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) CoachBots Inc. 2024. Powered by Answer Cloud Technologies Pvt Ltd.</p>
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
