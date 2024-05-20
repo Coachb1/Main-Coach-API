@@ -763,7 +763,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
         recepients = [submitted_email,"coachbots@googlegroups.com"]
-        if connected:
+        if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
         coach_name = ""
@@ -778,7 +778,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
             candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
-            send_bot_conversation_email( candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot, coach_name,bot_att.bot_name,allow_reply=True, no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False)
+            send_bot_conversation_email( 
+                candidate_name=candidate_name, 
+                conversation=conv, 
+                to_email=list(set(recepients)), 
+                summary=conversation_summary, 
+                simulation=created_scenarios, 
+                signature_bot=signature_bot, 
+                coach_name=coach_name,
+                bot_name=bot_att.bot_name,
+                allow_reply=True if signature_bot.bot_type != 'deep_dive' else False, 
+                no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False
+                )
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
