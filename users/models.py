@@ -81,7 +81,7 @@ class UserAttribute(TenantAwareModel):
     competency_data = models.JSONField(null=True,blank=True,default=default_competency_data())
     evaluate_relevency = models.BooleanField(null=True, blank = True, default=True)
     allow_audio_interactions = models.BooleanField(null=True, default=False)
-    
+    prioritize_user_audio_interaction = models.BooleanField(null=True, default=False)
 
 
     class Meta:
