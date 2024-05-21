@@ -1485,7 +1485,7 @@ class AccountsViewSet(ApiViewSet,
                             try:
                                 subject = "Knowledge Bots"
                                 html = f"""
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your knowledge bot- <b>{bot_att.bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your knowledge bot- <b>{bot_att.bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
                                     """
 
                                 send_email_with_html_template(subject=subject,html_content=html,to_email=user_att.attributes.get('email'),title=f'Hey!')
