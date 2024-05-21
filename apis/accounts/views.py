@@ -1444,7 +1444,8 @@ class AccountsViewSet(ApiViewSet,
                 # sending for reapproval to directory page info
                 if signature_bot.bot_type == BotTypeChoice.user_bot:
 
-                    directory = DirectoryPageInfo.objects.filter(profile_id=signature_bot.user_id,custom_user_bot_id=signature_bot.bot_id).first()
+                    # for user bot or knwoledge bot we are storing user_id instead of profile_id so can multiple row or bots in same user_id
+                    directory = DirectoryPageInfo.objects.filter(profile_id=signature_bot.user_id,custom_user_bot_id=signature_bot.bot_id).first() 
                     if directory and for_reapproval:
                             signature_bot.is_approval_email_sent = False
                             signature_bot.is_approved = False
