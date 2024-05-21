@@ -1447,6 +1447,7 @@ class AccountsViewSet(ApiViewSet,
                     directory = DirectoryPageInfo.objects.filter(profile_id=signature_bot.user_id).first()
                     if directory and for_reapproval:
                             signature_bot.is_approval_email_sent = False
+                            signature_bot.is_approved = False
                             signature_bot.save()
 
                             
