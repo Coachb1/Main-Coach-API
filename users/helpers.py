@@ -174,6 +174,10 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
         user_attribute.allow_audio_interactions = user_data.get('allow_audio_interactions')
         updated_fields.append('allow_audio_interactions')
 
+        # prioritize users actions
+        user_attribute.prioritize_user_audio_interaction = True
+        updated_fields.append('prioritize_user_audio_interaction')
+
     if len(updated_fields) > 0:
         user_attribute.save(update_fields=updated_fields)
 
