@@ -1484,6 +1484,21 @@ def get_transcript_block(conversation, summary, simulation,coach_name,bot):
         if bot.bot_type == "deep_dive":
             if index == 0:
                 data += f'''
+                        
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                    '''
+                
+            elif index == 1:
+                data += f'''
                     <tr>
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
                             <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
@@ -1491,13 +1506,21 @@ def get_transcript_block(conversation, summary, simulation,coach_name,bot):
                     </tr>
                 '''
 
-            elif index == len(conversation)-1:
+            elif index == len(conversation)-2:
                     data += f'''
                         <tr>
                             <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
                                 <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
                             </td>
                         </tr>
+                    '''
+            elif index == len(conversation)-1:
+                    data += f'''
+                        <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                            <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{i['coach']}</p>
+                        </td>
+                    </tr>
                     '''
             else:
 
