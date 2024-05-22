@@ -2180,7 +2180,7 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
                         user_email=email
                     )
 
-            if client_data.get('allow_audio_interactions'):
+            if client_data.get('allow_audio_interactions') is not None:
                 client.allow_audio_interactions = client_data.get('allow_audio_interactions')
                 updated_fields.append('allow_audio_interactions')
 
