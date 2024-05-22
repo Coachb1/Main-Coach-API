@@ -178,6 +178,15 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
         user_attribute.prioritize_user_audio_interaction = True
         updated_fields.append('prioritize_user_audio_interaction')
 
+
+    if user_data.get('restricted_features'):
+        user_attribute.restricted_features = user_data.get('restricted_features')
+        updated_fields.append('restricted_features')
+    
+    if user_data.get('restricted_pages'):
+        user_attribute.restricted_pages = user_data.get('restricted_pages')
+        updated_fields.append('restricted_pages')
+
     if len(updated_fields) > 0:
         user_attribute.save(update_fields=updated_fields)
 

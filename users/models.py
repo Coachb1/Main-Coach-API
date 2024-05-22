@@ -82,6 +82,8 @@ class UserAttribute(TenantAwareModel):
     evaluate_relevency = models.BooleanField(null=True, blank = True, default=True)
     allow_audio_interactions = models.BooleanField(null=True, default=False)
     prioritize_user_audio_interaction = models.BooleanField(null=True, default=False)
+    restricted_pages = models.TextField(null=True,blank=True,default=None)
+    restricted_features = models.TextField(null=True,blank=True,default=None)
 
 
     class Meta:
