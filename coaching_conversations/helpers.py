@@ -2045,21 +2045,21 @@ def get_client_user_info(client:ClientUserInfo, email:str):
     if user_account.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
         has_deep_dive_creator_access = True
 
-    if demo_user:
-        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
+    # if demo_user:
+    #     specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
 
-        # Get today's date
-        current_date = datetime.datetime.now()
+    #     # Get today's date
+    #     current_date = datetime.datetime.now()
 
-        # Calculate the difference between today's date and the specific date
-        time_difference = current_date - specific_date
+    #     # Calculate the difference between today's date and the specific date
+    #     time_difference = current_date - specific_date
 
-        # Check if the difference is greater than or equal to 2 weeks
-        if time_difference >= datetime.timedelta(weeks=2):
-            restricted = True
-            demo_user = False
+    #     # Check if the difference is greater than or equal to 2 weeks
+    #     if time_difference >= datetime.timedelta(weeks=2):
+    #         restricted = True
+    #         demo_user = False
 
-        logger.info(f"time difference: {time_difference} ")
+    #     logger.info(f"time difference: {time_difference} ")
 
     user_info = {
         "client_name": client.client_name,
