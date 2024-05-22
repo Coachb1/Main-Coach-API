@@ -170,7 +170,7 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
         user_attribute.attributes['email'] = user_data.get('email')
         updated_fields.append('attributes')
 
-    if user_data.get('allow_audio_interactions'):
+    if user_data.get('allow_audio_interactions') is not None:
         user_attribute.allow_audio_interactions = user_data.get('allow_audio_interactions')
         updated_fields.append('allow_audio_interactions')
 
