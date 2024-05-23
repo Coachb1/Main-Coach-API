@@ -2431,3 +2431,37 @@ def generate_title_and_objective_for_deep_dive(context):
     }
 
 
+
+# ============================ Team Connect Helpers =============================
+
+def generate_team_connect_response(tenant_id:str,user_id:str, question:str):
+
+    try:
+        user = get_user_by_id(user_id)
+    except:
+        return {"error": "User not found. Please check user_id."}
+    
+    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
+    if not profile:
+        return {"error": "Profile not found"}
+    if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
+        return {'error': 'only mentee or coachee profile types are allowed'}
+    
+    low_skills = profile.low_rating_characteristics
+    high_skills = profile.high_rating_characteristics
+
+    prompt = f"""
+    {question}
+
+    {user.name} has a high {high_skills} and low {low_skills} type of personality. 
+
+    NOTE: please respond in 100 words.
+   
+    """
+
+    logger.info(f"team connect prompt: {prompt}, low {low_skills}, high {high_skills} type of personality")
+
+    response = anthropic_completion(prompt,max_tokens=1000)
+    logger.info(f"team connect response: {response}")
+    return {"response": response}
+    
