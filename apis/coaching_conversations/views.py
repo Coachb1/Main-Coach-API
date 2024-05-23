@@ -19,6 +19,7 @@ from coaching_conversations.helpers import create_user_profile_and_bot
 import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
+from coaching_conversations.helpers import generate_team_connect_response
 
 import logging
 
@@ -521,3 +522,22 @@ class CoachingConversationViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Got error in deepdive-bot: {e}")
             return Response({"error": f"Got error in deepdive-bot: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['POST'], detail=False, url_path='team-connect')
+    def team_connect(self, request, *args, **kwargs):
+        try:
+            if request.method == 'POST':
+                tenant = request.tenant
+                user_id = request.data.get('user_id')
+                question = request.data.get('question')
+                if not user_id:
+                    return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+                response = generate_team_connect_response(
+                    tenant_id=tenant.uid, 
+                    user_id=user_id,
+                    question=question
+                )
+                return Response(response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Got error in team_connect: {e}")
+            return Response({"error": f"Got error in team_connect: {e}"}, status=status.HTTP_400_BAD_REQUEST)
