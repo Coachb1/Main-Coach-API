@@ -845,21 +845,23 @@ class TestViewSet(ApiViewSet,
         competency = request.query_params.get('competency',None)
         is_static = request.query_params.get('is_static',True)
         is_dynamic = request.query_params.get('is_dynamic',True)
+        assign_to = request.query_params.get('assign_to')
+        assigned_by = request.query_params.get("assigned_by")
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}")
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
             resp_data = []
             if is_static == 'true' or is_static == True or is_static == "True":
-                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by)
                 if scenario:
                     resp_data.append(scenario)
                 else:
                     resp_data.append({'message':"failed to generate the scenario"})
             if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
                 dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-                                                                    origin=source, competency=None, creator_user_id=creator_user_id)
+                                                                    origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by)
                 if scenario:
                     resp_data.append(dynamic_discussion)
                 else:
@@ -1132,12 +1134,13 @@ class TestViewSet(ApiViewSet,
             ]
         """
         user_id = request.query_params.get("user_id",None)
+        logger.info(f"<<<<<<<<<<<<<<<<<<<<<< user_id : {user_id} >>>>>>>>>>>>>>>>>>>>>>>")
 
         if not user_id:
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     

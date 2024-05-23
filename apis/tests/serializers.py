@@ -121,6 +121,10 @@ class CreateTestSerializer(serializers.Serializer):
     page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     creator_email = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    is_assigned = serializers.BooleanField(
+        required=False, default=False)
+    assigned_to = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    assigned_by = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
