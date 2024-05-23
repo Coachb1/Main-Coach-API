@@ -82,7 +82,9 @@ class Test(TenantAwareModel):
     page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
     scenario_summary = models.TextField(null=True, blank=True, default=None)
     creator_email = models.CharField(max_length=255, null=True, blank=True, default=None)
-
+    is_assigned = models.BooleanField(default=False, null=True, blank=False)
+    assigned_to = models.CharField(max_length=255, null=True, blank=True, default=None)
+    assigned_by = models.CharField(max_length=64, null=True, blank=True, default=None)
 
 
     class Meta:

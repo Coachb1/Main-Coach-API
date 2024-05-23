@@ -224,7 +224,10 @@ def create_test(tenant: Tenant,
                 visual_tags: str,
                 page_name: str,
                 scenario_summary:str,
-                creator_email:str) -> tuple[Test, list[TestQuestion]]:
+                creator_email:str,
+                is_assigned:bool,
+                assigned_to: str,
+                assigned_by: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -405,7 +408,10 @@ def create_test(tenant: Tenant,
             visual_tags=visual_tags,
             page_name=page_name,
             scenario_summary=scenario_summary,
-            creator_email=creator_email
+            creator_email=creator_email,
+            is_assigned=is_assigned,
+            assigned_to=assigned_to,
+            assigned_by=assigned_by
         )
 
         test_questions = []
@@ -7143,7 +7149,7 @@ def get_improved_title(title):
     return title
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7330,6 +7336,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "certificate_details": {"title": title},
                 "competency_group": competency,
                 "creator_user_id": creator_user_id,
+                'is_assigned': True if assign_to is not None else False,
+                'assigned_to': assign_to,
+                'assigned_by': assigned_by
             }
             if scenario_summary:
                 test_json["scenario_summary"] = scenario_summary
@@ -7351,6 +7360,22 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                         API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
                 response = resp.json()
                 print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
+                
+                # if assign_to is not None:
+                #     try:
+                #         user_attribute = UserAttribute.objects.filter(deleted=False, user_id=assign_to)
+                #         assigned_tests = user_attribute.assigned_tests
+                #         if assigned_tests is None:
+                #             assigned_tests = {}
+                            
+                #         if f'{assigned_by}' in assigned_tests :
+                #             assigned_tests[f'{assigned_by}'] =  assigned_tests[f'{assigned_by}'] + f'{assigned_by}'
+                #         else:
+                #             assigned_tests[f'{assigned_by}'] = f'{assigned_by}'
+                #         user_attribute.save()
+                        
+                #     except Exception as e:
+                #         logger.exception({"error":f"failed to assign test to user : {assign_to}"})
 
                 if origin == "script":
                     resp_json = test_json.copy()
