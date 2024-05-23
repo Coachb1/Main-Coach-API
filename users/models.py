@@ -85,7 +85,8 @@ class UserAttribute(TenantAwareModel):
     restricted_pages = models.TextField(null=True,blank=True,default=None)
     restricted_features = models.TextField(null=True,blank=True,default=None)
     assigned_tests = models.JSONField(null=True, blank=True, default=dict)
-
+    access_allowed = models.TextField(null=True,blank=True,default=None)
+    access_denied = models.TextField(null=True,blank=True,default=None)
 
     class Meta:
         db_table = "user_attribute"
