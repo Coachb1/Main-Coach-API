@@ -77,6 +77,13 @@ def new_create_client_info_activity(sender, instance, **kwargs):
             domain= client_domain
         )
 
+    print(f"================={instance.make_new_user_in_trail}===========")
+    if not instance.make_new_user_in_trail and instance.demo_ids != "":
+        # remove all ids from demo_ids
+        print(f"removed demo_ids")
+        instance.demo_ids = ""
+        instance.save()
+
 
 @receiver(post_save, sender=CoachCoacheeMentorMenteeProfile)
 def sync_profile_and_bot_data(sender, instance, **kwargs):
