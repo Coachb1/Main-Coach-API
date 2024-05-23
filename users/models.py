@@ -189,14 +189,14 @@ class ClientUserInfo(TenantAwareModel):
     coach_expertise = models.TextField(null=True, blank=True, default=get_default_values('expertise'))
     departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
     coach_mentor_previledge = models.TextField(null=True, blank=True, default=None)
-    is_coach_mentor_previledge = models.BooleanField(null=True, default=False)
+    is_coach_mentor_previledge = models.BooleanField(blank=True, default=False)
     restricted_pages = models.TextField(null=True, blank=True, default=None)
     restricted_features = models.TextField(null=True, blank=True, default=None)
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips())
-    allow_audio_interactions = models.BooleanField(null=True, default=False)
-    make_new_user_in_trail = models.BooleanField(null=True, default=True)
+    allow_audio_interactions = models.BooleanField(blank=True, default=False)
+    make_new_user_in_trail = models.BooleanField(blank=True, default=True)
 
 
 
