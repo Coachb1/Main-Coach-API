@@ -1139,7 +1139,15 @@ class TestViewSet(ApiViewSet,
         if not user_id:
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
+
+        
+        query = Q(assigned_to__isnull=False)
+        query.add(Q(creator_user_id=user_id), Q.OR)
+        query.add(Q(tenant_id=self.request.tenant.uid),Q.AND)
+
+        
+        tests = Test.objects.filter(query)
+        tests.filter(deleted=0)
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
