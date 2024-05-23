@@ -49,6 +49,8 @@ class AccountSerializer(serializers.ModelSerializer):
         data['prioritize_user_audio_interaction'] = user_att.prioritize_user_audio_interaction
         data['user_restricted_pages'] = user_att.restricted_pages
         data['user_restricted_features'] = user_att.restricted_features
+        data['access_allowed'] = user_att.access_allowed
+        data['access_denied'] = user_att.access_denied
 
         try:
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
