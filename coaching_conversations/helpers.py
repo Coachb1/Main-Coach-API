@@ -2084,6 +2084,12 @@ def get_client_user_info(client:ClientUserInfo, email:str):
     user_info['user_id'] = user_account.uid
     user_info['name'] = user_account.name
     user_info['client_id'] = client.uid
+
+    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=client.tenant_id,user_id=user_account.uid).last()
+    if profile:
+        user_info['profile_id'] = profile.uid
+        user_info['profile_type'] = profile.profile_type
+
     
     return user_info
 
@@ -2434,32 +2440,70 @@ def generate_title_and_objective_for_deep_dive(context):
 
 # ============================ Team Connect Helpers =============================
 
-def generate_team_connect_response(tenant_id:str,user_id:str, question:str):
+def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
 
-    try:
-        user = get_user_by_id(user_id)
-    except:
-        return {"error": "User not found. Please check user_id."}
+    user_data = {}
+
+    for user_id in user_ids.split(","):
+        try:
+            user = get_user_by_id(user_id)
+        except:
+            return {"error": "User not found. Please check user_id."}
+        
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
+        if not profile:
+            return {"error": "Profile not found"}
+        if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
+            return {'error': 'only mentee or coachee profile types are allowed'}
+        
+        user_data[user.name] = {
+                                    'first_name': user.name.split()[0],
+                                    'last_name': user.name.split()[-1],
+                                    'high_skill': profile.high_rating_characteristics,
+                                    'low_skill': profile.low_rating_characteristics
+                                }
     
-    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
-    if not profile:
-        return {"error": "Profile not found"}
-    if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
-        return {'error': 'only mentee or coachee profile types are allowed'}
+
+    coachee_information = ""
+
+    for user_name, user_info in user_data.items():
+        coachee_information += f"""
+
+        @{user_name}:
+                HIGH SKILL: ${user_info['high_skill']}
+                LOW SKILL: ${user_info['low_skill']}
+                PROFILE INFORMATION: 
+                        First Name : ${user_info['first_name']}
+                        Last Name : ${user_info['last_name']}
+                \n\n
+        """
+
+
+
+    prompt = """
     
-    low_skills = profile.low_rating_characteristics
-    high_skills = profile.high_rating_characteristics
+            QUESTION: ${question}
 
-    prompt = f"""
-    {question}
+            Coachee Informations:
 
-    {user.name} has a high {high_skills} and low {low_skills} type of personality. 
+            {coachee_informations}
 
-    NOTE: please respond in 100 words.
-   
+            NOTE: Always consider drawing from personal coachee skill.
+            NOTE: Always respond like a human interaction.
+            NOTE: Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.
+            NOTE: Always respond using skills mentioned in HIGH SKILL  and LOW SKILL for any question asked.
+            NOTE: Your Response should not be in more than 100 words.
+            NOTE: Always use the HIGH SKILL, LOW SKILL and PROFILE INFORMATION of the coachee to match with its team member asking the question in the user prompt and respond in such way that it reflects on the personality of the coachee skills on the team members
+            NOTE: Always answer in appropriate tone as if its answering as a coachee profiles using their skills.
+            NOTE: Always respond to the QUESTION asked by user.
     """
 
-    logger.info(f"team connect prompt: {prompt}, low {low_skills}, high {high_skills} type of personality")
+    prompt = Template(prompt).substitute(
+        question = question,
+        coachee_informations = coachee_information.strip()
+    )
+
+    logger.info(f"team connect prompt: {prompt}, user_data: {user_data}")
 
     response = anthropic_completion(prompt,max_tokens=1000)
     logger.info(f"team connect response: {response}")
