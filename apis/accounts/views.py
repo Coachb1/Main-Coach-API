@@ -1683,6 +1683,38 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
+                    if 'optional_file' in data:
+                        optional_file = data.getlist('optional_file')
+                        extracted_from_optional_file = {}
+                        extracted_optional_file = {}
+                        logger.info(f"******************* optional_file: {optional_file}")
+
+                        if len(optional_file) > 0:
+                            for index, optional_file in enumerate(optional_file):
+                                file_name, text = extract_file_and_text(optional_file)
+                                # if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                extracted_optional_file[file_name] = text
+                                #     text = get_document_summary(text)
+                                extracted_from_optional_file[file_name] = text
+                        logger.info(f"******************* optional_file: {extracted_from_optional_file}")
+                        
+                        # signature_bot.refresh_from_db()
+                        # bot_media_data = signature_bot.data['media_data']
+                        # if is_overwrite and extracted_from_optional_file:
+                        #     bot_media_data['extracted_from_optional_file'] = extracted_from_optional_file
+                        # else:
+                        #     prev_extracted_from_optional_file = bot_media_data.get('extracted_from_optional_file',{})
+                        #     bot_media_data['extracted_from_optional_file'] = {**prev_extracted_from_optional_file,**extracted_from_optional_file}
+                        
+                        # signature_bot.data['media_data'] = bot_media_data
+                        # signature_bot.save(update_fields=["data"])
+
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_optional_file'] = {**bot_media_data.get('extracted_from_optional_file',{}),**extracted_optional_file}
+                        bot_att.extracted_documents = bot_media_data
+                        bot_att.save(update_fields=["extracted_documents"])
+
 
                     if 'doc_data' in data:
                         doc_data = data.getlist('doc_data')
