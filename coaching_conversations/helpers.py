@@ -1818,7 +1818,7 @@ def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4
 
         return "Summeries updated successfully!"
 
-def get_client_user_data(tenant):
+def get_client_user_data(tenant,client_name=None):
     """
     Retrieves detailed user information for each client associated with a given tenant.
 
@@ -1855,7 +1855,11 @@ def get_client_user_data(tenant):
     """
     # Function implementation continues here...
     # get the client user associated with a Client Id
-    clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+    clients = None
+    if client_name:
+        clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name)
+    else:
+        clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
     client_user_data = {}
 
     for client in clients:
@@ -2448,11 +2452,11 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
         try:
             user = get_user_by_id(user_id)
         except:
-            return {"error": "User not found. Please check user_id."}
+            return {"error": f"User not found. Please check user_id- {user_id}."}
         
         profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
         if not profile:
-            return {"error": "Profile not found"}
+            return {"error": "Profile not found for user- {user_id}"}
         if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
             return {'error': 'only mentee or coachee profile types are allowed'}
         
