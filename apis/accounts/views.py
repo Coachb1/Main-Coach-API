@@ -2955,7 +2955,7 @@ class AccountsViewSet(ApiViewSet,
 
                 return Response(client_data,status=status.HTTP_200_OK)
             
-            client_user_data = get_client_user_data(tenant=tenant)
+            client_user_data = get_client_user_data(tenant=tenant,client_name=request.query_params.get('client_name',None))
             return Response(client_user_data,status=status.HTTP_200_OK)
         
         elif request.method == 'POST':
