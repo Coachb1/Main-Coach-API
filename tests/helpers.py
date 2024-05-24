@@ -7186,12 +7186,14 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             return key, secret
 
     garbage_scenarios = []
+    scenario = ""
     max_retry = 3
     for i in range(max_retry):
         logger.info(f"trying outer test generation for {i+1} time")
         try:
             site_information = ""
             if context:
+                print(f'here {context}')
                 context_data = json.loads(context)
                 title, des = context_data['title'], context_data['data']['information']
                 site_information = f"{title} {des}"
@@ -7202,8 +7204,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
             else:
                 article_data = scrape_article_data(url.strip())
+                print('='*50)
+                print(article_data)
                 if not article_data.get('article_content') or  article_data.get('article_content') == "":
-                    return {'message':"Scenario generation failed because of failure of page extraction please try again."}
+                    return {'error':"Scenario generation failed because of failure of page extraction please try again."}
                 
                 site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
@@ -7392,7 +7396,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
@@ -8113,44 +8117,50 @@ def scrape_article_data(url):
     }
     """
     # Send a GET request to fetch the HTML content
-    response = requests.get(url)
-    
-    # Check if the request was successful (status code 200)
-    if response.status_code == 200:
-        # Parse the HTML content using BeautifulSoup
-        soup = BeautifulSoup(response.content, 'html.parser')
-        # Find the meta title and description tags
-        description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
-        description = description_tag.get('content') if description_tag else None
-
-        doc = Document(response.content)
-        soup = BeautifulSoup(doc.summary(), 'html.parser')
+    try:
+        response = requests.get(url)
+        logger.info(f"================================ {response.status_code}, {response.content}=============")
         
-        # Extract title
-        title = doc.title()
-        # Extract article content
-        article_content = ''
-        article_body = soup.find('div')
-        if article_body:
-            paragraphs = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span'])
-            article_content = '\n'.join([p.get_text().strip() for p in paragraphs])
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            # Parse the HTML content using BeautifulSoup
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Find the meta title and description tags
+            description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+            description = description_tag.get('content') if description_tag else None
+
+            doc = Document(response.content)
+            soup = BeautifulSoup(doc.summary(), 'html.parser')
+            
+            # Extract title
+            title = doc.title()
+            # Extract article content
+            article_content = ''
+            article_body = soup.find('div')
+            if article_body:
+                paragraphs = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span'])
+                article_content = '\n'.join([p.get_text().strip() for p in paragraphs])
 
 
-        logger.info(f"""
-        Extracted article data : title : {title}
-        =============================
-        description : {description}
-        =============================
-        content : {article_content}
-        """)
+            logger.info(f"""
+            Extracted article data : title : {title}
+            =============================
+            description : {description}
+            =============================
+            content : {article_content}
+            """)
 
-        return {
-            'title': title,
-            'description': description,
-            'article_content': article_content
-        }
-    else:
-        logger.error("Failed to retrieve the page.")
+            return {
+                'title': title,
+                'description': description,
+                'article_content': article_content
+            }
+        else:
+            logger.error("Failed to retrieve the page.")
+            return {}
+        
+    except Exception as e:
+        logger.exception (f"Failed to extract infomation : {e}")
         return {}
 
 
