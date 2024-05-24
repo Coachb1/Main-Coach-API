@@ -234,8 +234,10 @@ class FrontendAuthViewSet(ApiViewSet):
             interaction_id = session_serializer.validated_data["interaction_id"]
 
             url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
-        
 
+        elif report_type == ReportType.PERSONALITY_DISTRIBUTION_REPORT:
+            client_id = request.data.get('client_id', None)
+            url = f"{url}?client_id={client_id}&backend={BACKEND}"          
 
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:
