@@ -13,7 +13,7 @@ from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User, SignatureBot, BotAttribute, ClientUserInfo
+from users.models import User, SignatureBot, BotAttribute, ClientUserInfo, UserAttribute
 from users.db import get_user_display_name, get_user_by_id
 from coaching_conversations.helpers import create_user_profile_and_bot
 import csv
@@ -523,6 +523,25 @@ class CoachingConversationViewSet(ApiViewSet,
             logger.exception(f"Got error in deepdive-bot: {e}")
             return Response({"error": f"Got error in deepdive-bot: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+    @action(methods=["POST"], detail=False, url_path="save-response-style")
+    def save_response_style(self, request, *args, **kwargs):
+        try:
+            user_id = request.data.get('user_id')
+            response_style = request.data.get('response_style')
+            
+            if user_id is None or response_style is None:
+                return  Response({"error": "both user_id and response_style fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_attributes = UserAttribute.objects.get(tenant_id=request.tenant.uid,user_id=user_id,deleted=False)
+            user_attributes.preferences = { 'response_style' : response_style}
+            user_attributes.save()
+            return Response({"message":"response style saved"})
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": "something went wrong"}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(methods=['POST'], detail=False, url_path='team-connect')
     def team_connect(self, request, *args, **kwargs):
         try:
@@ -541,3 +560,4 @@ class CoachingConversationViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Got error in team_connect: {e}")
             return Response({"error": f"Got error in team_connect: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
