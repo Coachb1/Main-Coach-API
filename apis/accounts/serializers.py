@@ -51,6 +51,7 @@ class AccountSerializer(serializers.ModelSerializer):
         data['user_restricted_features'] = user_att.restricted_features
         data['access_allowed'] = user_att.access_allowed
         data['access_denied'] = user_att.access_denied
+        data['preferences'] = user_att.preferences
 
         try:
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
