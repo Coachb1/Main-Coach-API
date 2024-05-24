@@ -7190,17 +7190,24 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     for i in range(max_retry):
         logger.info(f"trying outer test generation for {i+1} time")
         try:
+            site_information = ""
             if context:
                 context_data = json.loads(context)
                 title, des = context_data['title'], context_data['data']['information']
+                site_information = f"{title} {des}"
+
                 # title,des = context,""
                 if i > 0:
                     title = get_improved_title(title)
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
             else:
-                title, des = scrape_meta_info(url)
+                article_data = scrape_article_data(url.strip())
+                if not article_data.get('article_content') or  article_data.get('article_content') == "":
+                    return {'message':"Scenario generation failed because of failure of page extraction please try again."}
+                
+                site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
+
             
-            site_information = f"{title} {des}"
 
             prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test)
 
@@ -8078,7 +8085,6 @@ def calculate_similarity(sentence1, sentence2):
 
 
 @timeit
-@timeit
 def scrape_article_data(url):
     """
     This function is designed to scrape the title and content of an article from a given URL.
@@ -8112,22 +8118,35 @@ def scrape_article_data(url):
     # Check if the request was successful (status code 200)
     if response.status_code == 200:
         # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(response.content, 'html.parser')
+        # Find the meta title and description tags
+        description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+        description = description_tag.get('content') if description_tag else None
+
         doc = Document(response.content)
-        content = (doc.summary())
-        soup = BeautifulSoup(content, 'html.parser')
+        soup = BeautifulSoup(doc.summary(), 'html.parser')
         
         # Extract title
         title = doc.title()
-        
         # Extract article content
         article_content = ''
         article_body = soup.find('div')
         if article_body:
-            paragraphs = soup.find_all('p')
-            article_content = '\n'.join([p.get_text() for p in paragraphs])
+            paragraphs = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span'])
+            article_content = '\n'.join([p.get_text().strip() for p in paragraphs])
+
+
+        logger.info(f"""
+        Extracted article data : title : {title}
+        =============================
+        description : {description}
+        =============================
+        content : {article_content}
+        """)
 
         return {
             'title': title,
+            'description': description,
             'article_content': article_content
         }
     else:

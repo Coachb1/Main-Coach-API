@@ -14,5 +14,6 @@ class ReportType:
     DecisionAnalysisReport = "decisionAnalysisReport"
     ProcessTrainingReport = "processTrainingReport"
     IDP_REPORT = "idpReport"
+    PERSONALITY_DISTRIBUTION_REPORT = "personalityDistributionReport"
 
 
