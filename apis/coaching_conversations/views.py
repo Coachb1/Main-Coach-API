@@ -534,7 +534,7 @@ class CoachingConversationViewSet(ApiViewSet,
                     return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
                 response = generate_team_connect_response(
                     tenant_id=tenant.uid, 
-                    user_id=user_id,
+                    user_ids=user_id,
                     question=question
                 )
                 return Response(response, status=status.HTTP_200_OK)
