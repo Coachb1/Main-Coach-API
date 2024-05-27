@@ -1272,3 +1272,30 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in get_low_skill_count_test api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['POST'],detail=False, url_path="assign_simulation")
+    def assing_simulation(self, request, *args, **kwargs):
+        # return Response("ok")
+        try:
+            test_code = request.data.get('test_code')
+            assigned_to = request.data.get('assigned_to')
+            assigned_by = request.data.get('assigned_by')
+            
+            if None in (assigned_by, assigned_to):
+                return Response({"error":"both assigned_to and assigned_by fields are required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                test = Test.objects.get(tenant_id=request.tenant.uid,deleted=False,test_code=test_code)
+                test.assigned_to = assigned_to
+                test.assigned_by = assigned_by
+                test.save()
+            except:
+                return Response({"error":"simulation not found"},status=status.HTTP_404_NOT_FOUND)
+            
+            
+            return Response({"msg":"successfully assigned"})
+            
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":f"something went wrong : {e.args}"},status=status.HTTP_400_BAD_REQUEST)
