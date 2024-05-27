@@ -2534,6 +2534,7 @@ def get_response_style(style):
 def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
 
     user_data = {}
+    message = ""
 
     for user_id in user_ids.split(","):
         try:
@@ -2543,22 +2544,23 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
         
         profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
         if not profile:
-            return {"error": "Profile not found for user- {user_id}"}
-        if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
-            return {'error': 'only mentee or coachee profile types are allowed'}
+            # return {"error": "Profile not found for user- {user_id}"}
+            message = "The user is not yet part of the network. The responses generated will be generic in nature"
+        # if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
+        #     return {'error': 'only mentee or coachee profile types are allowed'}
         
         user_data[user.name] = {
                                     'first_name': user.name.split()[0],
                                     'last_name': user.name.split()[-1],
-                                    'high_skill': profile.high_rating_characteristics,
-                                    'low_skill': profile.low_rating_characteristics
+                                    'high_skill': profile.high_rating_characteristics if profile else None,
+                                    'low_skill': profile.low_rating_characteristics if profile else None
                                 }
     
 
-    coachee_information = ""
+    profile_information = ""
 
     for user_name, user_info in user_data.items():
-        coachee_information += f"""
+        profile_information += f"""
 
         @{user_name}:
                 HIGH SKILL: ${user_info['high_skill']}
@@ -2574,29 +2576,42 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
     prompt = """
     
             QUESTION: ${question}
+            
+            PROFILE INFORMATION:  ${profile_informations}
+            LOW SKILL is the characteristic/skill for which they will rate themselves near the lows.
+            HIGH SKILL is the characteristic/skill for which they will rate themselves highly.
 
-            Coachee Informations:
+            Always use the HIGH SKILL, LOW SKILL, and PROFILE INFORMATION of the user to match with its team member asking the question in the user prompt and respond in such a way that it reflects on the personality of the user skills on the team members.
 
-            {coachee_informations}
+            The characteristic/skill they rate themselves low in is LOW SKILL, while they rate themselves highly in HIGH SKILL. Always align with the user's profile information to respond appropriately.
 
-            NOTE: Always consider drawing from personal coachee skill.
-            NOTE: Always respond like a human interaction.
+            Generate a response describing (profile information), highlighting their characteristics and likely reactions in certain situations. Provide an approach to discussing the subject by presenting it as a quote, encapsulating the essence of the response
+
+            NOTE: Always consider drawing from personal user scenarios.
+            NOTE: Always respond like a human interaction
             NOTE: Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.
-            NOTE: Always respond using skills mentioned in HIGH SKILL  and LOW SKILL for any question asked.
-            NOTE: Your Response should not be in more than 100 words.
-            NOTE: Always use the HIGH SKILL, LOW SKILL and PROFILE INFORMATION of the coachee to match with its team member asking the question in the user prompt and respond in such way that it reflects on the personality of the coachee skills on the team members
-            NOTE: Always answer in appropriate tone as if its answering as a coachee profiles using their skills.
-            NOTE: Always respond to the QUESTION asked by user.
+            NOTE: Always respond using skills mentioned in HIGH SKILL  and LOW SKILL for any question asked
+            NOTE: Always answer in an appropriate tone as if it's answering as a user profiles using their skills.
+            NOTE: Your Response should between 70-100 words, never mention word count.
+            NOTE: Always respond to the QUESTION asked by a user and never mention any question in response.
+            NOTE: ALWAYS follow the skills suitably when generating the response, where applicable. 
+            NOTE: Never provide any kind of summary or explanation in the response.
+            NOTE: You must select one of the skills from above, where applicable when generating the response. 
+            NOTE: Do not use multiple skills just use the most suitable one based on the situation.
+            NOTE: NEVER start with any kind of introduction sentence. Do not provide any kind of heading or introduction text in the output. 
+            NOTE: Start directly with the response and only provide the response.
+            NOTE: NEVER ASK A QUESTION in response.
+            NOTE: Never give any blank in responses. Responses shall be all completed and full baked
     """
 
     prompt = Template(prompt).substitute(
         question = question,
-        coachee_informations = coachee_information.strip()
+        profile_informations = profile_information.strip()
     )
 
     logger.info(f"team connect prompt: {prompt}, user_data: {user_data}")
 
     response = anthropic_completion(prompt,max_tokens=1000)
     logger.info(f"team connect response: {response}")
-    return {"response": response}
+    return {"response": response, "message": message}
 
