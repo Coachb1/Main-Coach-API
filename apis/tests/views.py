@@ -1278,19 +1278,25 @@ class TestViewSet(ApiViewSet,
     def assing_simulation(self, request, *args, **kwargs):
         # return Response("ok")
         try:
-            test_code = request.data.get('test_code')
+            test_codes = request.data.get('test_codes')
             assigned_to = request.data.get('assigned_to')
             assigned_by = request.data.get('assigned_by')
+            
+            if test_codes is None:
+                return Response({"error":"test_codes are required"},status=status.HTTP_400_BAD_REQUEST)
             
             if None in (assigned_by, assigned_to):
                 return Response({"error":"both assigned_to and assigned_by fields are required"},status=status.HTTP_400_BAD_REQUEST)
             
             try:
-                test = Test.objects.get(tenant_id=request.tenant.uid,deleted=False,test_code=test_code)
-                test.assigned_to = assigned_to
-                test.assigned_by = assigned_by
-                test.save()
-            except:
+                for test_code in test_codes.strip().split(","):
+                    logger.info(f"<<<<< test_code : {test_code} >>>")
+                    test = Test.objects.get(tenant_id=request.tenant.uid,deleted=False,test_code=test_code.strip())
+                    test.assigned_to = assigned_to
+                    test.assigned_by = assigned_by
+                    test.save()
+            except Exception as e:
+                logger.exception(e)
                 return Response({"error":"simulation not found"},status=status.HTTP_404_NOT_FOUND)
             
             
