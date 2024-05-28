@@ -204,9 +204,11 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
                 data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
                 data['total_without_question_count'] = engagements.get('total_without_question_count',None)
+                data['bot_tag'] = signature_bot.tag
             except:
                 data['total_engagement_with_question_count'] = None
                 data['total_engagement_with_question_count'] = None
+                data['bot_tag'] = None
             
         except Exception as e:
             logger.error(f"Error in DirectoryInfoSErializer: {e}")
