@@ -782,8 +782,8 @@ class AccountsViewSet(ApiViewSet,
                 low_skill = serializer.validated_data.get("low_rating_characteristics")
                 high_skill = serializer.validated_data.get("high_rating_characteristics")
                 
-                if None in [low_skill, high_skill]:
-                    return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                # if None in [low_skill, high_skill]:
+                #     return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
                 
                 sync_user_low_high_skills(self.request.tenant.uid, data['user_id'], low_skill, high_skill)
                 
@@ -1081,7 +1081,7 @@ class AccountsViewSet(ApiViewSet,
                             media_data = {}
                         media_data = json.loads(media_data)
                         media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
-                        logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
+                        logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}, <<tag>>:{data.get('tag')}")
                     extracted_media_data = {}
 
                     logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
