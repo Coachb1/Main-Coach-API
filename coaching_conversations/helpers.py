@@ -1641,6 +1641,7 @@ def create_user_profile_and_bot(data,auth):
             "bot_type": 'avatar_bot',
             "profile_id": profile.get('uid'),
             "bot_name": name,
+            "tag":data.get("tag"),
             "email": data.get('email'),
             "bot_details": {"info": data.get('about'), "coach_name": name},
             "attributes": {"heading": f"welcome to {name}'s avatar bot"},
@@ -2564,11 +2565,11 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
         profile_information += f"""
 
         @{user_name}:
-                HIGH SKILL: ${user_info['high_skill']}
-                LOW SKILL: ${user_info['low_skill']}
-                PROFILE INFORMATION: 
-                        First Name : ${user_info['first_name']}
-                        Last Name : ${user_info['last_name']}
+                HIGH SKILL: {user_info['high_skill']}
+                LOW SKILL: {user_info['low_skill']}
+
+                First Name : {user_info['first_name']}
+                Last Name : {user_info['last_name']}
                 \n\n
         """
 
@@ -2614,5 +2615,5 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
 
     response = anthropic_completion(prompt,max_tokens=1000)
     logger.info(f"team connect response: {response}")
-    return {"response": response, "message": message}
+    return {"response": response.replace('$',''), "message": message}
 
