@@ -1092,6 +1092,7 @@ class AccountsViewSet(ApiViewSet,
                         tenant_id=self.request.tenant.uid,
                         user_id=participant_id,
                         bot_type=bot_type,
+                        tag=data.get('tag'),
                         data = {
                             "media_data": {
 
