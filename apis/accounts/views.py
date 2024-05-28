@@ -27,7 +27,7 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
-from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account
+from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account, sync_user_low_high_skills
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
 from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
@@ -779,6 +779,14 @@ class AccountsViewSet(ApiViewSet,
                 logger.info(f"serializer data: {serializer.validated_data}")
                 created_profile = serializer.save()
                 
+                low_skill = serializer.validated_data.get("low_rating_characteristics")
+                high_skill = serializer.validated_data.get("high_rating_characteristics")
+                
+                if None in [low_skill, high_skill]:
+                    return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                
+                sync_user_low_high_skills(self.request.tenant.uid, data['user_id'], low_skill, high_skill)
+                
                 if (created_profile.profile_type) in ('coachee','mentee'):
                     created_profile.is_approved = True
                     created_profile.save(update_fields=["is_approved"])
@@ -1163,6 +1171,16 @@ class AccountsViewSet(ApiViewSet,
                         prompt = signature_bot_default_prompt(bot_type)
                         signature_bot.custom_prompt = prompt
                         updated_fields.append("custom_prompt")
+                        
+                        
+                    if bot_type == BotTypeChoice.feedback_bot:
+                        low_skill = data.get("low_rating_characteristics")
+                        high_skill = data.get("high_rating_characteristics")
+                        
+                        if None in [low_skill, high_skill]:
+                            return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
+                        
+                        sync_user_low_high_skills(self.request.tenant.uid, participant_id, low_skill, high_skill)
                         
 
                     if all_data:
@@ -3116,7 +3134,7 @@ class AccountsViewSet(ApiViewSet,
         # return Response("ok")
         try:
             user_id = request.query_params.get('user_id')
-            
+            logger.info(f"<<<<<<<<<<< sync_low_high_skills => user_id : {user_id} >>>>>>>>>>>>>>>>>")
             profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).last()
             
             if profile:
@@ -3133,6 +3151,8 @@ class AccountsViewSet(ApiViewSet,
                 if 'low_high_skills' in bot_attributes:
                     skills_data = bot_attributes['low_high_skills']
                 return Response(skills_data)
+            
+            return Response({"high_skill":"","low_skill":""})
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
