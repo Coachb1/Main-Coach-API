@@ -377,6 +377,7 @@ class AccountsViewSet(ApiViewSet,
         data['scenario_case'] = signature_bot.bot_scenario_case
         data['bot_expires_at'] = signature_bot.bot_expires_at
         data['access_code'] = signature_bot.access_code
+        data['tag'] = signature_bot.tag
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
@@ -3108,3 +3109,30 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Error update_user_account: {e}")
             return Response({'msg':f"Error update_user_account: {e}"},status=status.HTTP_400_BAD_REQUEST)
+        
+    
+    @action(methods=['GET','POST'], detail=False, url_path='get_low_high_skills')
+    def get_low_high_skills(self, request, *args, **kwargs):
+        # return Response("ok")
+        try:
+            user_id = request.query_params.get('user_id')
+            
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).last()
+            
+            if profile:
+                return Response({
+                'high_skill': profile.high_rating_characteristics or "",
+                'low_skill': profile.low_rating_characteristics or ""
+                })
+                
+            feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=user_id,bot_type=BotTypeChoice.feedback_bot).first()
+            if feedback_bot:
+                skills_data = {"high_skill":"","low_skill":""}
+                
+                bot_attributes = feedback_bot.attributes
+                if 'low_high_skills' in bot_attributes:
+                    skills_data = bot_attributes['low_high_skills']
+                return Response(skills_data)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
