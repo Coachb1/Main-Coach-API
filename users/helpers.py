@@ -4,8 +4,9 @@ from django.contrib.auth.hashers import make_password, check_password
 
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
-from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile
+from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile, SignatureBot
 from users.models import UserAttribute
+from users.choices import BotTypeChoice
 from web_auth.helpers import create_new_tokens, logout_entity
 
 logger = logging.getLogger(__name__)
@@ -203,3 +204,29 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
             profile.save(update_fields=updated_fields)
 
     return user
+
+
+
+def sync_user_low_high_skills(tenant_id, user_id, low_skill, high_skill):
+    try:
+        logger.info(f"<<<<<<<<<<< sync_low_high_skills => user_id : {user_id}, skills: {low_skill, high_skill} >>>>>>>>>>>>>>>>>")
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
+        
+        if profile:
+            profile.high_rating_characteristics = high_skill
+            profile.low_rating_characteristics = low_skill
+            profile.save()
+        
+        feedback_bot = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_id,bot_type=BotTypeChoice.feedback_bot).first()
+        if feedback_bot:
+            skills_data = {"high_skill":high_skill,"low_skill":low_skill}
+            
+            bot_attributes = feedback_bot.attributes
+            bot_attributes['low_high_skills'] = skills_data
+            feedback_bot.attributes = bot_attributes
+            feedback_bot.save()
+            
+        return {"synced" : True}
+    except Exception as e:
+        logger.exception(e)
+        return {"synced" : False}
