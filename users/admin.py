@@ -212,7 +212,18 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                         for key, value in additional_data.items():
                             add_data[key] = value
                         bot.data['additional_data'] = add_data
-                        bot.save()
+
+                    bot.bot_details['coach_name'] = instance.name
+                    bot.bot_details['info'] = instance.about
+                    bot.save()
+
+                    
+
+                    bot_att = BotAttribute.objects.filter(deleted=False, bot_id = bot.uid).last()
+                    if bot_att:
+                        bot_att.about = instance.about
+                        bot_att.save()
+
 
                     # media_data = {}
                     # yt_links = [link.strip() for link in provided_links.get('youtube_links',[])]
