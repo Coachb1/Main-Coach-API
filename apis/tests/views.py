@@ -858,8 +858,8 @@ class TestViewSet(ApiViewSet,
                 article_data = scrape_article_data(url.strip())
                 print('='*50)
                 print(article_data)
-                if not article_data.get('article_content') or  article_data.get('article_content') == "":
-                    return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
+                # if not article_data.get('article_content') or  article_data.get('article_content') == "":
+                #     return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
                 
                 context = json.dumps({
                     "title": article_data.get('title'),
