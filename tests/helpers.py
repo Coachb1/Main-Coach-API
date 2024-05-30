@@ -7206,8 +7206,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 article_data = scrape_article_data(url.strip())
                 print('='*50)
                 print(article_data)
-                if not article_data.get('article_content') or  article_data.get('article_content') == "":
-                    return {'error':"Scenario generation failed because of failure of page extraction please try again."}
+                # if not article_data.get('article_content') or  article_data.get('article_content') == "":
+                #     return {'error':"Scenario generation failed because of failure of page extraction please try again."}
                 
                 site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
