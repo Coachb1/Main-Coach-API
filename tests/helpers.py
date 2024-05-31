@@ -227,7 +227,8 @@ def create_test(tenant: Tenant,
                 creator_email:str,
                 is_assigned:bool,
                 assigned_to: str,
-                assigned_by: str) -> tuple[Test, list[TestQuestion]]:
+                assigned_by: str,
+                web_page_url:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -411,7 +412,8 @@ def create_test(tenant: Tenant,
             creator_email=creator_email,
             is_assigned=is_assigned,
             assigned_to=assigned_to,
-            assigned_by=assigned_by
+            assigned_by=assigned_by,
+            web_page_url=web_page_url
         )
 
         test_questions = []
@@ -7202,14 +7204,14 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 if i > 0:
                     title = get_improved_title(title)
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
-            else:
-                article_data = scrape_article_data(url.strip())
-                print('='*50)
-                print(article_data)
-                # if not article_data.get('article_content') or  article_data.get('article_content') == "":
-                #     return {'error':"Scenario generation failed because of failure of page extraction please try again."}
+            # else:
+            #     article_data = scrape_article_data(url.strip())
+            #     print('='*50)
+            #     print(article_data)
+            #     # if not article_data.get('article_content') or  article_data.get('article_content') == "":
+            #     #     return {'error':"Scenario generation failed because of failure of page extraction please try again."}
                 
-                site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
+            #     site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
             
 
@@ -7356,6 +7358,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 test_json["scenario_summary"] = scenario_summary
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
+
+            if not url.strip() in [None,""]:
+                test_json["web_page_url"] = url.strip()
 
             json_data = json.dumps(test_json)
 
@@ -7613,41 +7618,51 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
 
 
 
-def fetch_test_codes_by_site_context(url,tenant_id, context):
+def fetch_test_codes_by_site_context(url,tenant_id,by='skills'):
+    """
+    This function is used to fetch the test codes based on the site context
+    by can be skills and web_page
+    """
 
-    title, des = scrape_meta_info(url)
-    site_information = f"Title: {title} \n Description: {des}"
+    tests = None
+    if by == 'web_page':
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,web_page_url=url.strip())
+    else:
+        title, des = scrape_meta_info(url)
+        site_information = f"Title: {title} \n Description: {des}"
 
 
-    all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
-    all_skills = set()
-    up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_presented_skills]]
+        all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
+        all_skills = set()
+        up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_presented_skills]]
 
-    for skills in all_skills_qs:
-        if skills[0]:
-            skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
-            all_skills.update(skill_name_list)
+        for skills in all_skills_qs:
+            if skills[0]:
+                skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
+                all_skills.update(skill_name_list)
 
-    prompt = """
-    {information} - %s
-    {AllSkills} - %s
+        prompt = """
+        {information} - %s
+        {AllSkills} - %s
 
-    According to the {information}, extract suitable skill from it skill must be from {AllSkills}.
-    NOTE: ONly return skill nothing else
-    """%(site_information,list(all_skills))
+        According to the {information}, extract suitable skill from it skill must be from {AllSkills}.
+        NOTE: ONly return skill nothing else
+        """%(site_information,list(all_skills))
 
-    skills = generic_completion(prompt,1000,'Failed to extract skills')
-    skills = skills.split(':')[-1].strip()
-    print(skills)
-        
- 
-    tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
+        skills = generic_completion(prompt,1000,'Failed to extract skills')
+        skills = skills.split(':')[-1].strip()
+        print(skills)
+            
+    
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
+
     test_list = []
     for test in tests:
         test_list.append({
             "title": test.title,
             "test_code": test.test_code,
             "description": test.description,
+            "test_type": test.test_type
         })
 
     return test_list
