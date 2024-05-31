@@ -857,6 +857,11 @@ class TestViewSet(ApiViewSet,
             resp_data = []
             
             if not context and url:
+                scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page')
+                logger.info(f"fetched scenarios: {scenario}")
+                if len(scenario) > 0:
+                    return Response(data=scenario, status=status.HTTP_200_OK)
+
                 article_data = scrape_article_data(url.strip())
                 print('='*50)
                 print(article_data)
@@ -884,7 +889,7 @@ class TestViewSet(ApiViewSet,
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             logger.info("*********************************** MODE B ********************************")
-            scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
+            scenario = fetch_test_codes_by_site_context(url,tenant_id)
             return Response(data=scenario, status=status.HTTP_200_OK)
 
 
