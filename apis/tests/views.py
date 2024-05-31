@@ -847,8 +847,9 @@ class TestViewSet(ApiViewSet,
         is_dynamic = request.query_params.get('is_dynamic',True)
         assign_to = request.query_params.get('assign_to')
         assigned_by = request.query_params.get("assigned_by")
+        is_micro = request.query_params.get("is_micro",True)
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}")
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
@@ -867,14 +868,14 @@ class TestViewSet(ApiViewSet,
                 })
 
             if is_static == 'true' or is_static == True or is_static == "True":
-                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by)
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by, is_micro=is_micro)
                 if scenario:
                     resp_data.append(scenario)
                 else:
                     resp_data.append({'message':"failed to generate the scenario"})
             if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
                 dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-                                                                    origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by)
+                                                                    origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by,is_micro=is_micro)
                 if scenario:
                     resp_data.append(dynamic_discussion)
                 else:
