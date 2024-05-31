@@ -6652,7 +6652,7 @@ def scrape_meta_info(url):
     except Exception as e:
         return "Error: " + str(e), ""
 
-def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager"):
+def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager",num_questions=3):
     """
     Extract information from a dynamic scenario text.
 
@@ -6707,7 +6707,7 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
         evaluation_skill_list = ','.join(evaluation_skill_list)
 
         manager_name = questions.split(':')[0].strip()
-        for i in range(1,10):
+        for i in range(1,2*num_questions):
             question = {
                     "question_type": "subjective",
                     "gpt_prompt_override": "",
@@ -7033,7 +7033,7 @@ def get_prompt_for_feedback_bot(site_information):
         
     return prompt
 
-def get_one_scenario_prompt(site_information,prompt_type):
+def get_one_scenario_prompt(site_information,prompt_type, num_questions=3):
     prompt = ''
     if prompt_type == TestTypeChoices.dynamic_discussion_thread:
         prompt = """
@@ -7094,7 +7094,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
                 Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
-                Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
                 Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
                 KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
@@ -7112,7 +7112,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                 "Takeaway 1" ,
 
-                "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
+                "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
 
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
 
@@ -7126,7 +7126,7 @@ def get_one_scenario_prompt(site_information,prompt_type):
                 NOTE : Make sure the simulation is very advanced and tough.
                 
                 \n\nAssistant:
-            """%(site_information)      
+            """%(site_information, num_questions, num_questions)      
         
         
     return prompt
@@ -7149,7 +7149,7 @@ def get_improved_title(title):
     return title
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7213,7 +7213,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             
 
-            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test)
+            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6)
 
             if is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
@@ -7244,7 +7244,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True, num_questions=3 if is_micro else 6)
                     else:
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
 
@@ -7281,7 +7281,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True,num_questions=3 if is_micro else 6)
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
                     
@@ -7349,7 +7349,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "creator_user_id": creator_user_id,
                 'is_assigned': True if assign_to is not None else False,
                 'assigned_to': assign_to,
-                'assigned_by': assigned_by
+                'assigned_by': assigned_by,
+                'is_micro': is_micro
             }
             if scenario_summary:
                 test_json["scenario_summary"] = scenario_summary

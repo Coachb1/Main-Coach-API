@@ -1178,7 +1178,7 @@ class AccountsViewSet(ApiViewSet,
                         high_skill = data.get("high_rating_characteristics")
                         
                         if None in [low_skill, high_skill]:
-                            return Response({"error": "feedback_questions is required"},status=status.HTTP_400_BAD_REQUEST)
+                            return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
                         
                         sync_user_low_high_skills(self.request.tenant.uid, participant_id, low_skill, high_skill)
                         
