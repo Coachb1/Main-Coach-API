@@ -2100,8 +2100,10 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "user_email": email,
         "name": user_account.name,
         "has_deep_dive_creator_access":has_deep_dive_creator_access,
-        "allow_audio_interactions": client.allow_audio_interactions
-
+        "allow_audio_interactions": client.allow_audio_interactions,
+        "heading": client.heading,
+        "sub_heading": client.sub_heading,
+        "tag_line": client.tag_line
     }
     user_info['user_id'] = user_account.uid
     user_info['name'] = user_account.name

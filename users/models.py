@@ -198,6 +198,9 @@ class ClientUserInfo(TenantAwareModel):
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips())
     allow_audio_interactions = models.BooleanField(blank=True, default=False)
     make_new_user_in_trail = models.BooleanField(blank=True, default=True)
+    heading = models.CharField(max_length=255,null=True, blank=True, default=None)
+    sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
+    tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
 
 
 
