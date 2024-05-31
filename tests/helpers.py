@@ -8801,4 +8801,28 @@ def get_low_skill_scenarios(tenant,test_codes=None,min_skill_count=4):
 
 
 
+def set_is_micro():
+    print("################# Process started ################3")
+    tests = Test.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",deleted=0)
+    dynamic_change_count = 0
+    static_change_count = 0
+    print("########## Total tests fetched : ",tests.count())
+    for test in tests:
+        if test.test_type == TestTypeChoices.dynamic_discussion_thread:
+            questions = TestQuestion.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",test_id=test.uid,question_for='user')
+            if questions.count() == 3:
+                test.is_micro = True
+                test.save()
+                dynamic_change_count += 1
+        
+        if test.test_type == TestTypeChoices.test:
+            questions = TestQuestion.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",test_id=test.uid)
+            if questions.count() == 3:
+                test.is_micro = True
+                test.save()
+                static_change_count += 1
+                
+        print("********* Records Changed  ********")
+        print(f"Dynamic : {dynamic_change_count},    Static : {static_change_count}")
+        print("************************************")
         
