@@ -848,7 +848,7 @@ class TestViewSet(ApiViewSet,
         assign_to = request.query_params.get('assign_to')
         assigned_by = request.query_params.get("assigned_by")
         is_micro = request.query_params.get("is_micro",True)
-        is_micro = False if is_micro in ['False','false',0] else is_micro
+        is_micro = False if is_micro in ['False','false',0] else True
 
         logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro} {'>>>'*100}")
 
@@ -857,7 +857,7 @@ class TestViewSet(ApiViewSet,
             resp_data = []
             
             if not context and url:
-                scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page')
+                scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
                 logger.info(f"fetched scenarios: {scenario}")
                 if len(scenario) > 0:
                     return Response(data=scenario, status=status.HTTP_200_OK)
