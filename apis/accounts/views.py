@@ -66,6 +66,7 @@ from documents.utils import get_document_summary
 import random
 from coaching_conversations.helpers import update_or_create_client_id
 from apis.accounts.serializers import clientUserInfoSerializer
+from apis.accounts.utils import delete_user_resources
 
 logger = logging.getLogger(__name__)
 
@@ -3028,6 +3029,12 @@ class AccountsViewSet(ApiViewSet,
                         new_client_id=new_client_id,
                         user_email=user_email
                     )
+                    try:
+                        user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
+                        delete_user_resources(user_identity.user_id)
+                        logger.info("============== User Resources Deleted ===============")
+                    except Exception as e:
+                        logger.exception(e)
                 elif is_disable:
                     is_disable = str(is_disable) == 'true'
                     disable_or_enable_client(email=user_email,is_disable=is_disable,tenant=tenant)
