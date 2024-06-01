@@ -6706,6 +6706,10 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
                 skills_list_candidate.add(item.capitalize())
 
         evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+        
+        if len(skills_list_candidate) < 4:
+            raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+    
         evaluation_skill_list = ','.join(evaluation_skill_list)
 
         manager_name = questions.split(':')[0].strip()
@@ -6912,6 +6916,9 @@ def extract_information(text):
         for skill in que['skills'].split(','):
             skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
 
+    if len(skill_to_evaluate) < 4:
+        raise ValueError(f"Skills must have at least 4. Got:  {len(skill_to_evaluate)}, {skill_to_evaluate}")
+    
     skill_to_evaluate = ', '.join(skill_to_evaluate)
 
     return title, description, question_info, skill_to_evaluate, rating
