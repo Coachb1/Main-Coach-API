@@ -7402,7 +7402,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type']}
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
@@ -7618,7 +7618,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
 
 
 
-def fetch_test_codes_by_site_context(url,tenant_id,by='skills'):
+def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
     """
     This function is used to fetch the test codes based on the site context
     by can be skills and web_page
@@ -7626,7 +7626,7 @@ def fetch_test_codes_by_site_context(url,tenant_id,by='skills'):
 
     tests = None
     if by == 'web_page':
-        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,web_page_url=url.strip())
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,web_page_url=url.strip(),is_micro=is_micro)
     else:
         title, des = scrape_meta_info(url)
         site_information = f"Title: {title} \n Description: {des}"
@@ -7662,7 +7662,8 @@ def fetch_test_codes_by_site_context(url,tenant_id,by='skills'):
             "title": test.title,
             "test_code": test.test_code,
             "description": test.description,
-            "test_type": test.test_type
+            "test_type": test.test_type,
+            "is_micro": test.is_micro
         })
 
     return test_list
