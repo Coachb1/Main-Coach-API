@@ -1970,15 +1970,15 @@ def disable_or_enable_client(email,is_disable,tenant):
     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=email).first()
     if client:
         if is_disable:
-            unique_emails = set([email for email in client.restricted_ids.split(",") if len(email.strip()) > 0] if client.restricted_ids else [])
+            unique_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
             unique_emails.add(email)
-            client.restricted_ids = ",".join(unique_emails)
-            client.save(update_fields=['restricted_ids'])
+            client.demo_ids = ",".join(unique_emails)
+            client.save(update_fields=['demo_ids'])
         else:
-            emails_list = [email.strip() for email in client.restricted_ids.split(',') if len(email.strip()) > 0] if client.restricted_ids else []  # Split the string into a list of emails
+            emails_list = [email.strip() for email in client.demo_ids.split(',') if len(email.strip()) > 0] if client.demo_ids else []  # Split the string into a list of emails
             emails_list = [email for email in emails_list if email != email]  # Remove the specified email
-            client.restricted_ids = ",".join(set(emails_list))
-            client.save(update_fields=['restricted_ids'])
+            client.demo_ids = ",".join(set(emails_list))
+            client.save(update_fields=['demo_ids'])
         
 
 def get_client_user_info(client:ClientUserInfo, email:str):
