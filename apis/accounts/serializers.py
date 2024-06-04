@@ -182,22 +182,38 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try: 
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
-            data['created'] = profile.created
-            if profile.admirer_user_ids:
+            user = ""
+            profile = ""
+            if instance.profile_type == 'knowledge_bot':
+                user = get_user_by_id(instance.profile_id)
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).first()
+            else:
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(uid=instance.profile_id).first()
+                user = get_user_by_id(profile.user_id)
+
+            user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
+            data['email'] = user_att.attributes.get('email')
+            data['user_id'] = user.uid
+            data['created'] = user.created
+
+            if profile and profile.admirer_user_ids:
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
             else:
                 data['admirer_ids'] = []
 
-            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=profile.tenant_id , coach_id=profile.uid)
-            total_ratings = len(ratings)
-            total_score = sum([rating.rating for rating in ratings])
-            if total_ratings == 0:
+            try:
+                ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=user.tenant_id , coach_id=profile.uid)
+                total_ratings = len(ratings)
+                total_score = sum([rating.rating for rating in ratings])
+                if total_ratings == 0:
+                    data['rating'] = 0
+                    data['total_rating'] = 0
+                else:
+                    data['rating'] = total_score/total_ratings
+                    data['total_rating'] = total_ratings
+            except Exception as e:
                 data['rating'] = 0
                 data['total_rating'] = 0
-            else:
-                data['rating'] = total_score/total_ratings
-                data['total_rating'] = total_ratings
 
             try:
                 signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
@@ -218,6 +234,8 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             data['total_engagement_with_question_count'] = None
             data['rating'] = 0
             data['total_rating'] = 0
+            data['email'] = None
+            data['user_id'] = None
 
         return data
 
