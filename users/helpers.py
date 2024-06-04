@@ -188,6 +188,14 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
         user_attribute.restricted_pages = user_data.get('restricted_pages')
         updated_fields.append('restricted_pages')
 
+    if user_data.get('access_allowed'):
+        user_attribute.access_allowed = user_data.get('access_allowed')
+        updated_fields.append('access_allowed')
+    
+    if user_data.get('access_denied'):
+        user_attribute.access_denied = user_data.get('access_denied')
+        updated_fields.append('access_denied')
+
     if len(updated_fields) > 0:
         user_attribute.save(update_fields=updated_fields)
 
