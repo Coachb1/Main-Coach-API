@@ -3164,3 +3164,35 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=['GET','PATCH'], detail=False, url_path='profile_approvals')
+    def profile_approvals(self, request, *args, **kwargs):
+
+        try:
+            if request.method == 'GET':
+                return Response(DirectoryInfoSErializer(DirectoryPageInfo.objects.filter().order_by('-id'),many=True).data, status=status.HTTP_200_OK)
+            
+            elif request.method == 'PATCH':
+                data = request.data
+                if not data.get('id'):
+                    return Response(f"Please provide a id for this request", status=status.HTTP_400_BAD_REQUEST)
+                
+                directory_page_info = DirectoryPageInfo.objects.filter(id=data.get('id',None)).first()
+
+                if directory_page_info:
+                    if data.get('approved',None) is not None:
+                        directory_page_info.is_approved = data.get('approved',None)
+                    if data.get('visible',None) is not None:
+                        directory_page_info.is_visible = data.get('visible',None)
+                    directory_page_info.save()
+
+                    if data.get('is_delete',None) is not None:
+                        if data.get('is_delete'):
+                            directory_page_info.delete()
+                            return Response({'deleted': DirectoryInfoSErializer(directory_page_info).data}, status=status.HTTP_200_OK)
+
+                    return Response({'updated': DirectoryInfoSErializer(directory_page_info).data}, status=status.HTTP_200_OK)
+                
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
