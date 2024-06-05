@@ -854,7 +854,7 @@ class TestViewSet(ApiViewSet,
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
         regeneration = False if regeneration in ['False','false',0,False] else True
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro} {'>>>'*100}")
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")

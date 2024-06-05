@@ -7536,7 +7536,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
 
-            if not url.strip() in [None,""]:
+            if not url in [None,""]:
                 test_json["web_page_url"] = url.strip()
 
             json_data = json.dumps(test_json)
