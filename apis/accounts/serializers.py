@@ -91,7 +91,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'common_phrases_and_expressions',
                 "journey_and_background",
                 "mentorship_contribution",
-                "discussion_topic"
+                "discussion_topic",
+                "optional_file_data"
                 ]
 
         extra_kwargs = {

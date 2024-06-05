@@ -850,17 +850,19 @@ class TestViewSet(ApiViewSet,
         is_micro = request.query_params.get("is_micro",True)
         regeneration = request.query_params.get("regeneration",False)
         use_anthropic = request.query_params.get("use_anthropic",True)
+        flavour = request.query_params.get('flavour',None)
+
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
         regeneration = False if regeneration in ['False','false',0,False] else True
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration} {'>>>'*100}")
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
             resp_data = []
             
-            if not context and url:
+            if not context and url not in [None, ""]:
                 if not regeneration:
                     scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
                     logger.info(f"fetched scenarios: {scenario}")
@@ -879,7 +881,13 @@ class TestViewSet(ApiViewSet,
                 })
 
             if is_static == 'true' or is_static == True or is_static == "True":
-                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by, is_micro=is_micro,regeneration=regeneration,use_anthropic=use_anthropic)
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, 
+                                                             origin=source, competency=competency, 
+                                                             creator_user_id=creator_user_id, assign_to=assign_to, 
+                                                             assigned_by=assigned_by, is_micro=is_micro,
+                                                             regeneration=regeneration,use_anthropic=use_anthropic,
+                                                             flavour=flavour
+                                                             )
                 if scenario:
                     resp_data.append(scenario)
                 else:

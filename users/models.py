@@ -260,6 +260,8 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     mentorship_contribution = models.TextField(null=True, blank=True, default=None)
     is_approved_email_sent = models.BooleanField(null=True, blank=True, default=False)
     discussion_topic = models.TextField(null=True, blank=True, default=None)
+    optional_file_data = models.JSONField(null=True, blank=True, default=None)
+
 
     
     
