@@ -7311,7 +7311,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 
             #     \n\nAssistant:
             # """  
-            
+
         prompt = f"{prompt}"%(site_information, num_questions, num_questions) 
         
     logger.info({"prompt": prompt})
@@ -7415,7 +7415,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
             #     site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
-            
+            matches = search_keywords(site_information)
+            if len(matches)> 0:
+                return {'error':"Scenario generation failed because of failure of page extraction please try again."}
 
             prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=flavour if flavour else case_type[0])
 
@@ -9054,3 +9056,9 @@ def set_is_micro():
         print(f"Dynamic : {dynamic_change_count},    Static : {static_change_count}")
         print("************************************")
         
+def search_keywords(text, keywords=['Simulation', "Role play"]):
+    # Combine the keywords into a single regex pattern
+    pattern = '|'.join(re.escape(keyword) for keyword in keywords)
+    # Use re.IGNORECASE to make the search case insensitive
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    return matches
