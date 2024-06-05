@@ -848,7 +848,11 @@ class TestViewSet(ApiViewSet,
         assign_to = request.query_params.get('assign_to')
         assigned_by = request.query_params.get("assigned_by")
         is_micro = request.query_params.get("is_micro",True)
-        is_micro = False if is_micro in ['False','false',0] else True
+        regeneration = request.query_params.get("regeneration",False)
+        use_anthropic = request.query_params.get("use_anthropic",True)
+        is_micro = False if is_micro in ['False','false',0,False] else True
+        use_anthropic = False if use_anthropic in ['False','false',0,False] else True
+        regeneration = False if regeneration in ['False','false',0,False] else True
 
         logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro} {'>>>'*100}")
 
@@ -857,10 +861,11 @@ class TestViewSet(ApiViewSet,
             resp_data = []
             
             if not context and url:
-                scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
-                logger.info(f"fetched scenarios: {scenario}")
-                if len(scenario) > 0:
-                    return Response(data=scenario, status=status.HTTP_200_OK)
+                if not regeneration:
+                    scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
+                    logger.info(f"fetched scenarios: {scenario}")
+                    if len(scenario) > 0:
+                        return Response(data=scenario, status=status.HTTP_200_OK)
 
                 article_data = scrape_article_data(url.strip())
                 print('='*50)
@@ -874,18 +879,18 @@ class TestViewSet(ApiViewSet,
                 })
 
             if is_static == 'true' or is_static == True or is_static == "True":
-                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by, is_micro=is_micro)
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id, assign_to=assign_to, assigned_by=assigned_by, is_micro=is_micro,regeneration=regeneration,use_anthropic=use_anthropic)
                 if scenario:
                     resp_data.append(scenario)
                 else:
                     resp_data.append({'message':"failed to generate the scenario"})
-            if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
-                dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-                                                                    origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by,is_micro=is_micro)
-                if scenario:
-                    resp_data.append(dynamic_discussion)
-                else:
-                    resp_data.append({'message':"failed to generate the dynamic_discussion"})
+            # if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
+            #     dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
+            #                                                         origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by,is_micro=is_micro)
+            #     if scenario:
+            #         resp_data.append(dynamic_discussion)
+            #     else:
+            #         resp_data.append({'message':"failed to generate the dynamic_discussion"})
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             logger.info("*********************************** MODE B ********************************")
