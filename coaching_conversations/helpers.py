@@ -2057,6 +2057,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
 
     try:
         user_account = get_user_by_id(Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email).user_id)
+        user_att = get_user_attribute(user_account, "deepchat_profile")
     except:
         return {"msg": "user not found",
                 "is_restricted": False,
@@ -2099,6 +2100,9 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "restricted_features": client.restricted_features,
         "user_email": email,
         "name": user_account.name,
+        "role": user_account.role,
+        "access_allowed": user_att.access_allowed,
+        "access_denied": user_att.access_denied,
         "has_deep_dive_creator_access":has_deep_dive_creator_access,
         "allow_audio_interactions": client.allow_audio_interactions,
         "heading": client.heading,
