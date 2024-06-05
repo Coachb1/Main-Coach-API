@@ -216,15 +216,23 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 data['total_rating'] = 0
 
             try:
-                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
-                engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
+                signature_bot = ""
+                if instance.profile_type == "knowledge_bot":
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=user.tenant_id,bot_id=instance.custom_user_bot_id)
+                else:
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=user.tenant_id,bot_id=instance.avatar_bot_id)
+                engagements  = get_bot_engagements(tenant_id=user.tenant_id,bot_id=signature_bot.uid)
                 data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
                 data['total_without_question_count'] = engagements.get('total_without_question_count',None)
                 data['bot_tag'] = signature_bot.tag
+                data['bot_uid'] = signature_bot.uid
+                data['bot_type'] = signature_bot.bot_type
             except:
                 data['total_engagement_with_question_count'] = None
                 data['total_engagement_with_question_count'] = None
                 data['bot_tag'] = None
+                data['bot_uid'] = None
+                data['bot_type'] = None
             
         except Exception as e:
             logger.error(f"Error in DirectoryInfoSErializer: {e}")
@@ -236,6 +244,8 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             data['total_rating'] = 0
             data['email'] = None
             data['user_id'] = None
+            data['bot_uid'] = None
+            data['bot_type'] = None
 
         return data
 

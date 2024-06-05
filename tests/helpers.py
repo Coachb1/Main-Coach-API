@@ -6806,10 +6806,9 @@ def extract_scenarios_info_for_three_question(text):
 def extract_text_only(input_text):
     # Remove digits from the text
     text_without_digits = re.sub(r'\d', '', input_text)
-    
+
     # Remove extra whitespaces
-    cleaned_text = ' '.join(text_without_digits.replace("."," ").strip().split())
-    
+    cleaned_text = ' '.join([st.replace("-","").strip().capitalize()  for st in text_without_digits.replace("."," ").strip().split()])
     return cleaned_text
 
 def extract_information(text):
@@ -6844,18 +6843,21 @@ def extract_information(text):
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
 
-    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
-        raise ValueError("Invalid format. Unable to extract necessary information.")
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            raise ValueError("Invalid format. Unable to extract the title.")
 
-    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+
+    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         invalid_fields = []
 
         if not title_match:
             invalid_fields.append("title")
         if not description_match:
             invalid_fields.append("description")
-        if not rating_match:
-            invalid_fields.append("rating")
         if not question_pattern.findall(text):
             invalid_fields.append("question pattern")
         if not prompt_pattern.findall(text):
@@ -6866,7 +6868,6 @@ def extract_information(text):
             invalid_fields.append("skills pattern")
 
         raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
-
 
     title = title_match.group(1)
     description = description_match.group(1)
@@ -7042,7 +7043,7 @@ def get_prompt_for_feedback_bot(site_information):
         
     return prompt
 
-def get_one_scenario_prompt(site_information,prompt_type, num_questions=3):
+def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case='default'):
     prompt = ''
     if prompt_type == TestTypeChoices.dynamic_discussion_thread:
         prompt = """
@@ -7095,7 +7096,147 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3):
 
                     """%(site_information)  
     else:
-        prompt = """
+        if case == 'normal':
+            prompt = """
+            \n\nHuman:
+            {Information} -
+            %s -
+
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill. The skills should be comma separated.
+            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description with statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            \n\nAssistant:
+
+            """
+
+        elif case == "case":
+            prompt = """
+            \n\nHuman:
+            {Information} - %s
+
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
+            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            Always Use a literary genre to generate the response in high literature.
+            Literary genres encompass a wide spectrum of styles and themes, ranging from the imaginative realms of fiction, poetry, drama, and fantasy to the factual landscapes of non-fiction, biography, and autobiography. Mystery, science fiction, romance, historical fiction, and horror delve into specific narrative territories, while thriller, adventure, satire, comedy, tragedy, and epic offer diverse storytelling approaches. Additionally, fables, fairy tales, mythology, and folklore explore cultural narratives and traditions. Genres like dystopian, gothic, bildungsroman (coming-of-age), absurdist, and magical realism push the boundaries of conventional storytelling, while realistic fiction and experimental literature offer unique perspectives on reality and form. Each genre contributes to the rich tapestry of literary expression, offering readers a multitude of worlds and experiences to explore.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description with statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Always use suitable literary genre to genre create the response.
+            \n\nAssistant:
+            """
+
+        elif case == "interview":
+            prompt = """
+            \n\nHuman:
+            {Information} - %s 
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
+            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description with statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            \n\nAssistant:
+            """
+        elif case == 'checkin':
+            prompt = """
+                \n\nHuman:
+                {Information} - %s
+                Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+                Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description related to the check-in.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
+                Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                Always use a check-in to generate the response for communication and information gathering.
+                Check-in in a corporate setting refers to the process of employees or participants recording their arrival at the workplace, a meeting, a conference, or any other professional gathering. This practice allows for improved attendance tracking, resource allocation, and streamlined communication within the enterprise.
+                In every response, you must:
+                Clearly state your role as X.
+                Identify Y as the person asking
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+                Here the format looks like :
+                "Title",
+                "Description with statement",
+                "Question 1",
+                "Prompt 1",
+                "Takeaway 1" ,
+                "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable like an check-in.
+                . Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                NOTE: "Rating" must be included.
+                NOTE : Make sure the simulation is very advanced and tough.
+                NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Always use check=in for communication and information gathering.
+                \n\nAssistant:
+                """
+        else:
+
+            prompt = """
                 \n\nHuman:
                     {Information} - %s
 
@@ -7135,9 +7276,11 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3):
                 NOTE : Make sure the simulation is very advanced and tough.
                 
                 \n\nAssistant:
-            """%(site_information, num_questions, num_questions)      
+            """  
+        prompt = f"{prompt}"%(site_information, num_questions, num_questions) 
         
-        
+    logger.info({"prompt": prompt})
+
     return prompt
         
         
@@ -7158,7 +7301,7 @@ def get_improved_title(title):
     return title
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7197,8 +7340,25 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     garbage_scenarios = []
     scenario = ""
     max_retry = 3
+    case_type = []
     for i in range(max_retry):
-        logger.info(f"trying outer test generation for {i+1} time")
+        logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
+        
+        if regeneration:
+            if i == 0:
+                case_type = ['interview', "case"]
+            elif i == 1:
+                case_type = ['checkin', "normal"]
+            else:
+                case_type = ['interview', 'checkin']
+        else:
+            if i == 0:
+                case_type = ['normal', "case"]
+            elif i == 1:
+                case_type = ['checkin', "interview"]
+            else:
+                case_type = ['case', 'interview']
+
         try:
             site_information = ""
             if context:
@@ -7222,7 +7382,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             
 
-            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6)
+            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type[0])
 
             if is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
@@ -7246,8 +7406,12 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
                     
                     ### generate scenario using palm
-                    logger.info(f'trying scenario creation bison for {i +1} time')
-                    scenario = text_bison_compeletion(prompt)
+                    if use_anthropic:
+                        logger.info(f'trying scenario creation anthropic for {i +1} time')
+                        scenario = anthropic_completion(prompt,5000)
+                    else:
+                        logger.info(f'trying scenario creation bison for {i +1} time')
+                        scenario = text_bison_compeletion(prompt)
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     # scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
@@ -7282,8 +7446,14 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
                         
                         ### generate scenario using palm
-                        logger.info(f'**retrying scenario creation bison for {i +1} time')
-                        scenario = text_bison_compeletion(prompt)
+                        prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type[1])
+
+                        if use_anthropic:
+                            logger.info(f'**retrying scenario creation anthropic for {i +1} time')
+                            scenario = anthropic_completion(prompt,5000)
+                        else:
+                            logger.info(f'**retrying scenario creation bison for {i +1} time')
+                            scenario = text_bison_compeletion(prompt)
                         # scenario = fcfs_handler.process(prompt)
                         # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         
