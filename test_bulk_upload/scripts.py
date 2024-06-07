@@ -889,7 +889,7 @@ def format_test_data_slack(raw_data):
         unique_skill_count = len(set(skills_list))
 
         if unique_skill_count < 4:
-            return {"skills": set(skills_list), "Title": input_dict['Title']}, False
+            return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
 
         if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
             check_pass = False
@@ -1131,8 +1131,8 @@ def format_test_data_slack(raw_data):
         return output_json, check_pass
 
     except Exception as e:
-        logger.error(e)
-        return None
+        logger.exception(e)
+        return {}, False
 
 
 def login_web(email, password):
@@ -1374,7 +1374,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
                 json_data, check_pass = format_test_data_slack(raw_data)
-                # logger.info(json_data)
+                logger.info(json_data, check_pass)
                 # Calling the Test creation API with JSON data
 
                 if check_pass:
@@ -1433,11 +1433,11 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         #     "exception": True,
                         # }
 
-                    elif "skills" in json_data:
-                        occured_errors.append(json_data["skills"])
+                    elif "unique_skills" in json_data:
+                        occured_errors.append(f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}")
 
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}"
                                             
                     else:
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
@@ -1479,7 +1479,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 }
 
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             return {
                 "errors": [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,

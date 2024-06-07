@@ -6832,6 +6832,7 @@ def extract_information(text):
 
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
+    statement_pattern = re.compile(r'Statement\s*:\s*(.+)')
     question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
     prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
     takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
@@ -6842,6 +6843,7 @@ def extract_information(text):
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
+    statement_match = statement_pattern.search(text)
 
     # If title_pattern doesn't match, try to find the title as the lines before the description
     if not title_match:
@@ -6851,11 +6853,13 @@ def extract_information(text):
             raise ValueError("Invalid format. Unable to extract the title.")
 
 
-    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+    if not (title_match and statement_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         invalid_fields = []
 
         if not title_match:
             invalid_fields.append("title")
+        if not statement_match:
+            invalid_fields.append('statement')
         if not description_match:
             invalid_fields.append("description")
         if not question_pattern.findall(text):
@@ -6870,7 +6874,7 @@ def extract_information(text):
         raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
 
     title = title_match.group(1)
-    description = description_match.group(1)
+    description = description_match.group(1) + f" {statement_match.group(1)}"
     rating = int(rating_match.group(1)) if rating_match else 0
 
     questions = []
@@ -7101,22 +7105,22 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             \n\nHuman:
             {Information} -
             %s -
-
             Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
             Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
             Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill. The skills should be comma separated.
-            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             In every response, you must:
             Clearly state your role as X.
             Identify Y as the person asking
             The Question, Custom Prompt, KLP, KLS should be numbered.
             Here the format looks like :
             "Title",
-            "Description with statement",
+            "Description”,
+            “Statement",
             "Question 1",
             "Prompt 1",
             "Takeaway 1" ,
@@ -7124,27 +7128,26 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             'The Question, Prompt, Takeaway, Skills should be numbered.'
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-            NOTE: KLS - Always each question shall have a unique skill.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
-            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             \n\nAssistant:
 
             """
 
         elif case == "case":
             prompt = """
-            \n\nHuman:
+             \n\nHuman:
             {Information} - %s
-
             Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
             Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
             Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
-            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             Always Use a literary genre to generate the response in high literature.
             Literary genres encompass a wide spectrum of styles and themes, ranging from the imaginative realms of fiction, poetry, drama, and fantasy to the factual landscapes of non-fiction, biography, and autobiography. Mystery, science fiction, romance, historical fiction, and horror delve into specific narrative territories, while thriller, adventure, satire, comedy, tragedy, and epic offer diverse storytelling approaches. Additionally, fables, fairy tales, mythology, and folklore explore cultural narratives and traditions. Genres like dystopian, gothic, bildungsroman (coming-of-age), absurdist, and magical realism push the boundaries of conventional storytelling, while realistic fiction and experimental literature offer unique perspectives on reality and form. Each genre contributes to the rich tapestry of literary expression, offering readers a multitude of worlds and experiences to explore.
             In every response, you must:
@@ -7153,7 +7156,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             The Question, Custom Prompt, KLP, KLS should be numbered.
             Here the format looks like :
             "Title",
-            "Description with statement",
+            "Description”,
+            “Statement",
             "Question 1",
             "Prompt 1",
             "Takeaway 1" ,
@@ -7162,8 +7166,9 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
             NOTE: "Rating" must be included.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE : Make sure the simulation is very advanced and tough.
-            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
             \n\nAssistant:
             """
@@ -7178,15 +7183,16 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
-            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             In every response, you must:
             Clearly state your role as X.
             Identify Y as the person asking
             The Question, Custom Prompt, KLP, KLS should be numbered.
             Here the format looks like :
             "Title",
-            "Description with statement",
+            "Description”,
+            “Statement",
             "Question 1",
             "Prompt 1",
             "Takeaway 1" ,
@@ -7196,8 +7202,10 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
-            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             \n\nAssistant:
+
             """
         elif case == 'checkin':
             prompt = """
@@ -7209,8 +7217,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
                 Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. The skills should be comma separated.
-                Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
                 Always use a check-in to generate the response for communication and information gathering.
                 Check-in in a corporate setting refers to the process of employees or participants recording their arrival at the workplace, a meeting, a conference, or any other professional gathering. This practice allows for improved attendance tracking, resource allocation, and streamlined communication within the enterprise.
                 In every response, you must:
@@ -7219,7 +7227,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 The Question, Custom Prompt, KLP, KLS should be numbered.
                 Here the format looks like :
                 "Title",
-                "Description with statement",
+                "Description”,
+                “Statement",
                 "Question 1",
                 "Prompt 1",
                 "Takeaway 1" ,
@@ -7230,9 +7239,11 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 . Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
                 NOTE: "Rating" must be included.
                 NOTE : Make sure the simulation is very advanced and tough.
-                NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-                NOTE: Always use check=in for communication and information gathering.
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+                NOTE: Always use check-in for communication and information gathering.
                 \n\nAssistant:
+
                 """
         else:
 
@@ -7240,22 +7251,22 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             \n\nHuman:
             {Information} -
             %s -
-
             Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
             Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
             Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
-            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill. The skills should be comma separated.
-            Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             In every response, you must:
             Clearly state your role as X.
             Identify Y as the person asking
             The Question, Custom Prompt, KLP, KLS should be numbered.
             Here the format looks like :
             "Title",
-            "Description with statement",
+            "Description”,
+            “Statement",
             "Question 1",
             "Prompt 1",
             "Takeaway 1" ,
@@ -7263,10 +7274,10 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             'The Question, Prompt, Takeaway, Skills should be numbered.'
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-            NOTE: KLS - Always each question shall have a unique skill.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
-            NOTE: Never miss this, Always end description with this approach and mention this statement: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             \n\nAssistant:
             """
 
