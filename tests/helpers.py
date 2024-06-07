@@ -7333,7 +7333,7 @@ def get_improved_title(title):
 
     title = anthropic_completion(prompt, 25)
     title = title.split(':')[-1]
-    return 
+    return title
     
 def select_other_element(lst, specified_element):
     # Remove the specified element from the list
