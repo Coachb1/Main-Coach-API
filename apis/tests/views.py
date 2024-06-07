@@ -863,15 +863,18 @@ class TestViewSet(ApiViewSet,
             resp_data = []
             
             if not context and url not in [None, ""]:
-                if not regeneration:
-                    scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
-                    logger.info(f"fetched scenarios: {scenario}")
-                    if len(scenario) > 0:
-                        return Response(data=scenario, status=status.HTTP_200_OK)
+                # if not regeneration:
+                #     scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
+                #     logger.info(f"fetched scenarios: {scenario}")
+                #     if len(scenario) > 0:
+                #         return Response(data=scenario, status=status.HTTP_200_OK)
 
                 article_data = scrape_article_data(url.strip())
                 print('='*50)
                 print(article_data)
+
+                if not article_data:
+                    return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
 
                 matches = search_keywords(article_data.get('article_content'))
                 if len(matches) > 0:
