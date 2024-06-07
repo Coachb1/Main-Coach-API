@@ -7333,7 +7333,17 @@ def get_improved_title(title):
 
     title = anthropic_completion(prompt, 25)
     title = title.split(':')[-1]
-    return title
+    return 
+    
+def select_other_element(lst, specified_element):
+    # Remove the specified element from the list
+    other_elements = [elem for elem in lst if elem != specified_element]
+    
+    # Return a random choice from the remaining elements
+    if other_elements:
+        return random.choice(other_elements)
+    else:
+        return random.choice(lst)
 
 @timeit
 def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
@@ -7375,24 +7385,13 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     garbage_scenarios = []
     scenario = ""
     max_retry = 3
-    case_type = []
+    case_type = ""
+    available_case_types = ['case','normal','checkin','interview']
     for i in range(max_retry):
         logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
         
-        if regeneration:
-            if i == 0:
-                case_type = ['interview', "case"]
-            elif i == 1:
-                case_type = ['checkin', "normal"]
-            else:
-                case_type = ['interview', 'checkin']
-        else:
-            if i == 0:
-                case_type = ['normal', "case"]
-            elif i == 1:
-                case_type = ['checkin', "interview"]
-            else:
-                case_type = ['case', 'interview']
+        case_type = random.choice(available_case_types)
+        print(case_type,flavour)
 
         try:
             site_information = ""
@@ -7419,7 +7418,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             if len(matches)> 0:
                 return {'error':"Scenario generation failed because of failure of page extraction please try again."}
 
-            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=flavour if flavour else case_type[0])
+            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=flavour if flavour else case_type)
 
             if is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
@@ -7483,7 +7482,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
                         
                         ### generate scenario using palm
-                        prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type[1])
+                        prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=select_other_element(available_case_types,case_type))
 
                         if use_anthropic:
                             logger.info(f'**retrying scenario creation anthropic for {i +1} time')
