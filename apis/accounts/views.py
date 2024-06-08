@@ -1162,11 +1162,7 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append("faqs")
 
                     if bot_type == BotTypeChoice.avatar_bot:
-                        try:
-                            prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
-                        except Exception as e:
-                            prompt = signature_bot_default_prompt()
-                        signature_bot.custom_prompt = prompt
+                        signature_bot.custom_prompt = signature_bot_default_prompt()
                         updated_fields.append("custom_prompt")
 
                     if bot_type == BotTypeChoice.deep_dive:
