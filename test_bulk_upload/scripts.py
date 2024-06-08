@@ -12,6 +12,7 @@ from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
+from tenants.helpers import tenant_from_subdomain_prefix
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -629,7 +630,7 @@ def format_test_data_web(raw_data):
         return None
 
 
-def format_test_data_slack(raw_data):
+def format_test_data_slack(raw_data,tenant):
     """ 
     The format_test_data_slack function takes in a raw_data parameter, which is expected to be a JSON string. It processes the input JSON data and formats it into a specific output JSON format.
 
@@ -878,13 +879,14 @@ def format_test_data_slack(raw_data):
         # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
-        unmatched_skills = []
-        for skills in skills_list:
-            if skills not in defined_skills_list:
-                unmatched_skills.append(skills)
+        if tenant.use_skills_from_skill_bank:
+            unmatched_skills = []
+            for skills in skills_list:
+                if skills not in defined_skills_list:
+                    unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
-            return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
+            if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
+                return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         unique_skill_count = len(set(skills_list))
 
@@ -1329,6 +1331,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         valid_rows = []
         response = None
         occured_errors = []
+        tenant = tenant_from_subdomain_prefix(subdomain_prefix=subdomain_prefix)
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1373,8 +1376,8 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
-                json_data, check_pass = format_test_data_slack(raw_data)
-                logger.info(json_data, check_pass)
+                json_data, check_pass = format_test_data_slack(raw_data,tenant)
+                # logger.info(json_data)
                 # Calling the Test creation API with JSON data
 
                 if check_pass:
