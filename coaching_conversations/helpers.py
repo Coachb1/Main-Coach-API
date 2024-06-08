@@ -2183,23 +2183,23 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if client_data.get('departments'):
                 client.departments= client_data.get('departments')
                 updated_fields.append('departments')
-            if client_data.get('restricted_pages'):
+            if client_data.get('restricted_pages') != None:
                 client.restricted_pages= client_data.get('restricted_pages')
                 updated_fields.append('restricted_pages')
-            if client_data.get('restricted_features'):
+            if client_data.get('restricted_features') != None:
                 client.restricted_features= client_data.get('restricted_features')
                 updated_fields.append('restricted_features')
-            if client_data.get('demo_ids'):
+            if client_data.get('demo_ids') != None:
                 client.demo_ids= client_data.get('demo_ids')
                 updated_fields.append('demo_ids')
-            if client_data.get('restricted_ids'):
+            if client_data.get('restricted_ids') != None:
                 client.restricted_ids= client_data.get('restricted_ids')
                 updated_fields.append('restricted_ids')
-            if client_data.get('allowed_ips'):
+            if client_data.get('allowed_ips') != None:
                 allowed_ips = {"feedback_deep-dive": client_data.get('allowed_ips') if client_data.get('allowed_ips') else ""}
                 client.allowed_ips= allowed_ips
                 updated_fields.append('allowed_ips')
-            if client_data.get('accessed_bot_ids'):
+            if client_data.get('accessed_bot_ids') != None:
                 client.accessed_bot_ids= client_data.get('accessed_bot_ids')
                 updated_fields.append('accessed_bot_ids')
                 

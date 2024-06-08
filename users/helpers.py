@@ -180,19 +180,19 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
         updated_fields.append('prioritize_user_audio_interaction')
 
 
-    if user_data.get('restricted_features'):
+    if user_data.get('restricted_features') != None:
         user_attribute.restricted_features = user_data.get('restricted_features')
         updated_fields.append('restricted_features')
     
-    if user_data.get('restricted_pages'):
+    if user_data.get('restricted_pages') != None:
         user_attribute.restricted_pages = user_data.get('restricted_pages')
         updated_fields.append('restricted_pages')
 
-    if user_data.get('access_allowed'):
+    if user_data.get('access_allowed') != None:
         user_attribute.access_allowed = user_data.get('access_allowed')
         updated_fields.append('access_allowed')
     
-    if user_data.get('access_denied'):
+    if user_data.get('access_denied') != None:
         user_attribute.access_denied = user_data.get('access_denied')
         updated_fields.append('access_denied')
 
