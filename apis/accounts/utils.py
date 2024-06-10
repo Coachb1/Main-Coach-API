@@ -54,13 +54,3 @@ def delete_user_resources(user_uid):
         Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
 
 
-
-    try:
-        identity = Identity.objects.get(user_id=user_uid)
-        user_email = identity.value
-        clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
-        for client in clients:
-            add_or_remove_emails_from_client(client,'member_emails',user_email,True)
-            add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
-    except Exception as e:
-        print(f"failed to delete client for the user {user_uid}: {e}")
