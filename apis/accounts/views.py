@@ -67,6 +67,9 @@ import random
 from coaching_conversations.helpers import update_or_create_client_id
 from apis.accounts.serializers import clientUserInfoSerializer
 from apis.accounts.utils import delete_user_resources
+from utilities.models import SessionNotesRecommendations
+from django.db import transaction
+from coaching_conversations.helpers import add_or_remove_emails_from_client
 
 logger = logging.getLogger(__name__)
 
@@ -2887,16 +2890,19 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": "Unauthorized"},status=status.HTTP_401_UNAUTHORIZED)
         
         user_uid = request.data.get('user_uid',None)
+        is_delete_user = request.data.get('is_delete_user',False)
+        is_delete_user = True if is_delete_user in ['true','True',True] else False
+        tenant_id = self.request.tenant.uid
         # coach_user_uid = request.data.get('coach_user_uid',None)
         
+        logger.info(f"###################################USER_UID : {user_uid}, is_delete_user: {is_delete_user}")
         def delete_user(user_uid):
-            logger.info(f"###################################USER_UID : {user_uid}")
             user = User.objects.get(uid=user_uid)
             user.delete()
             
             # delete user attributes
             
-            user_attributes = UserAttribute.objects.filter(deleted=False,user_id=user_uid)
+            user_attributes = UserAttribute.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for user_attribute in user_attributes:
                 user_attribute.delete()
                 
@@ -2910,40 +2916,65 @@ class AccountsViewSet(ApiViewSet,
             
             
         def delete_user_related_resources(user_uid):
-            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_uid)
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for profile in profiles:
                 
                 # delete connections if user has coachee profile
-                connections = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=profile.uid)
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
                 for connection in connections:
                     connection.delete()
                     
                 # delete connections if user has coach profile
-                connections = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=profile.uid)
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
                 for connection in connections:
                     connection.delete()
                     
                 profile.delete()
             
             # delete bots if user has any
-            bots = SignatureBot.objects.filter(deleted=False,user_id=user_uid)
+            bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for bot in bots:
+                print(bot.bot_type)
                 # delete bot related resources
-                bot_attributes = BotAttribute.objects.filter(deleted=False,bot_id=bot.bot_id)
+                bot_attributes = BotAttribute.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
                 for bot_attribute in bot_attributes:
                     bot_attribute.delete()
                     
-                bot_qnas = BotQnA.objects.filter(deleted=False,bot_id=bot.bot_id)
+                bot_qnas = BotQnA.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
                 for bot_qna in bot_qnas:
                     bot_qna.delete()
                     
                 
                 bot.delete()
-                
+
+            with transaction.atomic():
+                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).update(deleted=True)
+                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
+                Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
+                Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
+
+
+
+            try:
+                identity = Identity.objects.get(user_id=user_uid)
+                user_email = identity.value
+                clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
+                for client in clients:
+                    add_or_remove_emails_from_client(client,'member_emails',user_email,True)
+                    add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
+            except Exception as e:
+                logger.exception(f"failed to delete client for the user {user_uid}: {e}")
+
+            #deleting test created by user_uid
+
+
         
         try:
-            # delete_user(user_uid)
             delete_user_related_resources(user_uid)
+            if is_delete_user:
+                delete_user(user_uid)
             return Response({"message":"deleted"},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)

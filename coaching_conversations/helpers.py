@@ -1902,6 +1902,15 @@ def get_client_user_data(tenant,client_name=None):
 
     return client_user_data
 
+def add_or_remove_emails_from_client(client, field, user_email, remove=False):
+    emails_list = [email.strip() for email in getattr(client, field).split(',') if len(email.strip()) > 0] if getattr(client, field) else []  # Split the string into a list of emails
+    if remove:
+        emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+    else:
+        emails_list.append(user_email)
+
+    setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
+    client.save(update_fields=[field])  # Save the changes to the specified field
 
 def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
     """
@@ -1944,41 +1953,64 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
         old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=old_client_id)
         # remove user_email from old client
 
-        emails_list = [email.strip() for email in old_client.member_emails.split(',') if len(email.strip()) > 0] if old_client.member_emails else []  # Split the string into a list of emails
-        emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-        old_client.member_emails = ",".join(set(emails_list))
-        old_client.save(update_fields=['member_emails'])
+        add_or_remove_emails_from_client(
+            client=old_client,
+            field="member_emails",
+            user_email=user_email,
+            remove=True
+        )
+
+        add_or_remove_emails_from_client(
+            client=old_client,
+            field="demo_ids",
+            user_email=user_email,
+            remove=True
+        )
 
     else:
         all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email)
         for client in all_client_of_user:
-            emails_list = [email.strip() for email in client.member_emails.split(',') if len(email.strip()) > 0] if client.member_emails else []  # Split the string into a list of emails
-            emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-            client.member_emails = ",".join(set(emails_list))
-            client.save(update_fields=['member_emails'])
+            add_or_remove_emails_from_client(
+            client=client,
+            field="member_emails",
+            user_email=user_email,
+            remove=True
+            )
+            
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=user_email,
+                remove=True
+            )
+
 
             
     # add user_email to new_client
     new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=new_client_id)
-    unique_emails = set([email for email in new_client.member_emails.split(",") if len(email.strip()) > 0] if new_client.member_emails else [])
-    unique_emails.add(user_email)
-    new_client.member_emails = ",".join(unique_emails)
-    new_client.save(update_fields=['member_emails'])
+    add_or_remove_emails_from_client(
+        client=new_client,
+        field="member_emails",
+        user_email=user_email,
+    )
 
 
 def disable_or_enable_client(email,is_disable,tenant):
     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=email).first()
     if client:
         if is_disable:
-            unique_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
-            unique_emails.add(email)
-            client.demo_ids = ",".join(unique_emails)
-            client.save(update_fields=['demo_ids'])
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=email,
+            )
         else:
-            emails_list = [email.strip() for email in client.demo_ids.split(',') if len(email.strip()) > 0] if client.demo_ids else []  # Split the string into a list of emails
-            emails_list = [email for email in emails_list if email != email]  # Remove the specified email
-            client.demo_ids = ",".join(set(emails_list))
-            client.save(update_fields=['demo_ids'])
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=email,
+                remove=True
+            )
         
 
 def get_client_user_info(client:ClientUserInfo, email:str):
@@ -2152,20 +2184,23 @@ def shift_all_emails_to_domain_client(tenant_id,domain):
 
                     member_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False, member_emails__contains=member_email).first()
                     if member_client:
-                        unique_emails = set([email for email in member_client.member_emails.split(",") if len(email.strip()) > 0] if member_client.member_emails else [])
-                        unique_emails = [email for email in unique_emails if email != member_email]
-                        member_client.member_emails = ",".join(unique_emails)
-                        member_client.save(update_fields=['member_emails'])
+                        add_or_remove_emails_from_client(
+                            client=member_client,
+                            field="member_emails",
+                            user_email=member_email,
+                            remove=True
+                        )
 
                     all_email_with_domain.append(member_email.strip())
                 
         print(f"all_email_with_domain : {all_email_with_domain}")
         if len(all_email_with_domain) > 0:
             for email in all_email_with_domain:
-                unique_emails = set([email for email in domain_client.member_emails.split(",") if len(email.strip()) > 0] if domain_client.member_emails else [])
-                unique_emails.add(email)
-                domain_client.member_emails = ",".join(unique_emails)
-                domain_client.save(update_fields=['member_emails'])
+                add_or_remove_emails_from_client(
+                            client=domain_client,
+                            field="member_emails",
+                            user_email=email,
+                        )
                 
 
 
@@ -2341,34 +2376,41 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
             client = already_exist_client.first()
             
         if client:
-            unique_emails = set([email for email in client.member_emails.split(",") if len(email.strip()) > 0] if client.member_emails else [])
-            unique_emails.add(email)
-            client.member_emails = ",".join(unique_emails)
-            client.save(update_fields=['member_emails'])
+
+            add_or_remove_emails_from_client(
+                client=client,
+                field="member_emails",
+                user_email=email
+            )
 
             # by default we will add it to demo ids
             if client.make_new_user_in_trail:
-                demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
-                demo_emails.add(email)
-                client.demo_ids = ",".join(demo_emails)
-                client.save(update_fields=['demo_ids'])
+                add_or_remove_emails_from_client(
+                    client=client,
+                    field="demo_ids",
+                    user_email=email
+                    )
 
             assigned = True
 
 
     if not assigned:
         client = ClientUserInfo.objects.get(tenant_id=tenant.uid,deleted=False,uid='9f07b64c-2dee-4a92-9ac2-1d041ff26205')  # assigning to first-demo
-        unique_emails = set([email for email in client.member_emails.split(",") if len(email.strip()) > 0] if client.member_emails else [])
-        unique_emails.add(email)
-        client.member_emails = ",".join(unique_emails)
-        client.save(update_fields=['member_emails'])
+
+        add_or_remove_emails_from_client(
+                    client=client,
+                    field="member_emails",
+                    user_email=email
+                    )
 
         # by default we will add it to demo ids
         if client.make_new_user_in_trail:
-            demo_emails = set([email for email in client.demo_ids.split(",") if len(email.strip()) > 0] if client.demo_ids else [])
-            demo_emails.add(email)
-            client.demo_ids = ",".join(demo_emails)
-            client.save(update_fields=['demo_ids'])
+
+            add_or_remove_emails_from_client(
+                    client=client,
+                    field="demo_ids",
+                    user_email=email
+                    )
 
 
     # === sending email to business team
