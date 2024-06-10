@@ -77,6 +77,7 @@ class UserActionInfo(TenantAwareModel):
 
     class Meta:
         db_table = "user_action_info"
+        unique_together = ('tenant_id', 'deleted','user_id')
 
 class BotEngagement(TenantAwareModel):
     bot_id = models.CharField(max_length=255)

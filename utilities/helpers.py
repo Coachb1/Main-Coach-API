@@ -370,10 +370,20 @@ def save_user_action_info(tenant_id,user_id,for_,bot_id=None):
     None
 
     """
-    action_info, is_created = UserActionInfo.objects.get_or_create(
-                    tenant_id = tenant_id,
-                    user_id = user_id,
-                )
+    try:
+        action_info, is_created = UserActionInfo.objects.get_or_create(
+                        deleted = False,
+                        tenant_id = tenant_id,
+                        user_id = user_id,
+                    )
+    except Exception as e:
+        logger.exception(f"failed to save user action info: {e}")
+        action_info = UserActionInfo.objects.filter(
+                        deleted = False,
+                        tenant_id = tenant_id,
+                        user_id = user_id,
+                    ).last()
+
     if bot_id:
         value = getattr(action_info, for_)
         bot_ids = bot_id
