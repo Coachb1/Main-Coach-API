@@ -743,7 +743,7 @@ class AccountsViewSet(ApiViewSet,
 
                         send_email_with_html_template(subject=subject,html_content=html,to_email=profile.email,title=f'Hey {profile.name}!')
                         html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{profile.name} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{profile.name} - {profile.email} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
                             """
                         send_email_with_html_template(subject=subject,html_content=html)
 
@@ -1287,7 +1287,7 @@ class AccountsViewSet(ApiViewSet,
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
                                     html = f"""
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{coach_profile.name} created a bot/profile. Please check it out and approve it from Django Admin Panel.</p>
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{coach_profile.name} - {coach_profile.email} created a bot/profile. Please check it out and approve it from Django Admin Panel.</p>
                                         """
                                     send_email_with_html_template(subject=subject,html_content=html)
                             

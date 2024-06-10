@@ -1903,14 +1903,15 @@ def get_client_user_data(tenant,client_name=None):
     return client_user_data
 
 def add_or_remove_emails_from_client(client, field, user_email, remove=False):
-    emails_list = [email.strip() for email in getattr(client, field).split(',') if len(email.strip()) > 0] if getattr(client, field) else []  # Split the string into a list of emails
-    if remove:
-        emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
-    else:
-        emails_list.append(user_email)
+    if client:
+        emails_list = [email.strip() for email in getattr(client, field).split(',') if len(email.strip()) > 0] if getattr(client, field) else []  # Split the string into a list of emails
+        if remove:
+            emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+        else:
+            emails_list.append(user_email)
 
-    setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
-    client.save(update_fields=[field])  # Save the changes to the specified field
+        setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
+        client.save(update_fields=[field])  # Save the changes to the specified field
 
 def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
     """
