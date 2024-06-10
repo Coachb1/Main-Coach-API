@@ -40,7 +40,7 @@ from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
 from identities.models import Identity
 from skills.models import SkillsRating
 from utilities.models import BotQnA, DirectoryPageInfo
-from users.db import get_user_by_id,get_user_display_name
+from users.db import get_user_by_id,get_user_display_name, get_user_attribute
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
@@ -1342,7 +1342,7 @@ class AccountsViewSet(ApiViewSet,
 
                                 send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey!')
                                 html = f"""
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} created a knowledge bot - {bot_name}. Please check it out and approve it from Django Admin Panel.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} - {email} created a knowledge bot - {bot_name}. Please check it out and approve it from Django Admin Panel.</p>
                                     """
                                 send_email_with_html_template(subject=subject,html_content=html)
                         
@@ -1511,7 +1511,7 @@ class AccountsViewSet(ApiViewSet,
 
                                 send_email_with_html_template(subject=subject,html_content=html,to_email=user_att.attributes.get('email'),title=f'Hey!')
                                 html = f"""
-                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} updated a knowledge bot - <b>{bot_att.bot_name}</b>. Please check it out and approve it from Django Admin Panel.</p>
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} - {user_att.attributes.get('email',"")} updated a knowledge bot - <b>{bot_att.bot_name}</b>. Please check it out and approve it from Django Admin Panel.</p>
                                     """
                                 send_email_with_html_template(subject=subject,html_content=html)
 
@@ -2386,7 +2386,7 @@ class AccountsViewSet(ApiViewSet,
                 coachee_email = coachee.email
                 subject = "You have a connection request"
                 html = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
@@ -2781,7 +2781,7 @@ class AccountsViewSet(ApiViewSet,
                     user_name = get_user_display_name(get_user_by_id(user_id))
                     subject = "Profile Notification"
                     html_content = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} - {user_email} liked your profile!</p>
                             """
                     for email in ['coachbots@googlegroups.com', user_email]:
                         try:
