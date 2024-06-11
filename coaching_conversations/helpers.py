@@ -1896,8 +1896,11 @@ def get_client_user_data(tenant,client_name=None):
                 user_info = get_client_user_info(client,email)
                 client_data.append(user_info)
             except Exception as e:
-                logger.exception(f"Error getting user info for email : {email}")
-
+                logger.exception(f"Error getting user info for email: {e} : {email}")
+        
+        if len(client_data) == 0:
+            client_data.append({'client_id': client.uid, "msg": "No user found in client"})
+            
         client_user_data[client.client_name] = client_data
 
     return client_user_data
