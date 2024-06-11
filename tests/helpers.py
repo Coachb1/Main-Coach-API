@@ -6853,13 +6853,11 @@ def extract_information(text):
             raise ValueError("Invalid format. Unable to extract the title.")
 
 
-    if not (title_match and statement_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
+    if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         invalid_fields = []
 
         if not title_match:
             invalid_fields.append("title")
-        if not statement_match:
-            invalid_fields.append('statement')
         if not description_match:
             invalid_fields.append("description")
         if not question_pattern.findall(text):
@@ -6874,7 +6872,7 @@ def extract_information(text):
         raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
 
     title = title_match.group(1)
-    description = description_match.group(1) + f" {statement_match.group(1)}"
+    description = f"{description_match.group(1)} {statement_match.group(1)}" if statement_match else description_match.group(1)
     rating = int(rating_match.group(1)) if rating_match else 0
 
     questions = []
@@ -7135,7 +7133,40 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             \n\nAssistant:
 
             """
-
+        elif case == 'role_play':
+            prompt= """
+                \n\nHuman:
+                {Information} - %s-
+                Read this {information} thoroughly. Based on this information and your understanding create an advanced and tough roleplay situation to practice the skills presented in the {information}. After making the situation provide these:
+                Description - Define the situation and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should describe the problem and what was the particular situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third-person point of view. Describe 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions.
+                Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
+                KLS - Add the skill(s) that are tested with each question. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                Always use indian names in the role play, also mention what role the user will be playing while answering the questions in the description.
+                Always use name in each question. The role play shall also have element of a other person who will be asking the questions.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+                Here the format looks like :
+                "Title",
+                "Description",
+                “Statement",
+                "Question 1",
+                "Prompt 1",
+                "Takeaway 1" ,
+                "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+                NOTE: "Rating" must be included.
+                NOTE: Make sure the roleplay is very advanced and tough.
+                NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
+                NOTE: Always mention in the context what role the user will be playing the role while answering.
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                \n\nAssistant:
+                """
         elif case == "case":
             prompt = """
              \n\nHuman:
@@ -7185,6 +7216,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
             KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
             Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            Always use a interview to generate the response for communication and information gathering.
+            An interview is a formal conversation between an interviewer and an interviewee, typically in a professional setting, to assess the interviewee's suitability for a particular role or to gather information. It is a common practice in the corporate world and other professional settings, where employers or hiring managers conduct interviews to evaluate potential candidates for employment.
             In every response, you must:
             Clearly state your role as X.
             Identify Y as the person asking
@@ -7204,8 +7237,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Always use interview for communication and information gathering.
             \n\nAssistant:
-
             """
         elif case == 'checkin':
             prompt = """
@@ -7357,7 +7390,7 @@ def select_other_element(lst, specified_element):
         return random.choice(lst)
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = True,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7397,7 +7430,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     scenario = ""
     max_retry = 3
     case_type = ""
-    available_case_types = ['case','normal','checkin','interview']
+    available_case_types = ['case','normal','checkin','interview','role_play']
     for i in range(max_retry):
         logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
         
