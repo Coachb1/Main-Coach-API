@@ -27,7 +27,7 @@ def delete_user_resources(user_uid):
             connection.delete()
             
         # delete directorypage for this profile
-        dir_infos = DirectoryPageInfo.objects.filter(prifile_id=profile.uid)
+        dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
         for dir_info in dir_infos:
             dir_info.delete()
             

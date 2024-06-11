@@ -2928,6 +2928,11 @@ class AccountsViewSet(ApiViewSet,
                 connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
                 for connection in connections:
                     connection.delete()
+
+                # delete directorypage for this profile
+                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+                for dir_info in dir_infos:
+                    dir_info.delete()
                     
                 profile.delete()
             
