@@ -1899,7 +1899,13 @@ def get_client_user_data(tenant,client_name=None):
                 logger.exception(f"Error getting user info for email: {e} : {email}")
         
         if len(client_data) == 0:
-            client_data.append({'client_id': client.uid, "msg": "No user found in client"})
+            client_data.append(
+                {
+                    'client_id': client.uid, 
+                    "msg": "No user found in client",
+                    "allow_audio_interactions": client.allow_audio_interactions
+                }
+                )
             
         client_user_data[client.client_name] = client_data
 
@@ -2143,7 +2149,8 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "allow_audio_interactions": client.allow_audio_interactions,
         "heading": client.heading,
         "sub_heading": client.sub_heading,
-        "tag_line": client.tag_line
+        "tag_line": client.tag_line,
+        'ui_information': client.ui_information or {'bottom_text': None,'header': None,'read_text': None}
     }
     user_info['user_id'] = user_account.uid
     user_info['name'] = user_account.name
