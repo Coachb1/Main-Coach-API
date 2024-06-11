@@ -4,10 +4,13 @@ from tests.models import TestAttemptSession, Test
 from coaching_conversations.helpers import add_or_remove_emails_from_client
 from identities.models import Identity
 from django.db import transaction
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 def delete_user_resources(user_uid):
+    logger.info("Deleting user resources for user %s", user_uid)
     user = User.objects.get(uid=user_uid)
     tenant_id = user.tenant_id
     profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)

@@ -39,6 +39,12 @@ def get_default_values(choice:str):
 
 def get_default_allowed_ips():
     return {"feedback_deep-dive":""}
+def get_default_ui_information():
+    return {
+        'bottom_text': None,
+        'header': None,
+        'read_text': None,
+    }
     
 
 
@@ -201,6 +207,7 @@ class ClientUserInfo(TenantAwareModel):
     heading = models.CharField(max_length=255,null=True, blank=True, default=None)
     sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
     tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
+    ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information())
 
 
 

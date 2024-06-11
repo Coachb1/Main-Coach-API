@@ -3061,7 +3061,7 @@ class AccountsViewSet(ApiViewSet,
                         delete_user_resources(user_identity.user_id)
                         logger.info("============== User Resources Deleted ===============")
                     except Exception as e:
-                        logger.exception(e)
+                        logger.exception(f"==============Failed to delete user resources: {e}")
                 elif is_disable is not None:
                     # is_disable = str(is_disable) == 'true'
                     disable_or_enable_client(email=user_email,is_disable=is_disable,tenant=tenant)
