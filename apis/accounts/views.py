@@ -1068,7 +1068,8 @@ class AccountsViewSet(ApiViewSet,
                     all_data = {}
                     deep_dive_data = {}
                     if bot_type == BotTypeChoice.deep_dive:
-                        deep_dive_data = generate_title_and_objective_for_deep_dive(context)
+                        additional_prompt_for_deepdive = data.get('additional_prompt_for_deep',None)
+                        deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
                         all_data['bot_title'] = deep_dive_data['bot_title']
                         all_data['bot_objective'] = deep_dive_data['bot_objective']
                         deep_dive_data = all_data
