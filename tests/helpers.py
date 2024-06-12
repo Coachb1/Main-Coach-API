@@ -5443,6 +5443,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     #                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
     #                                                             deleted=0).order_by('id').first().response_text
 
+    discussion_conversation = [que for que in initial_messages]
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
@@ -5467,11 +5468,14 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     break 
                 logger.info('waiting for response text')
                 time.sleep(1)
-        
+
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {response_text}"
+            discussion_conversation.append(f"user: {response_text}" if len(response_text.split(":")) == 1 else response_text)
         else:
             conv_text = f"{test_response.responder_type}: {response_text}"
+            if len(response_text.strip())>0:
+                discussion_conversation.append(conv_text if len(response_text.split(":")) == 1 else response_text)
 
         current_conversation = current_conversation + "\n" + conv_text
 
@@ -5592,29 +5596,101 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
         else:
 
-            template = Template(
-                    '''
+            print(f"""
+            main_context: {test_main_context}
+            current_conversation: {current_conversation}
+            question_text: {question_text}
+            
+            """)
+
+            
+            current_conv = discussion_conversation[:-4] if len(discussion_conversation) > 4 else ""
+            current_response = (discussion_conversation[-4:] if len(discussion_conversation) > 4 else discussion_conversation)[:-1]
+            candidate_response = discussion_conversation[-1]
+            main_context = f"""
+            Title: {test.title}
+            Description: {test.description}
+            """
+
+            print(f"""
+            main_context: {main_context}
+            current_conversation: {current_conv}
+            current_response: {current_response}
+            candidate_response: {candidate_response}
+            discussion_coversation: {discussion_conversation}
+            len discussion_conversation: {len(discussion_conversation)}
+            """)
+
+            if test.test_code == 'QQBXTA3':
+
+                template = Template("""
                     \n\nHuman:
-                    Main context : ${test_main_context}
-                    Current conversation : ${current_conversation}
-                    Candidate response : ${question_text}
-
-                    NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
-                    Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
-
-                    Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
-
+                    Main context: ${test_main_context}
+                    Current conversation : {
+                                    ${current_conversation}
+                                    }
+                    Current Responses: {
+                                    ${current_responses}
+                                    }
+                    Candidate response: {
+                                    ${candidate_response}
+                                    }
+                    Based on the (Candidate response), and the (main context), ask the candidate the next question. The question should continue the (candidate response) and the (Current Response) which shall always redirect to the (main context) or (candidate response) if it is not relevant. Do not provide any feedback on the response.
+                    Always ask a unique, different and specific question based on the (Candidate response), (main context), and (Current Response). The question should be relevant to the information or response given in the (Candidate response). Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
+                    Always pose the questions as for the role play, also ask questions as very specific role who is assigned to ask questions in the (main context).
+                    Always take the role of who will be asking questions from the (main context) to generate questions.
+                    Always add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
+                    {
+                    Format for Questions
+                    Name: Question
+                    }
+                    Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
+                    Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
+                    Always stick with the role who is asking question from the (main context) while generating questions.
+                    Read the (Current response) and (Current conversation) and make sure the next question is unique and has not been repeated in the (Current response) and (Current conversation) before. Never ask a question that has been asked before.
                     NOTE: The question should not be more than 25 words.
-
+                    NOTE: There will be always one role of the user who will never ask any question, but only answer. Never generate questions for that role of the user from the (main context).
+                    NOTE: Analyse the role of the user who will never ask questions from the (main context) and never generate questions from his side.
                     NOTE: Do not show the word count.
-
+                    NOTE: Pose the questions as for the role play, also ask questions as a very specific role the person who is asking questions from the (main context) while generating the questions.
+                    NOTE: Always stick with the role of the person while generating questions from the (main context).
                     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
                     \n\nAssistant:
-                    '''
-                ).substitute(test_main_context=test_main_context,
-                                current_conversation=current_conversation,
-                                question_text=question_text
-                                )
+                """).substitute(
+                    test_main_context=main_context,
+                    current_conversation="\n".join(current_conv) if isinstance(current_conv,list)  else current_conv,
+                    current_responses="\n".join(current_response),
+                    candidate_response=candidate_response
+                )
+                print("="* 100)
+                print(template)
+                print("="* 100)
+
+            else:
+
+                template = Template(
+                        '''
+                        \n\nHuman:
+                        Main context : ${test_main_context}
+                        Current conversation : ${current_conversation}
+                        Candidate response : ${question_text}
+
+                        NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                        Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
+
+                        Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
+
+                        NOTE: The question should not be more than 25 words.
+
+                        NOTE: Do not show the word count.
+
+                        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                        \n\nAssistant:
+                        '''
+                    ).substitute(test_main_context=test_main_context,
+                                    current_conversation=current_conversation,
+                                    question_text=question_text
+                                    )
     else:
         template = Template(
             """
