@@ -46,6 +46,14 @@ def get_default_ui_information():
         'read_text': None,
     }
     
+def get_default_signature_bot_page_information():
+    return {
+        "benefits": None,
+        "how_it_works": None,
+        "sample": {
+            "Quick Match": "The quick match demonstrates fitment between participants based on pre-decided criteria."
+        }
+    }
 
 
 class User(TenantAwareModel):
@@ -126,6 +134,7 @@ class SignatureBot(TenantAwareModel):
     is_approval_email_sent = models.BooleanField(null=True,default=False)
     bot_expires_at = models.DateTimeField(null=True,default=None,blank=True)
     access_code = models.CharField(max_length=10, blank=True, null= True, default=None)
+    page_informations = models.JSONField(null=True, blank=True, default=get_default_signature_bot_page_information)
     
 
     class Meta:

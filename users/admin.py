@@ -22,10 +22,10 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
 
 class SignatureBotAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','bot_id','bot_type','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active')
-    list_filter = ('is_system_bot','is_sample_bot','use_google_context')
-    search_fields = ('bot_name','bot_id')
-    list_editable = ('is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context')
+    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active')
+    list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type')
+    search_fields = ('bot_name','bot_id','bot_type')
+    list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context')
     ordering = ('-id',)
 
 class BotUserMappingAdmin(admin.ModelAdmin):
@@ -37,10 +37,10 @@ class BotUserMappingAdmin(admin.ModelAdmin):
 
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','heading','sub_heading','tag_line')
+    list_display = ('id','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','heading','sub_heading','tag_line')
     list_filter = ('client_name',)
     search_fields = ('client_name','domain_name')
-    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','heading','sub_heading','tag_line')
+    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','heading','sub_heading','tag_line')
     ordering = ('-id',)
 
 
