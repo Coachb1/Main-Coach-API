@@ -2568,7 +2568,7 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
 
     """
     add_prompt_list = ['crusader','cheerleader','change_manager','calculator','conversationalist','co_creator']
-    add_prompt = get_additonal_deepdive_prompt(additional_prompt.strip().lower().replace(' ','_')) if additional_prompt else random.choice(add_prompt_list)
+    add_prompt = get_additonal_deepdive_prompt(additional_prompt.strip().lower().replace(' ','_')) if additional_prompt else get_additonal_deepdive_prompt(random.choice(add_prompt_list))
     prompt = Template(prompt).substitute(
         info = context,
         additional_prompt=add_prompt
