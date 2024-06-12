@@ -70,6 +70,7 @@ from apis.accounts.utils import delete_user_resources
 from utilities.models import SessionNotesRecommendations
 from django.db import transaction
 from coaching_conversations.helpers import add_or_remove_emails_from_client
+from users.models import get_default_signature_bot_page_information
 
 logger = logging.getLogger(__name__)
 
@@ -382,6 +383,7 @@ class AccountsViewSet(ApiViewSet,
         data['bot_expires_at'] = signature_bot.bot_expires_at
         data['access_code'] = signature_bot.access_code
         data['tag'] = signature_bot.tag
+        data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
