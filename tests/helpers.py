@@ -7465,6 +7465,15 @@ def select_other_element(lst, specified_element):
     else:
         return random.choice(lst)
 
+def decode_basic_auth_token(token: str) -> str:
+    decoded_token = base64.b64decode(token).decode("utf-8")
+    key_and_secret = decoded_token.split(":")
+
+    key = key_and_secret[0]
+    secret = key_and_secret[1]
+
+    return key, secret
+
 @timeit
 def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = True,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
     """
@@ -7493,14 +7502,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     - The simulation created is expected to be advanced and tough.
 
     """
-    def decode_basic_auth_token(token: str) -> str:
-            decoded_token = base64.b64decode(token).decode("utf-8")
-            key_and_secret = decoded_token.split(":")
-
-            key = key_and_secret[0]
-            secret = key_and_secret[1]
-
-            return key, secret
+    
 
     garbage_scenarios = []
     scenario = ""
@@ -7558,7 +7560,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             title, description, question_info, skill_to_evalaute = "","","",""
             orchestrated_details = ""
             rating = 0 
-            for i in range(1):
+            for j in range(1):
                 
                 
                 try:
@@ -7650,29 +7652,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                 reason_of_failure = f"failed to generate scenario for following reason : {e}"
                             )
 
-
-
                 if scenario == 'failed to generate scenario':
-                    # print(rating,"failed")
-                    # if i+1 == 3:
-                    #     for i in range(3):
-                    #         logger.info(f'trying gpt for {i+1} time')
-                    #         scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                    #         print("gpt",scenario)
-                    #         print("#"*100)
-                    #         title,description, question_info, skill_to_evalaute,rating = extract_info_gpt(scenario)
-
-                    #         if scenario == 'failed to generate scenario' or rating <= 6:
-                    #             continue
-
-                    #         break
-                    # else:
                     continue
                 break
 
-            # key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
-            # client = Client.objects.get(key=key)
-            # creator = User.objects.get(uid=client.owner_id)
             admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
             logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
