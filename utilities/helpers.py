@@ -26,6 +26,7 @@ from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
 from utilities.models import BotEngagement
 from commons.notifications import send_error_notification
+from commons.google_apis import gemini_1_5_completion
 
 
 
@@ -854,7 +855,7 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         goals=goals,
         priorities=priorities
     )
-
+    logger.info(f"****Hard skills prommpt : {prompt}")
     data = generic_completion(prompt=prompt).replace("{","").replace("}","")
     print(data)
 
@@ -891,7 +892,9 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         priorities=priorities
     )
 
-    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    logger.info(f"****Soft skills prommpt : {prompt}")
+    # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
     print(data)
 
     return data
@@ -981,8 +984,10 @@ def get_recommendation(prompt_type,hard_soft_skills):
         """
 
     prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
+    logger.info(f"****Recommendation prommpt : {prompt}")
 
-    data = generic_completion(prompt=prompt)
+    # data = generic_completion(prompt=prompt)
+    data = gemini_1_5_completion(prompt=prompt)
 
     logger.info(f"{prompt_type.replace('_',' ').capitalize()} : {data}")
 
@@ -1014,7 +1019,9 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
                                          existing_skills=existing_skills,
                                          learning_history=learning_history)
 
-    data = generic_completion(prompt=prompt)
+    logger.info(f"****Course prommpt : {prompt}")
+    # data = generic_completion(prompt=prompt)
+    data = gemini_1_5_completion(prompt=prompt)
     print(data)
 
     return data
