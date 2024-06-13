@@ -865,13 +865,15 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         priorities=priorities
     )
     logger.info(f"****Hard skills prommpt : {prompt}")
+
     data = ""
-    for i in range(1):
+    for i in range(2):
         data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
         break
+
 
     return data
 
@@ -1060,7 +1062,7 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
     logger.info(f"****Course prommpt : {prompt}")
     # data = generic_completion(prompt=prompt)
     data = ""
-    for i in range(i):
+    for i in range(2):
         data = gemini_1_5_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
