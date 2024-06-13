@@ -5201,7 +5201,118 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             return template.substitute(title=test_title, description=test_description,
                                         sales_comment=comment, bot_response=bot_response)
         case 'customer-sales':
-            return "something"
+            if question_number == 1:
+                template = Template(
+                """
+                    \n\nCustomer:
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Customer Comment: ${user_comment}
+
+                    Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+
+                    "Feedback for the customer comments/responses: "
+
+                    Key insights to improve the response
+
+                    What went well?
+
+                    What did not work?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                    NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Customer Comment" not on the "Test Description."
+
+                    NOTE: If the Customer Comment is a question provide feedback on how the customer can ask better questions.
+
+                    NOTE: A sample candidate answer is a sample customer comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s answer in "Key insights to improve the response."
+
+                    NOTE: In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE: Minimum response length is 300 words. Always adhere to the same.
+
+                    NOTE: Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE: Never start with any kind of introductory sentence.
+
+                    NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            sales_comment=comment)
+
+            template = Template(
+            '''
+                \n\nCustomer:
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response: ${bot_response}
+
+                Customer Comment: ${user_comment}
+
+                Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+
+                "Feedback for the customer comments/responses: "
+
+                Key insights to improve the response
+
+                What went well?
+
+                What did not work?
+
+                A sample candidate answer
+
+                A counter-intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
+
+                NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Customer Comment".
+
+                NOTE: NEVER give any feedback on the "Bot response".
+
+                NOTE: If the Customer Comment is a question, provide feedback on how the customer can ask better questions.
+
+                NOTE: A sample candidate answer is a sample Customer Comment based on the context provided.
+
+                NOTE: Minimum response length is 300 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s response in "Key insights to improve the response."
+
+                NOTE: If the "Customer Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE: Check if the response provided by the customer is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                \n\nAssistant:
+
+            ''')
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        sales_comment=comment, bot_response=bot_response)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
             return "nothing"
@@ -5389,7 +5500,62 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 return template.substitute(test_main_context=test.description,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case 'customer-sales':
-            return "something"
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                customer_comment: ${user_comment}
+
+                Provide a response to the customer’s comment as the sales rep based on the given context. Do not provide any feedback on the response.
+
+                NOTE: NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                \n\nCustomer:
+                main_context: ${test_main_context}
+
+                current_conversation: ${current_conversation}
+
+                customer_comment: ${user_comment}
+
+                Provide a response to the customer’s comment as the sales rep based on the given context. Do not provide any feedback on the response.
+
+                NOTE: NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
             return "nothing"

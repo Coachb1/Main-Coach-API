@@ -856,7 +856,8 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         priorities=priorities
     )
     logger.info(f"****Hard skills prommpt : {prompt}")
-    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
     print(data)
 
     return data
