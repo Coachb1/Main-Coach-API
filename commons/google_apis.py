@@ -11,6 +11,9 @@ import random
 
 from google.cloud import texttospeech
 
+from vertexai.generative_models import GenerativeModel
+from vertexai import generative_models
+
 logger = logging.getLogger(__name__)
 
 
@@ -208,3 +211,34 @@ def gemini_competions(prompt):
             time.sleep(random.randint(1,3))
 
     
+@timeit
+def gemini_1_5_completion(prompt,model="gemini-1.5-pro-001"):
+    os.chdir(f"{Path(__file__).resolve().parent}")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
+    vertexai.init(project="summer-nucleus-397019", location="us-central1")
+    
+
+    model = GenerativeModel(
+        model,
+    )
+    responses = model.generate_content(
+      [prompt],
+      generation_config={
+        "max_output_tokens": 8192,
+        "temperature": 0.9,
+        "top_p": 1
+    },
+    safety_settings={
+          generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    }
+  )
+    
+    try:
+        return responses.candidates[0].content.parts[0].text
+    except Exception as e:
+        logger.error(f"gemini_1_5_completion failed with {e}", exc_info=True)
+        raise e
+        return None
