@@ -825,8 +825,15 @@ def regenerate_idp_or_scenarios(idp_id, access_token, tenant_id):
     user_idp.save()
 
     return UserIDPSerializers(user_idp).data, True
-
-
+  
+def contains_skill(input_string):
+    # Define the pattern to search for any of the skills
+    pattern = r"Skill\d|skill\d"
+    # Search for the pattern in the input string
+    if re.search(pattern, input_string):
+        return True
+    return False
+    
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
     """Generates Hard skill using generic completion method."""
     prompt = """
@@ -845,6 +852,8 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
             DO not give a reason or explanation.
+            Always remeber to not mention Skill1 , Skill2 in the responses.
+            NOTE: Never mention Skill1 , Skill2
             \n\nAssistant:
             """
     
@@ -856,8 +865,13 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         priorities=priorities
     )
     logger.info(f"****Hard skills prommpt : {prompt}")
-    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
-    print(data)
+    data = ""
+    for i in range(1):
+        data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
+        print(data)
+        if contains_skill(data):
+            continue
+        break
 
     return data
 
@@ -879,7 +893,9 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please give me the top 2 soft skills or leadership skills related to their career this person should prioritize to achieve their long term goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable.
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
-            DO not give a reason or explanation. 
+            DO not give a reason or explanation.
+            Always remeber to not mention Skill1 , Skill2 in the responses.
+            NOTE: Never mention Skill1 , Skill2 
 
             \n\nAssistant:
             """
@@ -894,8 +910,14 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
     logger.info(f"****Soft skills prommpt : {prompt}")
     # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
-    data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
-    print(data)
+    data = ""
+    for i in range(2):
+        data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
+        print(data)
+        if contains_skill(data):
+            continue
+        break
+
 
     return data
 
@@ -931,6 +953,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
         Always give the output in the given format.
         Do not include any introductory sentence or any conclusion.
+        Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+        NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
         \n\nAssistant:
 
@@ -948,6 +972,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             Always give the output in the given format.
             Do not include any introductory sentence or any conclusion.
+            Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+            NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
             \n\nAssistant:
             """
     elif prompt_type == "ted_talk":
@@ -963,6 +989,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             Always give the output in the given format.
             Do not include any introductory sentence or any conclusion.
+            Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+            NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
 
             \n\nAssistant:
@@ -981,13 +1009,21 @@ def get_recommendation(prompt_type,hard_soft_skills):
         Always give the output in the given format.
         Do not include any introductory sentence or any conclusion.
         If the skills does not have any online community, please respond with "No learning communities found."
+        Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+        NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
         """
 
     prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
     logger.info(f"****Recommendation prommpt : {prompt}")
 
     # data = generic_completion(prompt=prompt)
-    data = gemini_1_5_completion(prompt=prompt)
+    data = ""
+    for i in range(2):
+        data = gemini_1_5_completion(prompt=prompt)
+        print(data)
+        if contains_skill(data):
+            continue
+        break
 
     logger.info(f"{prompt_type.replace('_',' ').capitalize()} : {data}")
 
@@ -1010,6 +1046,8 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
 
     Always give the output in the given format.
     Do not include any introductory sentence or any conclusion.
+    Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+    NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
     \n\nAssistant:
 
@@ -1021,8 +1059,13 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
 
     logger.info(f"****Course prommpt : {prompt}")
     # data = generic_completion(prompt=prompt)
-    data = gemini_1_5_completion(prompt=prompt)
-    print(data)
+    data = ""
+    for i in range(i):
+        data = gemini_1_5_completion(prompt=prompt)
+        print(data)
+        if contains_skill(data):
+            continue
+        break
 
     return data
 
