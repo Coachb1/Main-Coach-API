@@ -64,7 +64,7 @@ import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
 import re
-from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_1_5_completion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
@@ -1838,7 +1838,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
-                        feedback_text = text_bison_compeletion(prompt)
+                        feedback_text = gemini_1_5_completion(prompt)
                     except Exception as e:
                         logger.exception(e)
                         anthropic_feedback = anthropic_completion(prompt, 1200) 
@@ -1856,7 +1856,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                     # if not gpt_feedback.text:
                     #     try:
-                    #         feedback_text = text_bison_compeletion(prompt)
+                    #         feedback_text = gemini_1_5_completion(prompt)
                     #     except Exception as e:
                     #         logger.exception(e)
                     #         anthropic_feedback = anthropic_completion(prompt, 1200)
@@ -2370,7 +2370,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             
             # retry kls if it is not received
             if kls is None or kls == 'no kls' or kls == '':
-                kls = text_bison_compeletion(kls_prompt)
+                kls = gemini_1_5_completion(kls_prompt)
 
             klp_prompt = f"""
                 TestTitle: {test.title}
@@ -2384,7 +2384,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             # retry klp if it is not received
             if klp is None or klp == 'no klp' or klp == '':
-                klp = text_bison_compeletion(klp_prompt)
+                klp = gemini_1_5_completion(klp_prompt)
             
             test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
             update_fields.append("kls_klp")
@@ -2814,7 +2814,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     The function generates a prompt for the test, test attempt session, and question. It then tries to retrieve previous bot responses. If there are no previous responses, it sets an empty list.
 
-    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and text_bison_compeletion for the third. 
+    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and gemini_1_5_completion for the third. 
 
     It then checks the similarity between the current and previous bot responses. If the similarity is over 80%, it logs the information and continues to the next iteration. If the similarity is less than or equal to 80%, it logs the information and breaks the loop.
 
@@ -2889,23 +2889,24 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if i == 0:
                 try:
+                    bot_llm_response_text = gemini_1_5_completion(prompt)
+                except Exception as e:
+                    logger.error(f"Error in gemini_1_5_completion completion: {e}. retrying ...")
+                    bot_llm_response_text = anthropic_completion(prompt, 300)
+            elif i == 1:
+                try:
                     bot_llm_response_text = anthropic_completion(prompt, 300)
                 except Exception as e:
                     logger.error(f"Error in anthropic completion: {e}. retrying ...")
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
-            elif i == 1:
-                try:
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
-                except Exception as e:
-                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
-                    bot_llm_response_text = text_bison_compeletion(prompt)
+                    bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
             else:
                 try:
-                    bot_llm_response_text = text_bison_compeletion(prompt)
+                    bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
                 except Exception as e:
-                    logger.error(f"Error in text_bison completion: {e}. retrying ...")
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                    bot_llm_response_text = gemini_1_5_completion(prompt)
 
+            
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
             if previous_bot_response and previous_bot_response.response_text:
@@ -3541,9 +3542,9 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     cnt = 0
     res = ""
 
-    while cnt < 1:  # Because anthropic_completion already has a retry mechanism
+    while cnt < 1:  # Because gemini_1_5_completion already has a retry mechanism
         try:
-            res = anthropic_completion(prompt, 300)
+            res = gemini_1_5_completion(prompt)
             break
         except Exception as e:
             logger.exception(e)
@@ -6661,7 +6662,7 @@ def submit_feedback(
 
     Based on the difficulty level of the user, it appends the appropriate feedback prompts. If the test is of email type or employee feedback scenario, it generates a specific prompt. Otherwise, it generates a prompt based on whether there is a gpt_prompt_override or not.
 
-    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the text_bison_compeletion function and if that fails too, it uses the anthropic_completion function.
+    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the gemini_1_5_completion function and if that fails too, it uses the anthropic_completion function.
 
     Finally, it updates the TestQuestionResponse object with the generated feedback and the metadata related to the gpt prompt and response, and saves it.
 
@@ -6819,21 +6820,34 @@ def submit_feedback(
 
                 max_retry -= 1
 
-            gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-            if not gpt_feedback.text:
+
+            if test.is_free:
+                    anthropic_feedback = anthropic_completion(prompt, 1200)
+                    if anthropic_feedback:
+                        feedback_text = anthropic_feedback
+                    else:
+                        feedback_text = 'Feedback could not be generated'
+                
+            else:
                 try:
-                    feedback_text = text_bison_compeletion(prompt)
+                    feedback_text = gemini_1_5_completion(prompt)
                 except Exception as e:
                     logger.exception(e)
-                    anthropic_feedback = anthropic_completion(prompt, 1200)
-                    # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
-                    feedback_text = anthropic_feedback
-            else:
-                feedback_text = gpt_feedback.text
-                raw_text = gpt_feedback.raw
+                    anthropic_feedback = anthropic_completion(prompt, 1200) 
+                    if not anthropic_feedback:
+                        try:
+                            feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                        except Exception as e:
+                            logger.exception(e)
+                            feedback_text = "Feedback could not be generated"
+
+                    else:
+                        feedback_text = anthropic_feedback
+                        raw_text = anthropic_feedback
 
 
-            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+
+            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 250:
                 continue
 
             end = time.time()
@@ -7750,7 +7764,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         scenario = anthropic_completion(prompt,5000)
                     else:
                         logger.info(f'trying scenario creation bison for {i +1} time')
-                        scenario = text_bison_compeletion(prompt)
+                        scenario = gemini_1_5_completion(prompt)
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     # scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
@@ -7795,7 +7809,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                             scenario = anthropic_completion(prompt,5000)
                         else:
                             logger.info(f'**retrying scenario creation bison for {i +1} time')
-                            scenario = text_bison_compeletion(prompt)
+                            scenario = gemini_1_5_completion(prompt)
                         # scenario = fcfs_handler.process(prompt)
                         # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         
@@ -8022,7 +8036,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
     # if use_anthropic:
     #     scenario = anthropic_completion(prompt,5000)
     # else:
-    #     scenario = text_bison_compeletion(prompt)
+    #     scenario = gemini_1_5_completion(prompt)
     # print("palm",scenario)
     # print("#"*100)
     # scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -8052,7 +8066,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
                     if use_anthropic:
                         scenario = anthropic_completion(prompt,5000)
                     else:
-                        scenario = text_bison_compeletion(prompt)
+                        scenario = gemini_1_5_completion(prompt)
                     print("palm",scenario)
                     print("#"*100)
                     scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -8712,7 +8726,7 @@ def test_model(model_name, num_tests=50):
         scenario = ''
         start_time = time.time()
         try:
-            scenario = text_bison_compeletion(prompt,model_name)
+            scenario = gemini_1_5_completion(prompt,model_name)
             print(scenario)
             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
             print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
