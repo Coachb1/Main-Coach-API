@@ -3,7 +3,7 @@ import logging
 from commons.timeit import timeit
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
-from commons.google_apis import text_bison_compeletion
+from commons.google_apis import text_bison_compeletion, gemini_1_5_completion
 import re
 from utilities.models import BotEngagement
 import string
@@ -30,7 +30,7 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
         response_text = anthropic_completion(prompt, tokens)
 
     else:
-        bison_feedback = text_bison_compeletion(prompt)
+        bison_feedback = gemini_1_5_completion(prompt)
         if not bison_feedback:
             try:
                 response_text = anthropic_completion(prompt, tokens)
