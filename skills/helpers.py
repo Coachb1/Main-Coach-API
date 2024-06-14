@@ -12,7 +12,7 @@ from skills.models import SkillsRating, SkillIndex
 from users.db import get_user_display_name
 from users.models import User
 import re
-from commons.google_apis import text_bison_compeletion
+from commons.google_apis import text_bison_compeletion, gemini_1_5_completion
 from commons.timeit import timeit
 from nltk.stem import PorterStemmer
 import os
@@ -393,7 +393,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
     else:
         
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
 
         is_evaluated = True
         response = None
@@ -401,9 +401,9 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_relevacy ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_relevacy ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_relevacy ":f"trying [outer]  gemini_1_5_completion for  {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_relevacy ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
                 response = json.loads(response)
                 
@@ -416,7 +416,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_relevacy ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_relevacy ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -430,9 +430,9 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
             return response, is_evaluated
 
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
         
-        logger.info({"****evaluate_relevacy ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_relevacy ":f"failed  gemini_1_5_completion, so trying anthropic_completion"})
 
         ##################* anthropic ###################
         is_evaluated = True
@@ -556,7 +556,7 @@ def evaluate_competency_data(description, conversation,test_attempt_session,skil
     """
 Evaluates the competency data based on the provided description, conversation, test attempt session, and skills.
 
-This function generates a prompt based on the provided description, conversation, and skills. It then attempts to evaluate the competency data using various APIs (anthropic, text_bison_compeletion, gpt3_completion) in a specific order until it succeeds or exhausts all options. If all attempts fail, it assigns a default value to the response.
+This function generates a prompt based on the provided description, conversation, and skills. It then attempts to evaluate the competency data using various APIs (anthropic, gemini_1_5_completion, gpt3_completion) in a specific order until it succeeds or exhausts all options. If all attempts fail, it assigns a default value to the response.
 
 Args:
     description (str): The description of the competency.
@@ -644,7 +644,7 @@ Raises:
     else:
         
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
 
         is_evaluated = True
         response = None
@@ -652,9 +652,9 @@ Raises:
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_competency_data ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_competency_data ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_competency_data ":f"trying [outer]  gemini_1_5_completion for  {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_competency_data ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
                 response = json.loads(response)
                 
@@ -663,7 +663,7 @@ Raises:
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_competency_data ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_competency_data ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -677,9 +677,9 @@ Raises:
             return response, is_evaluated
 
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
         
-        logger.info({"****evaluate_competency_data ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_competency_data ":f"failed  gemini_1_5_completion, so trying anthropic_completion"})
 
         ##################* anthropic ###################
         is_evaluated = True
@@ -839,7 +839,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
     else:
         
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
 
         is_evaluated = True
         response = None
@@ -847,9 +847,9 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer]  text_bison_compeletion for  {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_rating_for_process_training ":f"trying [outer]  gemini_1_5_completion for  {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_rating_for_process_training ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
                 response = json.loads(response)
                 
@@ -859,7 +859,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_rating_for_process_training ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -873,9 +873,9 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
             return response, is_evaluated
 
 
-        ##################* text_bison_compeletion ###################
+        ##################* gemini_1_5_completion ###################
         
-        logger.info({"****evaluate_rating_for_process_training ":f"failed  text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_rating_for_process_training ":f"failed  gemini_1_5_completion, so trying anthropic_completion"})
 
         ##################* anthropic ###################
         is_evaluated = True
@@ -963,7 +963,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     """
     This function evaluates a user's response to a test based on a set of skills.
 
-    The function generates a prompt based on the test title, description, conversation, and skills. It then uses either the anthropic_completion or text_bison_compeletion function to generate a response. If these functions fail, it falls back to gpt3_completion. If all these fail, it assigns a random score to each skill.
+    The function generates a prompt based on the test title, description, conversation, and skills. It then uses either the anthropic_completion or gemini_1_5_completion function to generate a response. If these functions fail, it falls back to gpt3_completion. If all these fail, it assigns a random score to each skill.
 
     Parameters:
     test_attempt_session (object): The test attempt session object.
@@ -1145,7 +1145,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
 
 
-        ################################* text_bison_compeletion ################################
+        ################################* gemini_1_5_completion ################################
         responses = []
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -1153,9 +1153,9 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_response_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_response_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_response_skill ":f"trying gemini_1_5_completion [outer] for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_response_skill ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
 
 
                 skills_rating_str = json_extraction(response)
@@ -1176,7 +1176,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_response_skill ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -1189,8 +1189,8 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         if is_evaluated:
             return *responses, is_evaluated
 
-        ################################* text_bison_compeletion end ################################
-        logger.info({"****evaluate_response_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        ################################* gemini_1_5_completion end ################################
+        logger.info({"****evaluate_response_skill ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
         ##################* anthropic ###################
         is_evaluated = True
@@ -1416,22 +1416,22 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 
     else:
 
-        #################################* text_bison_compeletion #################################
+        #################################* gemini_1_5_completion #################################
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
         is_evaluated = True
 
         while max_tries > 0:
             try:
-                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"trying gemini_1_5_completion [outer] for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
 
 
                 break
 
             except Exception as e:
-                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****calulate_summary_for_culture_and_normal_skill ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -1444,9 +1444,9 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
         if is_evaluated:
             return response
 
-        #################################* text_bison_compeletion end #################################
+        #################################* gemini_1_5_completion end #################################
 
-        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****calulate_summary_for_culture_and_normal_skill ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
         
         #################################* anthropic #################################
         is_evaluated = True
@@ -1592,22 +1592,22 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
 
     else:
 
-        #################################* text_bison_compeletion #################################
+        #################################* gemini_1_5_completion #################################
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
         is_evaluated = True
 
         while max_tries > 0:
             try:
-                logger.info({"****feedback_summary ":f"trying text_bison_compeletion [outer] for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****feedback_summary ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****feedback_summary ":f"trying gemini_1_5_completion [outer] for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****feedback_summary ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
 
 
                 break
 
             except Exception as e:
-                logger.error({"****feedback_summary ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****feedback_summary ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -1620,9 +1620,9 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
         if is_evaluated:
             return response
 
-        #################################* text_bison_compeletion end #################################
+        #################################* gemini_1_5_completion end #################################
 
-        logger.info({"****feedback_summary ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****feedback_summary ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
         #################################* anthropic #################################
         is_evaluated = True
@@ -1859,7 +1859,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         
 
-        ################################* text_bison_compeletion ################################
+        ################################* gemini_1_5_completion ################################
         responses = []
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -1867,9 +1867,9 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_conversation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_conversation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
 
 
                 skills_rating_str = json_extraction(response)
@@ -1886,7 +1886,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
                 break
 
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e },exc_info=True)
+                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e },exc_info=True)
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -1899,9 +1899,9 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         if is_evaluated:
             return *responses, is_evaluated
 
-        ################################* text_bison_compeletion end ################################
+        ################################* gemini_1_5_completion end ################################
 
-        logger.info({"****evaluate_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_conversation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
         ################################* anthropic ################################
         is_evaluated = True
@@ -1946,7 +1946,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
         ################################* anthropic end ################################
         
-        logger.info({"****evaluate_conversation ":f"failed gpt, so trying text_bison_compeletion"})
+        logger.info({"****evaluate_conversation ":f"failed gpt, so trying gemini_1_5_completion"})
 
         ################################* gpt ################################
         responses = []
@@ -2121,7 +2121,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     else:
 
 
-        ################################* text_bison_compeletion ################################
+        ################################* gemini_1_5_completion ################################
         skills_rating = None
         is_evaluated = True
         response = None
@@ -2129,9 +2129,9 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
                 
                 skills_rating_str = json_extraction(response)
 
@@ -2147,7 +2147,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -2159,9 +2159,9 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         if is_evaluated:
             return skills_rating
 
-        ################################* text_bison_compeletion end ################################
+        ################################* gemini_1_5_completion end ################################
 
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_group_discussion_conversation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
         ################################* anthropic ################################
         skills_rating = None
@@ -2314,6 +2314,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
     "skills_list:" "{skills_to_evaluate}"
     Please put properties of JSON enclosed in double quotes.
+    Always evaluate only Skills which relevant to the above conversation.
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
@@ -2378,7 +2379,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     else:
         
 
-        ################################* text_bison_compeletion ################################
+        ################################* gemini_1_5_completion ################################
         skills_rating = None
         response = None
         max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -2386,9 +2387,9 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-                response = text_bison_compeletion(prompt)
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+                response = gemini_1_5_completion(prompt)
+                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
                 
                 skills_rating_str = json_extraction(response)
 
@@ -2403,7 +2404,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                 break
 
             except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
@@ -2415,9 +2416,9 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         if is_evaluated:
             return skills_rating
 
-        ################################* text_bison_compeletion end ################################
+        ################################* gemini_1_5_completion end ################################
 
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
         ################################* anthropic ################################
         skills_rating = None
@@ -2542,7 +2543,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
     
 
-    ################################* text_bison_compeletion ################################
+    ################################* gemini_1_5_completion ################################
     skills_explanation = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -2550,9 +2551,9 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_skills_explanation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+            response = gemini_1_5_completion(prompt)
+            logger.info({"****evaluate_skills_explanation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
             
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
@@ -2562,7 +2563,7 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
             break
 
         except Exception as e:
-            logger.error({"****evaluate_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_skills_explanation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -2574,9 +2575,9 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
     if is_evaluated:
         return skills_explanation
 
-    ################################* text_bison_compeletion end ################################
+    ################################* gemini_1_5_completion end ################################
 
-    logger.info({"****evaluate_skills_explanation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+    logger.info({"****evaluate_skills_explanation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
     ################################* anthropic ################################
     skills_explanation = None
@@ -2683,7 +2684,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
 
     
 
-    ################################* text_bison_compeletion ################################
+    ################################* gemini_1_5_completion ################################
     skills_explanation = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -2691,9 +2692,9 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_culture_skills_explanation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+            response = gemini_1_5_completion(prompt)
+            logger.info({"****evaluate_culture_skills_explanation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
             
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
@@ -2703,7 +2704,7 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
             break
 
         except Exception as e:
-            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_culture_skills_explanation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -2715,9 +2716,9 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
     if is_evaluated:
         return skills_explanation
 
-    ################################* text_bison_compeletion end ################################
+    ################################* gemini_1_5_completion end ################################
 
-    logger.info({"****evaluate_culture_skills_explanation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+    logger.info({"****evaluate_culture_skills_explanation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
     ################################* anthropic ################################
     skills_explanation = None
@@ -2812,7 +2813,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
     '''
 
 
-    ################################* text_bison_compeletion ################################
+    ################################* gemini_1_5_completion ################################
     skills_explanation = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -2820,9 +2821,9 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
 
     while max_tries > 0:
         try:
-            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            logger.info({"****evaluate_skills_explanation_conversation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+            response = gemini_1_5_completion(prompt)
+            logger.info({"****evaluate_skills_explanation_conversation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
             
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
@@ -2832,7 +2833,7 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
             break
 
         except Exception as e:
-            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            logger.error({"****evaluate_skills_explanation_conversation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -2844,9 +2845,9 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
     if is_evaluated:
         return skills_explanation
 
-    ################################* text_bison_compeletion end ################################
+    ################################* gemini_1_5_completion end ################################
 
-    logger.info({"****evaluate_skills_explanation_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+    logger.info({"****evaluate_skills_explanation_conversation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
     ################################* anthropic ################################
     skills_explanation = None
@@ -2950,7 +2951,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
     '''
 
 
-    ######################################* text_bison_compeletion *######################################
+    ######################################* gemini_1_5_completion *######################################
     skills_explanation = None
     response = None
     max_tries = 3  # because gpt3_completion function itself retries 3 times
@@ -2958,9 +2959,9 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
 
     while max_tries > 0:
         try:
-            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] text_bison_compeletion for {3 - max_tries + 1} time"})
-            response = text_bison_compeletion(prompt)
-            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] text_bison_compeletion for {3 - max_tries + 1} time","response":response})
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"trying [outer] gemini_1_5_completion for {3 - max_tries + 1} time"})
+            response = gemini_1_5_completion(prompt)
+            logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"response [outer] gemini_1_5_completion for {3 - max_tries + 1} time","response":response})
             
             skills_explanation = json_extractor_for_explaination(response)
             # skills_explanation = json.loads(skills_explanation)
@@ -2970,7 +2971,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
             break
 
         except Exception as e:
-            logger.error({"**** evaluate_culture_skills_explanation_conversation ":f"failed [outer] text_bison_compeletion for {3 - max_tries + 1} time","error":e })
+            logger.error({"**** evaluate_culture_skills_explanation_conversation ":f"failed [outer] gemini_1_5_completion for {3 - max_tries + 1} time","error":e })
             max_tries -= 1
             if max_tries == 0:
                 is_evaluated = False
@@ -2982,9 +2983,9 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
     if is_evaluated:
         return skills_explanation
 
-    ######################################* text_bison_compeletion end *######################################
+    ######################################* gemini_1_5_completion end *######################################
 
-    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed text_bison_compeletion, so trying anthropic_completion"})
+    logger.info({"**** evaluate_culture_skills_explanation_conversation ":f"failed gemini_1_5_completion, so trying anthropic_completion"})
 
     ######################################* anthropic *######################################
     skills_explanation = None
