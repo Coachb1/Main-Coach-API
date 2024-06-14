@@ -5787,7 +5787,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             len discussion_conversation: {len(discussion_conversation)}
             """)
 
-            if test.test_code == 'QQBXTA3':
+            if test.test_code != 'QKFSSBD':
 
                 template = Template("""
                     \n\nHuman:
@@ -5821,6 +5821,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     NOTE: Pose the questions as for the role play, also ask questions as a very specific role the person who is asking questions from the (main context) while generating the questions.
                     NOTE: Always stick with the role of the person while generating questions from the (main context).
                     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                    NOTE: Always follow the format but never mention in the response.
+                    NOTE: Never give brackets to show the response.
                     \n\nAssistant:
                 """).substitute(
                     test_main_context=main_context,
@@ -5871,6 +5873,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
+            NOTE: Always directly start responding without name in front.
             \n\nAssistant:
             """
         ).substitute(test_main_context=test_main_context,

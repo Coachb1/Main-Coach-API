@@ -2314,6 +2314,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     "REQUIRED FROM LLM:" Based on the above criteria please evaluate the "{user_persona}" only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this skills_list in JSON. 
     "skills_list:" "{skills_to_evaluate}"
     Please put properties of JSON enclosed in double quotes.
+    Always evaluate only Skills which relevant to the above conversation.
     Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
     NOTE: Please Reply in a JSON format only and no other format will be accepted. NO OTHER TEXT SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON. NO INSTRUCTIONS SHOULD BE PRESENT IN THE REPLY OTHER THAN THE JSON.
 
