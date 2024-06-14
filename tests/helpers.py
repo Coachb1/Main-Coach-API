@@ -7389,6 +7389,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
 
             """
@@ -7424,6 +7425,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
                 NOTE: Always mention in the context what role the user will be playing the role while answering.
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Never miss Title, Description, Statement.
+                
                 \n\nAssistant:
                 """
         elif case == "case":
@@ -7460,6 +7463,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
 
@@ -7497,6 +7501,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use interview for communication and information gathering.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
         elif case == 'checkin':
@@ -7534,6 +7539,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
                 NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
                 NOTE: Always use check-in for communication and information gathering.
+                NOTE: Never miss Title, Description, Statement.
+
                 \n\nAssistant:
 
                 """
@@ -7570,6 +7577,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
 
