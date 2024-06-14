@@ -3238,3 +3238,83 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+    @action(methods=['GET'], detail=False, url_path='get-user-details')
+    def get_user_details(self, request, *args, **kwargs):
+        try:
+            from_date = request.query_params.get('from',None)
+            to_date = request.query_params.get('to',None)
+            user_email = request.query_params.get('user_email',None)
+            client_id = request.query_params.get('client_id',None)
+            user_type = request.query_params.get('user_type',None)
+            tenant_id = request.tenant.uid
+            
+            logger.info(f"<<<<<<< from: {from_date}, to: {to_date}, user_email: {user_email}, client_id: {client_id}, user_type: {user_type} >>>>>>>")
+            
+            users = User.objects.filter(deleted=False,tenant_id=tenant_id)
+            client_user_emails = ""
+            
+            if client_id:
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=client_id)
+                    client_user_emails = client_info.member_emails
+                    identities = Identity.objects.filter(value__in=client_user_emails.split(","))
+                    users = users.filter(uid__in=[identity.user_id for identity in identities]) 
+                    logger.info(f"<<<< client_name: {client_info.client_name} >>>>")
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":f"Invalid client_id"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            if from_date and to_date:
+                from_date = datetime.datetime.strptime(from_date, "%Y-%m-%d")
+                to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
+                users = users.filter(created__gte=from_date,created__lte=to_date)
+                
+            user_details = []
+            for user in users:
+                identity = Identity.objects.get(user_id=user.uid)
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
+                user_action_info = UserActionInfo.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
+                # dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user.uid])
+                
+                user_detail = {
+                    'client_id': client_id,
+                    'intake_date': datetime.datetime.strftime(user.created, "%Y-%m-%d"),
+                    'user_email': identity.value,
+                    'user_type': profile.profile_type if profile else None
+                }
+                
+                created_tests = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id=user.uid)
+                user_detail['simulations_created'] = created_tests.count()
+                
+                if profile:
+                    user_detail['approval_status'] = profile.is_approved
+                    coacheeconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
+                    coachconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
+                    user_detail['connections_count'] = coacheeconnections.count() + coachconnections.count()
+                    user_detail['intake_data'] = CoachCoacheeMentorMenteeProfileSerializer(profile).data
+
+                    
+                if user_action_info:
+                    user_detail['conversation_count'] = user_action_info.chat_attempted
+                    user_detail['interaction_count'] = user_action_info.interaction_attempted
+                    user_detail['feedback_given'] = user_action_info.feedback_given
+                    user_detail['feedback_received'] = user_action_info.feedback_recieved
+                    user_detail['knowledge_bot_count'] = len(user_action_info.knowledge_bot_ids.split(",")) if user_action_info.knowledge_bot_ids else 0
+                    user_detail['deep_dive_bot_count'] = len(user_action_info.deep_dive_bot_ids.split(",")) if user_action_info.deep_dive_bot_ids else 0
+                    user_detail['avatar_bot_count'] = len(user_action_info.avatar_ids.split(",")) if user_action_info.avatar_ids else 0
+                    
+                
+                if user_type:
+                    if user_type == user_detail['user_type']:    
+                        user_details.append(user_detail)
+                else:
+                    user_details.append(user_detail)
+                
+                
+            return Response(user_details, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
