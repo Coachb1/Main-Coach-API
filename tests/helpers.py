@@ -64,7 +64,7 @@ import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
 import re
-from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_1_5_completion
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_completion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
@@ -1838,7 +1838,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
-                        feedback_text = gemini_1_5_completion(prompt)
+                        feedback_text = gemini_completion(prompt)
                     except Exception as e:
                         logger.exception(e)
                         anthropic_feedback = anthropic_completion(prompt, 1200) 
@@ -1856,7 +1856,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                     # if not gpt_feedback.text:
                     #     try:
-                    #         feedback_text = gemini_1_5_completion(prompt)
+                    #         feedback_text = gemini_completion(prompt)
                     #     except Exception as e:
                     #         logger.exception(e)
                     #         anthropic_feedback = anthropic_completion(prompt, 1200)
@@ -2370,7 +2370,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             
             # retry kls if it is not received
             if kls is None or kls == 'no kls' or kls == '':
-                kls = gemini_1_5_completion(kls_prompt)
+                kls = gemini_completion(kls_prompt)
 
             klp_prompt = f"""
                 TestTitle: {test.title}
@@ -2384,7 +2384,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             # retry klp if it is not received
             if klp is None or klp == 'no klp' or klp == '':
-                klp = gemini_1_5_completion(klp_prompt)
+                klp = gemini_completion(klp_prompt)
             
             test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
             update_fields.append("kls_klp")
@@ -2814,7 +2814,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     The function generates a prompt for the test, test attempt session, and question. It then tries to retrieve previous bot responses. If there are no previous responses, it sets an empty list.
 
-    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and gemini_1_5_completion for the third. 
+    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and gemini_completion for the third. 
 
     It then checks the similarity between the current and previous bot responses. If the similarity is over 80%, it logs the information and continues to the next iteration. If the similarity is less than or equal to 80%, it logs the information and breaks the loop.
 
@@ -2889,9 +2889,9 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if i == 0:
                 try:
-                    bot_llm_response_text = gemini_1_5_completion(prompt)
+                    bot_llm_response_text = gemini_completion(prompt)
                 except Exception as e:
-                    logger.error(f"Error in gemini_1_5_completion completion: {e}. retrying ...")
+                    logger.error(f"Error in gemini_completion completion: {e}. retrying ...")
                     bot_llm_response_text = anthropic_completion(prompt, 300)
             elif i == 1:
                 try:
@@ -2904,7 +2904,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                     bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
                 except Exception as e:
                     logger.error(f"Error in gpt3 completion: {e}. retrying ...")
-                    bot_llm_response_text = gemini_1_5_completion(prompt)
+                    bot_llm_response_text = gemini_completion(prompt)
 
             
         current_and_previous_question_similarity = 0
@@ -3542,9 +3542,9 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     cnt = 0
     res = ""
 
-    while cnt < 1:  # Because gemini_1_5_completion already has a retry mechanism
+    while cnt < 1:  # Because gemini_completion already has a retry mechanism
         try:
-            res = gemini_1_5_completion(prompt)
+            res = gemini_completion(prompt)
             break
         except Exception as e:
             logger.exception(e)
@@ -6662,7 +6662,7 @@ def submit_feedback(
 
     Based on the difficulty level of the user, it appends the appropriate feedback prompts. If the test is of email type or employee feedback scenario, it generates a specific prompt. Otherwise, it generates a prompt based on whether there is a gpt_prompt_override or not.
 
-    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the gemini_1_5_completion function and if that fails too, it uses the anthropic_completion function.
+    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the gemini_completion function and if that fails too, it uses the anthropic_completion function.
 
     Finally, it updates the TestQuestionResponse object with the generated feedback and the metadata related to the gpt prompt and response, and saves it.
 
@@ -6830,7 +6830,7 @@ def submit_feedback(
                 
             else:
                 try:
-                    feedback_text = gemini_1_5_completion(prompt)
+                    feedback_text = gemini_completion(prompt)
                 except Exception as e:
                     logger.exception(e)
                     anthropic_feedback = anthropic_completion(prompt, 1200) 
@@ -6941,6 +6941,13 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     description_match = description_pattern.search(text)
     questions_match = question_pattern.search(text)
     rating_match = rating_pattern.search(text)
+
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            raise ValueError("Invalid format. Unable to extract the title.")
         
     if not (title_match and description_match and question_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
@@ -7353,6 +7360,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
 
                         NOTE : there must be only one manager in picture.
 
+                        NOTE : Never miss the Title, Description, Questions.
+
                         \n\nAssistant: 
 
                     """%(site_information)  
@@ -7389,6 +7398,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
 
             """
@@ -7424,6 +7434,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
                 NOTE: Always mention in the context what role the user will be playing the role while answering.
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Never miss Title, Description, Statement.
+                
                 \n\nAssistant:
                 """
         elif case == "case":
@@ -7460,6 +7472,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
 
@@ -7497,6 +7510,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use interview for communication and information gathering.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
         elif case == 'checkin':
@@ -7534,6 +7548,8 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
                 NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
                 NOTE: Always use check-in for communication and information gathering.
+                NOTE: Never miss Title, Description, Statement.
+
                 \n\nAssistant:
 
                 """
@@ -7570,6 +7586,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
             \n\nAssistant:
             """
 
@@ -7764,7 +7781,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         scenario = anthropic_completion(prompt,5000)
                     else:
                         logger.info(f'trying scenario creation bison for {i +1} time')
-                        scenario = gemini_1_5_completion(prompt)
+                        scenario = gemini_completion(prompt)
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     # scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
@@ -7809,7 +7826,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                             scenario = anthropic_completion(prompt,5000)
                         else:
                             logger.info(f'**retrying scenario creation bison for {i +1} time')
-                            scenario = gemini_1_5_completion(prompt)
+                            scenario = gemini_completion(prompt)
                         # scenario = fcfs_handler.process(prompt)
                         # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         
@@ -8036,7 +8053,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
     # if use_anthropic:
     #     scenario = anthropic_completion(prompt,5000)
     # else:
-    #     scenario = gemini_1_5_completion(prompt)
+    #     scenario = gemini_completion(prompt)
     # print("palm",scenario)
     # print("#"*100)
     # scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -8066,7 +8083,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
                     if use_anthropic:
                         scenario = anthropic_completion(prompt,5000)
                     else:
-                        scenario = gemini_1_5_completion(prompt)
+                        scenario = gemini_completion(prompt)
                     print("palm",scenario)
                     print("#"*100)
                     scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -8726,7 +8743,7 @@ def test_model(model_name, num_tests=50):
         scenario = ''
         start_time = time.time()
         try:
-            scenario = gemini_1_5_completion(prompt,model_name)
+            scenario = gemini_completion(prompt,model_name)
             print(scenario)
             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
             print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
