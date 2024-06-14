@@ -50,7 +50,7 @@ from commons.langchain import download_and_transcribe_audio, extract_text_from_p
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
-from commons.utils import extract_file_and_text
+from commons.utils import extract_file_and_text, get_list_from_string
                     
 from itertools import groupby
 from operator import attrgetter
@@ -2119,12 +2119,19 @@ class AccountsViewSet(ApiViewSet,
                 data = []
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
+                    avatar_bot_count = len(get_list_from_string(user_action.avatar_ids))
+                    subject_matter_count = len(get_list_from_string(user_action.subject_matter_bot_ids))
+                    knowledge_bot_count = len(get_list_from_string(user_action.knowledge_bot_ids))
+                    deep_dive_bot_count = len(get_list_from_string(user_action.deep_dive_bot_ids))
+                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count
                     temp = {
                         "name": get_user_display_name(user),
                         "user_id": user.uid,
-                        "avatar_bot_count": user_action.avatar_bot_count,
-                        "subject_matter_count": user_action.subject_matter_bot_count,
-                        "total_bots": user_action.avatar_bot_count + user_action.subject_matter_bot_count,
+                        "avatar_bot_count": avatar_bot_count,
+                        "subject_matter_count": subject_matter_count,
+                        "knowledge_bot_count": knowledge_bot_count,
+                        "deep_dive_bot_count": deep_dive_bot_count,
+                        "total_bots": total_bots,
                         "total_simulations": user_action.interaction_attempted,
                         "total_bot_interactions": user_action.chat_attempted,
                         "session_notes_count": user_action.session_notes_count,
