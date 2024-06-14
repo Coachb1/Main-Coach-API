@@ -26,7 +26,7 @@ from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
 from utilities.models import BotEngagement
 from commons.notifications import send_error_notification
-from commons.google_apis import gemini_1_5_completion
+from commons.google_apis import gemini_completion
 
 
 
@@ -868,7 +868,7 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
     data = ""
     for i in range(2):
-        data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
+        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -914,7 +914,7 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
     data = ""
     for i in range(2):
-        data = gemini_1_5_completion(prompt=prompt).replace("{","").replace("}","")
+        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -1021,7 +1021,7 @@ def get_recommendation(prompt_type,hard_soft_skills):
     # data = generic_completion(prompt=prompt)
     data = ""
     for i in range(2):
-        data = gemini_1_5_completion(prompt=prompt)
+        data = gemini_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue
@@ -1063,7 +1063,7 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
     # data = generic_completion(prompt=prompt)
     data = ""
     for i in range(2):
-        data = gemini_1_5_completion(prompt=prompt)
+        data = gemini_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue
