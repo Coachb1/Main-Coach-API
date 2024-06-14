@@ -115,3 +115,12 @@ def remove_punctuations(text):
     translator = str.maketrans('', '', string.punctuation)
     # Remove punctuations using translate method
     return text.translate(translator)
+
+
+def get_list_from_string(string:str,
+                         delimiter:str = ','
+                         )->list:
+    """
+    This function splits a string into a list based on a given delimiter.
+    """
+    return list(set([i for i in [value.strip() for value in string.strip().split(delimiter) if len(value.strip()) > 0]] if string else []))

@@ -1166,7 +1166,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
                 for_ = request.query_params.get('for',None)
-                save_user_action_info(tenant.uid,user_id,for_)
+                bot_id = request.query_params.get('bot_id',None)
+                save_user_action_info(tenant.uid,user_id,for_,bot_id=bot_id)
 
                 data['message'] = "Action point increased."
 
