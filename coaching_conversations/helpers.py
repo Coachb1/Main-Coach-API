@@ -587,15 +587,29 @@ def continue_coaching_conversation(tenant: Tenant,
 
         if current_conversation == 2 : # increasing action point if conversation contain two chat
             save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
+            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_chat_attempted")
+            elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_chat_attempted")
+            elif signature_bot.bot_type == BotTypeChoice.user_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"knowledge_chat_attempted")
+            elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chatdeep_dive_chat_attempted_attempted")
+            
             save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=test_attempt_session.participant_id,field_name="num_of_bot_sessions")
 
         if current_conversation == 3 :
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
+                # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_ids",bot_id=signature_bot.bot_id)
             elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
-                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
+                # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type == BotTypeChoice.user_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"knowledge_bot_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"deep_dive_bot_ids",bot_id=signature_bot.bot_id)
+
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
