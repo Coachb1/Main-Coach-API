@@ -5,7 +5,7 @@ import logging
 import time
 from django.http import HttpResponse
 from commons.openai_gpt import gpt3_completion
-from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_1_5_completion
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_completion
 
 
 class FcfsHandler(View):
@@ -31,7 +31,7 @@ class FcfsHandler(View):
         # response = self.make_llm_request(prompt, api_key)
         
         # response = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-        response = gemini_1_5_completion(prompt)
+        response = gemini_completion(prompt)
         self.logger.info(f'Response from LLM: {response}')
         return response
 
