@@ -212,8 +212,8 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_1_5_completion(prompt,model="gemini-1.5-pro-001"):
-    logger.info(f"gemini_1_5_completion prompt: {prompt}")
+def gemini_completion(prompt,model="gemini-1.0-pro"):
+    logger.info(f"gemini_completion prompt: {prompt}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     vertexai.init(project="summer-nucleus-397019", location="us-central1")
@@ -239,7 +239,7 @@ def gemini_1_5_completion(prompt,model="gemini-1.5-pro-001"):
 
     while True:
         try:
-            logger.info(f"trying gemini_1_5_completion for {retry+1} time")
+            logger.info(f"trying gemini_completion for {retry+1} time")
             responses = model.generate_content(
                 [prompt],
                 generation_config=generation_config,
@@ -247,7 +247,7 @@ def gemini_1_5_completion(prompt,model="gemini-1.5-pro-001"):
             )
             return responses.candidates[0].content.parts[0].text
         except Exception as e:
-            logger.error(f"gemini_1_5_completion failed with {e}", exc_info=True)
+            logger.error(f"gemini_completion failed with {e}", exc_info=True)
             retry += 1
             if retry >= max_retry:
                 raise e
