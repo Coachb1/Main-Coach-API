@@ -3403,7 +3403,7 @@ class AccountsViewSet(ApiViewSet,
             
         text_prompt = """
             \n\nHuman:
-            {Information} -
+            {Information} - work life balance
             %s -
             Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
             Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
