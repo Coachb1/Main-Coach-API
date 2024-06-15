@@ -73,7 +73,8 @@ class AccountSerializer(serializers.ModelSerializer):
                 coaches_dict = {profile.uid: profile.about for profile in filtered_profiles}
                 data['coach_recommendation'] = [rec[0] for rec in recommend_coach_tfidf(problem,coaches_dict)]
                 
-
+            else:
+                data['coach_recommendation'] = []
         except Exception as e:
             logger.error(f"Error fetching profile: {e}")
             pass
