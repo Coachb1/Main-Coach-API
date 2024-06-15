@@ -99,7 +99,7 @@ def text_bison_compeletion(prompt,model="text-bison@001"):
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
 
-    vertexai.init(project="summer-nucleus-397019", location="us-central1")
+    vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     parameters = {
         "max_output_tokens": 1024,
         "temperature": 0.2,
@@ -216,7 +216,7 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
     logger.info(f"gemini_completion prompt: {prompt}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
-    vertexai.init(project="summer-nucleus-397019", location="us-central1")
+    vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     
     generation_config={
         "max_output_tokens": 8192,
