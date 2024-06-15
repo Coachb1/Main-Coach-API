@@ -6,6 +6,7 @@ from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
+from commons.recommendation import recommend_coach_tfidf
 
 import logging
 logger = logging.getLogger(__name__)
@@ -57,6 +58,22 @@ class AccountSerializer(serializers.ModelSerializer):
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
 
             data['profile_type'] = profile.profile_type
+
+            if profile.problem_statement:
+                problem = {"problem": profile.problem_statement}
+                # Query the filtered profiles
+                filtered_profiles = CoachCoacheeMentorMenteeProfile.objects.filter(
+                    deleted=False,
+                    is_approved=True,
+                    tenant_id=instance.tenant_id,
+                    profile_type="coach"
+                )
+
+                # Create the dictionary
+                coaches_dict = {profile.uid: profile.about for profile in filtered_profiles}
+                data['coach_recommendation'] = [rec[0] for rec in recommend_coach_tfidf(problem,coaches_dict)]
+                
+
         except Exception as e:
             logger.error(f"Error fetching profile: {e}")
             pass
@@ -92,7 +109,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 "journey_and_background",
                 "mentorship_contribution",
                 "discussion_topic",
-                "optional_file_data"
+                "optional_file_data",
+                "problem_statement"
                 ]
 
         extra_kwargs = {
