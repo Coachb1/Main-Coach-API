@@ -48,11 +48,11 @@ class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
         queryset = CoachingConversation.objects.all()
         
         # Filter by user_email if a search term is provided
-        print(f"((((((((((((((((((((( SEARCHK TEARM : {search_term},  )))))))))))))))))))))")
+        # print(f"((((((((((((((((((((( SEARCHK TEARM : {search_term},  )))))))))))))))))))))")
         if search_term:
             filtered_ids = []
             for obj in queryset:
-                print(f"((((((((((((((((((((( SEARCHK TEARM : {search_term}, email: {self.user_email(obj).lower()}, condition: {search_term.lower() in self.user_email(obj).lower()} )))))))))))))))))))))")
+                # print(f"((((((((((((((((((((( SEARCHK TEARM : {search_term}, email: {self.user_email(obj).lower()}, condition: {search_term.lower() in self.user_email(obj).lower()} )))))))))))))))))))))")
                 if search_term.lower() in self.user_email(obj).lower():
                     filtered_ids.append(obj.id)
             queryset = queryset.filter(id__in=filtered_ids)
