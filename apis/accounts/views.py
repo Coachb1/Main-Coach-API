@@ -3256,6 +3256,8 @@ class AccountsViewSet(ApiViewSet,
             users = User.objects.filter(deleted=False,tenant_id=tenant_id)
             client_user_emails = ""
             
+            email_client_map = {}
+            
             if client_id:
                 try:
                     client_info = ClientUserInfo.objects.get(client_name=client_id)
@@ -3266,7 +3268,17 @@ class AccountsViewSet(ApiViewSet,
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":f"Invalid client_id"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id)
+                for client in clients:
+                    client_emails = client.member_emails
+                    if client_emails:
+                        for email in client_emails.split(","):
+                            email_client_map[email.strip()] = client.client_name
+                    
+                    
                 
+            logger.info(f"<<<< email_client_map: {email_client_map} >>>>")
             if from_date and to_date:
                 from_date = datetime.datetime.strptime(from_date, "%Y-%m-%d")
                 to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
@@ -3274,13 +3286,13 @@ class AccountsViewSet(ApiViewSet,
                 
             user_details = []
             for user in users:
-                identity = Identity.objects.get(user_id=user.uid)
+                identity = Identity.objects.filter(user_id=user.uid).order_by('id').last()
                 profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
                 user_action_info = UserActionInfo.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
                 # dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user.uid])
                 
                 user_detail = {
-                    'client_id': client_id,
+                    'client_id': client_id if client_id else email_client_map.get(identity.value),
                     'intake_date': datetime.datetime.strftime(user.created, "%Y-%m-%d"),
                     'user_email': identity.value,
                     'user_type': profile.profile_type if profile else None
