@@ -3330,3 +3330,123 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+    @action(methods=['GET'], detail=False, url_path='code-promp_text-prompt')
+    def code_text_prompt(self, request, *args, **kwargs):
+        n = request.query_params.get('n',50)
+        try:
+            n = int(n)
+        except:
+            n = 50
+        
+        def write_to_csv(file_name,data):
+            filename = file_name
+
+            # Open the file in write mode
+            with open(filename, 'w', newline='') as csvfile:
+                # Create a CSV writer object
+                writer = csv.writer(csvfile)
+                
+                # Write each string as a row in the CSV file
+                for row in data:
+                    # Split the string by commas to create a list of values
+                    writer.writerow(row.split(','))
+            
+        code_prompt = """
+        # This code is designed to run as is, and the output will be in word format without any explanations or word counts.
+        # Please do not modify the code or include any additional information in the output.
+
+        # Define the format instructions
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        } 
+        data = get_data('titles', information)
+        title = random.choice(data)
+        
+        # Generate description using LLMS
+        data = get_data('descriptions', information)
+        description = random.choice(data)
+        
+        # Generate questions, custom prompts, takeaways, and skills using LLMS
+        data = get_data('questions', information)
+        questions = random.sample(data, 3)
+        
+        data = get_data('custom_prompts', information)
+        custom_prompts = random.sample(data, 3)
+        
+        data = get_data('takeaways', information)
+        takeaways = random.sample(data, 3)
+        
+        data = get_data('skills', information)
+        skills = random.sample(data, 3)
+        
+        # Generate statement
+        statement = f"You are a {information} industry expert, interacting with a corporate executive. The executive will ask you 
+        questions related to the current sales decline and market share loss. Your intent is to provide practical solutions and in
+        sights to help the company regain its market position."
+        
+        # Print output
+        print("Title:", title)
+        print("Description:", description)
+        print("Statement:", statement)
+        for i in range(len(questions)):
+            print(f"Question {i+1}: {questions[i]}")
+            print(f"Custom Prompt {i+1}: {custom_prompts[i]}")
+            print(f"Takeaway: {takeaways[i]}")
+            print(f"Skills Tested: {skills[i]}\n"ALWAYS RUN THIS CODE AS IT IS, ONLY GIVE THE DESIRED OUTPUT IN WORD FORMAT
+            NOTE: NEVER MENTION WORD COUNT, AND EXPLANATION AND ALWAYS JUST GIVE THE RESPONSE.
+            """
+            
+            
+        text_prompt = """
+            \n\nHuman:
+            {Information} -
+            %s -
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            \n\nAssistant
+        """
+        
+        code_prompt_set = set()
+        text_prompt_set = set()
+        
+        for i in range(n):
+            text_resp = anthropic_completion(text_prompt,5000)
+            text_prompt_set.add(text_resp)
+            
+            code_resp = anthropic_completion(code_prompt,5000)
+            code_prompt_set.add(code_resp)
+            print(i+1," Prompts tested")
+            
+        write_to_csv('code_prompt_set',code_prompt_set)
+        write_to_csv('text_prompt_set',text_prompt_set)
+        
+        return Response({"set_count":{"code_prompt":len(code_prompt_set),"text_prompt":len(text_prompt_set)},"code_prompt_set": code_prompt_set, "text_prompt_set": text_prompt_set}, status=status.HTTP_200_OK)
