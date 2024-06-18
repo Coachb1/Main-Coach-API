@@ -561,3 +561,22 @@ class CoachingConversationViewSet(ApiViewSet,
             logger.exception(f"Got error in team_connect: {e}")
             return Response({"error": f"Got error in team_connect: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+    @action(methods=['GET'], detail=False, url_path='analyze-bot-conversation')
+    def analyze_bot_conversation(self, request, *args, **kwargs):
+        ### :TODO: incomplete implementation
+        try:
+            if request.method == 'GET':
+                tenant = request.tenant
+                user_id = request.query_params.get('user_id')
+                bot_id = request.query_params.get('bot_id')
+                if not user_id or not bot_id:
+                    return Response({"error": "user_id and bot_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid, deleted=0, test_id=bot_id, participant_id=user_id)
+                if sessions.count() == 0:
+                    return Response({"error": "No conversation found"}, status=status.HTTP_404_NOT_FOUND)
+                data = get_bot_conversation_data_user(sessions, tenant, user_id)
+                return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Got error in analyze_bot_conversation: {e}")
+            return Response({"error": f"Got error in analyze_bot_conversation: {e}"}, status=status.HTTP_400_BAD_REQUEST)
