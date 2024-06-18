@@ -70,7 +70,7 @@ class AccountSerializer(serializers.ModelSerializer):
                 )
 
                 # Create the dictionary
-                coaches_dict = {profile.uid: profile.about for profile in filtered_profiles}
+                coaches_dict = {profile.uid: f"{profile.about} \n {profile.discussion_topic}" for profile in filtered_profiles}
                 data['coach_recommendation'] = [rec[0] for rec in recommend_coach_tfidf(problem,coaches_dict)]
                 
             else:
