@@ -2366,7 +2366,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
             logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-            kls = generic_completion(kls_prompt, 50,'no kls' )
+            kls = generic_completion(kls_prompt, 50,'no kls',is_free=test.is_free )
             
             # retry kls if it is not received
             if kls is None or kls == 'no kls' or kls == '':
@@ -2380,7 +2380,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 """
 
             logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-            klp = generic_completion(klp_prompt, 50, 'no klp')
+            klp = generic_completion(klp_prompt, 50, 'no klp',is_free=test.is_free)
 
             # retry klp if it is not received
             if klp is None or klp == 'no klp' or klp == '':
@@ -2536,7 +2536,7 @@ def get_feedback(question, test_question_response, question_text, test):
                                     articles=test.articles,
                                     scenario_summary=test.scenario_summary,)
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -2847,6 +2847,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         uid=test_question_response.test_attempt_session_id)
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
+    bot_llm_response_text = ""
 
     # Updating test attempt session current/next question status
     test_attempt_session.current_question_idx = question.question_number
@@ -2887,24 +2888,27 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
             bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
-            if i == 0:
-                try:
-                    bot_llm_response_text = gemini_completion(prompt)
-                except Exception as e:
-                    logger.error(f"Error in gemini_completion completion: {e}. retrying ...")
-                    bot_llm_response_text = anthropic_completion(prompt, 300)
-            elif i == 1:
-                try:
-                    bot_llm_response_text = anthropic_completion(prompt, 300)
-                except Exception as e:
-                    logger.error(f"Error in anthropic completion: {e}. retrying ...")
-                    bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
+            if test.is_free:
+                bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated',is_free=test.is_free)
             else:
-                try:
-                    bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
-                except Exception as e:
-                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
-                    bot_llm_response_text = gemini_completion(prompt)
+                if i == 0:
+                    try:
+                        bot_llm_response_text = gemini_completion(prompt)
+                    except Exception as e:
+                        logger.error(f"Error in gemini_completion completion: {e}. retrying ...")
+                        bot_llm_response_text = anthropic_completion(prompt, 300)
+                elif i == 1:
+                    try:
+                        bot_llm_response_text = anthropic_completion(prompt, 300)
+                    except Exception as e:
+                        logger.error(f"Error in anthropic completion: {e}. retrying ...")
+                        bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
+                else:
+                    try:
+                        bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
+                    except Exception as e:
+                        logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                        bot_llm_response_text = gemini_completion(prompt)
 
             
         current_and_previous_question_similarity = 0
