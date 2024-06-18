@@ -868,7 +868,8 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
     data = ""
     for i in range(2):
-        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
+        # data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -914,7 +915,8 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
     data = ""
     for i in range(2):
-        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
+        # data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -1021,7 +1023,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
     # data = generic_completion(prompt=prompt)
     data = ""
     for i in range(2):
-        data = gemini_completion(prompt=prompt)
+        data = anthropic_completion(prompt=prompt,max_tokens=1000)
+        # data = gemini_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue
@@ -1063,7 +1066,8 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
     # data = generic_completion(prompt=prompt)
     data = ""
     for i in range(2):
-        data = gemini_completion(prompt=prompt)
+        data = anthropic_completion(prompt=prompt,max_tokens=1000)
+        # data = gemini_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue
