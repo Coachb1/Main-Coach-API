@@ -253,3 +253,32 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
                 raise e
 
             time.sleep(random.randint(1,3))
+
+
+# def testing_llm_time(runtime=1):
+#     from commons.anthropic import anthropic_completion
+#     import time
+#     anthropic_times = []
+#     gemini_times = []
+#     prompt = "please type one word for the shape of the world."
+#     for i in range(runtime):
+#         start_anthropic = time.time()
+#         # anthropic_completion(prompt, 4096)
+#         text_bison_compeletion(prompt)
+#         end_anthropic = time.time()
+#         anthropic_time = end_anthropic - start_anthropic
+#         anthropic_times.append(anthropic_time)
+
+#         start_gemini = time.time()
+#         gemini_completion(prompt)
+#         end_gemini = time.time()
+#         gemini_time = end_gemini - start_gemini
+#         gemini_times.append(gemini_time)
+
+#     average_anthropic_time = sum(anthropic_times) / len(anthropic_times)
+#     average_gemini_time = sum(gemini_times) / len(gemini_times)
+
+#     print("anthropic time",anthropic_times)
+#     print("Average Anthropic Completion Time:", average_anthropic_time)
+#     print("gemini time",gemini_times)
+#     print("Average Gemini Completion Time:", average_gemini_time)
