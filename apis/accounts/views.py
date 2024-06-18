@@ -3326,7 +3326,67 @@ class AccountsViewSet(ApiViewSet,
                     user_details.append(user_detail)
                 
                 
-            return Response(user_details, status=status.HTTP_200_OK)
+            data = user_details
+            import openpyxl
+            import os
+            from openpyxl.styles import Font
+            from collections.abc import MutableMapping
+            from django.http import HttpResponse
+
+            def flatten_dict(d, parent_key='', sep='_'):
+                items = []
+                for k, v in d.items():
+                    new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                    if isinstance(v, MutableMapping):
+                        items.extend(flatten_dict(v, new_key, sep=sep).items())
+                    else:
+                        items.append((new_key, v))
+                return dict(items)
+
+
+            # Define the specific fields to keep first in order
+            specific_fields = ["client_id", "intake_date", "details_user_email", "details_user_type"]
+
+            # Flatten each dictionary in the list
+            flattened_data = [flatten_dict(item) for item in data]
+
+            # Collect all unique keys from the flattened dictionaries
+            all_fieldnames = set()
+            for item in flattened_data:
+                all_fieldnames.update(item.keys())
+
+            # Ensure the specific fields are first, followed by the rest of the fields
+            fieldnames = specific_fields + [field for field in all_fieldnames if field not in specific_fields]
+
+            # Create a workbook and a worksheet
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "User Details"
+
+            # Write the header row
+            header_font = Font(bold=True)
+            for col_num, fieldname in enumerate(fieldnames, 1):
+                cell = ws.cell(row=1, column=col_num, value=fieldname)
+                cell.font = header_font
+                ws.column_dimensions[cell.column_letter].width = 15  # Set column width
+
+            # Write the data rows
+            for row_num, item in enumerate(flattened_data, start=2):
+                for col_num, fieldname in enumerate(fieldnames, start=1):
+                    ws.cell(row=row_num, column=col_num, value=item.get(fieldname))
+
+            # Save the workbook to a file
+            filename = "formatted_output.xlsx"
+            wb.save(filename)
+            
+            with open('formatted_output.xlsx', 'rb') as fh:
+                file_response = HttpResponse(
+                    fh.read(), content_type="text/csv", status=200)
+                file_response['Content-Disposition'] = 'inline; filename=' + \
+                    os.path.basename('formatted_output.xlsx')
+
+            return file_response
+            # return Response(file_response, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
