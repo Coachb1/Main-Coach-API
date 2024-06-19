@@ -9,7 +9,6 @@ from nltk.corpus import wordnet
 
 # Ensure you have the required NLTK data files
 import nltk
-nltk.download('punkt')
 
 
 @timeit
