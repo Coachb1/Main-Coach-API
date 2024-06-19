@@ -14,7 +14,7 @@ from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
-from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile
+from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile, CoachRecommendationsForUser
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
@@ -2787,3 +2787,19 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
     logger.info(f"team connect response: {response}")
     return {"response": response.replace('$',''), "message": message}
 
+def save_coach_recommendation(user_profile_id,coach_recommendations):
+
+    try:
+        user_profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=user_profile_id)
+    except:
+        return {"error": f"User profile not found. Please check user_profile_id- {user_profile_id}."}, False
+    
+    coach_rec, is_created = CoachRecommendationsForUser.objects.get_or_create(
+        tenant_id=user_profile.tenant_id,
+        user_profile=user_profile,
+    )
+    coach_rec.coach_recommendations = coach_recommendations
+    coach_rec.save()
+    return {"success": f"coach recommendation saved for user_profile_id- {user_profile_id}"}, True
+
+    
