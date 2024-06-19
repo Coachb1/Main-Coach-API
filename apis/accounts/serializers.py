@@ -58,6 +58,10 @@ class AccountSerializer(serializers.ModelSerializer):
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
 
             data['profile_type'] = profile.profile_type
+            manual_coach_rec = []
+            if len(profile.coach_recommendations.all()) > 0:
+                logger.info(f"manual recommendation: {profile.coach_recommendations.first().coach_recommendations.split(',')}")
+                manual_coach_rec = profile.coach_recommendations.first().coach_recommendations.split(',')
 
             if profile.problem_statement:
                 problem = {"problem": profile.problem_statement}
@@ -71,10 +75,10 @@ class AccountSerializer(serializers.ModelSerializer):
 
                 # Create the dictionary
                 coaches_dict = {profile.uid: f"{profile.about} \n {profile.discussion_topic}" for profile in filtered_profiles}
-                data['coach_recommendation'] = [rec[0] for rec in recommend_coach_keyword(problem,coaches_dict)]
-                
+                manual_coach_rec.extend([rec[0] for rec in recommend_coach_keyword(problem,coaches_dict)])
+                data['coach_recommendation'] = manual_coach_rec
             else:
-                data['coach_recommendation'] = []
+                data['coach_recommendation'] = manual_coach_rec
         except Exception as e:
             logger.error(f"Error fetching profile: {e}")
             pass
