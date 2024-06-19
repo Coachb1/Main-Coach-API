@@ -45,6 +45,20 @@ def get_default_ui_information():
         'header': None,
         'read_text': None,
     }
+
+def get_default_help_text():
+    return {
+        "network_directory": None,
+        "demo": None,
+        "library": None,
+        "creator_studio": None,
+        "profile": None,
+        "page": {
+            "feature1": "text",
+            "feature2": "text"
+        } 
+
+    }
     
 def get_default_signature_bot_page_information():
     return {
@@ -218,10 +232,7 @@ class ClientUserInfo(TenantAwareModel):
     tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
     ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information)
     widget_access_code = models.CharField(max_length=255,null=True, blank=True, default="DEMO2024")
-
-
-
-
+    help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
 
 
     class Meta:
