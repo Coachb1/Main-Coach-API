@@ -66,7 +66,7 @@ class AccountSerializer(serializers.ModelSerializer):
                     deleted=False,
                     is_approved=True,
                     tenant_id=instance.tenant_id,
-                    profile_type="coach"
+                    profile_type__in=['coach','icons_by_ai']
                 )
 
                 # Create the dictionary
