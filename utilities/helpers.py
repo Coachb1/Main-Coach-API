@@ -590,15 +590,16 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
         for i in range(2):
             
-            for skill in skills:
+            for skill in [[i.strip() for i in hard_skills.split(',')][0],[i.strip() for i in soft_skills.split(',')][0]]:
                 temp = {}
 
                 # for i in range(1,6):
-                dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
-                logger.info({f"scenario - {skill}": dynamic_discussion})
-                if dynamic_discussion.get("title",None):
-                    total_scenarios_created += 1
-                    temp[f"dynamic"] = dynamic_discussion
+                # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+                # logger.info({f"scenario - {skill}": dynamic_discussion})
+                # if dynamic_discussion.get("title",None):
+                #     total_scenarios_created += 1
+                #     temp[f"dynamic"] = dynamic_discussion
+
                 simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
                 logger.info({f"scenario - {skill}": simulation})
 
@@ -608,15 +609,16 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 
                 tests[skill] = temp
 
+            
             temp_data = {}
             # focus oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
 
-                temp_data[f"dynamic"] = dynamic_discussion
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': key_focus_areas}}))
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -628,12 +630,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             temp_data = {}
 
             # goals oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
-                temp_data[f"dynamic"] = dynamic_discussion
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': goals}}),)
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -645,12 +647,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             temp_data = {}
 
             # priority oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
-                temp_data[f"dynamic"] = dynamic_discussion
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': priorities}}))
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -659,18 +661,18 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
             logger.info(f"************** after priority areas tests: {tests}")
 
-            if total_scenarios_created <=6:
-                if i+1 == 2:
-                    subject = "Failed to generate required Scenarios For IDP"
-                    html = f"""
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
+            # if total_scenarios_created <=6:
+            #     if i+1 == 2:
+            #         subject = "Failed to generate required Scenarios For IDP"
+            #         html = f"""
+            #             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
+            #             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
 
-                        """
+            #             """
 
-                    send_email_with_html_template(subject=subject,html_content=html)
-                    return {"error": f"Failed to generate enough scenraios : {total_scenarios_created}"}, False
-                continue
+            #         send_email_with_html_template(subject=subject,html_content=html)
+            #         return {"error": f"Failed to generate enough scenraios : {total_scenarios_created}"}, False
+            #     continue
 
             break
 
@@ -852,6 +854,7 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
             DO not give a reason or explanation.
+            Do not include any introductory sentence.
             Always remeber to not mention Skill1 , Skill2 in the responses.
             NOTE: Never mention Skill1 , Skill2
             \n\nAssistant:
@@ -897,6 +900,7 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
             DO not give a reason or explanation.
+            Do not include any introductory sentence.
             Always remeber to not mention Skill1 , Skill2 in the responses.
             NOTE: Never mention Skill1 , Skill2 
 
