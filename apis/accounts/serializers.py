@@ -6,7 +6,7 @@ from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
-from commons.recommendation import recommend_coach_tfidf
+from commons.recommendation import recommend_coach_tfidf, recommend_coach_keyword
 
 import logging
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
                 # Create the dictionary
                 coaches_dict = {profile.uid: f"{profile.about} \n {profile.discussion_topic}" for profile in filtered_profiles}
-                data['coach_recommendation'] = [rec[0] for rec in recommend_coach_tfidf(problem,coaches_dict)]
+                data['coach_recommendation'] = [rec[0] for rec in recommend_coach_keyword(problem,coaches_dict)]
                 
             else:
                 data['coach_recommendation'] = []

@@ -8,6 +8,7 @@ import vertexai
 from vertexai.language_models import TextGenerationModel
 import time
 import random
+import re
 
 from google.cloud import texttospeech
 
@@ -17,6 +18,10 @@ from vertexai import generative_models
 logger = logging.getLogger(__name__)
 
 
+def remove_garbage_characters(text):
+    regex_pattern = r'[^a-zA-Z0-9!.,:\-? \n]'
+    cleaned_text = re.sub(regex_pattern, '', text)
+    return cleaned_text
 
 
 def get_uri(url):
@@ -245,7 +250,8 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
                 generation_config=generation_config,
                 safety_settings=safety_settings
             )
-            return responses.candidates[0].content.parts[0].text
+            logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
+            return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
         except Exception as e:
             logger.error(f"gemini_completion failed with {e}", exc_info=True)
             retry += 1
