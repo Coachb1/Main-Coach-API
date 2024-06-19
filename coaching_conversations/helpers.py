@@ -2166,6 +2166,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "sub_heading": client.sub_heading,
         "tag_line": client.tag_line,
         'ui_information': client.ui_information or {'bottom_text': None,'header': None,'read_text': None},
+        'help_text': client.help_text or {"network_directory": None,"demo": None,"library": None,"creator_studio": None,"profile": None,"page": {"feature1": "text","feature2": "text"}},
         "widget_access_code": client.widget_access_code
     }
     user_info['user_id'] = user_account.uid
