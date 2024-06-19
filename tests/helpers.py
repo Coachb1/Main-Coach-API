@@ -7398,7 +7398,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             'The Question, Prompt, Takeaway, Skills should be numbered.'
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
@@ -7432,7 +7432,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
                 NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
                 NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
                 NOTE: "Rating" must be included.
                 NOTE: Make sure the roleplay is very advanced and tough.
                 NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
@@ -7472,7 +7472,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
             NOTE: "Rating" must be included.
-            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
@@ -7511,7 +7511,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
-            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use interview for communication and information gathering.
             NOTE: Never miss Title, Description, Statement.
@@ -7550,7 +7550,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: "Rating" must be included.
                 NOTE : Make sure the simulation is very advanced and tough.
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
                 NOTE: Always use check-in for communication and information gathering.
                 NOTE: Never miss Title, Description, Statement.
 
@@ -7586,7 +7586,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             'The Question, Prompt, Takeaway, Skills should be numbered.'
             NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
             NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
@@ -7864,6 +7864,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
             scenario_case = ScenarioCaseChoices.simulation
+            if case_type == 'role_play':
+                scenario_case = ScenarioCaseChoices.role_play
             
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 scenario_case = ScenarioCaseChoices.dynamic_discussion
@@ -7937,7 +7939,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro']}
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro'],"scenario_case": response['scenario_case']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
