@@ -13,9 +13,9 @@ from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User, SignatureBot, BotAttribute, ClientUserInfo, UserAttribute
+from users.models import User, SignatureBot, BotAttribute, ClientUserInfo, UserAttribute, CoachCoacheeMentorMenteeProfile
 from users.db import get_user_display_name, get_user_by_id
-from coaching_conversations.helpers import create_user_profile_and_bot
+from coaching_conversations.helpers import create_user_profile_and_bot, save_coach_recommendation
 import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
@@ -580,3 +580,35 @@ class CoachingConversationViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Got error in analyze_bot_conversation: {e}")
             return Response({"error": f"Got error in analyze_bot_conversation: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=['GET','POST'], detail=False, url_path='get-or-save-coach-recommendations')
+    def get_or_save_coach_recommendations(self, request, *args, **kwargs):
+        try:
+            if request.method == 'GET':
+                user_profile_id = request.query_params.get('user_profile_id')
+                try:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(
+                        tenant_id=request.tenant.uid,
+                        uid=user_profile_id
+                    )
+                except Exception as e:
+                    return Response({"error": f"Profile Not found for user_profile_id : {user_profile_id}, reason: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"data": profile.coach_recommendations.all()[0].coach_recommendations.split(',') if len(profile.coach_recommendations.all()) > 0 else []}, status=status.HTTP_200_OK)
+
+            elif request.method == 'POST':
+                user_profile_id = request.data.get('user_profile_id')
+                coach_recommendations = request.data.get('coach_recommendations',None)
+                logger.info(f"user_profile_id: {user_profile_id}, coach_recommendations: {coach_recommendations}")
+
+                if not user_profile_id or not coach_recommendations:
+                    return Response({'error': f"Either user_profile_id or coach_recommendations is missing!"},status=status.HTTP_400_BAD_REQUEST)
+                
+                msg, success = save_coach_recommendation(
+                    user_profile_id=user_profile_id,
+                    coach_recommendations=coach_recommendations
+                )
+                return Response(msg, status=status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.exception(f"Got error in get_or_save_coach_recommendations: {e}")
+            return Response({"error": f"Got error in get_or_save_coach_recommendations: {e}"}, status=status.HTTP_400_BAD_REQUEST)

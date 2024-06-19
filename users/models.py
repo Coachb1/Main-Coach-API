@@ -290,6 +290,22 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
 
         unique_together = (("tenant_id", "uid"),)
         
+
+class CoachRecommendationsForUser(TenantAwareModel):
+    user_profile = models.ForeignKey(
+        'CoachCoacheeMentorMenteeProfile', 
+        on_delete=models.CASCADE, 
+        related_name='coach_recommendations'
+    )
+    coach_recommendations = models.TextField(null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "coach_recommendations_for_user"
+        unique_together = (("tenant_id", "user_profile","deleted"),)
+        indexes = [
+            models.Index(fields=['user_profile']),
+            models.Index(fields=['tenant_id', 'user_profile']),
+        ]
         
 class CoachCoacheeRating(TenantAwareModel):
     coach_id = models.CharField(max_length=255)
