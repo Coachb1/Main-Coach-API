@@ -23,7 +23,7 @@ import json
 from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
-from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute
+from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute, get_default_help_text
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
@@ -2166,7 +2166,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "sub_heading": client.sub_heading,
         "tag_line": client.tag_line,
         'ui_information': client.ui_information or {'bottom_text': None,'header': None,'read_text': None},
-        'help_text': client.help_text or {"network_directory": None,"demo": None,"library": None,"creator_studio": None,"profile": None,"page": {"feature1": "text","feature2": "text"}},
+        'help_text': client.help_text or get_default_help_text(),
         "widget_access_code": client.widget_access_code
     }
     user_info['user_id'] = user_account.uid
