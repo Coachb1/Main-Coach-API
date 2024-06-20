@@ -47,18 +47,56 @@ def get_default_ui_information():
     }
 
 def get_default_help_text():
-    return {
-        "network_directory": None,
-        "demo": None,
-        "library": None,
-        "creator_studio": None,
-        "profile": None,
-        "page": {
-            "feature1": "text",
-            "feature2": "text"
-        } 
-
+    help_text_json = data = {
+        "network_directory": {
+            "header_text": "",
+            "join_the_network": "",
+            "search_filter": "",
+            "participant_listing": "",
+            "first_coach_profile": "",
+            "email": "",
+            "reviews": "",
+            "feedback": ""
+        },
+        "demo": {
+            "user_demos": "",
+            "system_demos": "",
+            "coachTalk": "",
+            "coachScribe": "",
+            "manager_plus": ""
+        },
+        "libarary": {
+            "nav_one": "",
+            "nav_two": "",
+            "test_category": "",
+            "simulations": "",
+            "coachTalk": "",
+            "coachScribe": ""
+        },
+        "creator_studio": {
+            "action_items": "",
+            "learning_ideas": "",
+            "scenario_creator": "",
+            "team_connect": "",
+            "deep_dive": "",
+            "knowledge_bots": ""
+        },
+        "profile": {
+            "session_reports": "",
+            "personal_leaderboard": "",
+            "kudos_board": "",
+            "directory_profile": "",
+            "my_connections": "",
+            "action_plan_session_notes": "",
+            "bot_conversations": "",
+            "my_rewards": "",
+            "competencies": "",
+            "idp": "",
+            "email_sign": ""
+        }
     }
+
+    return help_text_json
     
 def get_default_signature_bot_page_information():
     return {

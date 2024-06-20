@@ -65,7 +65,7 @@ nltk==3.8.1
 pandas==2.1.0
 google-cloud-storage==2.10.0
 google-cloud-speech==2.21.0
-google-cloud-aiplatform==1.55.0
+google-cloud-aiplatform==1.49.0
 beautifulsoup4==4.10.0
 google-cloud-texttospeech==2.15.0
 django-import-export==3.3.5
@@ -84,3 +84,4 @@ pyarrow==15.0.2
 lxml_html_clean==0.1.0
 coverage==7.4.4
 scikit-learn==1.5.0
+vertexai==1.49.0
