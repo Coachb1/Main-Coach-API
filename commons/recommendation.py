@@ -5,10 +5,13 @@ from commons.timeit import timeit
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
 
 
 # Ensure you have the required NLTK data files
 import nltk
+
+nltk.download('averaged_perceptron_tagger')
 
 
 @timeit
@@ -29,40 +32,35 @@ def recommend_coach_tfidf(coachee:dict, coaches:dict):
     print(recommended_coaches)
     return recommended_coaches[:10]
 
-@timeit
-def get_synonyms(words):
-    # Ensure NLTK WordNet is downloaded once
-    nltk.download('wordnet', quiet=True)
-    
-    synonyms = set()  # Use a set to store unique synonyms
-    syn_words = {word: [] for word in words}
-    for word in words:
-        for synset in wordnet.synsets(word):
-            for lemma in synset.lemmas():
-                synonym = lemma.name().replace("_", " ")
-                synonyms.add(synonym)
-                syn_words[word].append(synonym)
-    
-    synonyms = list(synonyms)  # Convert set back to a list if needed
-    print(f"get_synonyms: {syn_words}")
-    return synonyms
 
-@timeit
+def get_wordnet_pos(word):
+    """Map POS tag to first character lemmatize() accepts."""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
+    return tag_dict.get(tag, wordnet.NOUN)
+
 def recommend_coach_keyword(coachee, coaches):
-    nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
+    lemmatizer = WordNetLemmatizer()
     
-    # Tokenize and filter out stopwords from the coachee's problem statement
+    # Tokenize, filter out stopwords, and lemmatize the coachee's problem statement
     problem_words = word_tokenize(coachee['problem'].lower())
-    problem_keywords = [word for word in problem_words if word.isalnum() and word not in stop_words]
-    problem_keywords.extend(get_synonyms(set(problem_keywords)))
+    problem_keywords = [lemmatizer.lemmatize(word, get_wordnet_pos(word)) 
+                        for word in problem_words if word.isalnum() and word not in stop_words]
+    print(f"problem keywords: {set(problem_keywords)}")
+    
     coach_scores = {coach: 0 for coach in coaches}
     matched_keywords = {coach: [] for coach in coaches}
     
     for coach, bio in coaches.items():
-        # Tokenize and filter out stopwords from the coach's bio
+        # Tokenize, filter out stopwords, and lemmatize the coach's bio
         bio_words = word_tokenize(bio.lower())
-        bio_keywords = set([word for word in bio_words if word.isalnum() and word not in stop_words])
+        bio_keywords = set([lemmatizer.lemmatize(word, get_wordnet_pos(word)) 
+                            for word in bio_words if word.isalnum() and word not in stop_words])
+        print(f"{coach}: {bio_keywords}")
         
         # Count keyword matches
         for keyword in set(problem_keywords):
@@ -73,5 +71,6 @@ def recommend_coach_keyword(coachee, coaches):
     # Sort coaches by score in descending order
     recommended_coaches = sorted(coach_scores.items(), key=lambda item: item[1], reverse=True)
     recommended_coaches = [coach for coach in recommended_coaches if coach[1] > 0]
-    print(f" matched keywords for problem {coachee['problem']} :\n {matched_keywords}")
+
+    print(f"Matched keywords for problem '{coachee['problem']}':\n{matched_keywords}")
     return recommended_coaches
