@@ -250,6 +250,7 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
                 generation_config=generation_config,
                 safety_settings=safety_settings
             )
+            logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
             logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
             return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
         except Exception as e:
