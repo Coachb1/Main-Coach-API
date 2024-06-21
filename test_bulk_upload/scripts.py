@@ -89,6 +89,7 @@ VISUAL_TAGS = 'Visual Tags'
 PAGE_NAME = 'Page Name'
 USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
+RESPONDER = "Responder"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -526,7 +527,7 @@ def format_test_orchestrated_conversation(raw_data):
                 orchestrated_conversation_details["background"] = background
                 
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
-
+        logger.info(f"<<<<<<<<Input Dict: {input_dict}>>>>>>>>>")
         for key in input_dict:
             if key.isdigit():
                 question = {
@@ -546,6 +547,11 @@ def format_test_orchestrated_conversation(raw_data):
 
                 matched_name = next((name for name in persons if name.split()[0].lower() in input_dict[key].lower()), None)
                 if matched_name:
+                    if RESPONDER in input_dict:
+                    
+                        if input_dict[RESPONDER] and len(input_dict[RESPONDER].strip()) > 0:
+                            responder = input_dict[RESPONDER].strip().lower()
+                            matched_name = responder
                     question['question_for'] = matched_name
                 else:
                     question['question_for'] = "user"
@@ -1536,7 +1542,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             'exception': False
         }
     """
-    logger.info(subdomain_prefix)
+    logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
                      SCENARIO_CASE]
