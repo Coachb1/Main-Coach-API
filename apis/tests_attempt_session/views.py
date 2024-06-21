@@ -352,8 +352,25 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             #################* summary  start #################
             updated_fields = []
-            
-            
+            start_time = time.time()
+
+            while True:
+                current_time = time.time()
+                elapsed_time = current_time - start_time
+                
+                test_attempt_session.refresh_from_db()
+                
+                logger.info(f"Culture rating: {test_attempt_session.culture_skills_rating}, Skills rating: {test_attempt_session.skills_rating}, Elapsed time: {elapsed_time:.2f} seconds")
+                
+                if test_attempt_session.culture_skills_rating and test_attempt_session.skills_rating:
+                    break
+
+                if elapsed_time > 60:
+                    logger.error("Timeout exceeded while waiting for ratings to be set.")
+                    break
+
+                time.sleep(1)
+
             skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
                                                                             test_attempt_session.culture_skills_rating,
                                                                             test_attempt_session.skills_rating,is_free)
