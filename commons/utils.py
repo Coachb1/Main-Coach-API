@@ -27,17 +27,27 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
     """
     response_text = fallback_text
     if is_free:
-        response_text = anthropic_completion(prompt, tokens)
+        try:
+            response_text = anthropic_completion(prompt, tokens)
+            if len(response_text.strip()) == 0:
+                response_text = gemini_completion(prompt)
+        except Exception as e:
+            logger.exception(f"failed generic Completion: {e}")
+            response_text = fallback_text
 
     else:
         bison_feedback = gemini_completion(prompt)
-        if not bison_feedback:
+        if not bison_feedback or len(bison_feedback.strip()) == 0:
             try:
                 response_text = anthropic_completion(prompt, tokens)
+                if len(response_text.strip()) == 0:
+                    raise ValueError("Got empty response")
             except Exception as e:
                 logger.exception(e)
                 try:
                     response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    if len(response_text.strip()) == 0:
+                        raise ValueError("Got empty response")
                 except Exception as e:
                     response_text = fallback_text
         else:
