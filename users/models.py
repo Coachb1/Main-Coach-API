@@ -271,6 +271,7 @@ class ClientUserInfo(TenantAwareModel):
     ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information)
     widget_access_code = models.CharField(max_length=255,null=True, blank=True, default="DEMO2024")
     help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
+    allow_paste_answer = models.BooleanField(null=True, blank=True, default=False)
 
 
     class Meta:
