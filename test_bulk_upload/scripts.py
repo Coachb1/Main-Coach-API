@@ -278,7 +278,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         if PAGE_NAME in input_dict:
             if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
-                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip()
 
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
@@ -523,7 +523,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         if BACKGROUND in input_dict:
             if input_dict[BACKGROUND] and len(input_dict[BACKGROUND].strip()) > 0:
-                background = input_dict[BACKGROUND].strip().lower()
+                background = input_dict[BACKGROUND].strip()
                 orchestrated_conversation_details["background"] = background
                 
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
@@ -550,7 +550,7 @@ def format_test_orchestrated_conversation(raw_data):
                     if RESPONDER in input_dict:
                     
                         if input_dict[RESPONDER] and len(input_dict[RESPONDER].strip()) > 0:
-                            responder = input_dict[RESPONDER].strip().lower()
+                            responder = input_dict[RESPONDER].strip()
                             matched_name = responder
                     question['question_for'] = matched_name
                 else:
