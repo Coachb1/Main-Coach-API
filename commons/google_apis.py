@@ -246,6 +246,9 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
             logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
             logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
             return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
+        except IndexError as e:
+            logger.error(f"gemini_completion failed with list index out of range error: {e}", exc_info=True)
+            raise e
         except Exception as e:
             logger.error(f"gemini_completion failed with {e}", exc_info=True)
             retry += 1
