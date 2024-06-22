@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def remove_garbage_characters(text):
-    regex_pattern = r'[^a-zA-Z0-9!.,:\-? \n]'
-    cleaned_text = re.sub(regex_pattern, '', text)
-    return cleaned_text
+    return text.replace("*","").replace("#","").replace(">","").replace("<","")
 
 
 def get_uri(url):
@@ -244,7 +242,6 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
             responses = model.generate_content(
                 [prompt],
                 generation_config=generation_config,
-                safety_settings=safety_settings
             )
             logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
             logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
