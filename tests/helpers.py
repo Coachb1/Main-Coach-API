@@ -2911,6 +2911,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
                         logger.error(f"Error in gpt3 completion: {e}. retrying ...")
                         bot_llm_response_text = gemini_completion(prompt)
 
+                bot_llm_response_text = extract_question(bot_llm_response_text,question.question_for)
             
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
@@ -5566,6 +5567,29 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
             return "nothing"
 
+@timeit
+def extract_question(text, responder_name):
+    # Define the regular expression pattern to match the question part
+    pattern = r":\s*([^:]+)$"
+    
+    # Search for the pattern in the provided text
+    match = re.search(pattern, text)
+    
+    # If a match is found, extract and return the question part
+    if match:
+        print(match.group(1).strip() )
+        pattern = rf"\b{responder_name}\b[:,]?\s*"
+    
+        # Replace all occurrences of the pattern with an empty string
+        cleaned_text = re.sub(pattern, '', match.group(1).strip(), flags=re.IGNORECASE)
+        # Ensure there's no space before punctuation marks
+        cleaned_text = re.sub(r'\s+([?.!,])', r'\1', cleaned_text)
+        
+        # Return the cleaned text, stripped of leading/trailing whitespace
+        return cleaned_text.strip()
+    
+    else:
+        return text.strip()
 
 @timeit
 def get_orchestrated_test_conversation_prompt(test: Test,
@@ -5812,9 +5836,11 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Always pose the questions as for the role play, also ask questions as very specific role who is assigned to ask questions in the (main context).
                     Always take the role of who will be asking questions from the (main context) to generate questions.
                                     
-                    Never add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
+                    Always add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
+                    {
                     Format for Questions
-                    Question
+                    Name: Question
+                    }
                                     
                     Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
                     Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
