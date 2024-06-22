@@ -2571,6 +2571,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
             )
         user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
         update_fields = []
+        relevancy_score = {'relevance': 1}
         if user_info.evaluate_relevency:
             relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                                     question_text,
@@ -4695,17 +4696,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4734,17 +4735,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4772,17 +4773,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Article: ${article_info} 
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.          
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4810,17 +4811,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.           
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4905,7 +4906,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -4959,7 +4960,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
 
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
+            NOTE : Minimum response length is 60 words. Always adhere to the same.
 
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
@@ -5018,7 +5019,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5073,7 +5074,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
 
-                NOTE : Minimum response length is 300 words. Always adhere to the same.
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
 
@@ -5132,7 +5133,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5187,7 +5188,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
 
-                NOTE : Minimum response length is 300 words. Always adhere to the same.
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
 
@@ -5246,7 +5247,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE: In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE: Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE: Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5301,7 +5302,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE: A sample candidate answer is a sample Customer Comment based on the context provided.
 
-                NOTE: Minimum response length is 300 words. Always adhere to the same.
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s response in "Key insights to improve the response."
 
@@ -5810,11 +5811,11 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Always ask a unique, different and specific question based on the (Candidate response), (main context), and (Current Response). The question should be relevant to the information or response given in the (Candidate response). Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
                     Always pose the questions as for the role play, also ask questions as very specific role who is assigned to ask questions in the (main context).
                     Always take the role of who will be asking questions from the (main context) to generate questions.
-                    Always add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
-                    {
+                                    
+                    Never add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
                     Format for Questions
-                    Name: Question
-                    }
+                    Question
+                                    
                     Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
                     Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
                     Always stick with the role who is asking question from the (main context) while generating questions.
@@ -5952,17 +5953,17 @@ def get_overridden_prompt(prompt_template: str,
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             The feedback should be structured in the following format: 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            - A counter intuitive insight
+            - A counter intuitive insight - 10 words maximum
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5990,17 +5991,17 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            - A counter intuitive insight
+            - A counter intuitive insight - 10 words maximum
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -6039,17 +6040,19 @@ def get_english_support_feedback_prompt(prompt_template: str,
 
             Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer 
+            - A sample candidate answer - 60 words maximum
+
+            - A counter intuitive insight - 10 words maximum
+
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
 
             NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
-
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
 
             NOTE: Only provide feedback on the English proficiency of the candidate.
 
