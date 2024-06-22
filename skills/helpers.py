@@ -19,6 +19,8 @@ import os
 from pathlib import Path
 import pandas as pd
 from string import Template
+import json5
+
 
 
 
@@ -135,19 +137,45 @@ def json_extraction_for_competency(text):
         logger.error('no json found')
         return text
     
+
+def parse_json5(json5_string):
+    """
+    Parses a JSON5 string and returns a Python dictionary.
+    
+    :param json5_string: The JSON5 formatted string to be parsed.
+    :return: A Python dictionary representing the JSON5 data.
+    """
+    try:
+        # Parse the JSON5 string
+        json_object = json5.loads(json5_string)
+        return json_object
+    except Exception as e:
+        print(f"Failed to parse JSON5 string: {e}")
+        raise e
+    
 def json_extraction(text):
-    pattern = r'{[^}]+}'
+    # Improved regex pattern to match JSON objects
+    pattern = r'\{(?:[^{}]|(?:\{.*?\}))*\}'
 
-    # Use re.search to find the JSON portion in the text
-    match = re.search(pattern, text)
+    # Use re.findall to find all JSON portions in the text
+    matches = re.findall(pattern, text)
 
-    if match:
-        json_data = match.group()
-        logger.info({"json": json_data})
-        return json_data
-    else:
-        logger.info({"message": "json not found"})
+    if matches:
+        for match in matches:
+            try:
+                # Attempt to parse each found JSON string
+                json_data = parse_json5(match)
+                logger.info({"json": json_data})
+                return json.dumps(json_data)
+            except Exception as e:
+                logger.error({"error": str(e), "invalid_json": match})
+                continue
+        logger.info({"message": "valid json not found", "text": text})
         return text
+    else:
+        logger.info({"message": "json not found", "text": text})
+        return text
+
 
 def json_extractor_for_explaination(text):
     
@@ -256,7 +284,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
             response = anthropic_completion(prompt, len(skills) * 50)
             logger.info({"****evaluate_response ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
             response = json_extraction(response)
-            response = json.loads(response)
+            response = parse_json5(response)
             for skill in response:
                 response[skill] = float(response[skill])
             break
@@ -292,7 +320,7 @@ def evaluate_response(test_question_response, question_text, response_text, skil
             elif '"Anthropic Answer:"' in response:
                 response = response.split('"Anthropic Answer:"')[1].strip()
 
-            response = json.loads(response)
+            response = parse_json5(response)
             
             for skill in response:
                 response[skill] = float(response[skill])
@@ -347,7 +375,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
 
     NOTE: Don't put any other text in the reply other than the JSON.
 
-    NOTE: Output Format Example: {{"relevance":"1"}}
+    NOTE: Output Format Example: {{"relevance":{int("1")}}}
 
     NOTE: Do not add any other sentence, information or explanation in the output. Only provide the output in the format given above.
     \n\nAssistant:
@@ -367,7 +395,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 for skill in response:
                     if int(response[skill]) == 0:
                         response[skill] = 0
@@ -405,7 +433,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = gemini_completion(prompt)
                 logger.info({"****evaluate_relevacy ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 for skill in response:
                     if int(response[skill]) == 0:
@@ -446,7 +474,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_relevacy ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 for skill in response:
                     if int(response[skill]) == 0:
                         response[skill] = 0
@@ -481,7 +509,7 @@ def evaluate_relevacy(test_question_response, question_text, response_text,test_
                 response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                 logger.info({"****evaluate_relevacy ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 for skill in response:
                     if int(response[skill]) == 0:
@@ -622,7 +650,7 @@ Raises:
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
 
                 break
@@ -656,7 +684,7 @@ Raises:
                 response = gemini_completion(prompt)
                 logger.info({"****evaluate_competency_data ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 
 
@@ -693,7 +721,7 @@ Raises:
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
 
                 break
@@ -725,7 +753,7 @@ Raises:
                 response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                 logger.info({"****evaluate_competency_data ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 
 
@@ -816,7 +844,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_rating_for_process_training ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 for skill in response:
                     response[skill] = float(response[skill])
 
@@ -851,7 +879,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
                 response = gemini_completion(prompt)
                 logger.info({"****evaluate_rating_for_process_training ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 for skill in response:
                     response[skill] = float(response[skill])
@@ -889,7 +917,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
                 response = anthropic_completion(prompt, 100)
                 logger.info({"****evaluate_rating_for_process_training ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 for skill in response:
                     response[skill] = float(response[skill])
 
@@ -922,7 +950,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
                 response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                 logger.info({"****evaluate_rating_for_process_training ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
                 response = json_extraction(response)
-                response = json.loads(response)
+                response = parse_json5(response)
                 
                 for skill in response:
                     response[skill] = float(response[skill])
