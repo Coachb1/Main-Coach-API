@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute)
+                 ,User,UserAttribute, CoachRecommendationsForUser)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
@@ -35,6 +35,23 @@ class BotUserMappingAdmin(admin.ModelAdmin):
     search_fields = ('bot_owner_name','bot_id')
     ordering = ('-id',)
 
+class CoachRecommendationsAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ('id','get_user_profile_name','get_user_profile_email','coach_recommendations')
+    search_fields = ('user_profile__name','user_profile__email')
+    list_editable = ('coach_recommendations',)
+    ordering = ('-id',)
+
+    def get_user_profile_name(self, obj):
+        return obj.user_profile.name
+    get_user_profile_name.admin_order_field = 'user_profile__name'
+    get_user_profile_name.short_description = 'User Profile Name'
+
+    def get_user_profile_email(self, obj):
+        return obj.user_profile.email
+    get_user_profile_email.admin_order_field = 'user_profile__email'
+    get_user_profile_email.short_description = 'User Profile Email'
+
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ('id','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','allow_paste_answer','heading','sub_heading','tag_line')
@@ -64,6 +81,7 @@ admin.site.register(BotAttribute)
 admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
+admin.site.register(CoachRecommendationsForUser,CoachRecommendationsAdmin)
 # admin.site.register(User,UserAdmin)
 # admin.site.register(UserAttribute,UserAttributesAdmin)
 
