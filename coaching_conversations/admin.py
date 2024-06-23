@@ -4,29 +4,54 @@ from coaching_conversations.models import CoachingConversation
 from tests.models import TestAttemptSession
 from identities.models import Identity
 import logging
+from users.models import ClientUserInfo, SignatureBot
 
 logger = logging.getLogger(__name__)
 
 class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','user_email','client_id','bot_type','coach_message_text','participant_message_text')
+    list_display = ('id','user_email','client_id','bot_id','bot_type','coach_message_text','participant_message_text','created')
     search_fields = ['id']
     list_filter = ('tenant_id','status')
+    all_sessions = TestAttemptSession.objects.all()
+    all_identities = Identity.objects.all()
+    all_client_infos =  ClientUserInfo.objects.filter(deleted=False)
+    client = None
+    bot = None
+    session_id = None
+    
+    def get_bot_from_obj(self, obj):
+        test_attempt_session = self.all_sessions.filter(uid=obj.test_attempt_session_id).last()
+        bot = SignatureBot.objects.filter(uid=test_attempt_session.test_id).last()
+        return bot
+    
+    def bot_id(self, obj):
+        bot = self.get_bot_from_obj(obj)
+        return bot.bot_id
+    
+    def bot_name(self, obj):
+        bot = self.get_bot_from_obj(obj)
+        return bot.bot_id
     
     def user_email(self, obj):
         try:
-            test_attempt_session = TestAttemptSession.objects.filter(uid=obj.test_attempt_session_id).last()
-            identity = Identity.objects.filter(user_id=test_attempt_session.participant_id).order_by('id').last()
+            # test_attempt_session = TestAttemptSession.objects.filter(uid=obj.test_attempt_session_id).last()
+            # identity = Identity.objects.filter(user_id=test_attempt_session.participant_id).order_by('id').last()
+            test_attempt_session = self.all_sessions.filter(uid=obj.test_attempt_session_id).last()
+            identity = self.all_identities.filter(user_id=test_attempt_session.participant_id).order_by('id').last()
             return identity.value
         except Exception as e:
             logger.exception(f"Error getting user email: {e}")
             return "user_email"
     
     def bot_type(self, obj):
-        return "bot_type"
+        bot = self.get_bot_from_obj(obj)
+        return bot.bot_type
     
     def client_id(self, obj):
-        return "client_id"
+        logger.info(f"((((((((((((((((((((( USER Email : {self.user_email(obj).lower()} )))))))))))))))))))))")
+        client = ClientUserInfo.objects.filter(deleted=False,member_emails__contains=self.user_email(obj).lower()).last()
+        return client.client_name or ""
     
     
     # def get_search_results(self, request, queryset, search_term):
