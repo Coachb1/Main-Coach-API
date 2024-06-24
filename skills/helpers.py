@@ -1112,6 +1112,50 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         {user_skill_prompt}
         \n\nAssistant:
         '''
+    
+    code_prompt = """
+        # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
+        # Please do not modify the code or include any additional information in the output. 
+        # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
+        # Define the format instructions
+        format_instructions = {
+        "output_format": "word",
+        "explanations": False,
+        "word_counts": False
+        }
+        import json
+        import random
+        title_var = input("${title}")
+        description_var = input("${description}")
+        conversation_var = input("${conversation}")
+        evaluation_criteria = [
+            {"name": "Relevance", "description": "Does the answer directly address the question?"},
+            {"name": "Accuracy", "description": "Is the information in the answer correct?"},
+            {"name": "Completeness", "description": "Does the answer provide a comprehensive response to the question?"},
+            {"name": "Clarity", "description": "Is the answer well-written and easy to understand?"}
+        ]
+        skills_var = input("${skills_list}").split(',')
+        skills_var = [skill.strip() for skill in skills_var]
+        def evaluate_skills(conversation, skills):
+        scores = {}
+        for skill in skills:
+        if skill.lower() in conversation.lower():
+        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
+        else:
+        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
+        return json.dumps(scores)
+        print(evaluate_skills(conversation_var, skills_var))
+
+
+    """
+
+    prompt = Template(code_prompt).substitute(
+        title=test_title,
+        description = test_description,
+        conversation = conversation,
+        skills_list = ",".join(skills_rating),
+    )
+
     if is_free:
         ##################* anthropic ###################
         is_evaluated = True
@@ -1829,6 +1873,54 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         \n\nAssistant:
         '''
     
+
+    code_prompt = """
+    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
+    # Please do not modify the code or include any additional information in the output. 
+    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
+    # Define the format instructions
+    format_instructions = {
+    "output_format": "word",
+    "explanations": False,
+    "word_counts": False
+    }
+    import json
+    import random
+    title_var = input("${title}")
+    description_var = input("${description}")
+    conversation_var = input("${conversation}")
+    evaluation_criteria = input("{
+        "Hierarchy": "Does the conversation look like the participants have strict hierarchical relationship",
+        "Consensual": "Does the conversation looks like the respondents have respect for boundary and empathy?",
+        "Indirect negative feedback": "Do the participants provide a subtle feedback or a blunt feedback?",
+        "Relationship-based": "Does the conversation look like the participants focus on relationships",
+        "High context communication": "Does the conversation look like the participants focus on subtle cues",
+        "Persuasion": "Does the conversation look like the participants value emotional appeals",
+        "Argumentative": "Does the conversation look like the participants see debate and disagreement as a competition"}")
+    culture_var = input("${culture_skills}").split(',')
+
+    culture_var = [culture.strip() for culture in culture_var]
+
+    def evaluate_culture(conversation, culture):
+    scores = {}
+    for cult in culture:
+    if cult.lower() in conversation.lower():
+    scores[cult] = round(random.uniform(0.5, 10) * 2) / 2
+    else:
+    scores[cult] = round(random.uniform(0.5, 10) * 2) / 2
+    return json.dumps(scores)
+
+    print(evaluate_culture(conversation_var, culture_var))
+
+
+    """
+
+    prompt = Template(code_prompt).substitute(
+        title=test_title,
+        description = test_description,
+        conversation = conversation,
+        culture_skills = ",".join(cultural_skills),
+    )
     if is_free:
         ################################* anthropic ################################
         is_evaluated = True
@@ -2036,7 +2128,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
 
 @timeit
-def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code,is_free=False):
+def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code,test,is_free=False):
     """
     It evaluates the cultural rating for a scenario (group discussion)
     """
@@ -2074,7 +2166,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     # '''
 
 
-    prompt = prompt = f''' 
+    prompt = f''' 
         \n\nHuman:
         "Objective:" {objective}; 
         "Conversation:" {conversation}; 
@@ -2087,6 +2179,49 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         NOTE : Do not provide any kind of heading or introduction text in the output.
         \n\nAssistant:
     '''
+    code_prompt = """
+    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
+    # Please do not modify the code or include any additional information in the output. 
+    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
+    # Define the format instructions
+    format_instructions = {
+    "output_format": "word",
+    "explanations": False,
+    "word_counts": False
+    }
+    import json
+    import random
+
+    title = input("${title}")
+    description = input("${description}")
+    conversation = input("${conversation}")
+    user_persona = input("${user_persona}")
+    cultures_var = input("${cultural_skills}").split(',')
+    cultures_list = [culture.strip() for culture in cultures_var]
+
+    instructions = "Based on the above criteria please evaluate the '{user_persona}' only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {cultures_list} in JSON.".format(user_persona=user_persona,cultures_list=cultures_list)
+
+    def evaluate_cultures(conversation, cultures):
+    scores = {}
+    for culture in cultures:
+        if culture.lower() in conversation.lower():
+        scores[culture] = round(random.uniform(0.5, 10) * 2) / 2
+        else:
+        scores[culture] = round(random.uniform(0.5, 10) * 2) / 2
+    return json.dumps(scores)
+
+    print(evaluate_cultures(conversation, cultures_list))
+
+    """
+
+    prompt = Template(code_prompt).substitute(
+        title = test.title,
+        description = test.description,
+        user_persona = user_persona,
+        conversation = conversation,
+        cultural_skills = ",".join(cultural_skills)
+    )
+
 
 
     if is_free:
@@ -2291,7 +2426,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
 
 
 @timeit
-def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate,is_free=False):
+def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate,test,is_free=False):
     """
     It evaluates the normal skills rating for a scenario (group discussion)
     """
@@ -2349,6 +2484,50 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     NOTE : Do not provide any kind of heading or introduction text in the output.
     \n\nAssistant:
     '''
+
+    code_prompt = """
+    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
+    # Please do not modify the code or include any additional information in the output. 
+    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
+    # Define the format instructions
+    format_instructions = {
+    "output_format": "word",
+    "explanations": False,
+    "word_counts": False
+    }
+    import json
+    import random
+    title = input("${title}")
+    description = input("${description}")
+    conversation = input("${conversation}")
+    user_persona = input("${user_persona}")
+    skills_var = input("${skill_list}").split(',')
+    skills_list = [skill.strip() for skill in skills_var]
+
+    instructions = "Based on the above criteria, please evaluate the conversation between the '{user_persona}' and the '{user_persona}' only from a scale of 0.5-10, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {skills_list} in JSON.".format(user_persona=user_persona, skills_list=skills_list)
+
+
+    def evaluate_skills(conversation, skills):
+    scores = {}
+    for skill in skills:
+        if skill.lower() in conversation.lower():
+        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
+        else:
+        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
+    return json.dumps(scores)
+
+    print(evaluate_skills(conversation_var, skills_list))
+    
+    """
+
+    prompt = Template(code_prompt).substitute(
+        skill_list = ','.join(skills_to_evaluate),
+        title = test.title,
+        description = test.description,
+        user_persona = user_persona,
+        conversation = conversation,
+    )
+
 
     if is_free:
         ################################* anthropic ################################
