@@ -14,11 +14,19 @@ class StartWithUserFilter(admin.SimpleListFilter):
         )
 
     
+    # def queryset(self, request, queryset):
+    #     if self.value() == 'start_with_user':
+    #         return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=False)
+    #     if self.value() == 'does_not_start_with_user':
+    #         return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=True)
+    #     return queryset
+    
+    
     def queryset(self, request, queryset):
         if self.value() == 'start_with_user':
-            return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=False)
+            return queryset.filter(orchestrated_conversation_details__isnull=False).filter(orchestrated_conversation_details__start_with_user__isnull=False)
         if self.value() == 'does_not_start_with_user':
-            return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=True)
+            return queryset.filter(orchestrated_conversation_details__isnull=True) | queryset.filter(orchestrated_conversation_details__start_with_user__isnull=True)
         return queryset
 
 
@@ -30,7 +38,7 @@ class TestAdmin(ExportActionMixin, admin.ModelAdmin):
     list_filter = ('tenant_id','test_type',StartWithUserFilter)
     
     def start_with_user(self, obj):
-        start_with_user_message = obj.orchestrated_conversation_details.get('start_with_user')
+        start_with_user_message = obj.orchestrated_conversation_details.get('start_with_user') if obj.orchestrated_conversation_details else None
         start_with_user = False if start_with_user_message is None else True
         return start_with_user
 
