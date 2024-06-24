@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import re
 import time
+import os
 
 import openai
 import tiktoken
@@ -32,7 +33,7 @@ def num_tokens_for_prompt(prompt: str):
 
 def gpt3_embedding(content, engine='text-embedding-ada-002'):
     content = content.encode(encoding='ASCII', errors='ignore').decode()
-    response = openai.Embedding.create(input=content, engine=engine)
+    response = openai.embeddings.create(input=content, engine=engine)
     vector = response['data'][0]['embedding']
     return vector
 
@@ -40,7 +41,7 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
 @timeit
 def gpt3_completion(prompt,
                     stop,
-                    engine='gpt-4-1106-preview',
+                    engine='gpt-4-turbo',
                     temp=0,
                     top_p=1.0,
                     max_tokens=4000,
@@ -64,28 +65,35 @@ def gpt3_completion(prompt,
     """
     logger.info(f"prompt: {prompt}")
     prompt_tokens = num_tokens_for_prompt(prompt)
-
     max_retry = 3
     retry = 0
     prompt = prompt.encode(encoding='ASCII', errors='ignore').decode()
     while True:
         try:
             logger.info({"**** gpt3_completion":f"trying gpt for {retry} time"})
-            response = openai.Completion.create(
-                engine=engine,
-                prompt=prompt,
+            response = openai.chat.completions.create(
+                model=engine,
+                messages=[{
+                "role": "user",
+                "content": [
+                    {
+                    "type": "text",
+                    "text": prompt
+                    }
+                ]
+                }],
                 temperature=temp,
                 max_tokens=max_tokens - prompt_tokens,
                 top_p=top_p,
                 frequency_penalty=freq_pen,
                 presence_penalty=pres_pen,
                 stop=stop)
-            text = response['choices'][0]['text'].strip()
+            text = response.choices[0].message.content.strip()
             text = re.sub('[\r\n]+', '\n', text)
             text = re.sub('[\t ]+', ' ', text)
 
             logger.info(f"text: {text}")
-            return GPTResponse(raw=response, text=text)
+            return GPTResponse(raw=response.to_json(), text=text)
         except Exception as e:
             logger.error({"****gpt3_completion ":f"failed gpt for {retry} time"})
             logger.exception('Error communicating with OpenAI err: %s', e)
@@ -113,6 +121,7 @@ def gpt_wishper_api(url):
     Raises:
         Exception: If an error occurs during the transcription process.
     """
+    file_path = ""
     try:
         response = requests.get(url)
         audio_data = response.content
@@ -120,14 +129,28 @@ def gpt_wishper_api(url):
         suffix = '.mp3'
         if '.m4a' in url:
             suffix = '.m4a'
-        with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:
+        random_string = ''.join(
+            [str(random.choice(['A','B','C','D',1,2,3,4,5,6,7,8,9])) for _ in range(6)]
+            )
+        file_path = f"audio_file_wishper_{random_string}{suffix}"
+        with open(file_path,'wb') as temp_file:
             # Write the audio data to the temporary file
             temp_file.write(audio_data)
             temp_file.seek(0)
-            
-            transcription = openai.Audio.transcribe("whisper-1", temp_file, language="en")
-            text = transcription['text']
+            # transcription = openai.audio.transcriptions.create(model="whisper-1", file=temp_file, language="en")
+            # text = transcription['text']
+            # print(text)
+
+        with open(file_path, 'rb') as f:
+            transcription = openai.audio.transcriptions.create(model="whisper-1", file=f, language="en")
+            text = transcription.text
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
         return text
     
     except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
         raise(e)

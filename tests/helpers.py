@@ -2988,18 +2988,29 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
 
+    # Step 1: Sort the dictionary by its values in descending order
+    sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
+
+    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+    culture_skills_rating = dict(list(sorted_dict.items())[:8])
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 1.5:
-            culture_skills_rating[skill] = 1.5
+        elif culture_skills_rating[skill] < 0.5:
+            culture_skills_rating[skill] = 0.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test,test.is_free)
+    
+    # Step 1: Sort the dictionary by its values in descending order
+    sorted_dict = dict(sorted(skills_rating.items(), key=lambda item: item[1], reverse=True))
+
+    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+    skills_rating = dict(list(sorted_dict.items())[:8])
     
     for skill in skills_rating:
         if skill in temp_rating:
@@ -3011,11 +3022,11 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
-    # for skill in skills_rating:
-    #     if skills_rating[skill] > 8.5:
-    #         skills_rating[skill] = 8.5
-    #     elif skills_rating[skill] < 1.5:
-    #         skills_rating[skill] = 1.5
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 0.5:
+            skills_rating[skill] = 0.5
 
 
     skills_rating_score = {}
@@ -4527,8 +4538,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 1.5:
-            culture_skills_rating[skill] = 1.5
+        elif culture_skills_rating[skill] < 0.5:
+            culture_skills_rating[skill] = 0.5
 
     return culture_skills_rating
 
@@ -4588,6 +4599,12 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     if not is_evaluated:
         return None
+    
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 0.5:
+            skills_rating[skill] = 0.5
 
     return skills_rating
 
@@ -7006,9 +7023,12 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
 
         evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
         
-        if len(skills_list_candidate) < 4:
+        if len(skills_list_candidate) < 6:
             raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
-    
+
+        if len(skills_list_candidate) > 8:
+            skills_list_candidate = skills_list_candidate[:8]
+
         evaluation_skill_list = ','.join(evaluation_skill_list)
 
         manager_name = questions.split(':')[0].strip()
@@ -7218,9 +7238,11 @@ def extract_information(text):
         for skill in que['skills'].split(','):
             skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
 
-    if len(skill_to_evaluate) < 4:
+    if len(skill_to_evaluate) < 6:
         raise ValueError(f"Skills must have at least 4. Got:  {len(skill_to_evaluate)}, {skill_to_evaluate}")
     
+    if len(skill_to_evaluate) > 8:
+        skill_to_evaluate = skill_to_evaluate[:8]
     skill_to_evaluate = ', '.join(skill_to_evaluate)
 
     return title, description, question_info, skill_to_evaluate, rating
