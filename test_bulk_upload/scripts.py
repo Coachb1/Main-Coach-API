@@ -578,7 +578,8 @@ def format_test_orchestrated_conversation(raw_data):
 
                 return json_data, False
 
-        
+        output_dict['is_micro'] = False if ((len(output_dict.get('questions')) + 1) / 2) > 3 else True
+        output_dict['total_question'] = len(output_dict.get('questions'))
 
         output_json = json.dumps(output_dict)
 

@@ -1139,7 +1139,18 @@ class TestViewSet(ApiViewSet,
             for competency in competencies:
                 competency = competency.strip()
                 tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
-                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro } for test in tests]
+                temp_list = []
+                for test in tests:
+                    if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
+                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                    else:
+                        questions = TestQuestion.objects.filter(test_id=test.uid)
+                        is_micro = False if ((questions.count() + 1) / 2) > 3 else True
+                        print(is_micro,questions.count())
+                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
+
+
+                data[competency] = temp_list
             # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
             # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
 
