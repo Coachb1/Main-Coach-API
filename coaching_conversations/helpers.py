@@ -594,7 +594,7 @@ def continue_coaching_conversation(tenant: Tenant,
             elif signature_bot.bot_type == BotTypeChoice.user_bot:
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"knowledge_chat_attempted")
             elif signature_bot.bot_type == BotTypeChoice.deep_dive:
-                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chatdeep_dive_chat_attempted_attempted")
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"deep_dive_chat_attempted")
             
             save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=test_attempt_session.participant_id,field_name="num_of_bot_sessions")
 

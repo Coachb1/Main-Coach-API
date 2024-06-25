@@ -669,7 +669,6 @@ def format_test_data_slack(raw_data,tenant):
             "creator_id": None,
             "title": input_dict[TITLE],
             "description": input_dict[DESCRIPTION],
-            "max_test_allowed": input_dict[MAX_TEST_ALLOWED],
             "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
@@ -873,7 +872,8 @@ def format_test_data_slack(raw_data,tenant):
         test_type = input_dict[TEST_TYPE].strip().lower()
 
         if TED_TALK_AND_HBR_CASE in input_dict.keys():
-            output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
+            if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict(TED_TALK_AND_HBR_CASE).strip()) > 0:
+                output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
         skills_list = set()
         for key in input_dict:
@@ -907,21 +907,25 @@ def format_test_data_slack(raw_data,tenant):
         if unique_skill_count > 8:
             skills_list = skills_list[:8]
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            check_pass = False
-        else:
-            check_pass = True
+        check_pass = True
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-            if not candidate_type:
-                candidate_type = 'Manager'
-            skills_list_candidate = set()
-            for item in get_skills(candidate_type):
-                skills_list_candidate.add(item.capitalize())
-            skills_list_candidate = list(skills_list_candidate)
-            if sorted(skills_list_candidate) == sorted(skills_list):
-                check_pass = True
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    check_pass = False
+                else:
+                    check_pass = True
+
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+                    if not candidate_type:
+                        candidate_type = 'Manager'
+                    skills_list_candidate = set()
+                    for item in get_skills(candidate_type):
+                        skills_list_candidate.add(item.capitalize())
+                    skills_list_candidate = list(skills_list_candidate)
+                    if sorted(skills_list_candidate) == sorted(skills_list):
+                        check_pass = True
 
         skills_list = ','.join(skills_list)
 
@@ -938,45 +942,48 @@ def format_test_data_slack(raw_data,tenant):
 
             output_dict['email_address_list'] = email_list
 
-        if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
-            send_only_to_email = input_dict[SEND_ONLY_TO_EMAIL].strip().lower()
+        if SEND_ONLY_TO_EMAIL in input_dict:
+            if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
+                send_only_to_email = input_dict[SEND_ONLY_TO_EMAIL].strip().lower()
 
-            if send_only_to_email == "true":
-                output_dict['send_only_to_email'] = True
-            elif send_only_to_email == "false":
-                output_dict['send_only_to_email'] = False
-            else:
-                output_dict['send_only_to_email'] = False
+                if send_only_to_email == "true":
+                    output_dict['send_only_to_email'] = True
+                elif send_only_to_email == "false":
+                    output_dict['send_only_to_email'] = False
+                else:
+                    output_dict['send_only_to_email'] = False
 
-        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
 
-            if is_checkin_type == "true":
-                output_dict['is_checkin_type'] = True
-            elif is_checkin_type == "false":
-                output_dict['is_checkin_type'] = False
-            else:
-                output_dict['is_checkin_type'] = False
+                if is_checkin_type == "true":
+                    output_dict['is_checkin_type'] = True
+                elif is_checkin_type == "false":
+                    output_dict['is_checkin_type'] = False
+                else:
+                    output_dict['is_checkin_type'] = False
 
-        if input_dict[IS_LEARNER_PATH] and len(input_dict[IS_LEARNER_PATH].strip()) > 0:
-            is_learner_path = input_dict[IS_LEARNER_PATH].strip().lower()
+        if IS_LEARNER_PATH in input_dict:
+            if input_dict[IS_LEARNER_PATH] and len(input_dict[IS_LEARNER_PATH].strip()) > 0:
+                is_learner_path = input_dict[IS_LEARNER_PATH].strip().lower()
 
-            if is_learner_path == "true":
-                output_dict['is_learner_path'] = True
-            elif is_learner_path == "false":
-                output_dict['is_learner_path'] = False
-            else:
-                output_dict['is_learner_path'] = False
+                if is_learner_path == "true":
+                    output_dict['is_learner_path'] = True
+                elif is_learner_path == "false":
+                    output_dict['is_learner_path'] = False
+                else:
+                    output_dict['is_learner_path'] = False
 
-        if input_dict[IS_EMAIL_TYPE] and len(input_dict[IS_EMAIL_TYPE].strip()) > 0:
-            is_email_type = input_dict[IS_EMAIL_TYPE].strip().lower()
-
-            if is_email_type == "true":
-                output_dict['is_email_type'] = True
-            elif is_email_type == "false":
-                output_dict['is_email_type'] = False
-            else:
-                output_dict['is_email_type'] = False
+        if IS_EMAIL_TYPE in input_dict:
+            if input_dict[IS_EMAIL_TYPE] and len(input_dict[IS_EMAIL_TYPE].strip()) > 0:
+                is_email_type = input_dict[IS_EMAIL_TYPE].strip().lower()
+                if is_email_type == "true":
+                    output_dict['is_email_type'] = True
+                elif is_email_type == "false":
+                    output_dict['is_email_type'] = False
+                else:
+                    output_dict['is_email_type'] = False
 
         if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
             email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
@@ -1336,7 +1343,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
