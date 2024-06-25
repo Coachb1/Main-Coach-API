@@ -9143,7 +9143,8 @@ def create_scenario_from_transcript(conversation,access_token, tenant_id, contex
     NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
 
     NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description. 
-
+    NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+    NOTE: Never miss Title, Description.
     NOTE : Make sure the simulation is very advanced and tough.
         """
         
