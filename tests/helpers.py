@@ -7239,10 +7239,11 @@ def extract_information(text):
             skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
 
     if len(skill_to_evaluate) < 6:
-        raise ValueError(f"Skills must have at least 4. Got:  {len(skill_to_evaluate)}, {skill_to_evaluate}")
+        raise ValueError(f"Skills must have at least 6. Got:  {len(skill_to_evaluate)}, {skill_to_evaluate}")
     
     if len(skill_to_evaluate) > 8:
-        skill_to_evaluate = skill_to_evaluate[:8]
+        skill_to_evaluate = list(skill_to_evaluate)[:8]
+
     skill_to_evaluate = ', '.join(skill_to_evaluate)
 
     return title, description, question_info, skill_to_evaluate, rating
@@ -7804,7 +7805,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             matches = search_keywords(site_information)
             if len(matches)> 0:
-                return {'error':"Scenario generation failed because of failure of page extraction please try again."}
+                return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
 
             prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
 
