@@ -882,7 +882,7 @@ class TestViewSet(ApiViewSet,
 
                 matches = search_keywords(article_data.get('article_content'))
                 if len(matches) > 0:
-                    return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
+                    return Response(data=[{'error':f"Scenario generation failed because restricted keywords found: {matches}"}], status=status.HTTP_400_BAD_REQUEST)
 
                 # if not article_data.get('article_content') or  article_data.get('article_content') == "":
                 #     return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
