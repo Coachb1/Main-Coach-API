@@ -261,6 +261,11 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
                     output_dict["interaction_mode"] = 'audio'
                     
+        # if there is INTERACTION_MODE availble in csv then it will overwrite 
+        if INTERACTION_MODE in input_dict:
+            if input_dict[INTERACTION_MODE] and len(input_dict[INTERACTION_MODE].strip()) >0:
+                output_dict["interaction_mode"] = input_dict[INTERACTION_MODE].strip().lower()
+            
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip()
