@@ -39,7 +39,7 @@ def anthropic_completion(prompt, max_tokens):
             #                              stop_sequences=[anthropic.HUMAN_PROMPT])
             response = client.messages.create(
                         model="claude-3-haiku-20240307",
-                        max_tokens=max_tokens,
+                        max_tokens=4096,
                         temperature=1,
                         messages=[
                             {
