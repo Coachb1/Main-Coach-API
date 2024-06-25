@@ -906,7 +906,7 @@ def format_test_data_slack(raw_data,tenant):
             return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
         
         if unique_skill_count > 8:
-            skills_list = skills_list[:8]
+            skills_list = list(skills_list)[:8]
 
         check_pass = True
 
