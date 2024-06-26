@@ -149,7 +149,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                         logger.info(f"Sending email to {email}")
                         if instance.profile_type in [ProfileTypeChoice.coach, ProfileTypeChoice.mentor, ProfileTypeChoice.coach_mentor]:
                             send_welcome_email(
-                                profile_type=coach_profile.profile_type,
+                                profile_type=ProfileTypeChoice.coach,
                                 user_email= email,
                                 user_name=bot_owner_name
                             )
