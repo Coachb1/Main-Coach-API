@@ -108,11 +108,12 @@ def new_create_client_info_activity(sender, instance, **kwargs):
 def sync_profile_and_bot_data(sender, instance, **kwargs):
     if kwargs['created']:
         print(f"================={instance.profile_type}===========")
-        send_welcome_email(
-            profile_type=instance.profile_type,
-            user_email=instance.email,
-            user_name= instance.name
-            )
+        if instance.profile_type in ['coachee','mentee']:
+            send_welcome_email(
+                profile_type=instance.profile_type,
+                user_email=instance.email,
+                user_name= instance.name
+                )
         return
     try:
         directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
