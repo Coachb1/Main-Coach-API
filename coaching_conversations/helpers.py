@@ -2020,7 +2020,7 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
     )
 
     user = get_user_via_identity(
-        tenant=new_client.tenant_id,
+        tenant=Tenant.objects.get(uid=tenant_id),
         identity_type="deepchat_unique_id",
         identity_value=user_email
     )
