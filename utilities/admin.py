@@ -8,8 +8,9 @@ from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
 from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttribute, BotAttribute
-from email_sender.helpers import send_email_with_html_template
+from email_sender.helpers import send_email_with_html_template, send_welcome_email
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
+from users.choices import ProfileTypeChoice
 import logging
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,15 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
                     for email in emails:
                         logger.info(f"Sending email to {email}")
-                        send_email_with_html_template(subject=subject,html_content=html_content,to_email=email,title=f'Hey! {bot_owner_name}')
+                        if instance.profile_type in [ProfileTypeChoice.coach, ProfileTypeChoice.mentor, ProfileTypeChoice.coach_mentor]:
+                            send_welcome_email(
+                                profile_type=coach_profile.profile_type,
+                                user_email= email,
+                                user_name=bot_owner_name
+                            )
+                        else:
+                            send_email_with_html_template(subject=subject,html_content=html_content,to_email=email,title=f'Hey! {bot_owner_name}')
+
                         logger.info(f"Email sent to {email}")
 
             except Exception as e:

@@ -702,8 +702,9 @@ class AccountsViewSet(ApiViewSet,
                         bot.is_approved = False
                         bot.save()
 
-                    profile.is_approved_email_sent = False
-                    profile.save()
+                    # to send reapproval msg
+                    # profile.is_approved_email_sent = False
+                    # profile.save()
 
 
                     DirectoryPageInfo.objects.create(
@@ -1283,9 +1284,16 @@ class AccountsViewSet(ApiViewSet,
                                 directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
 
                                 try:
-                                    subject = "AI Frame"
+                                    subject = "Your Coachbots AI Frame is in the Pipeline"
                                     html = f"""
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your AI frame. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                            <div style="margin: 15px;">
+                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation once it's live and ready for use.</p>
+                                                <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                                <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
+                                                <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+                                            </div>
+                                        </p>
                                         """
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
