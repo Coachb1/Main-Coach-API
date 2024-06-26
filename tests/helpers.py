@@ -7803,9 +7803,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
             #     site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
-            matches = search_keywords(site_information)
-            if len(matches)> 0:
-                return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
+            # matches = search_keywords(site_information)
+            # if len(matches)> 0:
+            #     return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
+            site_information = replace_words(site_information)
 
             prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
 
@@ -8757,9 +8758,9 @@ def scrape_article_data(url):
             """)
 
             return {
-                'title': title,
-                'description': description,
-                'article_content': article_content
+                'title': replace_words(title),
+                'description': replace_words(description),
+                'article_content': replace_words(article_content)
             }
         else:
             logger.error("Failed to retrieve the page.")
@@ -9438,3 +9439,20 @@ def search_keywords(text, keywords=['Simulation', "Role play"]):
     # Use re.IGNORECASE to make the search case insensitive
     matches = re.findall(pattern, text, re.IGNORECASE)
     return matches
+
+def replace_words(text):
+    if not text:
+        return text
+    # Define replacements
+    replacements = {
+        r'\broleplay\b': 'Act',
+        r'\brole play\b': 'Act',
+        r'\bsimulation\b': 'mimicry',
+        r'\bsimulations\b': 'mimicry'
+    }
+    
+    # Replace each word using regex, case-insensitive
+    for pattern, replacement in replacements.items():
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    
+    return text

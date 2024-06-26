@@ -7,6 +7,7 @@ import logging
 from utilities.models import EmailSentDetails
 from string import Template
 import datetime
+from users.db import get_user_by_id
 
 from external_apis.slack_alert_api import send_slack_message
 
@@ -1339,7 +1340,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                         <table cellpadding="0" cellspacing="0" width="100%">
                                                                             <tbody>
                                                                                 <tr>
-                                                                                    <td align="center" class="esd-block-text">
+                                                                                    <td class="esd-block-text">
                                                                                         <div>${html_content}</div>
                                                                                     </td>
                                                                                 </tr>
@@ -1412,8 +1413,8 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                             <tbody>
                                                                                 <tr>
                                                                                     <td align="left" class="esd-block-text">
-                                                                                        <p>Thank you,</p>
-                                                                                        <p>Team Coachbots</p>
+                                                                                        <p>Best regards,</p>
+                                                                                        <p>The Team Coachbots</p>
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
@@ -1669,3 +1670,40 @@ def get_simulation_block(simulation):
         </tr>
         """
         return template
+    
+
+def send_welcome_email(profile_type, user_email, user_name):
+    ## sending Welcome Message to user
+    subject = ""
+    html_content = ""
+    if profile_type in ['coach','mentor']:
+        subject = f"Welcome Aboard, {user_name}!"
+        html_content =f"""
+        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+            <div style="margin: 15px;">
+                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Thank you for creating your AI Frame - it's now live and ready to support your coaching and mentoring engagements. You can always edit your AI Frame through the profile section.</p>
+                <p>Your AI Frame will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
+                <p>We encourage you to explore the Creator Studio, where you can create and assign tailored simulations for your coachees. This feature will empower you to curate learning experiences that address their specific needs and goals.</p>
+                <p>Additionally, you can leverage the Action Plans and Session Notes sections to document and track the progress of your coaching journeys. These tools will help you provide meaningful support and guidance to your coachees.</p>
+                <p>We're excited to embark on this journey with you. Let's unlock your coachees' full potential together!</p>
+            </div>
+        </p>
+
+        """
+    elif profile_type in ['coachee','mentee']:
+        subject = f"Welcome Aboard, {user_name}!"
+        html_content = f"""
+        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+            <div style="margin: 15px;">
+                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Thank you for creating your profile - it's now live and ready to support your personal and professional development. You can always edit your information through the profile section.</p>
+                <p>Your profile will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
+                <p>We also encourage you to try out the various simulations available in our library. These immersive experiences will help you hone your skills and prepare you for real-world challenges.</p>
+                <p>We're excited to embark on this journey with you. Let's unlock your full potential together!</p>
+            </div>
+        </p>
+        """
+    
+    send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email, title=f'Dear {user_name},')
+

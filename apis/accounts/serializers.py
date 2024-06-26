@@ -7,6 +7,7 @@ from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPrev
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
 from commons.recommendation import recommend_coach_tfidf, recommend_coach_keyword
+import json5 as json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -148,6 +149,9 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
             if name:
                 res['name'] = name
 
+            if instance.optional_file_data:
+                res['optional_file_data'] = json.loads(instance.optional_file_data)
+
             
         except Exception as e:
             logger.error(f"Error in CoachCoacheeMentorMenteeProfileSerializer: {e}")
@@ -212,7 +216,7 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 user = get_user_by_id(instance.profile_id)
                 profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).first()
             else:
-                profile = CoachCoacheeMentorMenteeProfile.objects.filter(uid=instance.profile_id).first()
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,uid=instance.profile_id).first()
                 user = get_user_by_id(profile.user_id)
 
             user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
@@ -283,8 +287,8 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try:
-            coach = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coach_id)
-            coachee = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coachee_id)
+            coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.coach_id)
+            coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.coachee_id)
             data['coach_name'] = coach.name
             data['coach_user_id'] = coach.user_id
             data['coach_email'] = coach.email
