@@ -2963,7 +2963,7 @@ class AccountsViewSet(ApiViewSet,
                 bot.delete()
 
             with transaction.atomic():
-                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).update(deleted=True)
+                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
                 TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
                 SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
                 SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 

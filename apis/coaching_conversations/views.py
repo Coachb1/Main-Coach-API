@@ -588,6 +588,7 @@ class CoachingConversationViewSet(ApiViewSet,
                 user_profile_id = request.query_params.get('user_profile_id')
                 try:
                     profile = CoachCoacheeMentorMenteeProfile.objects.get(
+                        deleted=False,
                         tenant_id=request.tenant.uid,
                         uid=user_profile_id
                     )

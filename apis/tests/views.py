@@ -38,7 +38,7 @@ from collections import defaultdict
 from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
 from commons.notifications import send_error_notification
-from tests.helpers import search_keywords
+from tests.helpers import search_keywords, replace_words
 
 import logging
 
@@ -880,10 +880,10 @@ class TestViewSet(ApiViewSet,
                 if not article_data:
                     return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
 
-                matches = search_keywords(article_data.get('article_content'))
-                if len(matches) > 0:
-                    return Response(data=[{'error':f"Scenario generation failed because restricted keywords found: {matches}"}], status=status.HTTP_400_BAD_REQUEST)
-
+                # matches = search_keywords(article_data.get('article_content'))
+                # if len(matches) > 0:
+                #     return Response(data=[{'error':f"Scenario generation failed because restricted keywords found: {matches}"}], status=status.HTTP_400_BAD_REQUEST)
+            
                 # if not article_data.get('article_content') or  article_data.get('article_content') == "":
                 #     return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
                 
