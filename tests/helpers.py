@@ -37,7 +37,7 @@ from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
     evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy, \
           calulate_summary_for_culture_and_normal_skill, feedback_summary
-from skills.models import SkillsRating
+from skills.models import SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
@@ -52,7 +52,7 @@ from tests.models import TestQuestionResponse
 from users.db import get_user_by_id, get_user_attribute
 from users.db import get_user_display_name
 from users.models import User
-from users.models import UserAttribute, SignatureBot
+from users.models import UserAttribute, SignatureBot, ClientUserInfo
 from web_auth.helpers import create_new_tokens
 from clients.models import Client
 from nltk.tokenize import word_tokenize
@@ -3735,9 +3735,17 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     if test.scenario_case == ScenarioCaseChoices.pms:
         competency_data = UserAttribute.objects.get(user_id=test_attempt_session.participant_id).competency_data
-        compentecy_skills = ["Communication Skills","Teamwork","Planning and Organizing","Client Focus"]
-        if competency_data:
-            compentecy_skills = list(competency_data.values())
+        compentecy_skills = []
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=test_attempt_session.tenant_id, member_emails__contains=UserAttribute.objects.get(user_id=test_attempt_session.participant_id).attributes.get('email')).last()
+        if client:
+            compentecy_skills = list(CompetencySkillAndClientMapping.objects.filter(deleted=False,tenant_id=test_attempt_session.tenant_id,client_id=client.uid).values_list('competency_skill',flat=True))
+
+        if len(compentecy_skills) == 0:
+            compentecy_skills = ["Communication Skills","Teamwork","Planning and Organizing","Client Focus"]
+            if competency_data:
+                compentecy_skills = list(competency_data.values())
+
+
         evaluate_competency_data_thread(questions,responses,test,test_attempt_session,compentecy_skills)
         
     skills_=[]
