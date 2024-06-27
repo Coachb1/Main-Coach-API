@@ -1467,6 +1467,23 @@ class AccountsViewSet(ApiViewSet,
                     signature_bot.data['media_data'] = bot_media_data
                     signature_bot.save(update_fields=["data"])
 
+                    #*** delete optional file data ***
+                     
+                    if "optional_files" in deleted_data:
+                        extracted_optional_file_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> extracted_optional_file_data before: {extracted_optional_file_data}")
+                        if extracted_optional_file_data.get('extracted_from_optional_file'):
+                            deleted_optional_files = deleted_data["optional_files"].split(",")
+                            optional_file_extracted = extracted_optional_file_data['extracted_from_optional_file']
+                            for file_name in deleted_optional_files:
+                                optional_file_extracted.pop(file_name,None)
+                            extracted_optional_file_data['extracted_from_optional_file'] = optional_file_extracted
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> extracted_optional_file_data after: {extracted_optional_file_data}")
+                            bot_att.extracted_documents = extracted_optional_file_data
+                            bot_att.save(update_fields=["extracted_documents"])
+
+
 
                 user = get_user_by_id(signature_bot.user_id)
                 user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)

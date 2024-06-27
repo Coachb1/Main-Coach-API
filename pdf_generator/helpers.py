@@ -20,8 +20,9 @@ from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
+from users.models import ClientUserInfo, UserAttribute
 import re
-from skills.helpers import get_competency_prompt_or_output
+from skills.helpers import get_competency_prompt_or_output, get_competency_prompt_or_output_via_db
 import logging
 
 import matplotlib
@@ -129,6 +130,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     participant_id = test_attempt_session.participant_id
     participant_name = get_user_display_name(get_user_by_id(participant_id))
     test_started_at = test_attempt_session.started_at.strftime("%d %b %Y")
+
+    user_att = UserAttribute.objects.get(deleted=False,user_id=test_attempt_session.participant_id)
+    user_email = user_att.attributes.get('email')
     
     # log tnant id, test_id, test_attempt_session_id, participant_id, participant_name, test_started_at
     logger.info(f"tenant_id: {tenant.uid}, test_id: {test_id}, test_attempt_session_id: {test_attempt_session.uid}, participant_id: {participant_id}, participant_name: {participant_name}, test_started_at: {test_started_at}")
@@ -148,8 +152,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     logger.info(f"test_attempt_session.competency_data: {test_attempt_session.competency_data}")
     if test_attempt_session.competency_data:
         competency_data= test_attempt_session.competency_data
-        
-        competency_skills = get_competency_prompt_or_output(skills=list(competency_data.keys()))
+        competency_skills = get_competency_prompt_or_output_via_db(skills=list(competency_data.keys()))
         level_dict = {
                 "0" : "Individual Contributor",
                 "1" : "Individual Contributor",
@@ -157,20 +160,22 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "3" : "Senior Leadership"}
         
 
-        logger.info(f"competency_data: {competency_data}")
+        logger.info(f"competency_data: {competency_data}, {competency_skills}")
         for key,value in competency_data.items():
             data = ''
             for key_skill,value_skill in competency_skills.items():
                 if key.strip().lower() == key_skill.lower().strip():
                     data = value_skill
                     break
-            level_name = level_dict[str(value['level'])]
 
-            level_desc = data[level_name.strip().lower()].get('description',None)
-            if level_desc:
-                value['level_desc'] = level_desc
+            if data != "":
+                level_name = level_dict[str(value['level'])]
 
-            competency_data[key] = value
+                level_desc = data[level_name.strip().lower()].get('description',None)
+                if level_desc:
+                    value['level_desc'] = level_desc
+
+                competency_data[key] = value
         
         competency_report_data = competency_data
 

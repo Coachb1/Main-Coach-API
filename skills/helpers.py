@@ -8,7 +8,7 @@ from django.utils.text import slugify
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
-from skills.models import SkillsRating, SkillIndex
+from skills.models import SkillsRating, SkillIndex, CompetencySkillAndClientMapping
 from users.db import get_user_display_name
 from users.models import User
 import re
@@ -579,6 +579,38 @@ def get_competency_prompt_or_output(skills,is_prompt_only=False):
     else:
         return outputs_dict
 
+
+def get_competency_prompt_or_output_via_db(skills,is_prompt_only=False):
+    """
+    It fetches prompt based on competency.
+    """
+    prompts_str = ""
+    outputs_dict = {}
+    skills = [skill.lower().strip() for skill in skills]
+
+    competency_prompts = CompetencySkillAndClientMapping.objects.all()
+
+    # Iterate through the queryset and extract prompts and outputs based on provided skills
+    for cp in competency_prompts:
+        competency_skill = cp.competency_skill.lower().strip()
+        prompts = cp.prompts
+        output = cp.output
+
+        # Check if the competency skill is in the provided skills list
+        if competency_skill in skills:
+            prompts_str += f"{prompts}\n"
+            output_lines = output.split("\n")[1:]
+            output_dict = {}
+            for out in output_lines:
+                level, desc = out.split("-", 1)
+                output_dict[level.strip().lower()] = {"description": desc.strip()}
+            outputs_dict[competency_skill] = output_dict
+
+    if is_prompt_only:
+        return prompts_str
+    else:
+        return outputs_dict
+
 @timeit
 def evaluate_competency_data(description, conversation,test_attempt_session,skills,is_free=False):
     """
@@ -603,7 +635,8 @@ Example:
 Raises:
     Exception: If all attempts to evaluate the competency data fail.
 """
-    competency_prompt = get_competency_prompt_or_output(skills=skills,is_prompt_only=True)
+    
+    competency_prompt = get_competency_prompt_or_output_via_db(skills=skills,is_prompt_only=True)
 
     prompt = """
         "DESCRIPTION:" ${discription};
