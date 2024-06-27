@@ -42,6 +42,8 @@ from utilities.helpers import cal_score_for_fitment
 from users.choices import CoachCoacheeConnectionStatusChoice
 from commons.utils import get_bot_engagements
 from commons.notifications import send_error_notification
+from commons.webhook_utils import invoke_webhook
+from users.helpers import get_client_info_from_user_detail
 
 
 
@@ -477,6 +479,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                     except Exception as e:
                         send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
+
+            try:
+                participant_id = test_attempt_session.participant_id
+                participant_attribute_obj = UserAttribute.objects.get(
+                    user_id=participant_id)
+                participant_attributes = participant_attribute_obj.attributes
+                participant_email = participant_attributes.get(
+                    "profile", {}).get("email") or participant_attributes.get('email',None)
+                client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
+                invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')}) 
+            except Exception as e:
+                logger.info(f"Failed to invoke webhook")
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
         except Exception as e:
