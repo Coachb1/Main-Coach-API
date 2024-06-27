@@ -272,6 +272,12 @@ class ClientUserInfo(TenantAwareModel):
     widget_access_code = models.CharField(max_length=255,null=True, blank=True, default="DEMO2024")
     help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
     allow_paste_answer = models.BooleanField(blank=True, default=False)
+    webhook_url = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_secret = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_enabled = models.BooleanField(blank=True, default=False)
+
+    
 
 
     class Meta:
