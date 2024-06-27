@@ -452,7 +452,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if not test.is_pitch:
+                    if not test.scenario_case == ScenarioCaseChoices.pitch: 
                         culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
                         logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
                     else:
@@ -838,7 +838,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     "profile", {}).get("email") or participant_attributes.get('email',None)
                 client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
                 if client_obj.webhook_url:
-                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')},client_obj.webhook_url) 
+                    logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>  client_name: {client_obj.client_name}, webhookurl: {client_obj.webhook_url}  >>>>>>>")
+                    invoke_webhook("bot-interaction",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')},client_obj.webhook_url) 
             except Exception as e:
                 logger.info(f"Failed to invoke webhook")
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
