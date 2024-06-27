@@ -1892,7 +1892,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         updated_fields.append("feedback_text")
         updated_fields.append("metadata")
 
-    if test.is_pitch:
+
+    if test.scenario_case == ScenarioCaseChoices.pitch:
         threading.Thread(target=set_language_skills_in_thread, args=(test_question_response.response_text,test_attempt_session)).start()
 
 

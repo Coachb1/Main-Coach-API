@@ -24,6 +24,7 @@ from users.models import ClientUserInfo, UserAttribute
 import re
 from skills.helpers import get_competency_prompt_or_output, get_competency_prompt_or_output_via_db
 import logging
+from tests.choices import ScenarioCaseChoices
 
 import matplotlib
 matplotlib.use('Agg')
@@ -527,7 +528,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'skills_graph_data': skills_graph_data, 'culture_graph_data': culture_graph_data,
                 'speech_metrics_avg': speech_metrics_avg, "response_relevance": response_relevance,
                 "feedback_summary":feedback_summary,"skill_summary":skill_summary,
-                "is_pitch": test.is_pitch,
+                "is_pitch": test.scenario_case == ScenarioCaseChoices.pitch,
                 "language_skills": test_attempt_session.language_skills,
                 "is_recommended": test.is_recommended
                 }
