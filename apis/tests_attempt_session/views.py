@@ -488,7 +488,10 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 participant_email = participant_attributes.get(
                     "profile", {}).get("email") or participant_attributes.get('email',None)
                 client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
-                invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')}) 
+                logger.info(f"<< Client details >> {client_obj.client_name if client_obj else ''}, {client_obj.webhook_url}")
+                if client_obj.webhook_url:
+                    logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>>>>>>")
+                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')},client_obj.webhook_url) 
             except Exception as e:
                 logger.info(f"Failed to invoke webhook")
 
@@ -825,6 +828,19 @@ class TestAttemptSessionViewSet(ApiViewSet,
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
         
+        if signature_bot.bot_scenario_case == 'icons_by_ai':
+            try:
+                participant_id = test_attempt_session.participant_id
+                participant_attribute_obj = UserAttribute.objects.get(
+                    user_id=participant_id)
+                participant_attributes = participant_attribute_obj.attributes
+                participant_email = participant_attributes.get(
+                    "profile", {}).get("email") or participant_attributes.get('email',None)
+                client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
+                if client_obj.webhook_url:
+                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": test_attempt_session.created.strftime('%Y/%m/%d_%H:%M:%S')},client_obj.webhook_url) 
+            except Exception as e:
+                logger.info(f"Failed to invoke webhook")
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
