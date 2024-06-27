@@ -1,10 +1,30 @@
 from django.contrib import admin
 
-from .models import CharacteristicsAndPrompts
+from .models import CharacteristicsAndPrompts, CompetencySkillAndClientMapping
 from import_export.admin import ExportActionMixin
+from users.models import ClientUserInfo
 
 class CharacteristicsAndPromptsAdmin(admin.ModelAdmin):
     list_display = ('id','tenant_id','name', 'positive_prompt','negitive_prompt')
     search_fields = ('id','name')
 
+class CompetencySkillAndClientMappingAdmin(admin.ModelAdmin):
+    list_display = ('id','tenant_id','client_id','client_name', 'competency_skill','prompts','output')
+    search_fields = ('client_id','competency_skill','client_name')
+    list_filter = ('tenant_id','client_id','competency_skill')
+    list_editable = ('competency_skill','prompts','output')
+
+    def client_name(self, obj):
+        try:
+            client = ClientUserInfo.objects.get(uid=obj.client_id)
+            return client.client_name
+        except Exception as e:
+            print(e)
+            return 'Unknown'
+
+    client_name.short_description = 'Client Name'
+        
+
+
 admin.site.register(CharacteristicsAndPrompts,CharacteristicsAndPromptsAdmin)
+admin.site.register(CompetencySkillAndClientMapping, CompetencySkillAndClientMappingAdmin)
