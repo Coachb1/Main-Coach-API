@@ -228,7 +228,8 @@ def create_test(tenant: Tenant,
                 is_assigned:bool,
                 assigned_to: str,
                 assigned_by: str,
-                web_page_url:str) -> tuple[Test, list[TestQuestion]]:
+                web_page_url:str,
+                sub_tab_category:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -413,7 +414,8 @@ def create_test(tenant: Tenant,
             is_assigned=is_assigned,
             assigned_to=assigned_to,
             assigned_by=assigned_by,
-            web_page_url=web_page_url
+            web_page_url=web_page_url,
+            sub_tab_category=sub_tab_category
         )
 
         test_questions = []

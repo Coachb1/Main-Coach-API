@@ -1268,13 +1268,15 @@ class TestViewSet(ApiViewSet,
             for test in tests:
                 if test.tab_category:
                     tab_category = test.tab_category
-                    area_domain = test.area_domain
-                    test_dict[tab_category][area_domain].append({
+                    sub_tab_category = test.sub_tab_category
+                    test_dict[tab_category][sub_tab_category].append({
                         "title": test.title,
                         "description": test.description,
                         "test_code": test.test_code,
                         "test_type": test.test_type,
-                        "is_recommended": test.is_recommended
+                        "is_recommended": test.is_recommended,
+                        "is_micro": test.is_micro,
+                        "scenario_case": test.scenario_case
                     })
             # Converting defaultdict to a regular dictionary
             test_dict = dict(test_dict)
