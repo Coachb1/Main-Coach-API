@@ -10,11 +10,11 @@ def generate_signature(payload):
     return hmac.new(WEBHOOK_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 # @app.route('/send-webhook', methods=['POST'])
-def invoke_webhook(event,data):
-    base_url = "http://127.0.0.1:5000"
+def invoke_webhook(event,data,url):
+    # base_url = "http://127.0.0.1:5000"
     # endpoint = "send-webhook"
-    endpoint = "endpoint"
-    url = f"{base_url}/{endpoint}"
+    # endpoint = "endpoint"
+    # url = f"{base_url}/{endpoint}"
     # url = 'https://webhook.receiver.url/endpoint'
     payload = {"event": event, "data": str(data)}
     payload = json.dumps(payload)
