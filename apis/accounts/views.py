@@ -3518,3 +3518,35 @@ class AccountsViewSet(ApiViewSet,
         write_to_csv('text_prompt_set',text_prompt_set)
         
         return Response({"set_count":{"code_prompt":len(code_prompt_set),"text_prompt":len(text_prompt_set)},"code_prompt_set": code_prompt_set, "text_prompt_set": text_prompt_set}, status=status.HTTP_200_OK)
+
+
+    @action(methods=['GET','POST'], detail=False, url_path='save-webhook-url')
+    def save_webhook_url(self, request, *args, **kwargs):
+        try:
+            # return Response("Ok")
+            # webhook_url = request.data.get('webhook_url',None)
+            # client_id = request.data.get('client_id',None)
+            
+            webhook_url = request.query_params.get('webhook_url',None)
+            client_id = request.query_params.get('client_id',None)
+            
+            logger.info(f"webhook_url: {webhook_url}, client_id: {client_id}")
+            
+            if not webhook_url:
+                return Response({"error":"webhook_url is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            if not client_id:
+                return Response({"error":"client_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            tenant = request.tenant
+            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid, client_name=client_id).first()
+            if not client:
+                return Response({"error":"Invalid client_id"},status=status.HTTP_400_BAD_REQUEST)
+            
+            client.webhook_url = webhook_url
+            client.save(update_fields=['webhook_url'])
+            
+            return Response({"message":"webhook_url saved"},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
