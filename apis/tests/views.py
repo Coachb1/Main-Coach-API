@@ -1268,7 +1268,7 @@ class TestViewSet(ApiViewSet,
             for test in tests:
                 if test.tab_category:
                     tab_category = test.tab_category
-                    sub_tab_category = test.sub_tab_category
+                    sub_tab_category = test.sub_tab_category or test.area_domain
                     test_dict[tab_category][sub_tab_category].append({
                         "title": test.title,
                         "description": test.description,
