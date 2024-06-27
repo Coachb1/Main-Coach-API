@@ -53,3 +53,15 @@ class CharacteristicsAndPrompts(TenantAwareModel):
         unique_together = (
             ('uid', 'deleted','tenant_id','name'),
         )
+
+class CompetencySkillAndClientMapping(TenantAwareModel):
+    client_id = models.CharField(max_length=255)
+    competency_skill = models.CharField(max_length=255)
+    prompts	= models.TextField()
+    output =  models.TextField()
+
+    class Meta:
+        db_table = 'competency_skill_and_client_mapping'
+        unique_together = (
+            ( 'deleted','tenant_id','client_id','competency_skill'),
+        )
