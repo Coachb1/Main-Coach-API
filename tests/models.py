@@ -86,6 +86,8 @@ class Test(TenantAwareModel):
     assigned_to = models.CharField(max_length=255, null=True, blank=True, default=None)
     assigned_by = models.CharField(max_length=64, null=True, blank=True, default=None)
     web_page_url = models.CharField(max_length=500, null=True, blank=True, default=None)
+    sub_tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
+
 
 
     class Meta:
