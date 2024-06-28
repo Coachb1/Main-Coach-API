@@ -26,6 +26,7 @@ from email_sender.helpers import send_email_with_html_template
 from users.db import get_user_by_id, get_user_display_name
 from utilities.models import BotEngagement
 from commons.notifications import send_error_notification
+from commons.google_apis import gemini_completion
 
 
 
@@ -370,10 +371,20 @@ def save_user_action_info(tenant_id,user_id,for_,bot_id=None):
     None
 
     """
-    action_info, is_created = UserActionInfo.objects.get_or_create(
-                    tenant_id = tenant_id,
-                    user_id = user_id,
-                )
+    try:
+        action_info, is_created = UserActionInfo.objects.get_or_create(
+                        deleted = False,
+                        tenant_id = tenant_id,
+                        user_id = user_id,
+                    )
+    except Exception as e:
+        logger.exception(f"failed to save user action info: {e}")
+        action_info = UserActionInfo.objects.filter(
+                        deleted = False,
+                        tenant_id = tenant_id,
+                        user_id = user_id,
+                    ).last()
+
     if bot_id:
         value = getattr(action_info, for_)
         bot_ids = bot_id
@@ -579,15 +590,16 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
         for i in range(2):
             
-            for skill in skills:
+            for skill in [[i.strip() for i in hard_skills.split(',')][0],[i.strip() for i in soft_skills.split(',')][0]]:
                 temp = {}
 
                 # for i in range(1,6):
-                dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
-                logger.info({f"scenario - {skill}": dynamic_discussion})
-                if dynamic_discussion.get("title",None):
-                    total_scenarios_created += 1
-                    temp[f"dynamic"] = dynamic_discussion
+                # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}),type_of_test=TestTypeChoices.dynamic_discussion_thread)
+                # logger.info({f"scenario - {skill}": dynamic_discussion})
+                # if dynamic_discussion.get("title",None):
+                #     total_scenarios_created += 1
+                #     temp[f"dynamic"] = dynamic_discussion
+
                 simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': skill}}))
                 logger.info({f"scenario - {skill}": simulation})
 
@@ -597,15 +609,16 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 
                 tests[skill] = temp
 
+            
             temp_data = {}
             # focus oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_focus_prompt(key_focus_areas,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
 
-                temp_data[f"dynamic"] = dynamic_discussion
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_focus_prompt(key_focus_areas,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': key_focus_areas}}))
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -617,12 +630,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             temp_data = {}
 
             # goals oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
-                temp_data[f"dynamic"] = dynamic_discussion
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_goals_prompt(goals,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_goals_prompt(goals,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': goals}}),)
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -634,12 +647,12 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
             temp_data = {}
 
             # priority oriented tests
-            dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
-            if dynamic_discussion.get("title",None):
-                total_scenarios_created += 1
-                temp_data[f"dynamic"] = dynamic_discussion
+            # dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),type_of_test=TestTypeChoices.dynamic_discussion_thread,custom_prompt=get_priority_prompt(priorities,'dynamic'))
+            # if dynamic_discussion.get("title",None):
+            #     total_scenarios_created += 1
+            #     temp_data[f"dynamic"] = dynamic_discussion
 
-            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': ''}}),custom_prompt=get_priority_prompt(priorities,'simulation'))
+            simulation = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': priorities}}))
             if simulation.get("title",None):
                 total_scenarios_created += 1
                 temp_data[f"simulation"] = simulation
@@ -648,18 +661,18 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
             logger.info(f"************** after priority areas tests: {tests}")
 
-            if total_scenarios_created <=6:
-                if i+1 == 2:
-                    subject = "Failed to generate required Scenarios For IDP"
-                    html = f"""
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
+            # if total_scenarios_created <=6:
+            #     if i+1 == 2:
+            #         subject = "Failed to generate required Scenarios For IDP"
+            #         html = f"""
+            #             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Failed to generate scenarios of IDP:{user_idp.uid}, user: {user_id}</p>
+            #             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Created Scenarios:{tests}</p>
 
-                        """
+            #             """
 
-                    send_email_with_html_template(subject=subject,html_content=html)
-                    return {"error": f"Failed to generate enough scenraios : {total_scenarios_created}"}, False
-                continue
+            #         send_email_with_html_template(subject=subject,html_content=html)
+            #         return {"error": f"Failed to generate enough scenraios : {total_scenarios_created}"}, False
+            #     continue
 
             break
 
@@ -814,8 +827,15 @@ def regenerate_idp_or_scenarios(idp_id, access_token, tenant_id):
     user_idp.save()
 
     return UserIDPSerializers(user_idp).data, True
-
-
+  
+def contains_skill(input_string):
+    # Define the pattern to search for any of the skills
+    pattern = r"Skill\d|skill\d"
+    # Search for the pattern in the input string
+    if re.search(pattern, input_string):
+        return True
+    return False
+    
 def get_hard_skills(focus_areas,learning_history,existing_skills,goals,priorities):
     """Generates Hard skill using generic completion method."""
     prompt = """
@@ -834,6 +854,9 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
             DO not give a reason or explanation.
+            Do not include any introductory sentence.
+            Always remeber to not mention Skill1 , Skill2 in the responses.
+            NOTE: Never mention Skill1 , Skill2
             \n\nAssistant:
             """
     
@@ -844,9 +867,17 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         goals=goals,
         priorities=priorities
     )
+    logger.info(f"****Hard skills prommpt : {prompt}")
 
-    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
-    print(data)
+    data = ""
+    for i in range(2):
+        # data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
+        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        print(data)
+        if contains_skill(data):
+            continue
+        break
+
 
     return data
 
@@ -868,7 +899,10 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
             This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please give me the top 2 soft skills or leadership skills related to their career this person should prioritize to achieve their long term goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable.
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
-            DO not give a reason or explanation. 
+            DO not give a reason or explanation.
+            Do not include any introductory sentence.
+            Always remeber to not mention Skill1 , Skill2 in the responses.
+            NOTE: Never mention Skill1 , Skill2 
 
             \n\nAssistant:
             """
@@ -881,8 +915,17 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
         priorities=priorities
     )
 
-    data = generic_completion(prompt=prompt).replace("{","").replace("}","")
-    print(data)
+    logger.info(f"****Soft skills prommpt : {prompt}")
+    # data = generic_completion(prompt=prompt).replace("{","").replace("}","")
+    data = ""
+    for i in range(2):
+        # data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
+        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        print(data)
+        if contains_skill(data):
+            continue
+        break
+
 
     return data
 
@@ -918,6 +961,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
         Always give the output in the given format.
         Do not include any introductory sentence or any conclusion.
+        Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+        NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
         \n\nAssistant:
 
@@ -935,6 +980,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             Always give the output in the given format.
             Do not include any introductory sentence or any conclusion.
+            Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+            NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
             \n\nAssistant:
             """
     elif prompt_type == "ted_talk":
@@ -950,6 +997,8 @@ def get_recommendation(prompt_type,hard_soft_skills):
 
             Always give the output in the given format.
             Do not include any introductory sentence or any conclusion.
+            Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+            NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
 
             \n\nAssistant:
@@ -968,11 +1017,22 @@ def get_recommendation(prompt_type,hard_soft_skills):
         Always give the output in the given format.
         Do not include any introductory sentence or any conclusion.
         If the skills does not have any online community, please respond with "No learning communities found."
+        Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+        NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
         """
 
     prompt = Template(prompt).substitute(hard_soft_skills=hard_soft_skills)
+    logger.info(f"****Recommendation prommpt : {prompt}")
 
-    data = generic_completion(prompt=prompt)
+    # data = generic_completion(prompt=prompt)
+    data = ""
+    for i in range(2):
+        # data = anthropic_completion(prompt=prompt,max_tokens=1000)
+        data = gemini_completion(prompt=prompt)
+        print(data)
+        if contains_skill(data):
+            continue
+        break
 
     logger.info(f"{prompt_type.replace('_',' ').capitalize()} : {data}")
 
@@ -995,6 +1055,8 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
 
     Always give the output in the given format.
     Do not include any introductory sentence or any conclusion.
+    Always remeber to not mention Skill1 , Skill2, Skill3, Skill4 in the responses.
+    NOTE: Never mention Skill1 , Skill2, Skill3, Skill4
 
     \n\nAssistant:
 
@@ -1004,8 +1066,16 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
                                          existing_skills=existing_skills,
                                          learning_history=learning_history)
 
-    data = generic_completion(prompt=prompt)
-    print(data)
+    logger.info(f"****Course prommpt : {prompt}")
+    # data = generic_completion(prompt=prompt)
+    data = ""
+    for i in range(2):
+        # data = anthropic_completion(prompt=prompt,max_tokens=1000)
+        data = gemini_completion(prompt=prompt)
+        print(data)
+        if contains_skill(data):
+            continue
+        break
 
     return data
 

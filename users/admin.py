@@ -2,9 +2,11 @@ from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute)
+                 ,User,UserAttribute, CoachRecommendationsForUser)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
+from coaching_conversations.helpers import shift_all_emails_to_domain_client
+from email_sender.helpers import send_welcome_email
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
@@ -21,10 +23,10 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
 
 class SignatureBotAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','bot_id','bot_type','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active')
-    list_filter = ('is_system_bot','is_sample_bot','use_google_context')
-    search_fields = ('bot_name','bot_id')
-    list_editable = ('is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context')
+    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active')
+    list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type')
+    search_fields = ('bot_name','bot_id','bot_type')
+    list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context')
     ordering = ('-id',)
 
 class BotUserMappingAdmin(admin.ModelAdmin):
@@ -34,12 +36,29 @@ class BotUserMappingAdmin(admin.ModelAdmin):
     search_fields = ('bot_owner_name','bot_id')
     ordering = ('-id',)
 
+class CoachRecommendationsAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ('id','get_user_profile_name','get_user_profile_email','coach_recommendations')
+    search_fields = ('user_profile__name','user_profile__email')
+    list_editable = ('coach_recommendations',)
+    ordering = ('-id',)
+
+    def get_user_profile_name(self, obj):
+        return obj.user_profile.name
+    get_user_profile_name.admin_order_field = 'user_profile__name'
+    get_user_profile_name.short_description = 'User Profile Name'
+
+    def get_user_profile_email(self, obj):
+        return obj.user_profile.email
+    get_user_profile_email.admin_order_field = 'user_profile__email'
+    get_user_profile_email.short_description = 'User Profile Email'
+
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    list_display = ('id','uid','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','allow_paste_answer','heading','sub_heading','tag_line')
     list_filter = ('client_name',)
-    search_fields = ('client_name',)
-    list_editable = ('client_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features')
+    search_fields = ('client_name','domain_name')
+    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','allow_paste_answer')
     ordering = ('-id',)
 
 
@@ -63,13 +82,38 @@ admin.site.register(BotAttribute)
 admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
+admin.site.register(CoachRecommendationsForUser,CoachRecommendationsAdmin)
 # admin.site.register(User,UserAdmin)
 # admin.site.register(UserAttribute,UserAttributesAdmin)
+
+@receiver(post_save, sender=ClientUserInfo)
+def new_create_client_info_activity(sender, instance, **kwargs):
+    if kwargs['created']:
+        client_domain = instance.domain_name
+        print(f"client_domain: {client_domain}")
+        shift_all_emails_to_domain_client(
+            tenant_id= instance.tenant_id,
+            domain= client_domain
+        )
+
+    print(f"================={instance.make_new_user_in_trail}===========")
+    if not instance.make_new_user_in_trail and instance.demo_ids != "":
+        # remove all ids from demo_ids
+        print(f"removed demo_ids")
+        instance.demo_ids = ""
+        instance.save()
 
 
 @receiver(post_save, sender=CoachCoacheeMentorMenteeProfile)
 def sync_profile_and_bot_data(sender, instance, **kwargs):
     if kwargs['created']:
+        print(f"================={instance.profile_type}===========")
+        if instance.profile_type in ['coachee','mentee']:
+            send_welcome_email(
+                profile_type=instance.profile_type,
+                user_email=instance.email,
+                user_name= instance.name
+                )
         return
     try:
         directory = DirectoryPageInfo.objects.filter(profile_id=instance.uid).last()
@@ -179,7 +223,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                             instance.supported_outcome,
                         ],
                         "coach_qna": qna_for_coach_mentor.get('coach'),
-                        "mentor_qna": qna_for_coach_mentor.get('mentor')
+                        "mentor_qna": qna_for_coach_mentor.get('mentor'),
+                        "discussion_topic": instance.discussion_topic
                     }
                     
 
@@ -193,7 +238,18 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                         for key, value in additional_data.items():
                             add_data[key] = value
                         bot.data['additional_data'] = add_data
-                        bot.save()
+
+                    bot.bot_details['coach_name'] = instance.name
+                    bot.bot_details['info'] = instance.about
+                    bot.save()
+
+                    
+
+                    bot_att = BotAttribute.objects.filter(deleted=False, bot_id = bot.uid).last()
+                    if bot_att:
+                        bot_att.about = instance.about
+                        bot_att.save()
+
 
                     # media_data = {}
                     # yt_links = [link.strip() for link in provided_links.get('youtube_links',[])]
@@ -227,3 +283,4 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                     print(f'failed to update bot {e}')
 
 post_save.connect(sync_profile_and_bot_data, sender=CoachCoacheeMentorMenteeProfile)
+post_save.connect(new_create_client_info_activity, sender=ClientUserInfo)

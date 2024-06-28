@@ -38,6 +38,7 @@ class ScenarioCaseChoices(DjangoChoices):
     pms = ChoiceItem('pms')
     process_training = ChoiceItem('process_training')
     english_support = ChoiceItem('english_support')
+    pitch = ChoiceItem('pitch')
 
 
 class InteractionModeChoices(DjangoChoices):

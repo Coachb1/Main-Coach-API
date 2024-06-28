@@ -40,7 +40,7 @@ def anthropic_completion(prompt, max_tokens):
             response = client.messages.create(
                         model="claude-3-haiku-20240307",
                         max_tokens=4096,
-                        temperature=0,
+                        temperature=1,
                         messages=[
                             {
                                 "role": "user",

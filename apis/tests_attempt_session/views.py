@@ -42,6 +42,8 @@ from utilities.helpers import cal_score_for_fitment
 from users.choices import CoachCoacheeConnectionStatusChoice
 from commons.utils import get_bot_engagements
 from commons.notifications import send_error_notification
+from commons.webhook_utils import invoke_webhook
+from users.helpers import get_client_info_from_user_detail
 
 
 
@@ -352,8 +354,25 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
             #################* summary  start #################
             updated_fields = []
-            
-            
+            start_time = time.time()
+
+            while True:
+                current_time = time.time()
+                elapsed_time = current_time - start_time
+                
+                test_attempt_session.refresh_from_db()
+                
+                logger.info(f"Culture rating: {test_attempt_session.culture_skills_rating}, Skills rating: {test_attempt_session.skills_rating}, Elapsed time: {elapsed_time:.2f} seconds")
+                
+                if test_attempt_session.culture_skills_rating and test_attempt_session.skills_rating:
+                    break
+
+                if elapsed_time > 60:
+                    logger.error("Timeout exceeded while waiting for ratings to be set.")
+                    break
+
+                time.sleep(1)
+
             skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
                                                                             test_attempt_session.culture_skills_rating,
                                                                             test_attempt_session.skills_rating,is_free)
@@ -433,7 +452,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if not test.is_pitch:
+                    if not test.scenario_case == ScenarioCaseChoices.pitch: 
                         culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
                         logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
                     else:
@@ -460,6 +479,21 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                     except Exception as e:
                         send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
+
+            try:
+                participant_id = test_attempt_session.participant_id
+                participant_attribute_obj = UserAttribute.objects.get(
+                    user_id=participant_id)
+                participant_attributes = participant_attribute_obj.attributes
+                participant_email = participant_attributes.get(
+                    "profile", {}).get("email") or participant_attributes.get('email',None)
+                client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
+                logger.info(f"<< Client details >> {client_obj.client_name if client_obj else ''}, {client_obj.webhook_url}")
+                if client_obj.webhook_url:
+                    logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>>>>>>")
+                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret or "") 
+            except Exception as e:
+                logger.info(f"Failed to invoke webhook")
 
             return Response({"status": "sent"}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -687,6 +721,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         submitted_email = request.query_params.get('submitted_email')
         access_token = request.headers.get('Authorization')
         session_qna_data = request.data.get('session_qna_data')
+        submitted_name = request.query_params.get('submitted_name')
         
         logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
@@ -719,6 +754,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             connected = False
+            if signature_bot.bot_type != 'deep_dive':
+                connected = True
             coach_profile = None
         # previous_conversations = CoachingConversation.objects.filter(
         # tenant_id=self.request.tenant.uid,
@@ -760,7 +797,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
         recepients = [submitted_email,"coachbots@googlegroups.com"]
-        if connected:
+        if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
         coach_name = ""
@@ -770,15 +807,41 @@ class TestAttemptSessionViewSet(ApiViewSet,
             coach_name = bot_att.bot_name
 
 
-        # recepients = ["ansariaadil611@gmail.com","aadil611ofc@gmail.com","coachbots@googlegroups.com"]
+        # recepients = ['bagoriarajan@gmail.com']
         
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
-            send_bot_conversation_email(candidate_name, conv, recepients, conversation_summary, created_scenarios, signature_bot.bot_id, coach_name,bot_att.bot_name, allow_reply=True, no_reply=True if signature_bot.bot_scenario_case == 'icons_by_ai' else False)
+            candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
+            send_bot_conversation_email( 
+                candidate_name=candidate_name, 
+                conversation=conv, 
+                to_email=list(set(recepients)), 
+                summary=conversation_summary, 
+                simulation=created_scenarios, 
+                signature_bot=signature_bot, 
+                coach_name=coach_name,
+                bot_name=bot_att.bot_name,
+                allow_reply=True if signature_bot.bot_type != 'deep_dive' else False, 
+                no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False
+                )
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})
         
+        if signature_bot.bot_scenario_case == 'icons_by_ai':
+            try:
+                participant_id = test_attempt_session.participant_id
+                participant_attribute_obj = UserAttribute.objects.get(
+                    user_id=participant_id)
+                participant_attributes = participant_attribute_obj.attributes
+                participant_email = participant_attributes.get(
+                    "profile", {}).get("email") or participant_attributes.get('email',None)
+                client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
+                if client_obj.webhook_url:
+                    logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>  client_name: {client_obj.client_name}, webhookurl: {client_obj.webhook_url}  >>>>>>>")
+                    invoke_webhook("bot-interaction",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret or "") 
+            except Exception as e:
+                logger.info(f"Failed to invoke webhook")
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
@@ -827,6 +890,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         type_of_email = request.query_params.get('type_of_email')
         is_positive = request.query_params.get('is_positive','False')
         user_email = request.query_params.get('user_email')
+        user_name = request.query_params.get('user_name')
 
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
 
@@ -852,7 +916,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         for email in [bot_owner_email,"coachbots@googlegroups.com"]:
             try:
-                send_feedback_conversation_email(user_email,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
+                candidate_name = f"{user_name}({user_email})"
+                if user_email == 'Anonymous User':
+                    candidate_name = "Anonymous User"
+
+                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
@@ -1146,7 +1214,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
                 for_ = request.query_params.get('for',None)
-                save_user_action_info(tenant.uid,user_id,for_)
+                bot_id = request.query_params.get('bot_id',None)
+                save_user_action_info(tenant.uid,user_id,for_,bot_id=bot_id)
 
                 data['message'] = "Action point increased."
 

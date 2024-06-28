@@ -8,8 +8,9 @@ from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
 from users.models import SignatureBot, CoachCoacheeMentorMenteeProfile, UserAttribute, BotAttribute
-from email_sender.helpers import send_email_with_html_template
+from email_sender.helpers import send_email_with_html_template, send_welcome_email
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
+from users.choices import ProfileTypeChoice
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,10 @@ class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
 
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
-    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise","avatar_bot_id","custom_user_bot_id")
+    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
     ordering = ['-id']
 
 class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
@@ -63,7 +64,8 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
         return  
 
     # Send email when is_approved is changed to True
-    bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else instance.avatar_bot_id
+
+    bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else (instance.deep_dive_bot_id if instance.profile_type == 'deep_dive' else instance.avatar_bot_id)
     print("#"*100)
     print('start//')
     print(kwargs)
@@ -120,16 +122,21 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
                 emails.append(bot_owner_email)
 
                 msg = 'Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots!'
-                if instance.profile_type == 'knowledge_bot':
-                    subject = 'Your Knowledge bot has been approved'
+                if instance.profile_type in ['knowledge_bot', 'deep_dive']:
                     bot_name = BotAttribute.objects.get(bot_id=signature_bot.first().uid).bot_name
-                    msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
+                    if instance.profile_type == 'knowledge_bot':
+                        subject = 'Your Knowledge bot has been approved'
+                        msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
+                    elif instance.profile_type == 'deep_dive':
+                        subject = 'Your Deep Dive bot has been approved'
+                        msg = f'Hey! Your Deep Dive bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
+
 
                 html_content = f"""
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{msg}</p>
                             """
                 
-                if (coach_profile and not coach_profile.is_approved_email_sent) or (instance.profile_type == 'knowledge_bot' and not signature_bot.first().is_approval_email_sent):
+                if (coach_profile and not coach_profile.is_approved_email_sent) or (instance.profile_type in ['knowledge_bot','deep_dive'] and not signature_bot.first().is_approval_email_sent):
                     if coach_profile:
                             coach_profile.is_approved_email_sent = True
                             coach_profile.save(update_fields=["is_approved_email_sent"])
@@ -140,7 +147,15 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
                     for email in emails:
                         logger.info(f"Sending email to {email}")
-                        send_email_with_html_template(subject=subject,html_content=html_content,to_email=email,title=f'Hey! {bot_owner_name}')
+                        if instance.profile_type in [ProfileTypeChoice.coach, ProfileTypeChoice.mentor, ProfileTypeChoice.coach_mentor]:
+                            send_welcome_email(
+                                profile_type=ProfileTypeChoice.coach,
+                                user_email= email,
+                                user_name=bot_owner_name
+                            )
+                        else:
+                            send_email_with_html_template(subject=subject,html_content=html_content,to_email=email,title=f'Hey! {bot_owner_name}')
+
                         logger.info(f"Email sent to {email}")
 
             except Exception as e:

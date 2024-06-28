@@ -1,11 +1,13 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
+from commons.recommendation import recommend_coach_tfidf, recommend_coach_keyword
+import json5 as json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -40,14 +42,52 @@ class AccountSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
+
+        user_att = UserAttribute.objects.get(deleted=False, user_id=instance.uid)
+        if user_att.attributes.get('email'):
+            data['email'] = user_att.attributes.get('email')
+
+        data['user_allow_audio_interactions'] = user_att.allow_audio_interactions
+        data['prioritize_user_audio_interaction'] = user_att.prioritize_user_audio_interaction
+        data['user_restricted_pages'] = user_att.restricted_pages
+        data['user_restricted_features'] = user_att.restricted_features
+        data['access_allowed'] = user_att.access_allowed
+        data['access_denied'] = user_att.access_denied
+        data['preferences'] = user_att.preferences
+
         try:
             profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,is_approved=True,tenant_id=instance.tenant_id,user_id=instance.uid)
 
             data['profile_type'] = profile.profile_type
-        except Exception as e:
-            logger.exception(f"Error fetching profile: {e}")
-            pass
+            manual_coach_rec = []
+            if len(profile.coach_recommendations.all()) > 0:
+                logger.info(f"manual recommendation: {profile.coach_recommendations.first().coach_recommendations.split(',')}")
+                manual_coach_rec = profile.coach_recommendations.first().coach_recommendations.split(',')
 
+            if profile.problem_statement:
+                problem = {"problem": profile.problem_statement}
+                # Query the filtered profiles
+                filtered_profiles = CoachCoacheeMentorMenteeProfile.objects.filter(
+                    deleted=False,
+                    is_approved=True,
+                    tenant_id=instance.tenant_id,
+                    profile_type__in=['coach','icons_by_ai']
+                )
+
+                # Create the dictionary
+                coaches_dict = {profile.uid: f"{profile.about} \n {profile.discussion_topic}" for profile in filtered_profiles}
+                manual_coach_rec.extend([rec[0] for rec in recommend_coach_keyword(problem,coaches_dict)])
+                data['coach_recommendation'] = manual_coach_rec
+            else:
+                data['coach_recommendation'] = manual_coach_rec
+        except Exception as e:
+            logger.error(f"Error fetching profile: {e}")
+            pass
+        
+        if user_att.attributes.get('email'):
+            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
+            if client:
+                data['client_allow_audio_interactions'] = client.allow_audio_interactions
         return data
 
 
@@ -73,7 +113,10 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 'significant_challenges_and_solutions',
                 'common_phrases_and_expressions',
                 "journey_and_background",
-                "mentorship_contribution"
+                "mentorship_contribution",
+                "discussion_topic",
+                "optional_file_data",
+                "problem_statement"
                 ]
 
         extra_kwargs = {
@@ -105,6 +148,9 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
             name = get_user_display_name(get_user_by_id(instance.user_id))
             if name:
                 res['name'] = name
+
+            if instance.optional_file_data:
+                res['optional_file_data'] = json.loads(instance.optional_file_data)
 
             
         except Exception as e:
@@ -164,31 +210,57 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try: 
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.profile_id)
-            data['created'] = profile.created
-            if profile.admirer_user_ids:
+            user = ""
+            profile = ""
+            if instance.profile_type == 'knowledge_bot':
+                user = get_user_by_id(instance.profile_id)
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).first()
+            else:
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,uid=instance.profile_id).first()
+                user = get_user_by_id(profile.user_id)
+
+            user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
+            data['email'] = user_att.attributes.get('email')
+            data['user_id'] = user.uid
+            data['created'] = user.created
+
+            if profile and profile.admirer_user_ids:
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
             else:
                 data['admirer_ids'] = []
 
-            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=profile.tenant_id , coach_id=profile.uid)
-            total_ratings = len(ratings)
-            total_score = sum([rating.rating for rating in ratings])
-            if total_ratings == 0:
+            try:
+                ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=user.tenant_id , coach_id=profile.uid)
+                total_ratings = len(ratings)
+                total_score = sum([rating.rating for rating in ratings])
+                if total_ratings == 0:
+                    data['rating'] = 0
+                    data['total_rating'] = 0
+                else:
+                    data['rating'] = total_score/total_ratings
+                    data['total_rating'] = total_ratings
+            except Exception as e:
                 data['rating'] = 0
                 data['total_rating'] = 0
-            else:
-                data['rating'] = total_score/total_ratings
-                data['total_rating'] = total_ratings
 
             try:
-                signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=profile.tenant_id,bot_id=instance.avatar_bot_id)
-                engagements  = get_bot_engagements(tenant_id=profile.tenant_id,bot_id=signature_bot.uid)
+                signature_bot = ""
+                if instance.profile_type == "knowledge_bot":
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=user.tenant_id,bot_id=instance.custom_user_bot_id)
+                else:
+                    signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=user.tenant_id,bot_id=instance.avatar_bot_id)
+                engagements  = get_bot_engagements(tenant_id=user.tenant_id,bot_id=signature_bot.uid)
                 data['total_engagement_with_question_count'] = engagements.get('total_engagement_with_question_count',None)
                 data['total_without_question_count'] = engagements.get('total_without_question_count',None)
+                data['bot_tag'] = signature_bot.tag
+                data['bot_uid'] = signature_bot.uid
+                data['bot_type'] = signature_bot.bot_type
             except:
                 data['total_engagement_with_question_count'] = None
                 data['total_engagement_with_question_count'] = None
+                data['bot_tag'] = None
+                data['bot_uid'] = None
+                data['bot_type'] = None
             
         except Exception as e:
             logger.error(f"Error in DirectoryInfoSErializer: {e}")
@@ -198,6 +270,10 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             data['total_engagement_with_question_count'] = None
             data['rating'] = 0
             data['total_rating'] = 0
+            data['email'] = None
+            data['user_id'] = None
+            data['bot_uid'] = None
+            data['bot_type'] = None
 
         return data
 
@@ -211,8 +287,8 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data =  super().to_representation(instance)
         try:
-            coach = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coach_id)
-            coachee = CoachCoacheeMentorMenteeProfile.objects.get(uid=instance.coachee_id)
+            coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.coach_id)
+            coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=instance.coachee_id)
             data['coach_name'] = coach.name
             data['coach_user_id'] = coach.user_id
             data['coach_email'] = coach.email
@@ -235,6 +311,12 @@ class CoachCoacheeConnectionSerializer(serializers.ModelSerializer):
 class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachCoacheeJoiningPreviledge
+        fields = '__all__'
+
+
+class clientUserInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientUserInfo
         fields = '__all__'
 
 

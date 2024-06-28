@@ -8,12 +8,18 @@ import vertexai
 from vertexai.language_models import TextGenerationModel
 import time
 import random
+import re
 
 from google.cloud import texttospeech
+
+from vertexai.generative_models import GenerativeModel
+from vertexai import generative_models
 
 logger = logging.getLogger(__name__)
 
 
+def remove_garbage_characters(text):
+    return text.replace("*","").replace("#","").replace(">","").replace("<","")
 
 
 def get_uri(url):
@@ -96,7 +102,7 @@ def text_bison_compeletion(prompt,model="text-bison@001"):
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
 
-    vertexai.init(project="summer-nucleus-397019", location="us-central1")
+    vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     parameters = {
         "max_output_tokens": 1024,
         "temperature": 0.2,
@@ -208,3 +214,45 @@ def gemini_competions(prompt):
             time.sleep(random.randint(1,3))
 
     
+@timeit
+def gemini_completion(prompt,model="gemini-1.0-pro"):
+    logger.info(f"gemini_completion prompt: {prompt}")
+    os.chdir(f"{Path(__file__).resolve().parent}")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
+    vertexai.init(project="summer-nucleus-397019", location="asia-south1")
+    
+    generation_config={
+        "max_output_tokens": 8192,
+        "temperature": 0.9,
+        "top_p": 1
+    }
+    safety_settings={
+              }
+
+    model = GenerativeModel(
+        model,
+    )
+
+    max_retry = 3
+    retry = 0
+
+    while True:
+        try:
+            logger.info(f"trying gemini_completion for {retry+1} time")
+            responses = model.generate_content(
+                [prompt],
+                generation_config=generation_config,
+            )
+            logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
+            logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
+            return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
+        except IndexError as e:
+            logger.error(f"gemini_completion failed with list index out of range error: {e}", exc_info=True)
+            raise e
+        except Exception as e:
+            logger.error(f"gemini_completion failed with {e}", exc_info=True)
+            retry += 1
+            if retry >= max_retry:
+                raise e
+
+            time.sleep(random.randint(1,3))

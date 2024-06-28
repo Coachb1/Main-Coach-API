@@ -37,7 +37,7 @@ from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
     evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy, \
           calulate_summary_for_culture_and_normal_skill, feedback_summary
-from skills.models import SkillsRating
+from skills.models import SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
@@ -52,7 +52,7 @@ from tests.models import TestQuestionResponse
 from users.db import get_user_by_id, get_user_attribute
 from users.db import get_user_display_name
 from users.models import User
-from users.models import UserAttribute, SignatureBot
+from users.models import UserAttribute, SignatureBot, ClientUserInfo
 from web_auth.helpers import create_new_tokens
 from clients.models import Client
 from nltk.tokenize import word_tokenize
@@ -64,7 +64,7 @@ import pytz
 import datetime
 from skills.constants import skills as all_presented_skills
 import re
-from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions
+from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_completion
 from pdf_generator.helpers import update_skill_name
 from commons.utils import generic_completion
 import threading
@@ -89,6 +89,8 @@ STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
 
 TEST_CODE_LENGTH = 6
 TEST_CODE_GENERATION_MAX_RETRY = 4
+DEEPDIVE_CODE_LENGTH = 6
+DEEPDIVE_CODE_GENERATION_MAX_RETRY = 4
 
 
 def add_prefix(prefix, value):
@@ -140,6 +142,32 @@ def get_unique_test_code(tenant: Tenant) -> str:
         retries += 1
 
     return test_code
+
+@timeit
+def get_unique_deep_dive_access_code(tenant: Tenant) -> str:
+
+    global DEEPDIVE_CODE_LENGTH
+
+    access_code = get_random_string(
+        length=DEEPDIVE_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+
+    access_code = add_prefix('D', access_code)
+    retries = 0
+    while SignatureBot.objects.filter(tenant_id=tenant.uid,
+                              access_code=access_code,
+                              deleted=0).exists():
+        if retries >= DEEPDIVE_CODE_GENERATION_MAX_RETRY:
+            DEEPDIVE_CODE_LENGTH += 1
+            retries = 0
+            logger.info(
+                "[get_unique_deep_dive_access_code] increased length of code to %s", DEEPDIVE_CODE_LENGTH)
+
+        access_code = get_random_string(
+            length=DEEPDIVE_CODE_LENGTH, allowed_chars=STRING_ASCII_DIGITS)
+        access_code = add_prefix('D', access_code)
+        retries += 1
+
+    return access_code
 
 
 @timeit
@@ -196,7 +224,12 @@ def create_test(tenant: Tenant,
                 visual_tags: str,
                 page_name: str,
                 scenario_summary:str,
-                creator_email:str) -> tuple[Test, list[TestQuestion]]:
+                creator_email:str,
+                is_assigned:bool,
+                assigned_to: str,
+                assigned_by: str,
+                web_page_url:str,
+                sub_tab_category:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -377,7 +410,12 @@ def create_test(tenant: Tenant,
             visual_tags=visual_tags,
             page_name=page_name,
             scenario_summary=scenario_summary,
-            creator_email=creator_email
+            creator_email=creator_email,
+            is_assigned=is_assigned,
+            assigned_to=assigned_to,
+            assigned_by=assigned_by,
+            web_page_url=web_page_url,
+            sub_tab_category=sub_tab_category
         )
 
         test_questions = []
@@ -1802,7 +1840,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
-                        feedback_text = text_bison_compeletion(prompt)
+                        feedback_text = gemini_completion(prompt)
                     except Exception as e:
                         logger.exception(e)
                         anthropic_feedback = anthropic_completion(prompt, 1200) 
@@ -1820,7 +1858,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     # gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
                     # if not gpt_feedback.text:
                     #     try:
-                    #         feedback_text = text_bison_compeletion(prompt)
+                    #         feedback_text = gemini_completion(prompt)
                     #     except Exception as e:
                     #         logger.exception(e)
                     #         anthropic_feedback = anthropic_completion(prompt, 1200)
@@ -1854,7 +1892,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         updated_fields.append("feedback_text")
         updated_fields.append("metadata")
 
-    if test.is_pitch:
+
+    if test.scenario_case == ScenarioCaseChoices.pitch:
         threading.Thread(target=set_language_skills_in_thread, args=(test_question_response.response_text,test_attempt_session)).start()
 
 
@@ -2330,11 +2369,11 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
 
             kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
             logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
-            kls = generic_completion(kls_prompt, 50,'no kls' )
+            kls = generic_completion(kls_prompt, 50,'no kls',is_free=test.is_free )
             
             # retry kls if it is not received
             if kls is None or kls == 'no kls' or kls == '':
-                kls = text_bison_compeletion(kls_prompt)
+                kls = gemini_completion(kls_prompt)
 
             klp_prompt = f"""
                 TestTitle: {test.title}
@@ -2344,11 +2383,11 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                 """
 
             logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
-            klp = generic_completion(klp_prompt, 50, 'no klp')
+            klp = generic_completion(klp_prompt, 50, 'no klp',is_free=test.is_free)
 
             # retry klp if it is not received
             if klp is None or klp == 'no klp' or klp == '':
-                klp = text_bison_compeletion(klp_prompt)
+                klp = gemini_completion(klp_prompt)
             
             test_question_response.kls_klp = {"kls":kls.strip(), "klp":klp.split(':')[-1].strip()}
             update_fields.append("kls_klp")
@@ -2500,7 +2539,7 @@ def get_feedback(question, test_question_response, question_text, test):
                                     articles=test.articles,
                                     scenario_summary=test.scenario_summary,)
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated")
+    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -2535,6 +2574,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
             )
         user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
         update_fields = []
+        relevancy_score = {'relevance': 1}
         if user_info.evaluate_relevency:
             relevancy_score, is_evaluated = evaluate_relevacy(test_question_response,
                                                     question_text,
@@ -2778,7 +2818,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     The function generates a prompt for the test, test attempt session, and question. It then tries to retrieve previous bot responses. If there are no previous responses, it sets an empty list.
 
-    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and text_bison_compeletion for the third. 
+    The function then enters a loop to generate a bot response. If the test is being conducted over WhatsApp, it uses the gpt3_completion function. Otherwise, it uses the anthropic_completion function for the first iteration, gpt3_completion for the second, and gemini_completion for the third. 
 
     It then checks the similarity between the current and previous bot responses. If the similarity is over 80%, it logs the information and continues to the next iteration. If the similarity is less than or equal to 80%, it logs the information and breaks the loop.
 
@@ -2811,6 +2851,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         uid=test_question_response.test_attempt_session_id)
 
     test = Test.objects.get(uid=test_attempt_session.test_id)
+    bot_llm_response_text = ""
 
     # Updating test attempt session current/next question status
     test_attempt_session.current_question_idx = question.question_number
@@ -2851,25 +2892,30 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
             bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
-            if i == 0:
-                try:
-                    bot_llm_response_text = anthropic_completion(prompt, 300)
-                except Exception as e:
-                    logger.error(f"Error in anthropic completion: {e}. retrying ...")
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
-            elif i == 1:
-                try:
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
-                except Exception as e:
-                    logger.error(f"Error in gpt3 completion: {e}. retrying ...")
-                    bot_llm_response_text = text_bison_compeletion(prompt)
+            if test.is_free:
+                bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated',is_free=test.is_free)
             else:
-                try:
-                    bot_llm_response_text = text_bison_compeletion(prompt)
-                except Exception as e:
-                    logger.error(f"Error in text_bison completion: {e}. retrying ...")
-                    bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+                if i == 0:
+                    try:
+                        bot_llm_response_text = gemini_completion(prompt)
+                    except Exception as e:
+                        logger.error(f"Error in gemini_completion completion: {e}. retrying ...")
+                        bot_llm_response_text = anthropic_completion(prompt, 300)
+                elif i == 1:
+                    try:
+                        bot_llm_response_text = anthropic_completion(prompt, 300)
+                    except Exception as e:
+                        logger.error(f"Error in anthropic completion: {e}. retrying ...")
+                        bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
+                else:
+                    try:
+                        bot_llm_response_text = gpt3_completion(prompt=prompt, stop=['user', "CoachBot"], max_tokens=1000).text
+                    except Exception as e:
+                        logger.error(f"Error in gpt3 completion: {e}. retrying ...")
+                        bot_llm_response_text = gemini_completion(prompt)
 
+                bot_llm_response_text = extract_question(bot_llm_response_text,question.question_for)
+            
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
             if previous_bot_response and previous_bot_response.response_text:
@@ -2945,18 +2991,29 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         test_attempt_session, user_persona)
 
     culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
 
+    # Step 1: Sort the dictionary by its values in descending order
+    sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
+
+    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+    culture_skills_rating = dict(list(sorted_dict.items())[:8])
 
     # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 1.5:
-            culture_skills_rating[skill] = 1.5
+        elif culture_skills_rating[skill] < 0.5:
+            culture_skills_rating[skill] = 0.5
 
     skills_rating = evaluate_skills_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test.is_free)
+        test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test,test.is_free)
+    
+    # Step 1: Sort the dictionary by its values in descending order
+    sorted_dict = dict(sorted(skills_rating.items(), key=lambda item: item[1], reverse=True))
+
+    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+    skills_rating = dict(list(sorted_dict.items())[:8])
     
     for skill in skills_rating:
         if skill in temp_rating:
@@ -2968,11 +3025,11 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
-    # for skill in skills_rating:
-    #     if skills_rating[skill] > 8.5:
-    #         skills_rating[skill] = 8.5
-    #     elif skills_rating[skill] < 1.5:
-    #         skills_rating[skill] = 1.5
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 0.5:
+            skills_rating[skill] = 0.5
 
 
     skills_rating_score = {}
@@ -3505,9 +3562,9 @@ def get_areas_of_improvement(objective: str, chat_conversation: str, user_person
     cnt = 0
     res = ""
 
-    while cnt < 1:  # Because anthropic_completion already has a retry mechanism
+    while cnt < 1:  # Because gemini_completion already has a retry mechanism
         try:
-            res = anthropic_completion(prompt, 300)
+            res = gemini_completion(prompt)
             break
         except Exception as e:
             logger.exception(e)
@@ -3681,9 +3738,17 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     questions = TestQuestion.objects.filter(test_id=test_attempt_session.test_id,deleted=0)
     if test.scenario_case == ScenarioCaseChoices.pms:
         competency_data = UserAttribute.objects.get(user_id=test_attempt_session.participant_id).competency_data
-        compentecy_skills = ["Communication Skills","Teamwork","Planning and Organizing","Client Focus"]
-        if competency_data:
-            compentecy_skills = list(competency_data.values())
+        compentecy_skills = []
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=test_attempt_session.tenant_id, member_emails__contains=UserAttribute.objects.get(user_id=test_attempt_session.participant_id).attributes.get('email')).last()
+        if client:
+            compentecy_skills = list(CompetencySkillAndClientMapping.objects.filter(deleted=False,tenant_id=test_attempt_session.tenant_id,client_id=client.uid).values_list('competency_skill',flat=True))
+
+        if len(compentecy_skills) == 0:
+            compentecy_skills = ["Communication Skills","Teamwork","Planning and Organizing","Client Focus"]
+            if competency_data:
+                compentecy_skills = list(competency_data.values())
+
+
         evaluate_competency_data_thread(questions,responses,test,test_attempt_session,compentecy_skills)
         
     skills_=[]
@@ -4484,8 +4549,8 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
     for skill in culture_skills_rating:
         if culture_skills_rating[skill] > 8.5:
             culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 1.5:
-            culture_skills_rating[skill] = 1.5
+        elif culture_skills_rating[skill] < 0.5:
+            culture_skills_rating[skill] = 0.5
 
     return culture_skills_rating
 
@@ -4545,6 +4610,12 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     if not is_evaluated:
         return None
+    
+    for skill in skills_rating:
+        if skills_rating[skill] > 8.5:
+            skills_rating[skill] = 8.5
+        elif skills_rating[skill] < 0.5:
+            skills_rating[skill] = 0.5
 
     return skills_rating
 
@@ -4654,17 +4725,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4693,17 +4764,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4731,17 +4802,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Article: ${article_info} 
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.          
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4769,17 +4840,17 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                - What went well ?
+                - What went well ? - 10 words maximum
 
-                - What did not work ?
+                - What did not work ? - 10 words maximum
 
-                - A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                - A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.           
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.           
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -4864,7 +4935,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -4918,7 +4989,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
 
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
+            NOTE : Minimum response length is 60 words. Always adhere to the same.
 
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
@@ -4977,7 +5048,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5032,7 +5103,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
 
-                NOTE : Minimum response length is 300 words. Always adhere to the same.
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
 
@@ -5091,7 +5162,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Minimum response length is 300 words. Always adhere to the same.
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5146,7 +5217,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
 
-                NOTE : Minimum response length is 300 words. Always adhere to the same.
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
 
@@ -5165,7 +5236,118 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             return template.substitute(title=test_title, description=test_description,
                                         sales_comment=comment, bot_response=bot_response)
         case 'customer-sales':
-            return "something"
+            if question_number == 1:
+                template = Template(
+                """
+                    \n\nCustomer:
+                    Title: ${title}.
+
+                    Test Description: ${description}
+
+                    Customer Comment: ${user_comment}
+
+                    Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+
+                    "Feedback for the customer comments/responses: "
+
+                    Key insights to improve the response
+
+                    What went well?
+
+                    What did not work?
+
+                    A sample candidate answer
+
+                    A counter intuitive insight
+
+                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+
+                    NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                    NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                    NOTE: Only provide feedback on the "Customer Comment" not on the "Test Description."
+
+                    NOTE: If the Customer Comment is a question provide feedback on how the customer can ask better questions.
+
+                    NOTE: A sample candidate answer is a sample customer comment based on the context provided.
+
+                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s answer in "Key insights to improve the response."
+
+                    NOTE: In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                    NOTE : Minimum response length is 60 words. Always adhere to the same.
+
+                    NOTE: Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                    NOTE: Never start with any kind of introductory sentence.
+
+                    NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                    NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    \n\nAssistant:
+
+                """
+                        )
+                return template.substitute(title=test_title, description=test_description,
+                                            sales_comment=comment)
+
+            template = Template(
+            '''
+                \n\nCustomer:
+                Title: ${title}.
+
+                Test Description: ${description}
+
+                Bot response: ${bot_response}
+
+                Customer Comment: ${user_comment}
+
+                Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+
+                "Feedback for the customer comments/responses: "
+
+                Key insights to improve the response
+
+                What went well?
+
+                What did not work?
+
+                A sample candidate answer
+
+                A counter-intuitive insight
+
+                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
+
+                NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
+
+                NOTE: Do not include any mentions of word count requirements or limits in your response.
+
+                NOTE: Only provide feedback on the "Customer Comment".
+
+                NOTE: NEVER give any feedback on the "Bot response".
+
+                NOTE: If the Customer Comment is a question, provide feedback on how the customer can ask better questions.
+
+                NOTE: A sample candidate answer is a sample Customer Comment based on the context provided.
+
+                NOTE : Minimum response length is 60 words. Always adhere to the same.
+
+                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s response in "Key insights to improve the response."
+
+                NOTE: If the "Customer Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+                NOTE: Check if the response provided by the customer is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+
+                NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                \n\nAssistant:
+
+            ''')
+            
+            return template.substitute(title=test_title, description=test_description,
+                                        sales_comment=comment, bot_response=bot_response)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
             return "nothing"
@@ -5353,11 +5535,89 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 return template.substitute(test_main_context=test.description,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case 'customer-sales':
-            return "something"
+            if question_number == 2:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                responder_type=QuestionForChoices.user,
+                                                                deleted=0).first()
+                template = Template(
+                '''
+                \n\nHuman:
+                main_context: ${test_main_context}
+
+                customer_comment: ${user_comment}
+
+                Provide a response to the customer’s comment as the sales rep based on the given context. Do not provide any feedback on the response.
+
+                NOTE: NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text)
+            else:
+                user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
+                                                                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
+                                                                    deleted=0, responder_type=QuestionForChoices.user).order_by('id').last()
+                template = Template(
+                '''
+                \n\nCustomer:
+                main_context: ${test_main_context}
+
+                current_conversation: ${current_conversation}
+
+                customer_comment: ${user_comment}
+
+                Provide a response to the customer’s comment as the sales rep based on the given context. Do not provide any feedback on the response.
+
+                NOTE: NEVER provide the response in bullet points. Only provide the response in paragraphs.
+
+                NOTE: The response should not be more than 25 words.
+
+                NOTE: Do not show the word count.
+
+                NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                \n\nAssistant:
+
+                '''
+                )
+
+                return template.substitute(test_main_context=test.description,
+                                        user_comment=user_comment.response_text, current_conversation=current_conversation)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
             return "nothing"
 
+@timeit
+def extract_question(text, responder_name):
+    # Define the regular expression pattern to match the question part
+    pattern = r":\s*([^:]+)$"
+    
+    # Search for the pattern in the provided text
+    match = re.search(pattern, text)
+    
+    # If a match is found, extract and return the question part
+    if match:
+        print(match.group(1).strip() )
+        pattern = rf"\b{responder_name}\b[:,]?\s*"
+    
+        # Replace all occurrences of the pattern with an empty string
+        cleaned_text = re.sub(pattern, '', match.group(1).strip(), flags=re.IGNORECASE)
+        # Ensure there's no space before punctuation marks
+        cleaned_text = re.sub(r'\s+([?.!,])', r'\1', cleaned_text)
+        
+        # Return the cleaned text, stripped of leading/trailing whitespace
+        return cleaned_text.strip()
+    
+    else:
+        return text.strip()
 
 @timeit
 def get_orchestrated_test_conversation_prompt(test: Test,
@@ -5407,6 +5667,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     #                                                             evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
     #                                                             deleted=0).order_by('id').first().response_text
 
+    discussion_conversation = [que for que in initial_messages]
     for test_response in TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                             #  evaluation_status=TestQuestionResponseEvaluationStatusChoices.success,
                                                              deleted=0):
@@ -5431,11 +5692,14 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     break 
                 logger.info('waiting for response text')
                 time.sleep(1)
-        
+
         if test_response.responder_type == QuestionForChoices.user:
             conv_text = f"{test_user_persona}: {response_text}"
+            discussion_conversation.append(f"user: {response_text}" if len(response_text.split(":")) == 1 else response_text)
         else:
             conv_text = f"{test_response.responder_type}: {response_text}"
+            if len(response_text.strip())>0:
+                discussion_conversation.append(conv_text if len(response_text.split(":")) == 1 else response_text)
 
         current_conversation = current_conversation + "\n" + conv_text
 
@@ -5556,29 +5820,105 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
         else:
 
-            template = Template(
-                    '''
+            print(f"""
+            main_context: {test_main_context}
+            current_conversation: {current_conversation}
+            question_text: {question_text}
+            
+            """)
+
+            
+            current_conv = discussion_conversation[:-4] if len(discussion_conversation) > 4 else ""
+            current_response = (discussion_conversation[-4:] if len(discussion_conversation) > 4 else discussion_conversation)[:-1]
+            candidate_response = discussion_conversation[-1]
+            main_context = f"""
+            Title: {test.title}
+            Description: {test.description}
+            """
+
+            print(f"""
+            main_context: {main_context}
+            current_conversation: {current_conv}
+            current_response: {current_response}
+            candidate_response: {candidate_response}
+            discussion_coversation: {discussion_conversation}
+            len discussion_conversation: {len(discussion_conversation)}
+            """)
+
+            if test.test_code != 'QKFSSBD':
+
+                template = Template("""
                     \n\nHuman:
-                    Main context : ${test_main_context}
-                    Current conversation : ${current_conversation}
-                    Candidate response : ${question_text}
-
-                    NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
-                    Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
-
-                    Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
-
+                    Main context: ${test_main_context}
+                    Current conversation : {
+                                    ${current_conversation}
+                                    }
+                    Current Responses: {
+                                    ${current_responses}
+                                    }
+                    Candidate response: {
+                                    ${candidate_response}
+                                    }
+                    Based on the (Candidate response), and the (main context), ask the candidate the next question. The question should continue the (candidate response) and the (Current Response) which shall always redirect to the (main context) or (candidate response) if it is not relevant. Do not provide any feedback on the response.
+                    Always ask a unique, different and specific question based on the (Candidate response), (main context), and (Current Response). The question should be relevant to the information or response given in the (Candidate response). Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
+                    Always pose the questions as for the role play, also ask questions as very specific role who is assigned to ask questions in the (main context).
+                    Always take the role of who will be asking questions from the (main context) to generate questions.
+                                    
+                    Always add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
+                    {
+                    Format for Questions
+                    Name: Question
+                    }
+                                    
+                    Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
+                    Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
+                    Always stick with the role who is asking question from the (main context) while generating questions.
+                    Read the (Current response) and (Current conversation) and make sure the next question is unique and has not been repeated in the (Current response) and (Current conversation) before. Never ask a question that has been asked before.
                     NOTE: The question should not be more than 25 words.
-
+                    NOTE: There will be always one role of the user who will never ask any question, but only answer. Never generate questions for that role of the user from the (main context).
+                    NOTE: Analyse the role of the user who will never ask questions from the (main context) and never generate questions from his side.
                     NOTE: Do not show the word count.
-
+                    NOTE: Pose the questions as for the role play, also ask questions as a very specific role the person who is asking questions from the (main context) while generating the questions.
+                    NOTE: Always stick with the role of the person while generating questions from the (main context).
                     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                    NOTE: Always follow the format but never mention in the response.
+                    NOTE: Never give brackets to show the response.
                     \n\nAssistant:
-                    '''
-                ).substitute(test_main_context=test_main_context,
-                                current_conversation=current_conversation,
-                                question_text=question_text
-                                )
+                """).substitute(
+                    test_main_context=main_context,
+                    current_conversation="\n".join(current_conv) if isinstance(current_conv,list)  else current_conv,
+                    current_responses="\n".join(current_response),
+                    candidate_response=candidate_response
+                )
+                print("="* 100)
+                print(template)
+                print("="* 100)
+
+            else:
+
+                template = Template(
+                        '''
+                        \n\nHuman:
+                        Main context : ${test_main_context}
+                        Current conversation : ${current_conversation}
+                        Candidate response : ${question_text}
+
+                        NOTE: Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
+                        Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
+
+                        Read the Current conversation and make sure the next question is unique and has not been repeated in the conversation before. Never ask a question that has been asked before.
+
+                        NOTE: The question should not be more than 25 words.
+
+                        NOTE: Do not show the word count.
+
+                        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                        \n\nAssistant:
+                        '''
+                    ).substitute(test_main_context=test_main_context,
+                                    current_conversation=current_conversation,
+                                    question_text=question_text
+                                    )
     else:
         template = Template(
             """
@@ -5593,6 +5933,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
+            NOTE: Always directly start responding without name in front.
             \n\nAssistant:
             """
         ).substitute(test_main_context=test_main_context,
@@ -5666,17 +6007,17 @@ def get_overridden_prompt(prompt_template: str,
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             The feedback should be structured in the following format: 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            - A counter intuitive insight
+            - A counter intuitive insight - 10 words maximum
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5704,17 +6045,17 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            - A counter intuitive insight
+            - A counter intuitive insight - 10 words maximum
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5753,17 +6094,19 @@ def get_english_support_feedback_prompt(prompt_template: str,
 
             Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
 
-            - Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            - What went well ?
+            - What went well ? - 10 words maximum
 
-            - What did not work ?
+            - What did not work ? - 10 words maximum
 
-            - A sample candidate answer 
+            - A sample candidate answer - 60 words maximum
+
+            - A counter intuitive insight - 10 words maximum
+
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
 
             NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
-
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
 
             NOTE: Only provide feedback on the English proficiency of the candidate.
 
@@ -6380,7 +6723,7 @@ def submit_feedback(
 
     Based on the difficulty level of the user, it appends the appropriate feedback prompts. If the test is of email type or employee feedback scenario, it generates a specific prompt. Otherwise, it generates a prompt based on whether there is a gpt_prompt_override or not.
 
-    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the text_bison_compeletion function and if that fails too, it uses the anthropic_completion function.
+    The function then checks the length of the response text. If it's too short, it sets a feedback text indicating that no feedback can be generated. If the length is sufficient, it tries to generate feedback using the gpt3_completion function. If gpt3_completion fails to generate feedback, it tries to generate feedback using the gemini_completion function and if that fails too, it uses the anthropic_completion function.
 
     Finally, it updates the TestQuestionResponse object with the generated feedback and the metadata related to the gpt prompt and response, and saves it.
 
@@ -6538,21 +6881,34 @@ def submit_feedback(
 
                 max_retry -= 1
 
-            gpt_feedback = gpt3_completion(prompt, stop=["USER:", "CoachBot"])
-            if not gpt_feedback.text:
+
+            if test.is_free:
+                    anthropic_feedback = anthropic_completion(prompt, 1200)
+                    if anthropic_feedback:
+                        feedback_text = anthropic_feedback
+                    else:
+                        feedback_text = 'Feedback could not be generated'
+                
+            else:
                 try:
-                    feedback_text = text_bison_compeletion(prompt)
+                    feedback_text = gemini_completion(prompt)
                 except Exception as e:
                     logger.exception(e)
-                    anthropic_feedback = anthropic_completion(prompt, 1200)
-                    # feedback_text = "Feedback couldn't be generated Because of server overload. You may try after few minutes or you can choose to complete this interaction as well."
-                    feedback_text = anthropic_feedback
-            else:
-                feedback_text = gpt_feedback.text
-                raw_text = gpt_feedback.raw
+                    anthropic_feedback = anthropic_completion(prompt, 1200) 
+                    if not anthropic_feedback:
+                        try:
+                            feedback_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                        except Exception as e:
+                            logger.exception(e)
+                            feedback_text = "Feedback could not be generated"
+
+                    else:
+                        feedback_text = anthropic_feedback
+                        raw_text = anthropic_feedback
 
 
-            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 300:
+
+            if "Unfortunately I cannot provide" not in feedback_text and "Very short responses are unrealistic" not in feedback_text and "PLEASE RESPOND WITH RELEVANCE" not in feedback_text and len(feedback_text.split()) < 250:
                 continue
 
             end = time.time()
@@ -6618,7 +6974,7 @@ def scrape_meta_info(url):
     except Exception as e:
         return "Error: " + str(e), ""
 
-def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager"):
+def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager",num_questions=3):
     """
     Extract information from a dynamic scenario text.
 
@@ -6646,6 +7002,13 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
     description_match = description_pattern.search(text)
     questions_match = question_pattern.search(text)
     rating_match = rating_pattern.search(text)
+
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            raise ValueError("Invalid format. Unable to extract the title.")
         
     if not (title_match and description_match and question_pattern.findall(text)):
         raise ValueError("Invalid format. Unable to extract necessary information.")
@@ -6670,10 +7033,17 @@ def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="M
                 skills_list_candidate.add(item.capitalize())
 
         evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+        
+        if len(skills_list_candidate) < 6:
+            raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+
+        if len(skills_list_candidate) > 8:
+            skills_list_candidate = skills_list_candidate[:8]
+
         evaluation_skill_list = ','.join(evaluation_skill_list)
 
         manager_name = questions.split(':')[0].strip()
-        for i in range(1,10):
+        for i in range(1,2*num_questions):
             question = {
                     "question_type": "subjective",
                     "gpt_prompt_override": "",
@@ -6766,10 +7136,9 @@ def extract_scenarios_info_for_three_question(text):
 def extract_text_only(input_text):
     # Remove digits from the text
     text_without_digits = re.sub(r'\d', '', input_text)
-    
+
     # Remove extra whitespaces
-    cleaned_text = ' '.join(text_without_digits.replace("."," ").strip().split())
-    
+    cleaned_text = ' '.join([st.replace("-","").strip().capitalize()  for st in text_without_digits.replace("."," ").strip().split()])
     return cleaned_text
 
 def extract_information(text):
@@ -6793,6 +7162,7 @@ def extract_information(text):
 
     title_pattern = re.compile(r'Title\s*:\s*(.+)')
     description_pattern = re.compile(r'Description\s*:\s*(.+)')
+    statement_pattern = re.compile(r'Statement\s*:\s*(.+)')
     question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
     prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
     takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
@@ -6803,19 +7173,23 @@ def extract_information(text):
     title_match = title_pattern.search(text)
     description_match = description_pattern.search(text)
     rating_match = rating_pattern.search(text)
+    statement_match = statement_pattern.search(text)
+
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            raise ValueError("Invalid format. Unable to extract the title.")
+
 
     if not (title_match and description_match and  question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
-        raise ValueError("Invalid format. Unable to extract necessary information.")
-
-    if not (title_match and description_match and rating_match and question_pattern.findall(text) and prompt_pattern.findall(text) and takeaway_pattern.findall(text) and skills_pattern.findall(text)):
         invalid_fields = []
 
         if not title_match:
             invalid_fields.append("title")
         if not description_match:
             invalid_fields.append("description")
-        if not rating_match:
-            invalid_fields.append("rating")
         if not question_pattern.findall(text):
             invalid_fields.append("question pattern")
         if not prompt_pattern.findall(text):
@@ -6827,9 +7201,8 @@ def extract_information(text):
 
         raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
 
-
     title = title_match.group(1)
-    description = description_match.group(1)
+    description = f"{description_match.group(1)} {statement_match.group(1)}" if statement_match else description_match.group(1)
     rating = int(rating_match.group(1)) if rating_match else 0
 
     questions = []
@@ -6875,6 +7248,12 @@ def extract_information(text):
 
         for skill in que['skills'].split(','):
             skill_to_evaluate.add(extract_text_only(skill.strip().capitalize()))
+
+    if len(skill_to_evaluate) < 6:
+        raise ValueError(f"Skills must have at least 6. Got:  {len(skill_to_evaluate)}, {skill_to_evaluate}")
+    
+    if len(skill_to_evaluate) > 8:
+        skill_to_evaluate = list(skill_to_evaluate)[:8]
 
     skill_to_evaluate = ', '.join(skill_to_evaluate)
 
@@ -6999,7 +7378,7 @@ def get_prompt_for_feedback_bot(site_information):
         
     return prompt
 
-def get_one_scenario_prompt(site_information,prompt_type):
+def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case='default'):
     prompt = ''
     if prompt_type == TestTypeChoices.dynamic_discussion_thread:
         prompt = """
@@ -7048,53 +7427,282 @@ def get_one_scenario_prompt(site_information,prompt_type):
 
                         NOTE : there must be only one manager in picture.
 
+                        NOTE : Never miss the Title, Description, Questions.
+
                         \n\nAssistant: 
 
                     """%(site_information)  
     else:
-        prompt = """
+        if case == 'normal':
+            prompt = """
+            \n\nHuman:
+            {Information} -
+            %s -
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
+            \n\nAssistant:
+
+            """
+        elif case == 'role_play':
+            prompt= """
                 \n\nHuman:
-                    {Information} - %s
+                {Information} - %s-
+                Read this {information} thoroughly. Based on this information and your understanding create an advanced and tough roleplay situation to practice the skills presented in the {information}. After making the situation provide these:
+                Description - Define the situation and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should describe the problem and what was the particular situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third-person point of view. Describe 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions.
+                Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
+                KLS - Add the skill(s) that are tested with each question. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                Always use indian names in the role play, also mention what role the user will be playing while answering the questions in the description.
+                Always use name in each question. The role play shall also have element of a other person who will be asking the questions.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+                Here the format looks like :
+                "Title",
+                "Description",
+                “Statement",
+                "Question 1",
+                "Prompt 1",
+                "Takeaway 1" ,
+                "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+                NOTE: "Rating" must be included.
+                NOTE: Make sure the roleplay is very advanced and tough.
+                NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
+                NOTE: Always mention in the context what role the user will be playing the role while answering.
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Never miss Title, Description, Statement.
+                
+                \n\nAssistant:
+                """
+        elif case == "case":
+            prompt = """
+             \n\nHuman:
+            {Information} - %s
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            Always Use a literary genre to generate the response in high literature.
+            Literary genres encompass a wide spectrum of styles and themes, ranging from the imaginative realms of fiction, poetry, drama, and fantasy to the factual landscapes of non-fiction, biography, and autobiography. Mystery, science fiction, romance, historical fiction, and horror delve into specific narrative territories, while thriller, adventure, satire, comedy, tragedy, and epic offer diverse storytelling approaches. Additionally, fables, fairy tales, mythology, and folklore explore cultural narratives and traditions. Genres like dystopian, gothic, bildungsroman (coming-of-age), absurdist, and magical realism push the boundaries of conventional storytelling, while realistic fiction and experimental literature offer unique perspectives on reality and form. Each genre contributes to the rich tapestry of literary expression, offering readers a multitude of worlds and experiences to explore.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: "Rating" must be included.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Always use suitable literary genre to genre create the response.
+            NOTE: Never miss Title, Description, Statement.
+            \n\nAssistant:
+            """
 
-                Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
-
+        elif case == "interview":
+            prompt = """
+            \n\nHuman:
+            {Information} - %s 
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            Always use a interview to generate the response for communication and information gathering.
+            An interview is a formal conversation between an interviewer and an interviewee, typically in a professional setting, to assess the interviewee's suitability for a particular role or to gather information. It is a common practice in the corporate world and other professional settings, where employers or hiring managers conduct interviews to evaluate potential candidates for employment.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Always use interview for communication and information gathering.
+            NOTE: Never miss Title, Description, Statement.
+            \n\nAssistant:
+            """
+        elif case == 'checkin':
+            prompt = """
+                \n\nHuman:
+                {Information} - %s
+                Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
                 Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
-                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
-                Questions - Develop a set of {3} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description related to the check-in.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
                 Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
                 KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                Always use a check-in to generate the response for communication and information gathering.
+                Check-in in a corporate setting refers to the process of employees or participants recording their arrival at the workplace, a meeting, a conference, or any other professional gathering. This practice allows for improved attendance tracking, resource allocation, and streamlined communication within the enterprise.
+                In every response, you must:
+                Clearly state your role as X.
+                Identify Y as the person asking
                 The Question, Custom Prompt, KLP, KLS should be numbered.
-
                 Here the format looks like :
-
                 "Title",
-
-                "Description",
-
+                "Description”,
+                “Statement",
                 "Question 1",
-
                 "Prompt 1",
-
                 "Takeaway 1" ,
-
-                "Skills 1" repeated for {3} question(s). Do not include any {responder} response.
-
+                "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
                 'The Question, Prompt, Takeaway, Skills should be numbered.'
-
-
                 NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
-                
-                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
-                
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable like an check-in.
+                . Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
                 NOTE: "Rating" must be included.
-                
                 NOTE : Make sure the simulation is very advanced and tough.
-                
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+                NOTE: Always use check-in for communication and information gathering.
+                NOTE: Never miss Title, Description, Statement.
+
                 \n\nAssistant:
-            """%(site_information)      
+
+                """
+        else:
+
+            prompt = """
+            \n\nHuman:
+            {Information} -
+            %s -
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement.
+            \n\nAssistant:
+            """
+
+            # prompt = """
+            #     \n\nHuman:
+            #         {Information} - %s
+
+            #     Read this {information} thoroughly. Now based on this information and your understanding create  an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+
+            #     Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            #     Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
+            #     Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            #     Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            #     KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            #     KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+            #     The Question, Custom Prompt, KLP, KLS should be numbered.
+
+            #     Here the format looks like :
+
+            #     "Title",
+
+            #     "Description",
+
+            #     "Question 1",
+
+            #     "Prompt 1",
+
+            #     "Takeaway 1" ,
+
+            #     "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+
+            #     'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+
+            #     NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                
+            #     NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                
+            #     NOTE: "Rating" must be included.
+                
+            #     NOTE : Make sure the simulation is very advanced and tough.
+                
+            #     \n\nAssistant:
+            # """  
+
+        prompt = f"{prompt}"%(site_information, num_questions, num_questions) 
         
-        
+    logger.info({"prompt": prompt})
+
     return prompt
         
         
@@ -7113,9 +7721,28 @@ def get_improved_title(title):
     title = anthropic_completion(prompt, 25)
     title = title.split(':')[-1]
     return title
+    
+def select_other_element(lst, specified_element):
+    # Remove the specified element from the list
+    other_elements = [elem for elem in lst if elem != specified_element]
+    
+    # Return a random choice from the remaining elements
+    if other_elements:
+        return random.choice(other_elements)
+    else:
+        return random.choice(lst)
+
+def decode_basic_auth_token(token: str) -> str:
+    decoded_token = base64.b64decode(token).decode("utf-8")
+    key_and_secret = decoded_token.split(":")
+
+    key = key_and_secret[0]
+    secret = key_and_secret[1]
+
+    return key, secret
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = False,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None):
+def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = True,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -7142,33 +7769,57 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     - The simulation created is expected to be advanced and tough.
 
     """
-    def decode_basic_auth_token(token: str) -> str:
-            decoded_token = base64.b64decode(token).decode("utf-8")
-            key_and_secret = decoded_token.split(":")
-
-            key = key_and_secret[0]
-            secret = key_and_secret[1]
-
-            return key, secret
+    
 
     garbage_scenarios = []
+    scenario = ""
     max_retry = 3
+    case_type = None
+    available_case_types = ['case','normal','checkin','interview','role_play']
     for i in range(max_retry):
-        logger.info(f"trying outer test generation for {i+1} time")
+        logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
+        if case_type is not None:
+            case_type = select_other_element(available_case_types, case_type)
+        else:
+            if regeneration:
+                if flavour:
+                    case_type = select_other_element(available_case_types, flavour)
+                else: 
+                    case_type = random.choice(available_case_types)
+            else:
+                if flavour:
+                    case_type = flavour
+                else: 
+                    case_type = random.choice(available_case_types)
+
+
         try:
+            site_information = ""
             if context:
+                print(f'here {context}')
                 context_data = json.loads(context)
                 title, des = context_data['title'], context_data['data']['information']
+                site_information = f"{title} {des}"
+
                 # title,des = context,""
                 if i > 0:
                     title = get_improved_title(title)
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
-            else:
-                title, des = scrape_meta_info(url)
-            
-            site_information = f"{title} {des}"
+            # else:
+            #     article_data = scrape_article_data(url.strip())
+            #     print('='*50)
+            #     print(article_data)
+            #     # if not article_data.get('article_content') or  article_data.get('article_content') == "":
+            #     #     return {'error':"Scenario generation failed because of failure of page extraction please try again."}
+                
+            #     site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
 
-            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test)
+            # matches = search_keywords(site_information)
+            # if len(matches)> 0:
+            #     return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
+            site_information = replace_words(site_information)
+
+            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
 
             if is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
@@ -7177,7 +7828,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             title, description, question_info, skill_to_evalaute = "","","",""
             orchestrated_details = ""
             rating = 0 
-            for i in range(1):
+            for j in range(1):
                 
                 
                 try:
@@ -7192,14 +7843,19 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
                     
                     ### generate scenario using palm
-                    logger.info(f'trying scenario creation bison for {i +1} time')
-                    scenario = text_bison_compeletion(prompt)
+                    logger.info(f"============================flavour:  {case_type} ===================================")
+                    if use_anthropic:
+                        logger.info(f'trying scenario creation anthropic for {i +1} time')
+                        scenario = anthropic_completion(prompt,5000)
+                    else:
+                        logger.info(f'trying scenario creation bison for {i +1} time')
+                        scenario = gemini_completion(prompt)
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     # scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True, num_questions=3 if is_micro else 6)
                     else:
                         title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
 
@@ -7227,16 +7883,25 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
                         
+                        case_type = select_other_element(available_case_types,case_type)
                         ### generate scenario using palm
-                        logger.info(f'**retrying scenario creation bison for {i +1} time')
-                        scenario = text_bison_compeletion(prompt)
+                        logger.info(f"============================flavour:  {case_type} ===================================")
+
+                        prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
+
+                        if use_anthropic:
+                            logger.info(f'**retrying scenario creation anthropic for {i +1} time')
+                            scenario = anthropic_completion(prompt,5000)
+                        else:
+                            logger.info(f'**retrying scenario creation bison for {i +1} time')
+                            scenario = gemini_completion(prompt)
                         # scenario = fcfs_handler.process(prompt)
                         # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         
                         logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
 
                         if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True,num_questions=3 if is_micro else 6)
                         else:
                             title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
                     
@@ -7255,33 +7920,16 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                 reason_of_failure = f"failed to generate scenario for following reason : {e}"
                             )
 
-
-
                 if scenario == 'failed to generate scenario':
-                    # print(rating,"failed")
-                    # if i+1 == 3:
-                    #     for i in range(3):
-                    #         logger.info(f'trying gpt for {i+1} time')
-                    #         scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                    #         print("gpt",scenario)
-                    #         print("#"*100)
-                    #         title,description, question_info, skill_to_evalaute,rating = extract_info_gpt(scenario)
-
-                    #         if scenario == 'failed to generate scenario' or rating <= 6:
-                    #             continue
-
-                    #         break
-                    # else:
                     continue
                 break
 
-            # key, secret = decode_basic_auth_token(access_token.split(' ')[-1])
-            # client = Client.objects.get(key=key)
-            # creator = User.objects.get(uid=client.owner_id)
             admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
             logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
             scenario_case = ScenarioCaseChoices.simulation
+            if case_type == 'role_play':
+                scenario_case = ScenarioCaseChoices.role_play
             
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 scenario_case = ScenarioCaseChoices.dynamic_discussion
@@ -7302,11 +7950,18 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "certificate_details": {"title": title},
                 "competency_group": competency,
                 "creator_user_id": creator_user_id,
+                'is_assigned': True if assign_to is not None else False,
+                'assigned_to': assign_to,
+                'assigned_by': assigned_by,
+                'is_micro': is_micro
             }
             if scenario_summary:
                 test_json["scenario_summary"] = scenario_summary
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
                 test_json["orchestrated_conversation_details"] = orchestrated_details
+
+            if not url in [None,""]:
+                test_json["web_page_url"] = url.strip()
 
             json_data = json.dumps(test_json)
 
@@ -7323,6 +7978,22 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                                         API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
                 response = resp.json()
                 print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
+                
+                # if assign_to is not None:
+                #     try:
+                #         user_attribute = UserAttribute.objects.filter(deleted=False, user_id=assign_to)
+                #         assigned_tests = user_attribute.assigned_tests
+                #         if assigned_tests is None:
+                #             assigned_tests = {}
+                            
+                #         if f'{assigned_by}' in assigned_tests :
+                #             assigned_tests[f'{assigned_by}'] =  assigned_tests[f'{assigned_by}'] + f'{assigned_by}'
+                #         else:
+                #             assigned_tests[f'{assigned_by}'] = f'{assigned_by}'
+                #         user_attribute.save()
+                        
+                #     except Exception as e:
+                #         logger.exception({"error":f"failed to assign test to user : {assign_to}"})
 
                 if origin == "script":
                     resp_json = test_json.copy()
@@ -7332,7 +8003,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
+                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro'],"scenario_case": response['scenario_case']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
@@ -7452,7 +8123,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
     # if use_anthropic:
     #     scenario = anthropic_completion(prompt,5000)
     # else:
-    #     scenario = text_bison_compeletion(prompt)
+    #     scenario = gemini_completion(prompt)
     # print("palm",scenario)
     # print("#"*100)
     # scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -7482,7 +8153,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
                     if use_anthropic:
                         scenario = anthropic_completion(prompt,5000)
                     else:
-                        scenario = text_bison_compeletion(prompt)
+                        scenario = gemini_completion(prompt)
                     print("palm",scenario)
                     print("#"*100)
                     scenarios = extract_scenarios_info_for_one_question(scenario)
@@ -7548,41 +8219,52 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
 
 
 
-def fetch_test_codes_by_site_context(url,tenant_id, context):
+def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
+    """
+    This function is used to fetch the test codes based on the site context
+    by can be skills and web_page
+    """
 
-    title, des = scrape_meta_info(url)
-    site_information = f"Title: {title} \n Description: {des}"
+    tests = None
+    if by == 'web_page':
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,web_page_url=url.strip(),is_micro=is_micro).order_by("id")
+    else:
+        title, des = scrape_meta_info(url)
+        site_information = f"Title: {title} \n Description: {des}"
 
 
-    all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
-    all_skills = set()
-    up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_presented_skills]]
+        all_skills_qs = Test.objects.filter(tenant_id=tenant_id,deleted=0).values_list('skills_to_evaluate')
+        all_skills = set()
+        up_skill_names = [skill.strip().capitalize() for skill in [s['name'] for s in all_presented_skills]]
 
-    for skills in all_skills_qs:
-        if skills[0]:
-            skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
-            all_skills.update(skill_name_list)
+        for skills in all_skills_qs:
+            if skills[0]:
+                skill_name_list = [sk.strip().capitalize() for sk in skills[0].split(',') if sk.strip().capitalize() in up_skill_names ]
+                all_skills.update(skill_name_list)
 
-    prompt = """
-    {information} - %s
-    {AllSkills} - %s
+        prompt = """
+        {information} - %s
+        {AllSkills} - %s
 
-    According to the {information}, extract suitable skill from it skill must be from {AllSkills}.
-    NOTE: ONly return skill nothing else
-    """%(site_information,list(all_skills))
+        According to the {information}, extract suitable skill from it skill must be from {AllSkills}.
+        NOTE: ONly return skill nothing else
+        """%(site_information,list(all_skills))
 
-    skills = generic_completion(prompt,1000,'Failed to extract skills')
-    skills = skills.split(':')[-1].strip()
-    print(skills)
-        
- 
-    tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
+        skills = generic_completion(prompt,1000,'Failed to extract skills')
+        skills = skills.split(':')[-1].strip()
+        print(skills)
+            
+    
+        tests = Test.objects.filter(tenant_id=tenant_id,deleted=0,skills_to_evaluate__icontains=skills)
+
     test_list = []
     for test in tests:
         test_list.append({
             "title": test.title,
             "test_code": test.test_code,
             "description": test.description,
+            "test_type": test.test_type,
+            "is_micro": test.is_micro
         })
 
     return test_list
@@ -8025,7 +8707,6 @@ def calculate_similarity(sentence1, sentence2):
 
 
 @timeit
-@timeit
 def scrape_article_data(url):
     """
     This function is designed to scrape the title and content of an article from a given URL.
@@ -8054,31 +8735,50 @@ def scrape_article_data(url):
     }
     """
     # Send a GET request to fetch the HTML content
-    response = requests.get(url)
-    
-    # Check if the request was successful (status code 200)
-    if response.status_code == 200:
-        # Parse the HTML content using BeautifulSoup
-        doc = Document(response.content)
-        content = (doc.summary())
-        soup = BeautifulSoup(content, 'html.parser')
+    try:
+        response = requests.get(url)
+        logger.info(f"================================ {response.status_code}, {response.content}=============")
         
-        # Extract title
-        title = doc.title()
-        
-        # Extract article content
-        article_content = ''
-        article_body = soup.find('div')
-        if article_body:
-            paragraphs = soup.find_all('p')
-            article_content = '\n'.join([p.get_text() for p in paragraphs])
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            # Parse the HTML content using BeautifulSoup
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Find the meta title and description tags
+            description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+            description = description_tag.get('content') if description_tag else None
 
-        return {
-            'title': title,
-            'article_content': article_content
-        }
-    else:
-        logger.error("Failed to retrieve the page.")
+            doc = Document(response.content)
+            soup = BeautifulSoup(doc.summary(), 'html.parser')
+            
+            # Extract title
+            title = doc.title()
+            # Extract article content
+            article_content = ''
+            article_body = soup.find('div')
+            if article_body:
+                paragraphs = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span'])
+                article_content = '\n'.join([p.get_text().strip() for p in paragraphs])
+
+
+            logger.info(f"""
+            Extracted article data : title : {title}
+            =============================
+            description : {description}
+            =============================
+            content : {article_content}
+            """)
+
+            return {
+                'title': replace_words(title),
+                'description': replace_words(description),
+                'article_content': replace_words(article_content)
+            }
+        else:
+            logger.error("Failed to retrieve the page.")
+            return {}
+        
+    except Exception as e:
+        logger.exception (f"Failed to extract infomation : {e}")
         return {}
 
 
@@ -8113,7 +8813,7 @@ def test_model(model_name, num_tests=50):
         scenario = ''
         start_time = time.time()
         try:
-            scenario = text_bison_compeletion(prompt,model_name)
+            scenario = gemini_completion(prompt,model_name)
             print(scenario)
             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
             print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
@@ -8456,7 +9156,8 @@ def create_scenario_from_transcript(conversation,access_token, tenant_id, contex
     NOTE : Based on this information {{information}} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
 
     NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description. 
-
+    NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+    NOTE: Never miss Title, Description.
     NOTE : Make sure the simulation is very advanced and tough.
         """
         
@@ -8718,4 +9419,51 @@ def get_low_skill_scenarios(tenant,test_codes=None,min_skill_count=4):
 
 
 
+def set_is_micro():
+    print("################# Process started ################3")
+    tests = Test.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",deleted=0)
+    dynamic_change_count = 0
+    static_change_count = 0
+    print("########## Total tests fetched : ",tests.count())
+    for test in tests:
+        if test.test_type == TestTypeChoices.dynamic_discussion_thread:
+            questions = TestQuestion.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",test_id=test.uid,question_for='user')
+            if questions.count() == 3:
+                test.is_micro = True
+                test.save()
+                dynamic_change_count += 1
         
+        if test.test_type == TestTypeChoices.test:
+            questions = TestQuestion.objects.filter(tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",test_id=test.uid)
+            if questions.count() == 3:
+                test.is_micro = True
+                test.save()
+                static_change_count += 1
+                
+        print("********* Records Changed  ********")
+        print(f"Dynamic : {dynamic_change_count},    Static : {static_change_count}")
+        print("************************************")
+        
+def search_keywords(text, keywords=['Simulation', "Role play"]):
+    # Combine the keywords into a single regex pattern
+    pattern = '|'.join(re.escape(keyword) for keyword in keywords)
+    # Use re.IGNORECASE to make the search case insensitive
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    return matches
+
+def replace_words(text):
+    if not text:
+        return text
+    # Define replacements
+    replacements = {
+        r'\broleplay\b': 'Act',
+        r'\brole play\b': 'Act',
+        r'\bsimulation\b': 'mimicry',
+        r'\bsimulations\b': 'mimicry'
+    }
+    
+    # Replace each word using regex, case-insensitive
+    for pattern, replacement in replacements.items():
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    
+    return text

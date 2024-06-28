@@ -12,6 +12,7 @@ from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
+from tenants.helpers import tenant_from_subdomain_prefix
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -83,11 +84,13 @@ BOT_NAME = "Bot Name"
 USER_ID = "User ID" 
 AREA_DOMAIN = "Area/Domain"
 TAB_CATEGORY = "Tab Category"
+SUB_TAB_CATEGORY = "Sub Tab Category"
 IS_RECOMMENDED = 'Is Recommended'
 VISUAL_TAGS = 'Visual Tags'
 PAGE_NAME = 'Page Name'
 USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
+RESPONDER = "Responder"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -259,6 +262,11 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
                     output_dict["interaction_mode"] = 'audio'
                     
+        # if there is INTERACTION_MODE availble in csv then it will overwrite 
+        if INTERACTION_MODE in input_dict:
+            if input_dict[INTERACTION_MODE] and len(input_dict[INTERACTION_MODE].strip()) >0:
+                output_dict["interaction_mode"] = input_dict[INTERACTION_MODE].strip().lower()
+            
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip()
@@ -276,15 +284,20 @@ def format_test_orchestrated_conversation(raw_data):
 
         if PAGE_NAME in input_dict:
             if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
-                output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+                output_dict['page_name'] = input_dict[PAGE_NAME].strip()
 
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
-                
-        if COMPETENCY_SKILLS in input_dict:
-            if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
-                output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
+
+        if SUB_TAB_CATEGORY in input_dict:
+            if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
+                output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
+
+        if 'tab_category' not in output_dict:
+            if COMPETENCY_SKILLS in input_dict:
+                if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
+                    output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
 
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
@@ -521,11 +534,11 @@ def format_test_orchestrated_conversation(raw_data):
 
         if BACKGROUND in input_dict:
             if input_dict[BACKGROUND] and len(input_dict[BACKGROUND].strip()) > 0:
-                background = input_dict[BACKGROUND].strip().lower()
+                background = input_dict[BACKGROUND].strip()
                 orchestrated_conversation_details["background"] = background
                 
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
-
+        logger.info(f"<<<<<<<<Input Dict: {input_dict}>>>>>>>>>")
         for key in input_dict:
             if key.isdigit():
                 question = {
@@ -545,6 +558,11 @@ def format_test_orchestrated_conversation(raw_data):
 
                 matched_name = next((name for name in persons if name.split()[0].lower() in input_dict[key].lower()), None)
                 if matched_name:
+                    if RESPONDER in input_dict:
+                    
+                        if input_dict[RESPONDER] and len(input_dict[RESPONDER].strip()) > 0:
+                            responder = input_dict[RESPONDER].strip()
+                            matched_name = responder
                     question['question_for'] = matched_name
                 else:
                     question['question_for'] = "user"
@@ -566,7 +584,8 @@ def format_test_orchestrated_conversation(raw_data):
 
                 return json_data, False
 
-        
+        output_dict['is_micro'] = False if ((len(output_dict.get('questions')) + 1) / 2) > 3 else True
+        output_dict['total_question'] = len(output_dict.get('questions'))
 
         output_json = json.dumps(output_dict)
 
@@ -629,7 +648,7 @@ def format_test_data_web(raw_data):
         return None
 
 
-def format_test_data_slack(raw_data):
+def format_test_data_slack(raw_data,tenant):
     """ 
     The format_test_data_slack function takes in a raw_data parameter, which is expected to be a JSON string. It processes the input JSON data and formats it into a specific output JSON format.
 
@@ -657,7 +676,6 @@ def format_test_data_slack(raw_data):
             "creator_id": None,
             "title": input_dict[TITLE],
             "description": input_dict[DESCRIPTION],
-            "max_test_allowed": input_dict[MAX_TEST_ALLOWED],
             "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
@@ -830,9 +848,14 @@ def format_test_data_slack(raw_data):
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
 
-        if COMPETENCY_SKILLS in input_dict:
-            if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
-                output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
+        if SUB_TAB_CATEGORY in input_dict:
+            if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
+                output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
+
+        if 'tab_category' not in output_dict:
+            if COMPETENCY_SKILLS in input_dict:
+                if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
+                    output_dict['competency_group'] = input_dict[COMPETENCY_SKILLS].strip().capitalize()
         
         if CURRENT_NEWS in input_dict:
             if input_dict[CURRENT_NEWS] and len(input_dict[CURRENT_NEWS].strip()) > 0:
@@ -861,7 +884,8 @@ def format_test_data_slack(raw_data):
         test_type = input_dict[TEST_TYPE].strip().lower()
 
         if TED_TALK_AND_HBR_CASE in input_dict.keys():
-            output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
+            if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict(TED_TALK_AND_HBR_CASE).strip()) > 0:
+                output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
         skills_list = set()
         for key in input_dict:
@@ -878,34 +902,42 @@ def format_test_data_slack(raw_data):
         # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
-        unmatched_skills = []
-        for skills in skills_list:
-            if skills not in defined_skills_list:
-                unmatched_skills.append(skills)
+        if tenant.use_skills_from_skill_bank:
+            unmatched_skills = []
+            for skills in skills_list:
+                if skills not in defined_skills_list:
+                    unmatched_skills.append(skills)
 
-        if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
-            return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
+            if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
+                return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
 
         unique_skill_count = len(set(skills_list))
 
-        if unique_skill_count < 4:
-            return {"skills": set(skills_list), "Title": input_dict['Title']}, False
+        if unique_skill_count < 6:
+            return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
+        
+        if unique_skill_count > 8:
+            skills_list = list(skills_list)[:8]
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            check_pass = False
-        else:
-            check_pass = True
+        check_pass = True
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-            if not candidate_type:
-                candidate_type = 'Manager'
-            skills_list_candidate = set()
-            for item in get_skills(candidate_type):
-                skills_list_candidate.add(item.capitalize())
-            skills_list_candidate = list(skills_list_candidate)
-            if sorted(skills_list_candidate) == sorted(skills_list):
-                check_pass = True
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    check_pass = False
+                else:
+                    check_pass = True
+
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+                    if not candidate_type:
+                        candidate_type = 'Manager'
+                    skills_list_candidate = set()
+                    for item in get_skills(candidate_type):
+                        skills_list_candidate.add(item.capitalize())
+                    skills_list_candidate = list(skills_list_candidate)
+                    if sorted(skills_list_candidate) == sorted(skills_list):
+                        check_pass = True
 
         skills_list = ','.join(skills_list)
 
@@ -922,45 +954,48 @@ def format_test_data_slack(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
-            send_only_to_email = input_dict[SEND_ONLY_TO_EMAIL].strip().lower()
+        if SEND_ONLY_TO_EMAIL in input_dict:
+            if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
+                send_only_to_email = input_dict[SEND_ONLY_TO_EMAIL].strip().lower()
 
-            if send_only_to_email == "true":
-                output_dict['send_only_to_email'] = True
-            elif send_only_to_email == "false":
-                output_dict['send_only_to_email'] = False
-            else:
-                output_dict['send_only_to_email'] = False
+                if send_only_to_email == "true":
+                    output_dict['send_only_to_email'] = True
+                elif send_only_to_email == "false":
+                    output_dict['send_only_to_email'] = False
+                else:
+                    output_dict['send_only_to_email'] = False
 
-        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
 
-            if is_checkin_type == "true":
-                output_dict['is_checkin_type'] = True
-            elif is_checkin_type == "false":
-                output_dict['is_checkin_type'] = False
-            else:
-                output_dict['is_checkin_type'] = False
+                if is_checkin_type == "true":
+                    output_dict['is_checkin_type'] = True
+                elif is_checkin_type == "false":
+                    output_dict['is_checkin_type'] = False
+                else:
+                    output_dict['is_checkin_type'] = False
 
-        if input_dict[IS_LEARNER_PATH] and len(input_dict[IS_LEARNER_PATH].strip()) > 0:
-            is_learner_path = input_dict[IS_LEARNER_PATH].strip().lower()
+        if IS_LEARNER_PATH in input_dict:
+            if input_dict[IS_LEARNER_PATH] and len(input_dict[IS_LEARNER_PATH].strip()) > 0:
+                is_learner_path = input_dict[IS_LEARNER_PATH].strip().lower()
 
-            if is_learner_path == "true":
-                output_dict['is_learner_path'] = True
-            elif is_learner_path == "false":
-                output_dict['is_learner_path'] = False
-            else:
-                output_dict['is_learner_path'] = False
+                if is_learner_path == "true":
+                    output_dict['is_learner_path'] = True
+                elif is_learner_path == "false":
+                    output_dict['is_learner_path'] = False
+                else:
+                    output_dict['is_learner_path'] = False
 
-        if input_dict[IS_EMAIL_TYPE] and len(input_dict[IS_EMAIL_TYPE].strip()) > 0:
-            is_email_type = input_dict[IS_EMAIL_TYPE].strip().lower()
-
-            if is_email_type == "true":
-                output_dict['is_email_type'] = True
-            elif is_email_type == "false":
-                output_dict['is_email_type'] = False
-            else:
-                output_dict['is_email_type'] = False
+        if IS_EMAIL_TYPE in input_dict:
+            if input_dict[IS_EMAIL_TYPE] and len(input_dict[IS_EMAIL_TYPE].strip()) > 0:
+                is_email_type = input_dict[IS_EMAIL_TYPE].strip().lower()
+                if is_email_type == "true":
+                    output_dict['is_email_type'] = True
+                elif is_email_type == "false":
+                    output_dict['is_email_type'] = False
+                else:
+                    output_dict['is_email_type'] = False
 
         if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
             email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
@@ -1131,8 +1166,8 @@ def format_test_data_slack(raw_data):
         return output_json, check_pass
 
     except Exception as e:
-        logger.error(e)
-        return None
+        logger.exception(e)
+        return {}, False
 
 
 def login_web(email, password):
@@ -1320,7 +1355,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -1329,6 +1364,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         valid_rows = []
         response = None
         occured_errors = []
+        tenant = tenant_from_subdomain_prefix(subdomain_prefix=subdomain_prefix)
 
         try:
             csv_text = TextIOWrapper(csv_file, encoding='utf-8-sig')
@@ -1373,7 +1409,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
-                json_data, check_pass = format_test_data_slack(raw_data)
+                json_data, check_pass = format_test_data_slack(raw_data,tenant)
                 # logger.info(json_data)
                 # Calling the Test creation API with JSON data
 
@@ -1433,11 +1469,11 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         #     "exception": True,
                         # }
 
-                    elif "skills" in json_data:
-                        occured_errors.append(json_data["skills"])
+                    elif "unique_skills" in json_data:
+                        occured_errors.append(f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}")
 
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
+                                            ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}"
                                             
                     else:
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
@@ -1479,7 +1515,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                 }
 
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             return {
                 "errors": [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,
@@ -1533,7 +1569,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             'exception': False
         }
     """
-    logger.info(subdomain_prefix)
+    logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
                      SCENARIO_CASE]
@@ -1684,3 +1720,67 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             "errors": ["Invalid credentials"],
             "exception": True,
         }
+
+
+
+
+def create_coaches_and_bots_from_data(file, email, password, subdomain_prefix):
+    logger.info("########################## Creating Coaches and Bots from data ############################")
+    url = f'{BACKEND}/api/v1/coaching-conversations/create-user-profile-and-bot/'
+    data = []
+    
+    try:
+        csv_text = TextIOWrapper(file, encoding='utf-8-sig')
+        csv_reader = csv.DictReader(csv_text)
+        all_rows = list(csv_reader)
+        data = all_rows
+    except Exception as e:
+            logger.error(e)
+            return {
+                "errors": [f"Error occurred; Could not create tests {e.args}"],
+                "exception": True,
+            }
+    
+    # with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+    #     reader = csv.DictReader(csvfile)
+    #     for row in reader:
+    #         data.append(dict(row))
+    # print(data)
+
+    headers = {
+                "Authorization": f"Bearer {login_slack(email, password, subdomain_prefix)}",
+                'Content-Type': "application/json"
+            }
+    try:
+        response = requests.post(url,data=json.dumps({'data': data}),headers=headers)
+        print(response.json())
+        data = response.json()['data']
+        csv_file_path = 'coaches-bots-data.csv'
+        field_names = list(data[0].keys())
+
+        # Write the data to a CSV file
+        with open(csv_file_path, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=field_names)
+            writer.writeheader()
+            for row in data:
+                writer.writerow(row)
+                
+        with open(csv_file_path, 'rb') as fh:
+                file_response = HttpResponse(
+                    fh.read(), content_type="text/csv", status=200)
+                file_response['Content-Disposition'] = 'inline; filename=' + \
+                    os.path.basename(csv_file_path)
+
+        # Delete the csv file
+        os.remove(csv_file_path)
+
+        logger.info(f'CSV file "{csv_file_path}" created successfully.')
+        return {
+                    "success": True,
+                    "message": "Test created successfully",
+                    'errors': [],
+                    'file_response': file_response,
+                }
+    except Exception as e:
+        logger.exception(e)
+        return {'errors':["Error occurred; Could not create coaches and bots"], "exception": True}
