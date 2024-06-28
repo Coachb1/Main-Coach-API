@@ -41,8 +41,8 @@ def initialize_weekly_email_schedular():
     scheduler.add_job(
         testing,
         trigger='cron',
-        day_of_week='mon',
-        hour=14,
+        day_of_week='sat',
+        hour=11,
         minute=30,
         id="testing"
     )
@@ -61,39 +61,39 @@ def initialize_weekly_email_schedular():
 
 def touch_point_for_session_weekly():
     
+    if BACKEND == "https://coach-api-prod-ovh.coachbots.com":
+        logger.info("Excecuting touch_point_for_session_weekly")
 
-    logger.info("Excecuting touch_point_for_session_weekly")
+        connections = CoachCoacheeConnection.objects.filter(deleted=0) # fetching all connections
+        coach_ids = [connection.coach_id for connection in connections]
+        coachee_profile_id = [connection.coachee_id for connection in connections]
 
-    connections = CoachCoacheeConnection.objects.filter(deleted=0) # fetching all connections
-    coach_ids = [connection.coach_id for connection in connections]
-    coachee_profile_id = [connection.coachee_id for connection in connections]
+        profile_ids = set(coach_ids + coachee_profile_id)
+        user_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(uid__in=profile_ids).values_list("user_id",flat=True))
+        print(f"Profile Ids and user_id:  ================================================> {profile_ids} {user_ids}")
 
-    profile_ids = set(coach_ids + coachee_profile_id)
-    user_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(uid__in=profile_ids).values_list("user_id",flat=True))
-    print(f"Profile Ids and user_id:  ================================================> {profile_ids} {user_ids}")
+        user_atts = list(UserAttribute.objects.filter(deleted=0,user_id__in=user_ids).values_list("attributes",flat=True))
 
-    user_atts = list(UserAttribute.objects.filter(deleted=0,user_id__in=user_ids).values_list("attributes",flat=True))
-
-    subject = "Touchpoint for coaching mentoring session"
-    template = """
-        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to get your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
-        """
-    failed_emails =[]
-    for user_att in user_atts:
-        email = user_att.get('email',None)
-        if email:
-            try:
-                send_email_with_html_template(subject=subject,html_content=template,to_email=email)
-            except Exception as e:
-                logger.info(f"Failed to send email to {email} in touch_point_for_session_weekly, Reason: {e}")
-                failed_emails.append(email)
+        subject = "Touchpoint for coaching mentoring session"
+        template = """
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Dear Participants, Please remember to get your touch point on the calendar. What else can you do :  If you would like to automatically schedule these meetings per your calendar availibility, please repond to this email and let us know! Thank you</p>
+            """
+        failed_emails =[]
+        for user_att in user_atts:
+            email = user_att.get('email',None)
+            if email:
+                try:
+                    send_email_with_html_template(subject=subject,html_content=template,to_email=email)
+                except Exception as e:
+                    logger.info(f"Failed to send email to {email} in touch_point_for_session_weekly, Reason: {e}")
+                    failed_emails.append(email)
 
 
 
-    if len(failed_emails) > 0:
-        send_email_with_html_template(subject="Failed to send email",html_content=f"Email delivery for scheduled session touch point unsuccessful For these emails: {failed_emails}")
+        if len(failed_emails) > 0:
+            send_email_with_html_template(subject="Failed to send email",html_content=f"Email delivery for scheduled session touch point unsuccessful For these emails: {failed_emails}")
 
-    
+        
 
 def weekly_remider_to_login():
     """
@@ -111,7 +111,7 @@ def weekly_remider_to_login():
     >>> weekly_remider_to_login()
     # Sends weekly reminder emails to all users and logs any failed emails.
     """
-    if BACKEND == "https://coach-api-ovh.coachbots.com":
+    if BACKEND == "https://coach-api-prod-ovh.coachbots.com":
 
         users = User.objects.filter(deleted=0)
         tenant_ids = list(set(users.values_list("tenant_id",flat=True)))
@@ -130,7 +130,7 @@ def weekly_remider_to_login():
             tenant_id = client.tenant_id
             member_emails = []
             if client.member_emails:
-                member_emails = [email.strip() for email in client.member_emails.split(',')]
+                member_emails = [email.strip() for email in client.member_emails.split(',')] if client.member_emails else []
 
             user_ids = Identity.objects.filter(deleted=False,tenant_id=tenant_id,value__in = member_emails)
             user_ids = list(user_ids.values_list('user_id', 'value'))
@@ -235,5 +235,5 @@ def get_total_actions_on_platform_over_week(tenant_id):
 
 def testing():
     print('printitiitiklsdfjkldslfjkjaskjfjsfjlsdsjj')
-    send_email_with_html_template(subject="scheduler working",html_content="Hye sceduler is working",to_email='bagoriarajan@gmail.com')
+    send_email_with_html_template(subject="scheduler working",html_content=f"Hye sceduler is working in {BACKEND}",to_email='bagoriarajan@gmail.com')
 

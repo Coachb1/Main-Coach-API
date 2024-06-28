@@ -13,11 +13,13 @@ from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
-from users.models import User, SignatureBot, BotAttribute
+from users.models import User, SignatureBot, BotAttribute, ClientUserInfo, UserAttribute, CoachCoacheeMentorMenteeProfile
 from users.db import get_user_display_name, get_user_by_id
-from coaching_conversations.helpers import create_user_profile_and_bot
+from coaching_conversations.helpers import create_user_profile_and_bot, save_coach_recommendation
 import csv
 from commons.notifications import send_error_notification
+from identities.helpers import get_user_via_identity
+from coaching_conversations.helpers import generate_team_connect_response
 
 import logging
 
@@ -486,3 +488,128 @@ class CoachingConversationViewSet(ApiViewSet,
             send_error_notification("apis.coaching_conversations.views.create_user_profile_and_bot", "Failed create_user_profile_and_bot", {"data": data})
             return Response({"msg": f"Failed with {e}"}, status=status.HTTP_400_BAD_REQUEST)
         
+
+    @action(methods=['GET'], detail=False, url_path='get-deep-dive-create-access')
+    def get_deep_dive_create_access(self, request, *args, **kwargs):
+
+        try:
+            if request.method == 'GET':
+                tenant = request.tenant
+                email = request.query_params.get('email')
+                has_access = False
+
+
+                if not email:
+                    return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                user = get_user_via_identity(
+                    tenant=tenant,
+                    identity_type= 'deepchat_unique_id',
+                    identity_value=email
+                )
+                if user.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
+                    return Response({"has_access": True}, status=status.HTTP_200_OK)
+
+                client = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False, member_emails__contains=email).first()
+                if client:
+                    
+                    if client.deepdive_accessed_emails and (email in client.deepdive_accessed_emails):
+                        has_access = True
+                        
+
+                return Response({"has_access": has_access}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Got error in deepdive-bot: {e}")
+            return Response({"error": f"Got error in deepdive-bot: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    @action(methods=["POST"], detail=False, url_path="save-response-style")
+    def save_response_style(self, request, *args, **kwargs):
+        try:
+            user_id = request.data.get('user_id')
+            response_style = request.data.get('response_style')
+            
+            if user_id is None or response_style is None:
+                return  Response({"error": "both user_id and response_style fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_attributes = UserAttribute.objects.get(tenant_id=request.tenant.uid,user_id=user_id,deleted=False)
+            user_attributes.preferences = { 'response_style' : response_style}
+            user_attributes.save()
+            return Response({"message":"response style saved"})
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error": "something went wrong"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['POST'], detail=False, url_path='team-connect')
+    def team_connect(self, request, *args, **kwargs):
+        try:
+            if request.method == 'POST':
+                tenant = request.tenant
+                user_id = request.data.get('user_id')
+                question = request.data.get('question')
+                if not user_id:
+                    return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+                response = generate_team_connect_response(
+                    tenant_id=tenant.uid, 
+                    user_ids=user_id,
+                    question=question
+                )
+                return Response(response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Got error in team_connect: {e}")
+            return Response({"error": f"Got error in team_connect: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['GET'], detail=False, url_path='analyze-bot-conversation')
+    def analyze_bot_conversation(self, request, *args, **kwargs):
+        ### :TODO: incomplete implementation
+        try:
+            if request.method == 'GET':
+                tenant = request.tenant
+                user_id = request.query_params.get('user_id')
+                bot_id = request.query_params.get('bot_id')
+                if not user_id or not bot_id:
+                    return Response({"error": "user_id and bot_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+                sessions = TestAttemptSession.objects.filter(tenant_id=tenant.uid, deleted=0, test_id=bot_id, participant_id=user_id)
+                if sessions.count() == 0:
+                    return Response({"error": "No conversation found"}, status=status.HTTP_404_NOT_FOUND)
+                data = get_bot_conversation_data_user(sessions, tenant, user_id)
+                return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Got error in analyze_bot_conversation: {e}")
+            return Response({"error": f"Got error in analyze_bot_conversation: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=['GET','POST'], detail=False, url_path='get-or-save-coach-recommendations')
+    def get_or_save_coach_recommendations(self, request, *args, **kwargs):
+        try:
+            if request.method == 'GET':
+                user_profile_id = request.query_params.get('user_profile_id')
+                try:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(
+                        deleted=False,
+                        tenant_id=request.tenant.uid,
+                        uid=user_profile_id
+                    )
+                except Exception as e:
+                    return Response({"error": f"Profile Not found for user_profile_id : {user_profile_id}, reason: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"data": profile.coach_recommendations.all()[0].coach_recommendations.split(',') if len(profile.coach_recommendations.all()) > 0 else []}, status=status.HTTP_200_OK)
+
+            elif request.method == 'POST':
+                user_profile_id = request.data.get('user_profile_id')
+                coach_recommendations = request.data.get('coach_recommendations',None)
+                logger.info(f"user_profile_id: {user_profile_id}, coach_recommendations: {coach_recommendations}")
+
+                if not user_profile_id or not coach_recommendations:
+                    return Response({'error': f"Either user_profile_id or coach_recommendations is missing!"},status=status.HTTP_400_BAD_REQUEST)
+                
+                msg, success = save_coach_recommendation(
+                    user_profile_id=user_profile_id,
+                    coach_recommendations=coach_recommendations
+                )
+                return Response(msg, status=status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.exception(f"Got error in get_or_save_coach_recommendations: {e}")
+            return Response({"error": f"Got error in get_or_save_coach_recommendations: {e}"}, status=status.HTTP_400_BAD_REQUEST)

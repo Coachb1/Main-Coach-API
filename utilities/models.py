@@ -74,9 +74,18 @@ class UserActionInfo(TenantAwareModel):
     session_notes_count = models.IntegerField(null=True,blank=True,default=0)
     avatar_ids = models.TextField(null=True,blank=True,default=None)
     subject_matter_bot_ids = models.TextField(null=True,blank=True,default=None)
+    knowledge_bot_ids = models.TextField(null=True,blank=True,default=None)
+    deep_dive_bot_ids = models.TextField(null=True,blank=True,default=None)
+    feedback_bot_ids = models.TextField(null=True,blank=True,default=None)
+    avatar_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    subject_matter_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    knowledge_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    deep_dive_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+
 
     class Meta:
         db_table = "user_action_info"
+        unique_together = ('tenant_id', 'deleted','user_id')
 
 class BotEngagement(TenantAwareModel):
     bot_id = models.CharField(max_length=255)
@@ -145,6 +154,8 @@ class DirectoryPageInfo(models.Model):
     visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
     ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
     _previous_is_approved = models.BooleanField(null=True,default=False)
+    deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
+    deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
 
     
     class Meta:

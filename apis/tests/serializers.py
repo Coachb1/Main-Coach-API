@@ -121,6 +121,12 @@ class CreateTestSerializer(serializers.Serializer):
     page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     creator_email = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    is_assigned = serializers.BooleanField(
+        required=False, default=False)
+    assigned_to = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    assigned_by = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    web_page_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    sub_tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -197,7 +203,9 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "visual_tags",
                   "page_name",
                   "scenario_summary",
-                  "creator_email"
+                  "creator_email",
+                  "web_page_url",
+                  "sub_tab_category"
                   ]
 
     def get_questions(self, instance):

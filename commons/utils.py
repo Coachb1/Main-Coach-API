@@ -3,7 +3,7 @@ import logging
 from commons.timeit import timeit
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
-from commons.google_apis import text_bison_compeletion
+from commons.google_apis import text_bison_compeletion, gemini_completion
 import re
 from utilities.models import BotEngagement
 import string
@@ -27,17 +27,27 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
     """
     response_text = fallback_text
     if is_free:
-        response_text = anthropic_completion(prompt, tokens)
+        try:
+            response_text = anthropic_completion(prompt, tokens)
+            if len(response_text.strip()) == 0:
+                response_text = gemini_completion(prompt)
+        except Exception as e:
+            logger.exception(f"failed generic Completion: {e}")
+            response_text = fallback_text
 
     else:
-        bison_feedback = text_bison_compeletion(prompt)
-        if not bison_feedback:
+        bison_feedback = gemini_completion(prompt)
+        if not bison_feedback or len(bison_feedback.strip()) == 0:
             try:
                 response_text = anthropic_completion(prompt, tokens)
+                if len(response_text.strip()) == 0:
+                    raise ValueError("Got empty response")
             except Exception as e:
                 logger.exception(e)
                 try:
                     response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                    if len(response_text.strip()) == 0:
+                        raise ValueError("Got empty response")
                 except Exception as e:
                     response_text = fallback_text
         else:
@@ -115,3 +125,12 @@ def remove_punctuations(text):
     translator = str.maketrans('', '', string.punctuation)
     # Remove punctuations using translate method
     return text.translate(translator)
+
+
+def get_list_from_string(string:str,
+                         delimiter:str = ','
+                         )->list:
+    """
+    This function splits a string into a list based on a given delimiter.
+    """
+    return list(set([i for i in [value.strip() for value in string.strip().split(delimiter) if len(value.strip()) > 0]] if string else []))

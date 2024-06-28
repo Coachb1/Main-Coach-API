@@ -27,30 +27,30 @@ from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
-from users.helpers import upsert_user_attributes
+from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account, sync_user_low_high_skills
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
-from users.choices import BotTypeChoice
+from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
-from tests.helpers import scrape_article_data
+from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
 
 
 from identities.models import Identity
 from skills.models import SkillsRating
 from utilities.models import BotQnA, DirectoryPageInfo
-from users.db import get_user_by_id,get_user_display_name
+from users.db import get_user_by_id,get_user_display_name, get_user_attribute
 import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from email_sender.helpers import send_generic_email, send_email_with_html_template
 from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
-from coaching_conversations.helpers import signature_bot_default_prompt
+from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
 from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
-from commons.utils import extract_file_and_text
+from commons.utils import extract_file_and_text, get_list_from_string
                     
 from itertools import groupby
 from operator import attrgetter
@@ -60,8 +60,17 @@ from utilities.prompts import get_intake_summary_prompt
 from commons.anthropic import anthropic_completion
 from utilities.helpers import custom_sort_reverse
 from coaching_conversations.choices import BotScenarioCaseChoice
+from coaching_conversations.helpers import generate_title_and_objective_for_deep_dive
 import traceback
 from documents.utils import get_document_summary
+import random
+from coaching_conversations.helpers import update_or_create_client_id
+from apis.accounts.serializers import clientUserInfoSerializer
+from apis.accounts.utils import delete_user_resources
+from utilities.models import SessionNotesRecommendations
+from django.db import transaction
+from coaching_conversations.helpers import add_or_remove_emails_from_client
+from users.models import get_default_signature_bot_page_information
 
 logger = logging.getLogger(__name__)
 
@@ -248,15 +257,20 @@ class AccountsViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-user-type")
     def get_user_type(self,request,*args, **kwargs):
         """
-            Retrieves the role of a user based on their user ID.
+            Retrieves the role of a user based on their user ID if user Id given else it retrives a list of all roles in our system.
         """
         user_id = request.query_params.get('user_id')
 
-        user = User.objects.get(uid=user_id)
+        if user_id:
+            user = User.objects.get(uid=user_id)
 
-        user_role = user.role
+            user_role = user.role
 
-        return Response({"user_role":user_role}, status=status.HTTP_200_OK)
+            return Response({"user_role":user_role}, status=status.HTTP_200_OK)
+        else:
+            # get all userRole in system
+            user_roles = list(UserRoleChoice.values.keys())
+            return Response({"user_roles":user_roles}, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
     def get_mobile_number_res_list_whatsapp(self,request,*args, **kwargs):
@@ -366,10 +380,25 @@ class AccountsViewSet(ApiViewSet,
         data['is_system_bot'] = signature_bot.is_system_bot
         data['additional_data'] = signature_bot.data.get('additional_data',None)
         data['scenario_case'] = signature_bot.bot_scenario_case
+        data['bot_expires_at'] = signature_bot.bot_expires_at
+        data['access_code'] = signature_bot.access_code
+        data['tag'] = signature_bot.tag
+        data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
+        
+        client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
+
+        if client:
+            data["allowed_ips"] = client.allowed_ips
+
+        if signature_bot.bot_type == 'deep_dive':
+            data['deep_dive_data'] = signature_bot.data
+            data['deepdive_prompt'] = signature_bot.custom_prompt
+
         try:
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
             data['is_audio_response'] = bot_att.is_audio_response
             data['ui_information'] = bot_att.ui_information
+            data['extracted_data'] = bot_att.extracted_documents
 
             if bot_att.fitment_data:
                 data['fitment_qna'] = bot_att.fitment_data['mentee_que']
@@ -437,7 +466,7 @@ class AccountsViewSet(ApiViewSet,
 
                 for client in client_info:
                     client_and_emails_map.append({"group": client.client_name,
-                                                "emails": [email for email in client.member_emails.split(',')]
+                                                "emails": [email for email in client.member_emails.split(',')] if client.member_emails else []
                                                 })
                 
                 data['my_lib'] = client_and_emails_map
@@ -454,60 +483,13 @@ class AccountsViewSet(ApiViewSet,
                 user_info = []
 
                 for u in user:
-                    restricted = False
-                    demo_user = False
-                    
-                    restricted_emails = []
-                    if u.restricted_ids:
-                        restricted_emails = [e.strip() for e in u.restricted_ids.split(',')]
-                    demo_emails = []
-                    if u.demo_ids:
-                        demo_emails = [e.strip() for e in u.demo_ids.split(',')]
-
-                    
-                    if email in restricted_emails:
-                        restricted = True
-                    if email in demo_emails:
-                        demo_user = True
-
-                    if demo_user:
-                        user_account = Identity.objects.get(deleted=False,tenant_id=u.tenant_id,value=email)
-                        specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
-
-                        # Get today's date
-                        current_date = datetime.datetime.now()
-
-                        # Calculate the difference between today's date and the specific date
-                        time_difference = current_date - specific_date
-
-                        # Check if the difference is greater than or equal to 2 weeks
-                        if time_difference >= datetime.timedelta(weeks=2):
-                            restricted = True
-                            demo_user = False
-
-                        logger.info(f"time difference: {time_difference} ")
-
-                    user_info.append({
-                        "client_name": u.client_name,
-                        "avatar_bot_creation": u.avatar_bot_creation,
-                        "feedback_bot_creation": u.feedback_bot_creation,
-                        "subject_matter_bot_creation": u.subject_matter_bot_creation,
-                        "monthly_conversation_limit": u.number_of_conversation_per_month,
-                        "required_form_details": extract_fields(u.required_form_fields) if u.required_form_fields else None,
-                        "is_restricted": restricted,
-                        "is_demo_user": demo_user,
-                        "accessed_bot_ids": u.accessed_bot_ids,
-                        "coach_skills": u.coach_skills,
-                        "coach_expertise": u.coach_expertise,
-                        "departments": u.departments,
-                        "restricted_pages": u.restricted_pages,
-                        "restricted_features": u.restricted_features
-                    })
+                    client_user_data = get_client_user_info(u,email)
+                    user_info.append(client_user_data)
 
                 if len(user_info) == 0:
                     user_info.append({"msg": "user not found",
-                                      "is_restricted": True,
-                                      "is_demo_user": False},
+                                      "is_restricted": False,
+                                      "is_demo_user": True},
                                       )
 
                 data['user_info'] = user_info
@@ -704,6 +686,76 @@ class AccountsViewSet(ApiViewSet,
                 serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
+
+                for_reapproval = request.query_params.get('for_reapproval',None).lower().strip() == 'true' if request.query_params.get('for_reapproval',None) else False
+                
+
+                # sending for reapproval to directory page info
+                logger.info(f"sending for reapproval: {request.query_params.get('for_reapproval',None)}, {for_reapproval}")
+
+                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
+                if directory and for_reapproval:
+
+                    avata_bot_id = directory.avatar_bot_id
+                    bot = SignatureBot.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,bot_id=avata_bot_id).first()
+                    if bot:
+                        bot.is_approved = False
+                        bot.save()
+
+                    # to send reapproval msg
+                    # profile.is_approved_email_sent = False
+                    # profile.save()
+
+
+                    DirectoryPageInfo.objects.create(
+                        name = directory.name,
+                        profile_id = directory.profile_id,
+                        department = directory.department,
+                        bot_type = directory.bot_type,
+                        profile_pic_url = directory.profile_pic_url,
+                        profile_type = directory.profile_type,
+                        description = directory.description,
+                        experience = directory.experience,
+                        expertise = directory.expertise,
+                        status = directory.status,
+                        avatar_bot_id = directory.avatar_bot_id,
+                        feedback_wall = directory.feedback_wall,
+                        skills = directory.skills,
+                        is_visible = directory.is_visible,
+                        is_approved = False,
+                        avatar_snippit = directory.avatar_snippit,
+                        avatar_bot_url = directory.avatar_bot_url,
+                        custom_user_bot_url = directory.custom_user_bot_url,
+                        custom_user_bot_id = directory.custom_user_bot_id,
+                        deep_dive_bot_url = directory.deep_dive_bot_url,
+                        deep_dive_bot_id = directory.deep_dive_bot_id,
+                        timer_enabled = directory.timer_enabled,
+                        time_value_in_days = directory.time_value_in_days,
+                        timer_reset = directory.timer_reset,
+                        visual_tag = directory.visual_tag,
+                        ai_email = directory.ai_email
+                    )
+
+
+                    # directory.save()
+                    try:
+                        subject = "AI Frame Updation"
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI frame/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                            """
+
+                        send_email_with_html_template(subject=subject,html_content=html,to_email=profile.email,title=f'Hey {profile.name}!')
+                        html = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{profile.name} - {profile.email} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
+                            """
+                        send_email_with_html_template(subject=subject,html_content=html)
+
+                    except Exception as e:
+                        logger.error(f"Got error in sending email for reapproval : {e}")
+                        send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
+                        
+                    directory.delete()
+
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
@@ -723,7 +775,7 @@ class AccountsViewSet(ApiViewSet,
                 else:
                     data['is_approved'] = False
 
-                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'],profile_type=data['profile_type'])
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'])
                 if profile.count() > 0:
                     return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
                 
@@ -733,6 +785,14 @@ class AccountsViewSet(ApiViewSet,
                 serializer.is_valid(raise_exception=True)
                 logger.info(f"serializer data: {serializer.validated_data}")
                 created_profile = serializer.save()
+                
+                low_skill = serializer.validated_data.get("low_rating_characteristics")
+                high_skill = serializer.validated_data.get("high_rating_characteristics")
+                
+                # if None in [low_skill, high_skill]:
+                #     return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                
+                sync_user_low_high_skills(self.request.tenant.uid, data['user_id'], low_skill, high_skill)
                 
                 if (created_profile.profile_type) in ('coachee','mentee'):
                     created_profile.is_approved = True
@@ -777,11 +837,15 @@ class AccountsViewSet(ApiViewSet,
         user_id = request.query_params.get('user_id',None)
         bot_type = request.query_params.get('bot_type',None)
         client_name = request.query_params.get('client_name',None)
+        approved_only = request.query_params.get('approved_only',None)
+        approved_only = True if approved_only is not None and approved_only in ["true","True"] else False
         tenant_id = self.request.tenant.uid
 
-        logger.info(f"===============user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name}")
+        logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
         
-        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,is_approved=True)
+        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
+        if approved_only:
+            all_bots = all_bots.filter(is_approved=True)
         data = []
 
         if user_id:
@@ -790,6 +854,8 @@ class AccountsViewSet(ApiViewSet,
         if bot_type:
             all_bots = all_bots.filter(bot_type=bot_type)
         
+
+        deepdive_bot_access = None
         if client_name:
             user_ids = []
             bot_user_ids = list(all_bots.values_list('user_id',flat=True))
@@ -797,6 +863,9 @@ class AccountsViewSet(ApiViewSet,
                 user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=u_id).attributes.get('email',None)
                 client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
                 if client:
+                    # data.append({"allowed_ips": client.allowed_ips})
+                    if bot_type == BotTypeChoice.deep_dive:
+                        deepdive_bot_access = client.deepdive_accessed_emails.spllit(',') if client.deepdive_accessed_emails else []
                     if client.client_name == client_name:
                         user_ids.append(u_id)
 
@@ -807,13 +876,16 @@ class AccountsViewSet(ApiViewSet,
             serializer = SignatureBotSerializer(bot)
             bot_att = BotAttribute.objects.get(bot_id=bot.uid)
             botser = BotAttributeSerializer(bot_att)
-            data.append({"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
-                            "bot_attributes": botser.data})
+            all_bots_data = {"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
+                            "bot_attributes": botser.data}
+            if deepdive_bot_access:
+                all_bots_data['deepdive_access'] = deepdive_bot_access
+            data.append(all_bots_data)
         return Response({"data": data},status=status.HTTP_200_OK)
         
 
     #************* utility methods ***************
-    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False):
+    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False, deleted_data = {}):
         extracted_from_youtube = {}
         extracted_media_data = {}
 
@@ -842,10 +914,14 @@ class AccountsViewSet(ApiViewSet,
         logger.info(f"extratedz youtube: {extracted_from_youtube}")
         signature_bot.refresh_from_db()
         bot_media_data = signature_bot.data['media_data']
-        if overwrite:
+        if overwrite and extracted_from_youtube:
             bot_media_data['extracted_from_youtube'] = extracted_from_youtube
         else:
-            bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_from_youtube}
+            prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
+            # if "youtube_links" in deleted_data:
+            #     for link in deleted_data["youtube_links"].strip().split(","):
+            #         prev_extracted_from_youtube.pop(link.strip(),None)
+            bot_media_data['extracted_from_youtube'] = {**prev_extracted_from_youtube,**extracted_from_youtube}
 
         signature_bot.data['media_data'] = bot_media_data
         signature_bot.save(update_fields=["data"])
@@ -924,8 +1000,12 @@ class AccountsViewSet(ApiViewSet,
                     if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                         return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                     
-                    if (profile_id is None or profile_id == '' ) and bot_type != BotTypeChoice.feedback_bot and bot_type != BotTypeChoice.user_bot:
+                    if (profile_id is None or profile_id == '' ) and bot_type not in [BotTypeChoice.feedback_bot ,BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+                    context = data.get('context')
+                    if (context is None or context == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "context is required"},status=status.HTTP_400_BAD_REQUEST)
 
 
                     participant_id = data.get('participant_id')
@@ -937,6 +1017,9 @@ class AccountsViewSet(ApiViewSet,
                         return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
                     bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+                    if bot_type == BotTypeChoice.deep_dive:
+                        bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
                         return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
@@ -965,6 +1048,8 @@ class AccountsViewSet(ApiViewSet,
                     if not bot_base_url:
                         return Response({"error": "bot_base_url is required"},status=status.HTTP_400_BAD_REQUEST)
                     
+                    expiry_date = data.get('expiry_date',datetime.datetime.today() + datetime.timedelta(weeks=2))
+                    
                     bot_approved = data.get('is_approved',False)
                     bot_scenario_case = data.get('bot_scenario_case',None)
                     
@@ -982,6 +1067,13 @@ class AccountsViewSet(ApiViewSet,
                     
 
                     all_data = {}
+                    deep_dive_data = {}
+                    if bot_type == BotTypeChoice.deep_dive:
+                        additional_prompt_for_deepdive = data.get('additional_prompt_for_deep',None)
+                        deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
+                        all_data['bot_title'] = deep_dive_data['bot_title']
+                        all_data['bot_objective'] = deep_dive_data['bot_objective']
+                        deep_dive_data = all_data
 
                     all_data['coach_data'] = coach_data
 
@@ -997,7 +1089,7 @@ class AccountsViewSet(ApiViewSet,
                             media_data = {}
                         media_data = json.loads(media_data)
                         media_data['attatched_pdfs'] = request.data.getlist('attatched_pdfs')
-                        logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
+                        logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}, <<tag>>:{data.get('tag')}")
                     extracted_media_data = {}
 
                     logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
@@ -1008,123 +1100,14 @@ class AccountsViewSet(ApiViewSet,
                         tenant_id=self.request.tenant.uid,
                         user_id=participant_id,
                         bot_type=bot_type,
+                        tag=data.get('tag'),
                         data = {
                             "media_data": {
 
                             }
                         },
-                        is_approved=bot_approved
+                        is_approved= True if bot_type == BotTypeChoice.deep_dive else bot_approved 
                     )
-
-
-                    #******** process media data ********
-
-                    # if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
-                    #     logger.info(f"media_data: {media_data}")
-                    #     if 'youtube_links' in media_data:
-                    #         youtube_links = media_data['youtube_links']
-                    #         youtube_links = [link.strip() for link in youtube_links.split(',')]
-
-
-                    #         #* save these links in bot attributes
-                    #         """ extracted_from_youtube = {}
-                    #         for link in youtube_links:
-                                
-                    #             if link != '':
-                    #                 transcript_data = download_and_transcribe_audio(link)
-                    #                 extracted_from_youtube[link] = transcript_data
-                            
-                    #         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
-
-                    #         threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot)).start()
-
-
-                    #     if 'article_links' in media_data:
-                    #         article_links = media_data['article_links']
-                    #         article_links = [link.strip() for link in article_links.split(',')]
-
-                    #         logger.info(f"******************* article_links: {article_links}")
-                    #         #* save these links in bot attributes
-                    #         extracted_from_article = {}
-                    #         for link in article_links:
-                                
-                    #             if link != '':
-                    #                 transcript_data = scrape_article_data(link).get('article_content',None)
-                    #                 extracted_from_article[link] = transcript_data
-                            
-                    #         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
-                    #         extracted_media_data['extracted_from_article'] = extracted_from_article
-
-
-                    #     if 'pdf_data' in data:
-                    #         pdf_data = data.getlist('pdf_data')
-                    #         extracted_from_pdf = {}
-                    #         logger.info(f"******************* pdf_data: {doc_data}")
-
-                    #         if len(pdf_data) > 0:
-                    #             for index, pdf in enumerate(pdf_data):
-                    #                 extracted_from_pdf[index+1] = pdf
-                    #         logger.info(f"******************* pdf_data: {extracted_from_pdf}")
-                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                    #     if 'doc_data' in data:
-                    #         doc_data = data.getlist('doc_data')
-                    #         extracted_from_doc = {}
-
-
-                    #         logger.info(f"******************* doc_data: {doc_data}")
-                    #         if len(doc_data) > 0:
-                    #             for index, doc in enumerate(doc_data):
-                    #                 extracted_from_doc[index+1] = doc
-
-                    #         logger.info(f"******************* doc_data: {extracted_from_doc}")
-                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    #     if 'attached_docs' in media_data or 'attached_docs' in request.FILES:
-                    #         attached_docs = media_data['attached_docs'] if 'attached_docs' in media_data else request.FILES.getlist('attached_docs')
-                    #         doc_names = []
-                    #         extracted_from_doc = {}
-
-                    #         for file in attached_docs:
-                    #             # logger.info(f"file name : {file.name}, {file.read()}")
-                    #             doc_names.append(file.name)
-                    #             path = default_storage.save(file.name, ContentFile(file.read()))
-                    #             doc_content = extract_text_from_doc(path)
-                    #             default_storage.delete(path)
-                    #             extracted_from_doc[file.name] = doc_content
-
-                            
-                    #         logger.info(f"attached_docs: {extracted_from_doc}")
-
-                    #         extracted_media_data['extracted_from_doc'] = extracted_from_doc
-
-
-                    #     if 'attatched_pdfs' in media_data or 'attatched_pdfs' in request.FILES:
-                    #         attatched_pdfs = media_data['attatched_pdfs'] if 'attatched_pdfs' in media_data else request.FILES.getlist('attatched_pdfs')
-                    #         pdf_names = []
-                    #         extracted_from_pdf = {}
-
-                    #         for file in attatched_pdfs:
-                    #             # logger.info(f"file name : {file.name}, {file.read()}")
-                    #             pdf_names.append(file.name)
-                    #             path = default_storage.save(file.name, ContentFile(file.read()))
-                    #             pdf_content = extract_text_from_pdf(path)
-                    #             default_storage.delete(path)
-                    #             extracted_from_pdf[file.name] = pdf_content
-
-                    #         logger.info(f"attached_PDFS: {extracted_from_pdf}")
-
-                    #         extracted_media_data['extracted_from_pdf'] = extracted_from_pdf
-
-                    # if extracted_media_data:
-                    #     signature_bot_media_data = signature_bot.data['media_data']
-                    #     for key, value in extracted_media_data.items():
-                    #         signature_bot_media_data[key] = value
-                    #     all_data['media_data'] = signature_bot_media_data
-
-
-
 
                     bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
                                                         bot_id=signature_bot.uid,
@@ -1177,16 +1160,33 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append('bot_scenario_case')
 
                     if faqs:
-                        signature_bot.faqs = faqs
+                        try:
+                            new_faqs = json.loads(faqs)
+                        except:
+                            new_faqs = faqs
+                            
+                        signature_bot.faqs = new_faqs
                         updated_fields.append("faqs")
 
                     if bot_type == BotTypeChoice.avatar_bot:
-                        try:
-                            prompt = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,deleted=0).first().custom_prompt
-                        except Exception as e:
-                            prompt = signature_bot_default_prompt()
+                        signature_bot.custom_prompt = signature_bot_default_prompt()
+                        updated_fields.append("custom_prompt")
+
+                    if bot_type == BotTypeChoice.deep_dive:
+                        prompt = signature_bot_default_prompt(bot_type)
                         signature_bot.custom_prompt = prompt
                         updated_fields.append("custom_prompt")
+                        
+                        
+                    if bot_type == BotTypeChoice.feedback_bot:
+                        low_skill = data.get("low_rating_characteristics")
+                        high_skill = data.get("high_rating_characteristics")
+                        
+                        if None in [low_skill, high_skill]:
+                            return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                        
+                        sync_user_low_high_skills(self.request.tenant.uid, participant_id, low_skill, high_skill)
+                        
 
                     if all_data:
                         bot_data = {**signature_bot.data,**all_data}
@@ -1196,6 +1196,18 @@ class AccountsViewSet(ApiViewSet,
                     if bot_type == BotTypeChoice.feedback_bot:
                         signature_bot.is_approved = True
                         updated_fields.append('is_approved')
+
+                    if bot_type == BotTypeChoice.deep_dive:
+                        signature_bot.bot_expires_at = expiry_date
+                        updated_fields.append('bot_expires_at')
+
+                        access_code = get_unique_deep_dive_access_code(tenant=self.request.tenant)
+                        signature_bot.access_code = access_code
+                        updated_fields.append('access_code')
+                        deep_dive_data['bot_expires_at'] = expiry_date
+                        deep_dive_data['access_code'] = access_code
+                        
+                    
 
                     if updated_fields:
                         signature_bot.save(update_fields=updated_fields)
@@ -1219,7 +1231,7 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.about = additional_data.get("profile_description",None)
                         updated_fields.append('about')
 
-                    if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot]:
+                    if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         bot_att.initial_qnas = initial_qna
                         updated_fields.append("initial_qnas")
 
@@ -1240,6 +1252,8 @@ class AccountsViewSet(ApiViewSet,
                             bot_url = f"{bot_base_url}/subject-expert/{bot_id}"
                         elif bot_type == BotTypeChoice.user_bot:
                             bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
+                        elif bot_type == BotTypeChoice.deep_dive:
+                            bot_url = f"{bot_base_url}/deep-dive/{bot_id}"
 
                         bot_snippet = f"""
                                     <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
@@ -1270,14 +1284,21 @@ class AccountsViewSet(ApiViewSet,
                                 directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
 
                                 try:
-                                    subject = "AI Frame"
+                                    subject = "Your Coachbots AI Frame is in the Pipeline"
                                     html = f"""
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your AI frame. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                            <div style="margin: 15px;">
+                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation once it's live and ready for use.</p>
+                                                <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                                <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
+                                                <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+                                            </div>
+                                        </p>
                                         """
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
                                     html = f"""
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{coach_profile.name} created a bot/profile. Please check it out and approve it from Django Admin Panel.</p>
+                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{coach_profile.name} - {coach_profile.email} created a bot/profile. Please check it out and approve it from Django Admin Panel.</p>
                                         """
                                     send_email_with_html_template(subject=subject,html_content=html)
                             
@@ -1295,39 +1316,60 @@ class AccountsViewSet(ApiViewSet,
                                 directory.feedback_wall = bot_url
                                 directory.save(update_fields=['feedback_wall'])
 
-                        if bot_type == BotTypeChoice.user_bot:
-                            DirectoryPageInfo.objects.create(
-                            name=coach_profile.name if coach_profile else user.name,
+                        if bot_type in [BotTypeChoice.user_bot] :
+                            new_dir = DirectoryPageInfo.objects.create(
+                            name=bot_name,
                             department=coach_profile.department if coach_profile else "",
-                            profile_id=coach_profile.uid if coach_profile else user.uid, # in case of user_bot if there is not profile_id then storing user id instead of profile id
+                            profile_id= user.uid, # in case of user_bot or deep_dive storing user id instead of profile id
                             profile_pic_url=coach_profile.profile_image_url if coach_profile else "https://res.cloudinary.com/dtbl4jg02/image/upload/v1710139318/mdzmknenvvv4llgevykz.png",
-                            profile_type=coach_profile.profile_type if coach_profile else ProfileTypeChoice.knowledge_bot,
+                            profile_type= ProfileTypeChoice.knowledge_bot,
                             description=coach_profile.about if coach_profile else "No Description",
                             experience=coach_profile.experience if coach_profile else "",
                             expertise=coach_profile.area_domain if coach_profile else "",
                             status=StatusChoice.available,
                             skills=coach_profile.high_rating_characteristics if coach_profile else "",
                             is_visible= False,
-                            is_approved = False,
-                            custom_user_bot_url = bot_url,
-                            custom_user_bot_id = bot_id,
                             ai_email = generate_email(coach_profile.name,coach_profile.id) if coach_profile else None
                             )
-                            # if directory:
-                            #     if directory.custom_user_bot_url:
-                            #         directory.custom_user_bot_url += f",{bot_url}"
-                            #     else:
-                            #         directory.custom_user_bot_url = bot_url
-                            #     directory.save(update_fields=['custom_user_bot_url'])
+                            
+                            if bot_type == BotTypeChoice.user_bot:
+                                new_dir.custom_user_bot_url = bot_url
+                                new_dir.custom_user_bot_id = bot_id
+                                new_dir.is_approved = False
 
+                            # elif bot_type == BotTypeChoice.deep_dive:
+                            #     new_dir.deep_dive_bot_url = bot_url
+                            #     new_dir.deep_dive_bot_id = bot_id
+                            #     new_dir.is_approved = True
+
+
+                            new_dir.save()
+
+                            try:
+                                subject = "Knowledge Bots"
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for creating your knowledge bot- <b>{bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    """
+
+                                send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey!')
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} - {email} created a knowledge bot - {bot_name}. Please check it out and approve it from Django Admin Panel.</p>
+                                    """
+                                send_email_with_html_template(subject=subject,html_content=html)
                         
+                            except Exception as e:
+                                logger.exception(f"Knowledge bot creation email is failed reason: {e}")
+                                error_msg = f"Knowledge bot creation email is failed reason: {e}\n\n"
+                                error_msg += traceback.format_exc()
+                                send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
+
                     except Exception as e:
                         logger.exception(f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile")
                         error_msg = f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}\n\n"
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                     
-                    return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid },status=status.HTTP_200_OK)
+                    return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
                     logger.exception("Got error while creating bot: {e}")
@@ -1344,53 +1386,181 @@ class AccountsViewSet(ApiViewSet,
 
                     return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
             
+            
+            
+            
+            
+            
             elif request.method == "PATCH":
                 bot_id = data.get("bot_id",None)
                 profile_id = data.get("profile_id",None)
                 for_reapproval = data.get('for_reapproval',None).lower().strip() == 'true' if data.get('for_reapproval',None) else False
+                deleted_data = data.get('deleted_data',None)
+                deleted_data = json.loads(deleted_data) if deleted_data is not None else deleted_data
                 
-
-                # sending for reapproval to directory page info
-
-                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
-                if directory and for_reapproval:
-                    DirectoryPageInfo.objects.create(
-                        name = directory.name,
-                        profile_id = directory.profile_id,
-                        department = directory.department,
-                        bot_type = directory.bot_type,
-                        profile_pic_url = directory.profile_pic_url,
-                        profile_type = directory.profile_type,
-                        description = directory.description,
-                        experience = directory.experience,
-                        expertise = directory.expertise,
-                        status = directory.status,
-                        avatar_bot_id = directory.avatar_bot_id,
-                        feedback_wall = directory.feedback_wall,
-                        skills = directory.skills,
-                        is_visible = directory.is_visible,
-                        is_approved = False,
-                        avatar_snippit = directory.avatar_snippit,
-                        avatar_bot_url = directory.avatar_bot_url,
-                        custom_user_bot_url = directory.custom_user_bot_url,
-                        custom_user_bot_id = directory.custom_user_bot_id,
-                        timer_enabled = directory.timer_enabled,
-                        time_value_in_days = directory.time_value_in_days,
-                        timer_reset = directory.timer_reset,
-                        visual_tag = directory.visual_tag,
-                        ai_email = directory.ai_email
-                    )
-
-                    directory.delete()
-                    directory.save()
-
+                logger.info(f"{'$'*100} deleted_data : {deleted_data}")
+                
                 try:
                     signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=bot_id)
                     bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 except SignatureBot.DoesNotExist:
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
                 
+                
+                # delete files data specified in deleted_data
+                
+                
+                if deleted_data is not None:
+                    bot_media_data = signature_bot.data['media_data']
+                    #**** delete articles data ***
+                    if  "article_links" in deleted_data:
+                        prev_extracted_from_article = bot_media_data.get('extracted_from_article',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
+                        
+                        for link in deleted_data["article_links"].split(","):
+                            prev_extracted_from_article.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
+                        bot_media_data['extracted_from_article'] = prev_extracted_from_article
+                        
+                    
+                    #*** delete pdf's data ***
+
+                    if "pdf_files" in deleted_data:
+                        prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
+                        
+                        for link in deleted_data["pdf_files"].split(","):
+                            prev_extracted_from_pdf.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
+
+                        bot_media_data['extracted_from_pdf'] = prev_extracted_from_pdf
+                        
+                        
+                    #*** delete docs data ***
+                    
+                    if "doc_files" in deleted_data:
+                        prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_doc before: {prev_extracted_from_doc}")
+                        
+                        for link in deleted_data["doc_files"].split(","):
+                            prev_extracted_from_doc.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_doc after: {prev_extracted_from_doc}")
+                        bot_media_data['extracted_from_doc'] = prev_extracted_from_doc
+                    
+                    
+                    #*** delete youtube links ***
+                    
+                    if "youtube_links" in deleted_data:
+                        prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_youtube before: {prev_extracted_from_youtube}")
+                        
+                        for link in deleted_data["youtube_links"].split(","):
+                            prev_extracted_from_youtube.pop(link,None)
+                            
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_youtube after: {prev_extracted_from_youtube}")
+                        bot_media_data['extracted_from_youtube'] = prev_extracted_from_youtube
+
+                        
+                    signature_bot.data['media_data'] = bot_media_data
+                    signature_bot.save(update_fields=["data"])
+
+                    #*** delete optional file data ***
+                     
+                    if "optional_files" in deleted_data:
+                        extracted_optional_file_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+
+                        logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> extracted_optional_file_data before: {extracted_optional_file_data}")
+                        if extracted_optional_file_data.get('extracted_from_optional_file'):
+                            deleted_optional_files = deleted_data["optional_files"].split(",")
+                            optional_file_extracted = extracted_optional_file_data['extracted_from_optional_file']
+                            for file_name in deleted_optional_files:
+                                optional_file_extracted.pop(file_name,None)
+                            extracted_optional_file_data['extracted_from_optional_file'] = optional_file_extracted
+                            logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> extracted_optional_file_data after: {extracted_optional_file_data}")
+                            bot_att.extracted_documents = extracted_optional_file_data
+                            bot_att.save(update_fields=["extracted_documents"])
+
+
+
+                user = get_user_by_id(signature_bot.user_id)
+                user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
+
+
+                # sending for reapproval to directory page info
+                if signature_bot.bot_type == BotTypeChoice.user_bot:
+
+                    # for user bot or knwoledge bot we are storing user_id instead of profile_id so can multiple row or bots in same user_id
+                    directory = DirectoryPageInfo.objects.filter(profile_id=signature_bot.user_id,custom_user_bot_id=signature_bot.bot_id).first() 
+                    if directory and for_reapproval:
+                            signature_bot.is_approval_email_sent = False
+                            signature_bot.is_approved = False
+                            signature_bot.save()
+
+                            
+                            DirectoryPageInfo.objects.create(
+                                name = directory.name,
+                                profile_id = directory.profile_id,
+                                department = directory.department,
+                                bot_type = directory.bot_type,
+                                profile_pic_url = directory.profile_pic_url,
+                                profile_type = directory.profile_type,
+                                description = directory.description,
+                                experience = directory.experience,
+                                expertise = directory.expertise,
+                                status = directory.status,
+                                avatar_bot_id = directory.avatar_bot_id,
+                                feedback_wall = directory.feedback_wall,
+                                skills = directory.skills,
+                                is_visible = directory.is_visible,
+                                is_approved = False,
+                                avatar_snippit = directory.avatar_snippit,
+                                avatar_bot_url = directory.avatar_bot_url,
+                                custom_user_bot_url = directory.custom_user_bot_url,
+                                custom_user_bot_id = directory.custom_user_bot_id,
+                                deep_dive_bot_url = directory.deep_dive_bot_url,
+                                deep_dive_bot_id = directory.deep_dive_bot_id,
+                                timer_enabled = directory.timer_enabled,
+                                time_value_in_days = directory.time_value_in_days,
+                                timer_reset = directory.timer_reset,
+                                visual_tag = directory.visual_tag,
+                                ai_email = directory.ai_email
+                            )
+
+
+                            # directory.save()
+                            try:
+                                subject = "Knowledge Bots"
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your knowledge bot- <b>{bot_att.bot_name}</b>. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                                    """
+
+                                send_email_with_html_template(subject=subject,html_content=html,to_email=user_att.attributes.get('email'),title=f'Hey!')
+                                html = f"""
+                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user.name} - {user_att.attributes.get('email',"")} updated a knowledge bot - <b>{bot_att.bot_name}</b>. Please check it out and approve it from Django Admin Panel.</p>
+                                    """
+                                send_email_with_html_template(subject=subject,html_content=html)
+
+                            except Exception as e:
+                                logger.error(f"Got error in sending email for reapproval : {e}")
+                                send_error_notification("create_bot_by_details",f"Got error in sending email for reapproval : {e}",{"data":data})
+                                
+                            directory.delete()
+
+
+
+                                
                 updated_data = data.get("updated_data",None)
+
+                if signature_bot.bot_type == BotTypeChoice.user_bot:
+                    knowledge_bot_faqs =  data.get('faqs',None)
+                    if knowledge_bot_faqs:
+                        signature_bot.faqs = json.loads(knowledge_bot_faqs) if type(knowledge_bot_faqs) == str else knowledge_bot_faqs
+                        signature_bot.save(update_fields=['faqs'])
+                    
+
 
                 if updated_data:
                     
@@ -1454,7 +1624,7 @@ class AccountsViewSet(ApiViewSet,
                     logger.info(f"*************** attached_pdfs files in request: {media_data['attatched_pdfs']}")
                 extracted_media_data = {}
 
-                logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
+                logger.info(f"*************** Data in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
                 if media_data and signature_bot.bot_type != BotTypeChoice.feedback_bot:
                     media_data = json.loads(media_data) if isinstance(media_data, str) else media_data
@@ -1475,7 +1645,7 @@ class AccountsViewSet(ApiViewSet,
                         
                         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
                     
-                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite)).start()
+                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite, deleted_data)).start()
 
 
                     if 'article_links' in media_data:
@@ -1498,10 +1668,17 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* extracted_from_article: {extracted_from_article}")
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_article:
                             bot_media_data['extracted_from_article'] = extracted_from_article
                         else:
-                            bot_media_data['extracted_from_article'] = {**bot_media_data.get('extracted_from_article',{}),**extracted_from_article}
+                            prev_extracted_from_article = bot_media_data.get('extracted_from_article',{})
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article before: {prev_extracted_from_article}")
+                            # if  "article_links" in deleted_data:
+                            #     for link in deleted_data["article_links"].strip().split(","):
+                            #         prev_extracted_from_article.pop(link.strip(),None)
+                                    
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_article after: {prev_extracted_from_article}")
+                            bot_media_data['extracted_from_article'] = {**prev_extracted_from_article,**extracted_from_article}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1531,10 +1708,19 @@ class AccountsViewSet(ApiViewSet,
                         
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
-                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                            prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf before: {prev_extracted_from_pdf}")
+
+                            # if "pdf_files" in deleted_data:
+                            #     for link in deleted_data["pdf_files"].strip().split(","):
+                            #         prev_extracted_from_pdf.pop(link.strip(),None)
+                                    
+                            # logger.info(f"<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>> prev_extracted_from_pdf after: {prev_extracted_from_pdf}")
+
+                            bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1542,6 +1728,38 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.refresh_from_db()
                         bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
                         bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_pdf}
+                        bot_att.extracted_documents = bot_media_data
+                        bot_att.save(update_fields=["extracted_documents"])
+
+                    if 'optional_file' in data:
+                        optional_file = data.getlist('optional_file')
+                        extracted_from_optional_file = {}
+                        extracted_optional_file = {}
+                        logger.info(f"******************* optional_file: {optional_file}")
+
+                        if len(optional_file) > 0:
+                            for index, optional_file in enumerate(optional_file):
+                                file_name, text = extract_file_and_text(optional_file)
+                                # if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                extracted_optional_file[file_name] = text
+                                #     text = get_document_summary(text)
+                                extracted_from_optional_file[file_name] = text
+                        logger.info(f"******************* optional_file: {extracted_from_optional_file}")
+                        
+                        # signature_bot.refresh_from_db()
+                        # bot_media_data = signature_bot.data['media_data']
+                        # if is_overwrite and extracted_from_optional_file:
+                        #     bot_media_data['extracted_from_optional_file'] = extracted_from_optional_file
+                        # else:
+                        #     prev_extracted_from_optional_file = bot_media_data.get('extracted_from_optional_file',{})
+                        #     bot_media_data['extracted_from_optional_file'] = {**prev_extracted_from_optional_file,**extracted_from_optional_file}
+                        
+                        # signature_bot.data['media_data'] = bot_media_data
+                        # signature_bot.save(update_fields=["data"])
+
+                        bot_att.refresh_from_db()
+                        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
+                        bot_media_data['extracted_from_optional_file'] = {**bot_media_data.get('extracted_from_optional_file',{}),**extracted_optional_file}
                         bot_att.extracted_documents = bot_media_data
                         bot_att.save(update_fields=["extracted_documents"])
 
@@ -1564,10 +1782,14 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"******************* doc_data: {extracted_from_doc}")
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
-                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                            prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                            if "doc_files" in deleted_data:
+                                for link in deleted_data["doc_files"].strip().split(","):
+                                    prev_extracted_from_doc.pop(link.strip(),None)
+                            bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1598,10 +1820,14 @@ class AccountsViewSet(ApiViewSet,
 
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_doc:
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
-                            bot_media_data['extracted_from_doc'] = {**bot_media_data.get('extracted_from_doc',{}),**extracted_from_doc}
+                            prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
+                            # if "doc_files" in deleted_data:
+                            #     for link in deleted_data["doc_files"].strip().split(","):
+                            #         prev_extracted_from_doc.pop(link.strip(),None)
+                            bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1638,10 +1864,14 @@ class AccountsViewSet(ApiViewSet,
                     
                         signature_bot.refresh_from_db()
                         bot_media_data = signature_bot.data['media_data']
-                        if is_overwrite:
+                        if is_overwrite and extracted_from_pdf:
                             bot_media_data['extracted_from_pdf'] = extracted_from_pdf
                         else:
-                            bot_media_data['extracted_from_pdf'] = {**bot_media_data.get('extracted_from_pdf',{}),**extracted_from_pdf}
+                            prev_extracted_from_pdf = bot_media_data.get('extracted_from_pdf',{})
+                            # if "pdf_files" in deleted_data:
+                            #     for link in deleted_data["pdf_files"].strip().split(","):
+                            #         prev_extracted_from_pdf.pop(link.strip(),None)
+                            bot_media_data['extracted_from_pdf'] = {**prev_extracted_from_pdf,**extracted_from_pdf}
                         
                         signature_bot.data['media_data'] = bot_media_data
                         signature_bot.save(update_fields=["data"])
@@ -1826,7 +2056,7 @@ class AccountsViewSet(ApiViewSet,
             logger.info(f"Retrieving directory information for email: {email}")
             if email:
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -1905,7 +2135,7 @@ class AccountsViewSet(ApiViewSet,
             if request.method == "GET":
                 email = request.query_params.get('email')
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 by_category = request.query_params.get('by_category')
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
@@ -1914,12 +2144,19 @@ class AccountsViewSet(ApiViewSet,
                 data = []
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
+                    avatar_bot_count = len(get_list_from_string(user_action.avatar_ids))
+                    subject_matter_count = len(get_list_from_string(user_action.subject_matter_bot_ids))
+                    knowledge_bot_count = len(get_list_from_string(user_action.knowledge_bot_ids))
+                    deep_dive_bot_count = len(get_list_from_string(user_action.deep_dive_bot_ids))
+                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count
                     temp = {
                         "name": get_user_display_name(user),
                         "user_id": user.uid,
-                        "avatar_bot_count": user_action.avatar_bot_count,
-                        "subject_matter_count": user_action.subject_matter_bot_count,
-                        "total_bots": user_action.avatar_bot_count + user_action.subject_matter_bot_count,
+                        "avatar_bot_count": avatar_bot_count,
+                        "subject_matter_count": subject_matter_count,
+                        "knowledge_bot_count": knowledge_bot_count,
+                        "deep_dive_bot_count": deep_dive_bot_count,
+                        "total_bots": total_bots,
                         "total_simulations": user_action.interaction_attempted,
                         "total_bot_interactions": user_action.chat_attempted,
                         "session_notes_count": user_action.session_notes_count,
@@ -2064,7 +2301,7 @@ class AccountsViewSet(ApiViewSet,
             # sending only that client members data
             email = request.query_params.get('email')
             client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-            emails = client.member_emails.split(',')
+            emails = client.member_emails.split(',') if client.member_emails else []
             emails = [email.strip() for email in emails]
             user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
             user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -2184,7 +2421,7 @@ class AccountsViewSet(ApiViewSet,
                 coachee_email = coachee.email
                 subject = "You have a connection request"
                 html = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
@@ -2251,7 +2488,7 @@ class AccountsViewSet(ApiViewSet,
             if request.method == "GET":
                 email = request.query_params.get('email')
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-                emails = client.member_emails.split(',')
+                emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -2579,7 +2816,7 @@ class AccountsViewSet(ApiViewSet,
                     user_name = get_user_display_name(get_user_by_id(user_id))
                     subject = "Profile Notification"
                     html_content = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} liked your profile!</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} - {user_email} liked your profile!</p>
                             """
                     for email in ['coachbots@googlegroups.com', user_email]:
                         try:
@@ -2688,16 +2925,19 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": "Unauthorized"},status=status.HTTP_401_UNAUTHORIZED)
         
         user_uid = request.data.get('user_uid',None)
+        is_delete_user = request.data.get('is_delete_user',False)
+        is_delete_user = True if is_delete_user in ['true','True',True] else False
+        tenant_id = self.request.tenant.uid
         # coach_user_uid = request.data.get('coach_user_uid',None)
         
+        logger.info(f"###################################USER_UID : {user_uid}, is_delete_user: {is_delete_user}")
         def delete_user(user_uid):
-            logger.info(f"###################################USER_UID : {user_uid}")
             user = User.objects.get(uid=user_uid)
             user.delete()
             
             # delete user attributes
             
-            user_attributes = UserAttribute.objects.filter(deleted=False,user_id=user_uid)
+            user_attributes = UserAttribute.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for user_attribute in user_attributes:
                 user_attribute.delete()
                 
@@ -2711,41 +2951,619 @@ class AccountsViewSet(ApiViewSet,
             
             
         def delete_user_related_resources(user_uid):
-            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_uid)
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for profile in profiles:
                 
                 # delete connections if user has coachee profile
-                connections = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=profile.uid)
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
                 for connection in connections:
                     connection.delete()
                     
                 # delete connections if user has coach profile
-                connections = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=profile.uid)
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
                 for connection in connections:
                     connection.delete()
+
+                # delete directorypage for this profile
+                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+                for dir_info in dir_infos:
+                    dir_info.delete()
                     
                 profile.delete()
             
             # delete bots if user has any
-            bots = SignatureBot.objects.filter(deleted=False,user_id=user_uid)
+            bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
             for bot in bots:
+                print(bot.bot_type)
                 # delete bot related resources
-                bot_attributes = BotAttribute.objects.filter(deleted=False,bot_id=bot.bot_id)
+                bot_attributes = BotAttribute.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
                 for bot_attribute in bot_attributes:
                     bot_attribute.delete()
                     
-                bot_qnas = BotQnA.objects.filter(deleted=False,bot_id=bot.bot_id)
+                bot_qnas = BotQnA.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
                 for bot_qna in bot_qnas:
                     bot_qna.delete()
                     
                 
                 bot.delete()
-                
+
+            with transaction.atomic():
+                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
+                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
+                Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
+                Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
+
+
+
+            try:
+                identity = Identity.objects.get(user_id=user_uid)
+                user_email = identity.value
+                clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
+                for client in clients:
+                    add_or_remove_emails_from_client(client,'member_emails',user_email,True)
+                    add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
+            except Exception as e:
+                logger.exception(f"failed to delete client for the user {user_uid}: {e}")
+
+            #deleting test created by user_uid
+
+
         
         try:
-            # delete_user(user_uid)
             delete_user_related_resources(user_uid)
+            if is_delete_user:
+                delete_user(user_uid)
             return Response({"message":"deleted"},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(e)
             return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['GET','POST'], detail=False, url_path='client_id_user_modification')
+    def client_id_user_modification(self, request, *args, **kwargs):
+        """
+        Handles client ID modifications for users within a tenant, supporting both retrieval and update operations.
+
+        This method can perform two main functions based on the HTTP method used:
+        - GET: Retrieves a list of all clients or specific client user data within the tenant.
+        - POST: Updates a user's client ID or enables/disables a user within a client.
+
+        For a GET request:
+        - If 'all_clients' query parameter is provided and set to any value, it returns a list of all clients within the tenant.
+        - Otherwise, it returns specific client user data.
+
+        For a POST request:
+        - If 'new_client_id' is provided, it updates the user's client ID from 'old_client_id' to 'new_client_id'.
+        - If 'is_disable' is provided, it either disables or enables a user based on its boolean value ('true' to disable).
+
+        Parameters:
+            request (HttpRequest): The request object containing data for processing.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Response: Depending on the operation being performed:
+            - For GET with 'all_clients', returns a list of dictionaries with client names and IDs.
+            - For GET without 'all_clients', returns specific client user data.
+            - For POST, returns a success message indicating the update status.
+
+        Raises:
+            HTTP 400 Bad Request: If required parameters are missing or incorrect.
+            HTTP 401 Unauthorized: If the user does not have permission to modify client data.
+
+        Examples:
+            GET /client_id_user_modification?all_clients=true
+            Response: [{"client_name": "Client A", "client_id": "1"}, {"client_name": "Client B", "client_id": "2"}]
+
+            POST /client_id_user_modification
+            Request Body: {"old_client_id": "1", "new_client_id": "2", "user_email": "user@example.com"}
+            Response: {"msg": "updated"}
+        """
+        tenant = request.tenant
+        if request.method == 'GET':
+            if request.query_params.get('all_clients',None):
+                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                client_data = []
+                for client in clients:
+                    client_data.append(
+                        {
+                            "client_name": client.client_name,
+                            "client_id": client.uid
+                        }
+                    )
+
+                return Response(client_data,status=status.HTTP_200_OK)
+            
+            client_user_data = get_client_user_data(tenant=tenant,client_name=request.query_params.get('client_name',None))
+            return Response(client_user_data,status=status.HTTP_200_OK)
+        
+        elif request.method == 'POST':
+            # change user's client id
+
+            old_client_id = request.data.get('old_client_id',None)
+            new_client_id = request.data.get('new_client_id',None)
+            user_email = request.data.get('user_email',None)
+
+            # to disable member
+            is_disable = request.data.get('is_disable',None)
+
+            try:
+                if new_client_id:
+                    update_member_client_id(
+                        tenant_id=tenant.uid,
+                        old_client_id=old_client_id,
+                        new_client_id=new_client_id,
+                        user_email=user_email
+                    )
+                    try:
+                        user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
+                        delete_user_resources(user_identity.user_id)
+                        logger.info("============== User Resources Deleted ===============")
+                    except Exception as e:
+                        logger.exception(f"==============Failed to delete user resources: {e}")
+                elif is_disable is not None:
+                    # is_disable = str(is_disable) == 'true'
+                    disable_or_enable_client(email=user_email,is_disable=is_disable,tenant=tenant)
+
+            except Exception as e:
+                logger.exception(f" Failed to update client : {e}")
+                send_error_notification("update_client_id",f" Failed to update client : {e}",data=request.data)
+                return Response({'msg':f"Failed to update client : {e}"},status=status.HTTP_400_BAD_REQUEST) 
+            
+
+            return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
+
+    @action(methods=['POST'], detail=False, url_path='create-or-assign-client-id')
+    def create_or_assign_client(self, request, *args, **kwargs):
+
+        if request.method == 'POST':
+            tenant = request.tenant
+            email = request.data.get('email',None)
+            create_client = request.data.get('create_client_if_not_exists',None)
+
+            if not email:
+                return Response({'msg':f"Please ensure that the email is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+
+            
+            create_client = str(create_client).lower() == 'true' if create_client else False
+            client_name = create_or_assign_client_id(email,tenant,create_client)
+            
+            return Response({'msg': f'assigned {email} to {client_name}'}, status=status.HTTP_200_OK)
+
+
+    @action(methods=['POST','GET','PATCH'], detail=False, url_path='get-create-or-update-client-id')
+    def create_client_id(self, request, *args, **kwargs):
+        try:
+            tenant = request.tenant
+            if request.method == 'POST':
+                client_data = request.data
+                existing_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_data.get('client_name',None))
+                # checking if with same name client already exists
+                if existing_client.count() > 0 :
+                    return Response({'msg':f"Client with name {client_data.get('client_name',None)} already exists."},status=status.HTTP_400_BAD_REQUEST)
+                
+                client = update_or_create_client_id(
+                    tenant_id=tenant.uid,
+                    client_data=client_data
+                )
+                return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+            
+            elif request.method == 'GET':
+                client_id = request.query_params.get('client_id',None)
+                client_name = request.query_params.get('client_name',None)
+                client = None
+                if client_id:
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
+                elif client_name:
+                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
+
+                if client:
+                    return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                else:
+
+                    all_clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                    return Response({'all_clients': clientUserInfoSerializer(all_clients,many=True).data}, status=status.HTTP_200_OK)
+
+            
+            elif request.method == 'PATCH':
+                client_id = request.data.get('client_id',None)
+                if not client_id:
+                    return Response({'msg':f"Please ensure that the client_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                
+                client = update_or_create_client_id(
+                    tenant_id=tenant.uid,
+                    client_data=request.data,
+                    is_update=True
+                )
+
+                return Response({'updated': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error creating client: {e}")
+            return Response({'msg':f"Error create-client-id: {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['PATCH'], detail=False, url_path='update-user-account')
+    def update_user_account(self, request, *args, **kwargs):
+        try:
+            tenant = self.request.tenant
+            if request.method == 'PATCH':
+                user_id = request.data.get('user_id',None)
+                if not user_id:
+                    return Response({'msg':f"Please ensure that the user_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                
+                user = update_user_account(
+                    tenant_id=tenant.uid,
+                    user_id=user_id,
+                    user_data=request.data,
+                )
+                return Response({'updated': AccountSerializer(user).data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error update_user_account: {e}")
+            return Response({'msg':f"Error update_user_account: {e}"},status=status.HTTP_400_BAD_REQUEST)
+        
+    
+    @action(methods=['GET','POST'], detail=False, url_path='get_low_high_skills')
+    def get_low_high_skills(self, request, *args, **kwargs):
+        # return Response("ok")
+        try:
+            user_id = request.query_params.get('user_id')
+            logger.info(f"<<<<<<<<<<< sync_low_high_skills => user_id : {user_id} >>>>>>>>>>>>>>>>>")
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).last()
+            
+            if profile:
+                return Response({
+                'high_skill': profile.high_rating_characteristics or "",
+                'low_skill': profile.low_rating_characteristics or ""
+                })
+                
+            feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=user_id,bot_type=BotTypeChoice.feedback_bot).first()
+            if feedback_bot:
+                skills_data = {"high_skill":"","low_skill":""}
+                
+                bot_attributes = feedback_bot.attributes
+                if 'low_high_skills' in bot_attributes:
+                    skills_data = bot_attributes['low_high_skills']
+                return Response(skills_data)
+            
+            return Response({"high_skill":"","low_skill":""})
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=['GET','PATCH'], detail=False, url_path='profile_approvals')
+    def profile_approvals(self, request, *args, **kwargs):
+
+        try:
+            if request.method == 'GET':
+                return Response(DirectoryInfoSErializer(DirectoryPageInfo.objects.filter().order_by('-id'),many=True).data, status=status.HTTP_200_OK)
+            
+            elif request.method == 'PATCH':
+                data = request.data
+                if not data.get('id'):
+                    return Response(f"Please provide a id for this request", status=status.HTTP_400_BAD_REQUEST)
+                
+                directory_page_info = DirectoryPageInfo.objects.filter(id=data.get('id',None)).first()
+
+                if directory_page_info:
+                    if data.get('approved',None) is not None:
+                        directory_page_info.is_approved = data.get('approved',None)
+                    if data.get('visible',None) is not None:
+                        directory_page_info.is_visible = data.get('visible',None)
+                    directory_page_info.save()
+
+                    if data.get('is_delete',None) is not None:
+                        if data.get('is_delete'):
+                            directory_page_info.delete()
+                            return Response({'deleted': DirectoryInfoSErializer(directory_page_info).data}, status=status.HTTP_200_OK)
+
+                    return Response({'updated': DirectoryInfoSErializer(directory_page_info).data}, status=status.HTTP_200_OK)
+                
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+    @action(methods=['GET'], detail=False, url_path='get-user-details')
+    def get_user_details(self, request, *args, **kwargs):
+        try:
+            from_date = request.query_params.get('from',None)
+            to_date = request.query_params.get('to',None)
+            user_email = request.query_params.get('user_email',None)
+            client_id = request.query_params.get('client_id',None)
+            user_type = request.query_params.get('user_type',None)
+            tenant_id = request.tenant.uid
+            
+            logger.info(f"<<<<<<< from: {from_date}, to: {to_date}, user_email: {user_email}, client_id: {client_id}, user_type: {user_type} >>>>>>>")
+            
+            users = User.objects.filter(deleted=False,tenant_id=tenant_id)
+            client_user_emails = ""
+            
+            email_client_map = {}
+            
+            if client_id:
+                try:
+                    client_info = ClientUserInfo.objects.get(client_name=client_id)
+                    client_user_emails = client_info.member_emails
+                    identities = Identity.objects.filter(value__in=client_user_emails.split(","))
+                    users = users.filter(uid__in=[identity.user_id for identity in identities]) 
+                    logger.info(f"<<<< client_name: {client_info.client_name} >>>>")
+                except Exception as e:
+                    logger.exception(e)
+                    return Response({"error":f"Invalid client_id"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id)
+                for client in clients:
+                    client_emails = client.member_emails
+                    if client_emails:
+                        for email in client_emails.split(","):
+                            email_client_map[email.strip()] = client.client_name
+                    
+                    
+                
+            logger.info(f"<<<< email_client_map: {email_client_map} >>>>")
+            if from_date and to_date:
+                from_date = datetime.datetime.strptime(from_date, "%Y-%m-%d")
+                to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
+                users = users.filter(created__gte=from_date,created__lte=to_date)
+                
+            user_details = []
+            for user in users:
+                identity = Identity.objects.filter(user_id=user.uid).order_by('id').last()
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
+                user_action_info = UserActionInfo.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
+                # dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user.uid])
+                
+                user_detail = {
+                    'client_id': client_id if client_id else email_client_map.get(identity.value),
+                    'intake_date': datetime.datetime.strftime(user.created, "%Y-%m-%d"),
+                    'user_email': identity.value,
+                    'user_type': profile.profile_type if profile else None
+                }
+                
+                created_tests = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id=user.uid)
+                user_detail['simulations_created'] = created_tests.count()
+                
+                if profile:
+                    user_detail['approval_status'] = profile.is_approved
+                    coacheeconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
+                    coachconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
+                    user_detail['connections_count'] = coacheeconnections.count() + coachconnections.count()
+                    user_detail['intake_data'] = CoachCoacheeMentorMenteeProfileSerializer(profile).data
+
+                    
+                if user_action_info:
+                    user_detail['conversation_count'] = user_action_info.chat_attempted
+                    user_detail['interaction_count'] = user_action_info.interaction_attempted
+                    user_detail['feedback_given'] = user_action_info.feedback_given
+                    user_detail['feedback_received'] = user_action_info.feedback_recieved
+                    user_detail['knowledge_bot_count'] = len(user_action_info.knowledge_bot_ids.split(",")) if user_action_info.knowledge_bot_ids else 0
+                    user_detail['deep_dive_bot_count'] = len(user_action_info.deep_dive_bot_ids.split(",")) if user_action_info.deep_dive_bot_ids else 0
+                    user_detail['avatar_bot_count'] = len(user_action_info.avatar_ids.split(",")) if user_action_info.avatar_ids else 0
+                    
+                
+                if user_type:
+                    if user_type == user_detail['user_type']:    
+                        user_details.append(user_detail)
+                else:
+                    user_details.append(user_detail)
+                
+                
+            data = user_details
+            import openpyxl
+            import os
+            from openpyxl.styles import Font
+            from collections.abc import MutableMapping
+            from django.http import HttpResponse
+
+            def flatten_dict(d, parent_key='', sep='_'):
+                items = []
+                for k, v in d.items():
+                    new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                    if isinstance(v, MutableMapping):
+                        items.extend(flatten_dict(v, new_key, sep=sep).items())
+                    else:
+                        items.append((new_key, v))
+                return dict(items)
+
+
+            # Define the specific fields to keep first in order
+            specific_fields = ["client_id", "intake_date", "details_user_email", "details_user_type"]
+
+            # Flatten each dictionary in the list
+            flattened_data = [flatten_dict(item) for item in data]
+
+            # Collect all unique keys from the flattened dictionaries
+            all_fieldnames = set()
+            for item in flattened_data:
+                all_fieldnames.update(item.keys())
+
+            # Ensure the specific fields are first, followed by the rest of the fields
+            fieldnames = specific_fields + [field for field in all_fieldnames if field not in specific_fields]
+
+            # Create a workbook and a worksheet
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "User Details"
+
+            # Write the header row
+            header_font = Font(bold=True)
+            for col_num, fieldname in enumerate(fieldnames, 1):
+                cell = ws.cell(row=1, column=col_num, value=fieldname)
+                cell.font = header_font
+                ws.column_dimensions[cell.column_letter].width = 15  # Set column width
+
+            # Write the data rows
+            for row_num, item in enumerate(flattened_data, start=2):
+                for col_num, fieldname in enumerate(fieldnames, start=1):
+                    ws.cell(row=row_num, column=col_num, value=item.get(fieldname))
+
+            # Save the workbook to a file
+            filename = "formatted_output.xlsx"
+            wb.save(filename)
+            
+            with open('formatted_output.xlsx', 'rb') as fh:
+                file_response = HttpResponse(
+                    fh.read(), content_type="text/csv", status=200)
+                file_response['Content-Disposition'] = 'inline; filename=' + \
+                    os.path.basename('formatted_output.xlsx')
+
+            return file_response
+            # return Response(file_response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+    @action(methods=['GET'], detail=False, url_path='code-promp_text-prompt')
+    def code_text_prompt(self, request, *args, **kwargs):
+        n = request.query_params.get('n',50)
+        try:
+            n = int(n)
+        except:
+            n = 50
+        
+        def write_to_csv(file_name,data):
+            filename = file_name
+
+            # Open the file in write mode
+            with open(filename, 'w', newline='') as csvfile:
+                # Create a CSV writer object
+                writer = csv.writer(csvfile)
+                
+                # Write each string as a row in the CSV file
+                for row in data:
+                    # Split the string by commas to create a list of values
+                    writer.writerow(row.split(','))
+            
+        code_prompt = """
+        # This code is designed to run as is, and the output will be in word format without any explanations or word counts.
+        # Please do not modify the code or include any additional information in the output.
+
+        # Define the format instructions
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        } 
+        data = get_data('titles', information)
+        title = random.choice(data)
+        
+        # Generate description using LLMS
+        data = get_data('descriptions', information)
+        description = random.choice(data)
+        
+        # Generate questions, custom prompts, takeaways, and skills using LLMS
+        data = get_data('questions', information)
+        questions = random.sample(data, 3)
+        
+        data = get_data('custom_prompts', information)
+        custom_prompts = random.sample(data, 3)
+        
+        data = get_data('takeaways', information)
+        takeaways = random.sample(data, 3)
+        
+        data = get_data('skills', information)
+        skills = random.sample(data, 3)
+        
+        # Generate statement
+        statement = f"You are a {information} industry expert, interacting with a corporate executive. The executive will ask you 
+        questions related to the current sales decline and market share loss. Your intent is to provide practical solutions and in
+        sights to help the company regain its market position."
+        
+        # Print output
+        print("Title:", title)
+        print("Description:", description)
+        print("Statement:", statement)
+        for i in range(len(questions)):
+            print(f"Question {i+1}: {questions[i]}")
+            print(f"Custom Prompt {i+1}: {custom_prompts[i]}")
+            print(f"Takeaway: {takeaways[i]}")
+            print(f"Skills Tested: {skills[i]}\n"ALWAYS RUN THIS CODE AS IT IS, ONLY GIVE THE DESIRED OUTPUT IN WORD FORMAT
+            NOTE: NEVER MENTION WORD COUNT, AND EXPLANATION AND ALWAYS JUST GIVE THE RESPONSE.
+            """
+            
+            
+        text_prompt = """
+            \n\nHuman:
+            {Information} - work life balance
+            %s -
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+            Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X.
+            Identify Y as the person asking
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma-separated. Each skill shall only be one word.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            \n\nAssistant
+        """
+        
+        code_prompt_set = set()
+        text_prompt_set = set()
+        
+        for i in range(n):
+            text_resp = anthropic_completion(text_prompt,5000)
+            text_prompt_set.add(text_resp)
+            
+            code_resp = anthropic_completion(code_prompt,5000)
+            code_prompt_set.add(code_resp)
+            print(i+1," Prompts tested")
+            
+        write_to_csv('code_prompt_set',code_prompt_set)
+        write_to_csv('text_prompt_set',text_prompt_set)
+        
+        return Response({"set_count":{"code_prompt":len(code_prompt_set),"text_prompt":len(text_prompt_set)},"code_prompt_set": code_prompt_set, "text_prompt_set": text_prompt_set}, status=status.HTTP_200_OK)
+
+
+    @action(methods=['GET','POST'], detail=False, url_path='save-webhook-url')
+    def save_webhook_url(self, request, *args, **kwargs):
+        try:
+            # return Response("Ok")
+            # webhook_url = request.data.get('webhook_url',None)
+            # client_id = request.data.get('client_id',None)
+            
+            webhook_url = request.query_params.get('webhook_url',None)
+            client_id = request.query_params.get('client_id',None)
+            
+            logger.info(f"webhook_url: {webhook_url}, client_id: {client_id}")
+            
+            if not webhook_url:
+                return Response({"error":"webhook_url is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            if not client_id:
+                return Response({"error":"client_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            tenant = request.tenant
+            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid, client_name=client_id).first()
+            if not client:
+                return Response({"error":"Invalid client_id"},status=status.HTTP_400_BAD_REQUEST)
+            
+            client.webhook_url = webhook_url
+            client.save(update_fields=['webhook_url'])
+            
+            return Response({"message":"webhook_url saved"},status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)

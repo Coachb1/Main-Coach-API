@@ -38,7 +38,7 @@ from collections import defaultdict
 from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
 from commons.notifications import send_error_notification
-
+from tests.helpers import search_keywords, replace_words
 
 import logging
 
@@ -845,29 +845,76 @@ class TestViewSet(ApiViewSet,
         competency = request.query_params.get('competency',None)
         is_static = request.query_params.get('is_static',True)
         is_dynamic = request.query_params.get('is_dynamic',True)
+        assign_to = request.query_params.get('assign_to')
+        assigned_by = request.query_params.get("assigned_by")
+        is_micro = request.query_params.get("is_micro",True)
+        regeneration = request.query_params.get("regeneration",False)
+        is_fetch = request.query_params.get("is_fetch",False)
+        use_anthropic = request.query_params.get("use_anthropic",True)
+        flavour = request.query_params.get('flavour',None)
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}")
+        is_micro = False if is_micro in ['False','false',0,False] else True
+        use_anthropic = False if use_anthropic in ['False','false',0,False] else True
+        is_fetch = False if is_fetch in ['False','false',0,False] else True
+        regeneration = False if regeneration in ['False','false',0,False] else True
+
+        is_fetch = False if regeneration else is_fetch
+
+        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
             resp_data = []
+            
+            if not context and url not in [None, ""]:
+                if is_fetch:
+                    scenario = fetch_test_codes_by_site_context(url,tenant_id,by='web_page',is_micro=is_micro)
+                    logger.info(f"fetched scenarios: {scenario}")
+                    if len(scenario) > 0:
+                        return Response(data=scenario, status=status.HTTP_200_OK)
+
+                article_data = scrape_article_data(url.strip())
+                print('='*50)
+                print(article_data)
+
+                if not article_data:
+                    return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
+
+                # matches = search_keywords(article_data.get('article_content'))
+                # if len(matches) > 0:
+                #     return Response(data=[{'error':f"Scenario generation failed because restricted keywords found: {matches}"}], status=status.HTTP_400_BAD_REQUEST)
+            
+                # if not article_data.get('article_content') or  article_data.get('article_content') == "":
+                #     return Response(data=[{'error':"Scenario generation failed because of failure of page extraction please try again."}], status=status.HTTP_400_BAD_REQUEST)
+                
+                context = json.dumps({
+                    "title": article_data.get('title'),
+                    "data": {'information': f"\n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"}
+                })
+
             if is_static == 'true' or is_static == True or is_static == "True":
-                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, origin=source, competency=competency, creator_user_id=creator_user_id)
+                scenario = create_scenario_from_site_context(url, access_token, tenant_id, context, 
+                                                             origin=source, competency=competency, 
+                                                             creator_user_id=creator_user_id, assign_to=assign_to, 
+                                                             assigned_by=assigned_by, is_micro=is_micro,
+                                                             regeneration=regeneration,use_anthropic=use_anthropic,
+                                                             flavour=flavour
+                                                             )
                 if scenario:
                     resp_data.append(scenario)
                 else:
                     resp_data.append({'message':"failed to generate the scenario"})
-            if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
-                dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-                                                                    origin=source, competency=None, creator_user_id=creator_user_id)
-                if scenario:
-                    resp_data.append(dynamic_discussion)
-                else:
-                    resp_data.append({'message':"failed to generate the dynamic_discussion"})
+            # if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
+            #     dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
+            #                                                         origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by,is_micro=is_micro)
+            #     if scenario:
+            #         resp_data.append(dynamic_discussion)
+            #     else:
+            #         resp_data.append({'message':"failed to generate the dynamic_discussion"})
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             logger.info("*********************************** MODE B ********************************")
-            scenario = fetch_test_codes_by_site_context(url,tenant_id, context)
+            scenario = fetch_test_codes_by_site_context(url,tenant_id)
             return Response(data=scenario, status=status.HTTP_200_OK)
 
 
@@ -1092,7 +1139,18 @@ class TestViewSet(ApiViewSet,
             for competency in competencies:
                 competency = competency.strip()
                 tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
-                data[competency] = [{"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended } for test in tests]
+                temp_list = []
+                for test in tests:
+                    if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
+                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                    else:
+                        questions = TestQuestion.objects.filter(test_id=test.uid)
+                        is_micro = False if ((questions.count() + 1) / 2) > 3 else True
+                        print(is_micro,questions.count())
+                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
+
+
+                data[competency] = temp_list
             # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
             # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
 
@@ -1132,12 +1190,21 @@ class TestViewSet(ApiViewSet,
             ]
         """
         user_id = request.query_params.get("user_id",None)
+        logger.info(f"<<<<<<<<<<<<<<<<<<<<<< user_id : {user_id} >>>>>>>>>>>>>>>>>>>>>>>")
 
         if not user_id:
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid, creator_user_id=user_id)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended } for test in tests]
+
+        
+        query = Q(assigned_to__isnull=False)
+        query.add(Q(creator_user_id=user_id), Q.OR)
+        query.add(Q(tenant_id=self.request.tenant.uid),Q.AND)
+
+        
+        tests = Test.objects.filter(query)
+        tests.filter(deleted=0)
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1201,13 +1268,15 @@ class TestViewSet(ApiViewSet,
             for test in tests:
                 if test.tab_category:
                     tab_category = test.tab_category
-                    area_domain = test.area_domain
-                    test_dict[tab_category][area_domain].append({
+                    sub_tab_category = test.sub_tab_category or test.area_domain
+                    test_dict[tab_category][sub_tab_category].append({
                         "title": test.title,
                         "description": test.description,
                         "test_code": test.test_code,
                         "test_type": test.test_type,
-                        "is_recommended": test.is_recommended
+                        "is_recommended": test.is_recommended,
+                        "is_micro": test.is_micro,
+                        "scenario_case": test.scenario_case
                     })
             # Converting defaultdict to a regular dictionary
             test_dict = dict(test_dict)
@@ -1248,3 +1317,36 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception({"got error in get_low_skill_count_test api": e})
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['POST'],detail=False, url_path="assign_simulation")
+    def assing_simulation(self, request, *args, **kwargs):
+        # return Response("ok")
+        try:
+            test_codes = request.data.get('test_codes')
+            assigned_to = request.data.get('assigned_to')
+            assigned_by = request.data.get('assigned_by')
+            
+            if test_codes is None:
+                return Response({"error":"test_codes are required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            if None in (assigned_by, assigned_to):
+                return Response({"error":"both assigned_to and assigned_by fields are required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                for test_code in test_codes.strip().split(","):
+                    logger.info(f"<<<<< test_code : {test_code} >>>")
+                    test = Test.objects.get(tenant_id=request.tenant.uid,deleted=False,test_code=test_code.strip())
+                    test.assigned_to = assigned_to
+                    test.assigned_by = assigned_by
+                    test.save()
+            except Exception as e:
+                logger.exception(e)
+                return Response({"error":"simulation not found"},status=status.HTTP_404_NOT_FOUND)
+            
+            
+            return Response({"msg":"successfully assigned"})
+            
+        except Exception as e:
+            logger.exception(e)
+            return Response({"error":f"something went wrong : {e.args}"},status=status.HTTP_400_BAD_REQUEST)

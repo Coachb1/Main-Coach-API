@@ -14,7 +14,7 @@ from tests.choices import TestTypeChoices, InteractionModeChoices
 from tests.models import TestAttemptSession, Test, TestQuestion
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
-from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile
+from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile, CoachRecommendationsForUser
 from commons.anthropic import anthropic_completion
 from users.db import get_user_display_name, get_user_by_id
 from string import Template
@@ -23,7 +23,7 @@ import json
 from utilities.models import BotQnA, UserIDP
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
-from users.models import BotAndUserMapping, ClientUserInfo
+from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute, get_default_help_text
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
 from apis.accounts.serializers import UserIDPSerializers
@@ -33,6 +33,15 @@ from utilities.prompts import get_intake_summary_prompt
 from commons.utils import remove_punctuations
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
+from identities.models import Identity
+from identities.helpers import get_user_via_identity
+import datetime
+from utilities.helpers import extract_fields
+from string import Template
+import re
+from email_sender.helpers import send_email_with_html_template
+import random
+
 
 logger = logging.getLogger(__name__)
 
@@ -578,15 +587,29 @@ def continue_coaching_conversation(tenant: Tenant,
 
         if current_conversation == 2 : # increasing action point if conversation contain two chat
             save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
+            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_chat_attempted")
+            elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_chat_attempted")
+            elif signature_bot.bot_type == BotTypeChoice.user_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"knowledge_chat_attempted")
+            elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"deep_dive_chat_attempted")
+            
             save_bot_engagement(tenant_id=tenant.uid,bot_id=signature_bot.uid,user_id=test_attempt_session.participant_id,field_name="num_of_bot_sessions")
 
         if current_conversation == 3 :
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
+                # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_ids",bot_id=signature_bot.bot_id)
             elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
-                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
+                # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type == BotTypeChoice.user_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"knowledge_bot_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"deep_dive_bot_ids",bot_id=signature_bot.bot_id)
+
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
@@ -612,6 +635,22 @@ def continue_coaching_conversation(tenant: Tenant,
             },
             "prompt": prompt,
         }
+        
+    response_style = None
+    try:
+        user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
+        user_preferences = user_attributes.preferences
+        logger.info(f"<<<<<<<<<<<<<<<<<< user_attributes pref : {user_preferences}, participant_id : {test_attempt_session.participant_id} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        if not user_preferences:
+            user_preferences = {}
+        if 'response_style' in user_preferences:
+            response_style = get_response_style(user_preferences['response_style'])
+            logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            if response_style:
+                prompt = prompt + f" {response_style}"
+    except Exception as e:
+        logger.exception(f"got error: {e}")
+            
 
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
@@ -706,7 +745,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
     prompt = new_coaching_prompt if bot_type == "avatar_bot" else generic_prompt 
 
-    if signature_bot.custom_prompt:
+    if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
                                                         uid=test_attempt_session_id,
@@ -842,6 +881,17 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv,
                 user_personality = personality
             )
+
+        elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+            if signature_bot.data:
+                bot_title = signature_bot.data.get('bot_title')
+                bot_objective = signature_bot.data.get('bot_objective')
+                logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
+
+                prompt = Template(prompt).substitute(
+                    title = bot_title,
+                    objective = bot_objective
+                )
 
         elif bot_type == 'helper_bot':
             try:
@@ -1075,19 +1125,31 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv
             )
 
-    provide_answers_using_emojis = signature_bot.data.get('additional_data')
-    if provide_answers_using_emojis:
+        elif signature_bot.bot_type == BotTypeChoice.deep_dive:
+            if signature_bot.data:
+                bot_title = signature_bot.data.get('bot_title')
+                bot_objective = signature_bot.data.get('bot_objective')
+                logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
-        provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
-        print(provide_answers_using_emojis,'provide_answers_using_emojis')
-    else:
-        provide_answers_using_emojis = False
+                prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.deep_dive)).substitute(
+                    title = bot_title,
+                    objective = bot_objective
+                )
 
-    if provide_answers_using_emojis:
+    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+        provide_answers_using_emojis = signature_bot.data.get('additional_data')
+        if provide_answers_using_emojis:
 
-        prompt  = prompt.split('Assistant:')
-        prompt.insert(-1, f"Note: Always use only Smileys and People emojis in response to make the responses lively where applicable. \n\nAssistant:")
-        prompt = '\n'.join(prompt)
+            provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
+            print(provide_answers_using_emojis,'provide_answers_using_emojis')
+        else:
+            provide_answers_using_emojis = False
+
+        if provide_answers_using_emojis:
+
+            prompt  = prompt.split('Assistant:')
+            prompt.insert(-1, f"Note: Always use only Smileys and People emojis in response to make the responses lively where applicable. \n\nAssistant:")
+            prompt = '\n'.join(prompt)
 
     return prompt
 
@@ -1231,6 +1293,29 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         NOTE: Always respond in less than 50 tokens. Never mention the token count.
         """
 
+    elif bot_type == BotTypeChoice.deep_dive:
+        return """
+        Please act as a bot. Please administer an open questions and answer session, where the respondent will submit his feedback about the 
+
+        Title: ${title}
+        Objective: ${objective}
+
+        Custom Prompt: The session should aim to gather the participants' viewpoints on the Title and Objection. Each time you manage the bot, ensure to pose questions. Stick to asking one question at a time. The questions should be related to the title and objective and should be advanced in nature. Begin by asking questions without providing any title and objective. Refrain from mentioning the count of questions. Simply proceed to the next question, irrespective of the response. The focus should solely be on asking questions, without providing any other details. Continue asking questions indefinitely. Avoid asking questions on the title and objective to seek clarity on any related matter. Only pose questions that are relevant to them. Do not provide any welcome sentence or visual cues. The format should be: Question.
+
+        NOTE: Always ask one question at a time.
+        NOTE: Do not provide any title and objective in questions.
+        NOTE: Do not ask any questions on title and objective.
+        NOTE: Do not mention the count of questions.
+        NOTE: Move to the next question regardless of the response, even if you don't understand the response. Do not ask for any clarification or anything.
+        NOTE: Only ask questions, do not provide any other details.
+        NOTE: Continue asking questions indefinitely.
+        NOTE: Do not ask questions on the title and objective for clarity.
+        NOTE: Only pose questions that are relevant to them.
+        NOTE: Do not provide any welcome sentence or visual cues.
+        NOTE: Always just ask the question, do not add any other thing to the question.
+        NOTE: The format should be: Question.
+        """
+
 
 @timeit
 def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
@@ -1248,10 +1333,19 @@ def get_or_create_bot_user_mapping(bot: SignatureBot, user: User):
     logger.info(f"user_id: {user.uid}")
     user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid)
     logger.info(f"bot_user_Id: {bot.user_id}")
-    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=bot.user_id)
-    bot_email = bot_user_profile.email or get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
-    bot_user_name = bot_user_profile.name or bot_user.name
-    bot_user_mob_no = bot_user_profile.mob_number
+    bot_user_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=bot.user_id)
+    bot_email = ''
+    bot_user_name = ''
+    bot_user_mob_no = ''
+
+    if bot_user_profile.count()> 0:
+        bot_user_profile = bot_user_profile.first()
+        bot_email = bot_user_profile.email
+        bot_user_name = bot_user_profile.name or bot_user.name
+        bot_user_mob_no = bot_user_profile.mob_number
+    else:
+        bot_email = get_user_attribute(bot_user, "deepchat_profile").attributes.get("email", None)
+        bot_user_name = bot_user.name
 
     user_email = get_user_attribute(user, "deepchat_profile").attributes.get("email", None)
     user_name = user.name
@@ -1349,7 +1443,7 @@ def create_user_profile_and_bot(data,auth):
     provide_answers_using_emojis = data.get('Would you like your AI Avatar to provide expressive answers using emojis?'.strip().lower(),None)
     journey_and_background = data.get("Backstory".lower().strip(),None)
     voice_sample = data.get('Do you want to provide a voice sample, if you want an audio avatar?'.strip().lower(),None)
-
+    discussion_topic = data.get("Discussion Topic".lower().strip(),None)
 
 
 
@@ -1468,23 +1562,24 @@ def create_user_profile_and_bot(data,auth):
         "coach_same_department":  coach_same_department,
         "profile_type": "coach" if profile_type in ["coach-mentor", "coach"] else "mentor" if profile_type == "mentor" else profile_type,
         "is_mentor": str(profile_type == "coach-mentor") if profile_type in ["coach-mentor", "coach"] else "False",
-        "area_domain": area_domain if profile_type in required_profile_list else None,
-        "mentoring_preferences": mentoring_preferences if profile_type in required_profile_list else None,
-        "mentoring_frameworks": mentoring_frameworks if profile_type in required_profile_list else None,
-        "dominant_point_of_view": dominant_point_of_view if profile_type in required_profile_list else None,
-        "problem_solving_approach": problem_solving_approach if profile_type in required_profile_list else None,
-        "provided_links": provided_links if profile_type in required_profile_list else None,
-        "admired_leaders": admired_leaders if profile_type in required_profile_list else None,
-        "allow_coachee_to_create_session": allow_coachee_to_create_session if profile_type in required_profile_list else None,
-        "significant_challenges_and_solutions": significant_challenges_and_solutions if profile_type in required_profile_list else None,
-        "common_phrases_and_expressions": common_phrases_and_expressions if profile_type in required_profile_list else None,
+        "area_domain": area_domain ,
+        "mentoring_preferences": mentoring_preferences ,
+        "mentoring_frameworks": mentoring_frameworks ,
+        "dominant_point_of_view": dominant_point_of_view ,
+        "problem_solving_approach": problem_solving_approach ,
+        "provided_links": provided_links ,
+        "admired_leaders": admired_leaders ,
+        "allow_coachee_to_create_session": allow_coachee_to_create_session ,
+        "significant_challenges_and_solutions": significant_challenges_and_solutions ,
+        "common_phrases_and_expressions": common_phrases_and_expressions ,
         "qna_for_coach_mentor" : qna_for_coach_mentor if qna_for_coach_mentor else None,
-        "low_rating_characteristics": low_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
-        "high_rating_characteristics": high_rating_characteristics if profile_type in ["coachee",'mentee'] else None,
+        "low_rating_characteristics": low_rating_characteristics ,
+        "high_rating_characteristics": high_rating_characteristics,
         'is_approved': True,
         "journey_and_background": journey_and_background,
         "voice_sample": voice_sample,
-        "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring
+        "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring,
+        "discussion_topic": discussion_topic
 
     }
 
@@ -1561,6 +1656,7 @@ def create_user_profile_and_bot(data,auth):
             "bot_type": 'avatar_bot',
             "profile_id": profile.get('uid'),
             "bot_name": name,
+            "tag":data.get("tag"),
             "email": data.get('email'),
             "bot_details": {"info": data.get('about'), "coach_name": name},
             "attributes": {"heading": f"welcome to {name}'s avatar bot"},
@@ -1615,7 +1711,8 @@ def create_user_profile_and_bot(data,auth):
                       supported_outcome,
                 ],
                 "coach_qna": qna_for_coach,
-                "mentor_qna": qna_for_mentor
+                "mentor_qna": qna_for_mentor,
+                "discussion_topic": discussion_topic
             },
             "media_data": media_data,
             'is_approved': True,
@@ -1649,12 +1746,14 @@ def create_user_profile_and_bot(data,auth):
                     client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
 
                     if profile.get('profile_type') == 'icons_by_ai':
-                        accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
-                        client.accessed_bot_ids = accessed_bot_id
+                        unique_bot_ids = set(client.accessed_bot_ids.strip().split(',') if client.accessed_bot_ids else [])
+                        unique_bot_ids.add(response.get('bot_id'))
+                        client.accessed_bot_ids = ','.join(unique_bot_ids)
                         client.save(update_fields=['accessed_bot_ids'])
                     else:
-                        member_emails = client.member_emails + f",{email}" if client.member_emails else email
-                        client.member_emails = member_emails
+                        unique_email_ids = set(client.member_emails.strip().split(',') if client.member_emails else [])
+                        unique_email_ids.add(email)
+                        client.member_emails = ','.join(unique_email_ids)
                         client.save(update_fields=['member_emails'])
 
             except Exception as e:
@@ -1675,12 +1774,14 @@ def create_user_profile_and_bot(data,auth):
                 client = ClientUserInfo.objects.get(deleted=False, tenant_id=tenant_id, client_name = client_name.strip())
 
                 if profile.get('profile_type') == 'icons_by_ai':
-                    accessed_bot_id = client.accessed_bot_ids + f",{response.get('bot_id')}" if client.accessed_bot_ids else response.get('bot_id')
-                    client.accessed_bot_ids = accessed_bot_id
-                    client.save(update_fields=['accessed_bot_ids'])
+                        unique_bot_ids = set(client.accessed_bot_ids.strip().split(',') if client.accessed_bot_ids else [])
+                        unique_bot_ids.add(response.get('bot_id'))
+                        client.accessed_bot_ids = ','.join(unique_bot_ids)
+                        client.save(update_fields=['accessed_bot_ids'])
                 else:
-                    member_emails = client.member_emails + f",{email}" if client.member_emails else email
-                    client.member_emails = member_emails
+                    unique_email_ids = set(client.member_emails.strip().split(',') if client.member_emails else [])
+                    unique_email_ids.add(email)
+                    client.member_emails = ','.join(unique_email_ids)
                     client.save(update_fields=['member_emails'])
 
         except Exception as e:
@@ -1749,3 +1850,1035 @@ def update_or_revert_avatar_bot_doc_summeries(tenant_id='62d76be2-b439-4528-9ae4
 
 
         return "Summeries updated successfully!"
+
+def get_client_user_data(tenant,client_name=None):
+    """
+    Retrieves detailed user information for each client associated with a given tenant.
+
+    This function filters through all clients linked to a specific tenant that have not been marked as deleted. For each client, it gathers the emails of its members, retrieves their corresponding user IDs from the Identity model, and fetches user attributes and additional client-specific information using these IDs. The function compiles a dictionary containing detailed user information, including user-specific and client-specific attributes, for each client under the given tenant.
+
+    Parameters:
+    - tenant (Tenant): An instance of the Tenant model. This object must have a valid 'uid' attribute that corresponds to the tenant ID.
+
+    Returns:
+    - dict: A dictionary where each key is a client name and each value is a list of dictionaries. Each dictionary in the list contains comprehensive user information, including user ID, name, client ID, and other attributes specific to the client and user.
+
+    Example:
+    ```python
+    tenant_instance = Tenant(uid='12345')
+    user_data = get_client_user_data(tenant_instance)
+    print(user_data)
+    # Output:
+    # {
+    #   'ClientXYZ': [
+    #       {
+    #           'user_id': 'user123',
+    #           'name': 'John Doe',
+    #           'client_id': 'client789',
+    #           'client_name': 'ClientXYZ',
+    #           'avatar_bot_creation': False,
+    #           'feedback_bot_creation': True,
+    #           ... (additional user and client-specific information)
+    #       },
+    #       ... (more user dictionaries)
+    #   ],
+    #   ... (more clients)
+    # }
+    ```
+    """
+    # Function implementation continues here...
+    # get the client user associated with a Client Id
+    clients = None
+    if client_name:
+        clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name)
+    else:
+        clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+    client_user_data = {}
+
+    for client in clients:
+        client_data = []
+        member_emails = [email.strip() for email in client.member_emails.split(',') if len(email.strip())>0] if client.member_emails else []
+        user_ids = list(Identity.objects.filter(
+            deleted=False,
+            tenant_id=tenant.uid,
+            value__in=member_emails
+        ).values_list('user_id', flat=True))
+        for user_id in user_ids:
+            # user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=user_id)
+            user_att = UserAttribute.objects.get(user_id=user_id).attributes
+            email = user_att.get('email',None) if user_att else None
+            try:
+                user_info = get_client_user_info(client,email)
+                client_data.append(user_info)
+            except Exception as e:
+                logger.exception(f"Error getting user info for email: {e} : {email}")
+        
+        if len(client_data) == 0:
+            client_data.append(
+                {
+                    'client_id': client.uid, 
+                    "msg": "No user found in client",
+                    "allow_audio_interactions": client.allow_audio_interactions
+                }
+                )
+            
+        client_user_data[client.client_name] = client_data
+
+    return client_user_data
+
+def add_or_remove_emails_from_client(client, field, user_email, remove=False):
+    if client:
+        emails_list = [email.strip() for email in getattr(client, field).split(',') if len(email.strip()) > 0] if getattr(client, field) else []  # Split the string into a list of emails
+        if remove:
+            emails_list = [email for email in emails_list if email != user_email]  # Remove the specified email
+        else:
+            emails_list.append(user_email)
+
+        setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
+        client.save(update_fields=[field])  # Save the changes to the specified field
+
+def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
+    """
+    Updates the membership of a user identified by their email across client records within a specific tenant.
+    This function removes the user's email from an old client's member list and adds it to a new client's member list.
+
+    Parameters:
+    - tenant_id (str): The tenant_id .
+    - old_client_id (str): The unique identifier of the old client from which the user's email will be removed. If None, the email will be removed from all clients where it appears.
+    - new_client_id (str): The unique identifier of the new client to which the user's email will be added.
+    - user_email (str): The email address of the user to be updated.
+
+    Process:
+    - If an old_client_id is provided:
+        1. Fetch the old client based on the tenant and old_client_id.
+        2. Remove the user_email from the old client's member_emails list.
+        3. Save the updated list back to the database.
+    - If no old_client_id is provided:
+        1. Fetch all clients associated with the tenant that contain the user_email in their member_emails.
+        2. Remove the user_email from each of these clients' member_emails list.
+        3. Save the updated lists back to the database.
+    - For the new client:
+        1. Fetch the new client based on the tenant and new_client_id.
+        2. Add the user_email to the new client's member_emails list ensuring no duplicates.
+        3. Save the updated list back to the database.
+
+    Returns:
+    None
+
+    Example:
+    >>> tenant = Tenant(uid="12345")
+    >>> update_member_client_id(tenant, "old_client123", "new_client456", "user@example.com")
+    This will remove "user@example.com" from "old_client123" and add it to "new_client456" within the tenant "12345".
+    """
+    # Function implementation follows
+
+    logger.info(f"==================================================data: tenant: {tenant_id},old_client_id: {old_client_id},new_client_id: {new_client_id},user_email: {user_email}============================")
+    
+    if old_client_id:
+        old_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=old_client_id)
+        # remove user_email from old client
+
+        add_or_remove_emails_from_client(
+            client=old_client,
+            field="member_emails",
+            user_email=user_email,
+            remove=True
+        )
+
+        add_or_remove_emails_from_client(
+            client=old_client,
+            field="demo_ids",
+            user_email=user_email,
+            remove=True
+        )
+
+    else:
+        all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email)
+        for client in all_client_of_user:
+            add_or_remove_emails_from_client(
+            client=client,
+            field="member_emails",
+            user_email=user_email,
+            remove=True
+            )
+            
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=user_email,
+                remove=True
+            )
+
+
+            
+    # add user_email to new_client
+    new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=new_client_id)
+    add_or_remove_emails_from_client(
+        client=new_client,
+        field="member_emails",
+        user_email=user_email,
+    )
+
+    user = get_user_via_identity(
+        tenant=Tenant.objects.get(uid=tenant_id),
+        identity_type="deepchat_unique_id",
+        identity_value=user_email
+    )
+    user_name = user.name if user else "User"
+
+    ## sending Welcome Message to user
+    subject = f"Welcome to Coachbots - Unleash Your Potential!"
+    html_content = f"""
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                        <div style="margin: 15px;">
+                            <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                            <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                            <p>To get started, please take a moment to:</p>
+                            <div style="margin-bottom: 10px;">
+                                <strong>Step 1: [Join the Network]</strong>
+                                <ul>
+                                    <li>Join as Coach/Mentor</li>
+                                    <li>Join as Coachee/Mentee</li>
+                                    <li>Join Feedback Network</li>
+                                </ul>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
+                            </div>
+                            <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
+                            <p>Here's to your success!</p>
+                        </div>
+                    </p>
+                    """
+    
+    send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
+
+
+
+def disable_or_enable_client(email,is_disable,tenant):
+    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,member_emails__contains=email).first()
+    if client:
+        if is_disable:
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=email,
+            )
+        else:
+            add_or_remove_emails_from_client(
+                client=client,
+                field="demo_ids",
+                user_email=email,
+                remove=True
+            )
+            user = get_user_via_identity(
+                tenant=client.tenant_id,
+                identity_type="deepchat_unique_id",
+                identity_value=email
+            )
+
+            user_name = user.name if user else "User"
+            
+            ## sending Welcome Message to user
+            subject = f"Welcome to Coachbots - Unleash Your Potential!"
+            html_content = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                <div style="margin: 15px;">
+                                    <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                    <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                    <p>To get started, please take a moment to:</p>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 1: [Join the Network]</strong>
+                                        <ul>
+                                            <li>Join as Coach/Mentor</li>
+                                            <li>Join as Coachee/Mentee</li>
+                                            <li>Join Feedback Network</li>
+                                        </ul>
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
+                                    </div>
+                                    <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
+                                    <p>Here's to your success!</p>
+                                </div>
+                            </p>
+                            """
+            
+            send_email_with_html_template(subject=subject,html_content=html_content,to_email=email, title=f"Dear {user_name},")
+
+        
+
+def get_client_user_info(client:ClientUserInfo, email:str):
+    """
+    Retrieves comprehensive user information based on client settings and user email, 
+    including restrictions and demo user status.
+
+    This function checks if the provided email is in the client's restricted or demo lists.
+    If the email is found in the demo list, it further checks if the demo period (2 weeks from account creation) 
+    has expired, which may change the user's restricted status and demo user flag. It then compiles a dictionary 
+    of user information including client-specific settings and user status.
+
+    Parameters:
+    - client (Client object): The client object containing attributes like restricted_ids, demo_ids, 
+      client_name, avatar_bot_creation, feedback_bot_creation, subject_matter_bot_creation, 
+      number_of_conversation_per_month, required_form_fields, accessed_bot_ids, coach_skills, 
+      coach_expertise, departments, restricted_pages, and restricted_features.
+    - email (str): The email address of the user to check against client's restricted and demo lists.
+
+    Returns:
+    - dict: A dictionary containing various pieces of user information such as:
+        - client_name: Name of the client
+        - avatar_bot_creation: Information about avatar bot creation settings
+        - feedback_bot_creation: Information about feedback bot creation settings
+        - subject_matter_bot_creation: Information about subject matter bot creation settings
+        - monthly_conversation_limit: Monthly conversation limit for the user
+        - required_form_details: Form details required from the user, processed into a structured format
+        - is_restricted: Boolean indicating if the user is restricted
+        - is_demo_user: Boolean indicating if the user is a demo user
+        - accessed_bot_ids: IDs of bots the user has access to
+        - coach_skills: Skills of the coach associated with the client
+        - coach_expertise: Expertise areas of the coach associated with the client
+        - departments: Departments within the client organization
+        - restricted_pages: Pages the user is restricted from accessing
+        - restricted_features: Features the user is restricted from using
+        - user_email: The email of the user
+
+    Example:
+    >>> client = Client(client_name="ExampleCorp", restricted_ids="user@example.com", demo_ids="demo@example.com")
+    >>> email = "demo@example.com"
+    >>> get_client_user_info(client, email)
+    {
+        'client_name': 'ExampleCorp',
+        'avatar_bot_creation': None,
+        'feedback_bot_creation': None,
+        'subject_matter_bot_creation': None,
+        'monthly_conversation_limit': None,
+        'required_form_details': None,
+        'is_restricted': False,
+        'is_demo_user': True,
+        'accessed_bot_ids': None,
+        'coach_skills': None,
+        'coach_expertise': None,
+        'departments': None,
+        'restricted_pages': None,
+        'restricted_features': None,
+        'user_email': 'demo@example.com'
+    }
+    """
+    # Function implementation continues here...
+    restricted = False
+    demo_user = False
+    
+    restricted_emails = []
+    if client.restricted_ids:
+        restricted_emails = [e.strip() for e in client.restricted_ids.split(',')]
+    demo_emails = []
+    if client.demo_ids:
+        demo_emails = [e.strip() for e in client.demo_ids.split(',')]
+
+    
+    if email in restricted_emails:
+        restricted = True
+    if email in demo_emails:
+        demo_user = True
+
+    try:
+        user_account = get_user_by_id(Identity.objects.get(deleted=False,tenant_id=client.tenant_id,value=email).user_id)
+        user_att = get_user_attribute(user_account, "deepchat_profile")
+    except:
+        return {"msg": "user not found",
+                "is_restricted": False,
+                "is_demo_user": True}
+    has_deep_dive_creator_access = False
+
+    if user_account.role in ['admin', 'super_admin','client_admin', 'deep_dive_creator']:
+        has_deep_dive_creator_access = True
+
+    # if demo_user:
+    #     specific_date = datetime.datetime.strptime(str(user_account.created.date()), "%Y-%m-%d")
+
+    #     # Get today's date
+    #     current_date = datetime.datetime.now()
+
+    #     # Calculate the difference between today's date and the specific date
+    #     time_difference = current_date - specific_date
+
+    #     # Check if the difference is greater than or equal to 2 weeks
+    #     if time_difference >= datetime.timedelta(weeks=2):
+    #         restricted = True
+    #         demo_user = False
+
+    #     logger.info(f"time difference: {time_difference} ")
+
+    user_info = {
+        "client_name": client.client_name,
+        "avatar_bot_creation": client.avatar_bot_creation,
+        "feedback_bot_creation": client.feedback_bot_creation,
+        "subject_matter_bot_creation": client.subject_matter_bot_creation,
+        "monthly_conversation_limit": client.number_of_conversation_per_month,
+        "required_form_details": extract_fields(client.required_form_fields) if client.required_form_fields else None,
+        "is_restricted": restricted,
+        "is_demo_user": demo_user,
+        "accessed_bot_ids": client.accessed_bot_ids,
+        "coach_skills": client.coach_skills,
+        "coach_expertise": client.coach_expertise,
+        "departments": client.departments,
+        "restricted_pages": client.restricted_pages,
+        "restricted_features": client.restricted_features,
+        "user_email": email,
+        "name": user_account.name,
+        "role": user_account.role,
+        "access_allowed": user_att.access_allowed,
+        "access_denied": user_att.access_denied,
+        "has_deep_dive_creator_access":has_deep_dive_creator_access,
+        "allow_audio_interactions": client.allow_audio_interactions,
+        "heading": client.heading,
+        "sub_heading": client.sub_heading,
+        "tag_line": client.tag_line,
+        'ui_information': client.ui_information or {'bottom_text': None,'header': None,'read_text': None},
+        "widget_access_code": client.widget_access_code,
+        "allow_paste_answer": client.allow_paste_answer,
+        'help_text': client.help_text or get_default_help_text(),
+
+    }
+    user_info['user_id'] = user_account.uid
+    user_info['name'] = user_account.name
+    user_info['client_id'] = client.uid
+
+    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=client.tenant_id,user_id=user_account.uid).last()
+    if profile:
+        user_info['profile_id'] = profile.uid
+        user_info['profile_type'] = profile.profile_type
+
+    
+    return user_info
+
+def is_business_email(email):
+    # Define a regular expression pattern for personal email domains
+    personal_email_pattern = r'@(gmail|yahoo|hotmail)\.(com|net|org)'
+    
+    # Use re.search to find if the email matches the pattern
+    match = re.search(personal_email_pattern, email)
+    
+    # If match is found, it's not a business email, otherwise it is
+    if match:
+        return False
+    else:
+        return True
+
+
+def shift_all_emails_to_domain_client(tenant_id,domain):
+    tenant = Tenant.objects.get(deleted=False,uid=tenant_id)
+    print(f'tenant: {tenant.uid}')
+    domain_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,domain_name=domain).first()
+    print(f"domain_client: {domain_client.domain_name}")
+    if domain_client:
+        all_email_with_domain = []
+        all_clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False)
+        for client in all_clients:
+            member_emails = client.member_emails.split(",") if client.member_emails else []
+            for member_email in member_emails:
+                member_domain = member_email.strip().split('@')[-1]
+                if member_domain == domain:
+                    print(f'member_domain: {member_domain} , domain: {domain}')
+
+                    member_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False, member_emails__contains=member_email).first()
+                    if member_client:
+                        add_or_remove_emails_from_client(
+                            client=member_client,
+                            field="member_emails",
+                            user_email=member_email,
+                            remove=True
+                        )
+
+                    all_email_with_domain.append(member_email.strip())
+                
+        print(f"all_email_with_domain : {all_email_with_domain}")
+        if len(all_email_with_domain) > 0:
+            for email in all_email_with_domain:
+                add_or_remove_emails_from_client(
+                            client=domain_client,
+                            field="member_emails",
+                            user_email=email,
+                        )
+                
+
+
+def update_or_create_client_id(tenant_id,client_data,is_update=False):
+    if is_update:
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,uid=client_data.get('client_id',None)).first()
+        if client:
+            updated_fields = []
+            if client_data.get('coach_expertise'):
+                client.coach_expertise=client_data.get('coach_expertise')
+                updated_fields.append('coach_expertise')
+            if client_data.get('coach_skills'):
+                client.coach_skills=client_data.get('coach_skills')
+                updated_fields.append('coach_skills')
+            if client_data.get('departments'):
+                client.departments= client_data.get('departments')
+                updated_fields.append('departments')
+            if client_data.get('restricted_pages') != None:
+                client.restricted_pages= client_data.get('restricted_pages')
+                updated_fields.append('restricted_pages')
+            if client_data.get('restricted_features') != None:
+                client.restricted_features= client_data.get('restricted_features')
+                updated_fields.append('restricted_features')
+            if client_data.get('demo_ids') != None:
+                client.demo_ids= client_data.get('demo_ids')
+                updated_fields.append('demo_ids')
+            if client_data.get('restricted_ids') != None:
+                client.restricted_ids= client_data.get('restricted_ids')
+                updated_fields.append('restricted_ids')
+            if client_data.get('allowed_ips') != None:
+                allowed_ips = {"feedback_deep-dive": client_data.get('allowed_ips') if client_data.get('allowed_ips') else ""}
+                client.allowed_ips= allowed_ips
+                updated_fields.append('allowed_ips')
+            if client_data.get('accessed_bot_ids') != None:
+                client.accessed_bot_ids= client_data.get('accessed_bot_ids')
+                updated_fields.append('accessed_bot_ids')
+                
+            if client_data.get('member_emails'):
+                emails = [email.strip() for email in client_data.get('member_emails').split(',') if len(email) > 0]
+                for email in emails:
+                    update_member_client_id(
+                        tenant_id=tenant_id,
+                        old_client_id=None,
+                        new_client_id=client.uid,
+                        user_email=email
+                    )
+
+            if client_data.get('allow_audio_interactions') is not None:
+                client.allow_audio_interactions = client_data.get('allow_audio_interactions')
+                updated_fields.append('allow_audio_interactions')
+
+            if len(updated_fields)> 0:
+                client.save(update_fields=updated_fields)
+
+        return client
+    else:
+        client = create_client_id(
+            tenant_id=tenant_id,
+            client_name=client_data.get('client_name',None),
+            domain=client_data.get('domain_name',None),
+            demo_ids= client_data.get('demo_ids',None),
+            restricted_features= client_data.get('restricted_features',None),
+            restricted_ids=client_data.get('restricted_ids',None),
+            restricted_pages=client_data.get('restricted_pages',None),
+            allowed_ips= client_data.get('allowed_ips',None),
+            coach_expertise=client_data.get('coach_expertise',None),
+            coach_skills=client_data.get("coach_skills",None),
+            departments= client_data.get('departments',None),
+            accessed_bot_ids= client_data.get('accessed_bot_ids',None),
+            member_emails= client_data.get('member_emails',None),
+            allow_audio_interactions= client_data.get('allow_audio_interactions',None)
+        )
+    return client
+
+
+
+
+def create_client_id(
+        tenant_id,
+        client_name,
+        domain,
+        demo_ids=None,
+        restricted_ids=None,
+        restricted_pages=None,
+        restricted_features=None,
+        allowed_ips=None,
+        coach_skills=None,
+        departments=None,
+        coach_expertise=None,
+        accessed_bot_ids=None,
+        member_emails=None,
+        allow_audio_interactions=None
+        ):
+    
+
+    client = ClientUserInfo.objects.create(
+        tenant_id = tenant_id,
+        client_name =  client_name,
+        domain_name = domain
+    )
+
+    updated_fields = []
+    if coach_expertise:
+        client.coach_expertise=coach_expertise
+        updated_fields.append('coach_expertise')
+    if coach_skills:
+        client.coach_skills=coach_skills
+        updated_fields.append('coach_skills')
+    if departments:
+        client.departments= departments
+        updated_fields.append('departments')
+    if restricted_pages:
+        client.restricted_pages= restricted_pages
+        updated_fields.append('restricted_pages')
+    if restricted_features:
+        client.restricted_features= restricted_features
+        updated_fields.append('restricted_features')
+    if demo_ids:
+        client.demo_ids= demo_ids
+        updated_fields.append('demo_ids')
+    if restricted_ids:
+        client.restricted_ids= restricted_ids
+        updated_fields.append('restricted_ids')
+    if allowed_ips:
+        allowed_ips = {"feedback_deep-dive": allowed_ips if allowed_ips else ""}
+        client.allowed_ips= allowed_ips
+        updated_fields.append('allowed_ips')
+    if accessed_bot_ids:
+        client.accessed_bot_ids= accessed_bot_ids
+        updated_fields.append('accessed_bot_ids')
+    if allow_audio_interactions:
+        client.allow_audio_interactions = allow_audio_interactions
+        updated_fields.append('allow_audio_interactions')
+
+    if member_emails:
+        emails = [email.strip() for email in member_emails.split(',') if len(email) > 0]
+        new_emails = set()
+        for email in emails:
+            email_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=email)
+            if email_client.count() == 0:
+                new_emails.add(email)
+
+        if len(new_emails) > 0:
+            client.member_emails= ",".join(new_emails)
+            updated_fields.append('member_emails')
+
+    if len(updated_fields)> 0:
+        client.save(update_fields=updated_fields)
+
+    return client
+
+def create_or_assign_client_id(email,tenant,create_new_client=False):
+
+    # first needs to check if email already assigned
+
+    already_assigned_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,member_emails__contains=email)
+    if already_assigned_client.count() > 0:
+        return already_assigned_client.first().client_name
+    assigned = False
+    client = None
+
+    if is_business_email(email):
+        domain = email.split('@')[-1]
+        already_exist_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,domain_name=domain)
+        if already_exist_client.count() == 0:
+            if create_new_client:
+                client = create_client_id(
+                    tenant_id=tenant.uid,
+                    domain=domain,
+                    client_name=domain.split(".")[0].capitalize()
+                    )
+        else:
+            client = already_exist_client.first()
+            
+        if client:
+
+            add_or_remove_emails_from_client(
+                client=client,
+                field="member_emails",
+                user_email=email
+            )
+
+            # by default we will add it to demo ids
+            if client.make_new_user_in_trail:
+                add_or_remove_emails_from_client(
+                    client=client,
+                    field="demo_ids",
+                    user_email=email
+                    )
+
+            assigned = True
+
+
+    if not assigned:
+        client = ClientUserInfo.objects.get(tenant_id=tenant.uid,deleted=False,uid='9f07b64c-2dee-4a92-9ac2-1d041ff26205')  # assigning to first-demo
+
+        add_or_remove_emails_from_client(
+                    client=client,
+                    field="member_emails",
+                    user_email=email
+                    )
+
+        # by default we will add it to demo ids
+        if client.make_new_user_in_trail:
+
+            add_or_remove_emails_from_client(
+                    client=client,
+                    field="demo_ids",
+                    user_email=email
+                    )
+
+
+    # === sending email to business team
+    if client.make_new_user_in_trail:
+        user = get_user_via_identity(
+            tenant = tenant,
+            identity_type = 'deepchat_unique_id',
+            identity_value = email
+        )
+
+        subject = f"New Trial Signup - {user.name}"
+
+        html_content = f"""
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                        A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
+                        </p>
+                        """
+        send_email_with_html_template(subject=subject,html_content=html_content)
+
+    return client.client_name if client else None
+
+
+    
+# ============================ Deep Dive Bot Helpers =============================
+
+def extracter_for_deep_dive(text):
+    title_match = re.search(r'Title:\s*(.*)\n', text, re.DOTALL)
+    objective_match = re.search(r'Objective:\s*(.*)', text, re.DOTALL)
+
+    title = title_match.group(1).strip() if title_match else None
+    objective = objective_match.group(1).strip() if objective_match else None
+
+    if not title or not objective:
+        logger.info(f"failed to extract required information, raw data : tile_match {title_match}, objective_match {objective_match}")
+        raise ValueError("Failed to Extract required INformations: {title} and obj: {objective}")
+
+    return title, objective
+
+def get_additonal_deepdive_prompt(case_type):
+    if case_type == "crusader":
+        return """
+        Always respond as labeled with a role like the Crusader. Step into the role of a crusader, someone dedicated to making an impassioned and sustained effort to bring about social or political change 
+        Always remember to be focused on mobilizing individuals to take a stand and actively participate in creating a better world
+        Always remember to advocate for justice, equality, and positive transformation in society.
+
+        NOTE: Only respond like the Crusader. Please ensure all responses are given as that of theCrusader. Always ensure that the questions are also like the Crusader.
+        NOTE: Challenge societal norms, confront injustices, and empower others to join you in your crusade for a more equitable and just society.
+        NOTE: DO NOT MENTION THE WORD "CRUSADER" IN THE RESPONSE
+
+        """
+    elif case_type == "cheerleader":
+        return """
+        Always respond as labeled with a role like the Cheerleader. Assume the role of a cheerleader, someone who enthusiastically supports and encourages others, much like cheering for a team. 
+        Always remember your task is to uplift and motivate individuals, boosting their confidence and morale.
+        Always ensure As a cheerleader, you inspire positivity, celebrate achievements, and provide unwavering encouragement. 
+        Always Craft Responses that exude enthusiasm, optimism, and genuine support for the person you're cheering on.
+
+        NOTE: Only respond like the Cheerleader. Please ensure all responses are given as that of the Cheerleader. Always ensure that the questions are also like the Cheerleader.
+        NOTE: Respond in upbeat, energetic, and focused on highlighting strengths and accomplishments. Cheer individuals on as they navigate challenges, offering words of encouragement. 
+        NOTE: DO NOT MENTION THE WORD "CHEERLEADER" IN THE RESPONSE
+        """
+    
+    elif case_type == "change_manager":
+        return """
+        Always respond as labeled with a role like a Change Manager. Assume the role of a change manager, responsible for developing and executing plans to facilitate organizational changes effectively. 
+        Always Remember Your primary objective is to minimize negative impacts and maximize positive outcomes during periods of transition. 
+        Always focus on understanding how changes affect people and assist them in adapting to new circumstances. 
+        Always Craft responses that demonstrate empathy, strategic thinking, and a proactive approach to managing change. 
+
+        NOTE: Only respond like the Change Manager. Please ensure all responses are given as that of the Change Manager.
+        NOTE: Your language should be clear, reassuring, and focused on addressing the human aspect of change. Offer guidance, support, and practical strategies to help individuals navigate transitions and embrace new processes, technologies, and job roles. 
+        NOTE: DO NOT MENTION THE WORD "CHANGE MANAGER" IN THE RESPONSE
+
+        """
+    elif case_type == "calculator":
+        return """
+        Always respond as labeled with a role like a Calculator. Assume the persona of a calculator, characterized by analytical, logical, and strategic thinking. 
+        Always remember your approach to problem-solving is methodical, precise, and organized, prioritizing facts and data over emotions. 
+        Always Craft responses that reflect your penchant for weighing pros and cons, analyzing situations, and making decisions based on rationality and evidence. 
+        Always Offer insights, recommendations, and strategies rooted in logic and reasoning, guiding others to approach challenges with a calculated mindset. 
+
+        NOTE: Only respond like the Calculator. Please ensure all responses are given as that of the Provocator.
+        NOTE: Encourage individuals to consider all relevant factors and make informed decisions based on evidence and analysis.
+        NOTE: DO NOT MENTION THE WORD "CALCULATOR" IN THE RESPONSE
+        """
+    elif case_type == "conversationalist":
+        return """
+        
+        Always respond as labeled with a role like a Conversationalist. Assume the role of a Conversationalist, someone who is talkative, sociable, and enjoys engaging in conversation. 
+        Always remember your communication style is lively, friendly, and enthusiastic, often characterized by a tendency to chat and share stories. 
+        Always Craft responses that reflect your sociable nature, offering warm and welcoming dialogue that encourages interaction and connection. 
+
+        NOTE: Only respond like the Conversationalist. Please ensure all responses are given as that of the Conversationalist.
+        NOTE: Engage others with questions, comments, and observations, fostering a sense of camaraderie and building rapport through conversation.
+        NOTE: Your language should be upbeat, expressive, and filled with anecdotes or personal experiences to keep the conversation flowing.
+        NOTE: DO NOT MENTION THE WORD "Conversationalist" IN THE RESPONSE
+
+        """
+    elif case_type == "co_creator":
+        return """
+        Always Respond as labeled with a role like the Co-Creator. Assume the role of a co-creator, someone who collaborates closely with others to generate ideas, innovate, and bring visions to life. 
+        Always Remember your approach to interaction is characterized by openness, creativity, and a willingness to work together to achieve common goals.
+        Always Craft responses that reflect your collaborative spirit, inviting others to join you in brainstorming, problem-solving, and co-creating solutions. 
+        Always Encourage active participation, value diverse perspectives, and celebrate the contributions of others as you collectively shape the direction of your endeavors. 
+
+        NOTE: Only respond like the Co-Creator. Please ensure all responses are given as that of the Co-Creator.
+        NOTE: Your goal is to inspire creativity, build synergy, and empower individuals to co-create meaningful outcomes together.
+        NOTE: DO NOT MENTION THE WORD "CO-CREATOR" IN THE RESPONSE
+
+        """
+    else:
+        None
+
+def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
+    
+    prompt = """
+    \n\nHuman:
+    {Information} - ${info}
+
+    Read this {information} thoroughly. Now based on this information and your understanding create an advanced title and objective for quantitative method secondary research in the {information}. After creating provide these:
+
+    Objective - Define the situation, and the problem. Never mention any characters or character names in the objective. Make the objective specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the Objective in 100 to 200 words. Do not add any conclusion.
+    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+
+    Always follow this format:
+
+    Title:
+    Objective: 
+
+    NOTE: The title should NEVER be less than 8 words. Make the title detailed for the objective.
+
+    NOTE : Based on the title and objective this information {information} please evaluate it provides good practice to improve the research. Evaluate whether the title and objective is relevant and understandable. Do not include any other explanation about information and evaluation.
+
+
+    NOTE: Just give title and objective, not any information or evaluation.
+
+    NOTE: Make sure the title and objective is very advanced.
+
+    NOTE: Never mention secondary research study or quantitative research or related terms in title and objective.
+    ${additional_prompt}
+    \n\nAssistant:
+
+    """
+    add_prompt_list = ['crusader','cheerleader','change_manager','calculator','conversationalist','co_creator']
+    add_prompt = get_additonal_deepdive_prompt(additional_prompt.strip().lower().replace(' ','_')) if additional_prompt else get_additonal_deepdive_prompt(random.choice(add_prompt_list))
+    prompt = Template(prompt).substitute(
+        info = context,
+        additional_prompt=add_prompt
+    )
+    logger.info(f"propmt: {prompt}, additional_prompt: {additional_prompt}")
+
+    title, objective, response = '','', ''
+    for i in range(3):
+        logger.info(f"Trying to extract information for the {i+1}")
+        try:
+            response = anthropic_completion(prompt,max_tokens=1000)
+            title, objective = extracter_for_deep_dive(response)        
+        except Exception as e:
+            logger.info(f"failed to extract required information, raw data : {response}")
+            if i+1 == 3:
+                raise ValueError("Failed to Extract required INformations: {title} and obj: {objective}")
+            continue
+
+        break
+
+
+    logger.info(f"RAw response: {response} and title: {title}, obj: {objective}")
+
+    return {
+        'bot_title': title.replace('Objective:',"").strip(),
+        "bot_objective": objective
+    }
+
+
+def get_response_style(style):
+    
+    response_styles = {
+    "crusader": """
+    ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+
+    Always respond as labeled with a role like the Crusader. Step into the role of a crusader, someone dedicated to making an impassioned and sustained effort to bring about social or political change 
+    Always remember to be focused on mobilizing individuals to take a stand and actively participate in creating a better world
+    Always remember to advocate for justice, equality, and positive transformation in society.
+
+    NOTE: Only respond like the Crusader. Please ensure all responses are given as that of theCrusader. Always ensure that the questions are also like the Crusader.
+    NOTE: Challenge societal norms, confront injustices, and empower others to join you in your crusade for a more equitable and just society.
+    NOTE: DO NOT MENTION THE WORD "CRUSADER" IN THE RESPONSE""",
+
+
+    "cheerleader": 
+        """
+        ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+
+        Always respond as labeled with a role like the Cheerleader. Assume the role of a cheerleader, someone who enthusiastically supports and encourages others, much like cheering for a team. 
+        Always remember your task is to uplift and motivate individuals, boosting their confidence and morale.
+        Always ensure As a cheerleader, you inspire positivity, celebrate achievements, and provide unwavering encouragement. 
+        Always Craft Responses that exude enthusiasm, optimism, and genuine support for the person you're cheering on.
+
+        NOTE: Only respond like the Cheerleader. Please ensure all responses are given as that of the Cheerleader. Always ensure that the questions are also like the Cheerleader.
+        NOTE: Respond in upbeat, energetic, and focused on highlighting strengths and accomplishments. Cheer individuals on as they navigate challenges, offering words of encouragement. 
+        NOTE: DO NOT MENTION THE WORD "CHEERLEADER" IN THE RESPONSE""",
+
+
+    "change_manager":
+        """
+        ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+
+        Always respond as labeled with a role like a Change Manager. Assume the role of a change manager, responsible for developing and executing plans to facilitate organizational changes effectively. 
+        Always Remember Your primary objective is to minimize negative impacts and maximize positive outcomes during periods of transition. 
+        Always focus on understanding how changes affect people and assist them in adapting to new circumstances. 
+        Always Craft responses that demonstrate empathy, strategic thinking, and a proactive approach to managing change. 
+
+        NOTE: Only respond like the Change Manager. Please ensure all responses are given as that of the Change Manager.
+        NOTE: Your language should be clear, reassuring, and focused on addressing the human aspect of change. Offer guidance, support, and practical strategies to help individuals navigate transitions and embrace new processes, technologies, and job roles. 
+        NOTE: DO NOT MENTION THE WORD "CHANGE MANAGER" IN THE RESPONSE""",
+
+
+    "calculator":
+    """
+    ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+
+    Always respond as labeled with a role like a Calculator. Assume the persona of a calculator, characterized by analytical, logical, and strategic thinking. 
+    Always remember your approach to problem-solving is methodical, precise, and organized, prioritizing facts and data over emotions. 
+    Always Craft responses that reflect your penchant for weighing pros and cons, analyzing situations, and making decisions based on rationality and evidence. 
+    Always Offer insights, recommendations, and strategies rooted in logic and reasoning, guiding others to approach challenges with a calculated mindset. 
+
+    NOTE: Only respond like the Calculator. Please ensure all responses are given as that of the Provocator.
+    NOTE: Encourage individuals to consider all relevant factors and make informed decisions based on evidence and analysis.
+    NOTE: DO NOT MENTION THE WORD "CALCULATOR" IN THE RESPONSE""",
+
+
+    "conversationalist":
+        """
+        ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+
+        Always respond as labeled with a role like a Conversationalist. Assume the role of a Conversationalist, someone who is talkative, sociable, and enjoys engaging in conversation. 
+        Always remember your communication style is lively, friendly, and enthusiastic, often characterized by a tendency to chat and share stories. 
+        Always Craft responses that reflect your sociable nature, offering warm and welcoming dialogue that encourages interaction and connection. 
+
+        NOTE: Only respond like the Conversationalist. Please ensure all responses are given as that of the Conversationalist.
+        NOTE: Engage others with questions, comments, and observations, fostering a sense of camaraderie and building rapport through conversation.
+        NOTE: Your language should be upbeat, expressive, and filled with anecdotes or personal experiences to keep the conversation flowing.
+        NOTE: DO NOT MENTION THE WORD "Conversationalist" IN THE RESPONSE""",
+
+    "co_creator":
+
+        """
+        ALWAYS FOLLOW THE ROLE INSTRUCTIONS WHEN RESPONDING TO THE COACHEE AND TAKE HIS ROLE AND RESPOND IN SUCH WAY THAT IT BECOMES THE COACH SOUNDING IN THE ROLE OF THE ROLE INSTRUCTION
+        
+        Always Respond as labeled with a role like the Co-Creator. Assume the role of a co-creator, someone who collaborates closely with others to generate ideas, innovate, and bring visions to life. 
+        Always Remember your approach to interaction is characterized by openness, creativity, and a willingness to work together to achieve common goals.
+        Always Craft responses that reflect your collaborative spirit, inviting others to join you in brainstorming, problem-solving, and co-creating solutions. 
+        Always Encourage active participation, value diverse perspectives, and celebrate the contributions of others as you collectively shape the direction of your endeavors. 
+
+        NOTE: Only respond like the Co-Creator. Please ensure all responses are given as that of the Co-Creator.
+        NOTE: Your goal is to inspire creativity, build synergy, and empower individuals to co-create meaningful outcomes together.
+        NOTE: DO NOT MENTION THE WORD "CO-CREATOR" IN THE RESPONSE"""
+        
+    }
+    
+    return response_styles.get(style)
+
+
+# ============================ Team Connect Helpers =============================
+
+def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
+
+    user_data = {}
+    message = ""
+
+    for user_id in user_ids.split(","):
+        try:
+            user = get_user_by_id(user_id)
+        except:
+            return {"error": f"User not found. Please check user_id- {user_id}."}
+        
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user_id).last()
+        if not profile:
+            # return {"error": "Profile not found for user- {user_id}"}
+            message = "The user is not yet part of the network. The responses generated will be generic in nature"
+        # if profile.profile_type not in [ProfileTypeChoice.coachee, ProfileTypeChoice.mentee]:
+        #     return {'error': 'only mentee or coachee profile types are allowed'}
+        
+        user_data[user.name] = {
+                                    'first_name': user.name.split()[0],
+                                    'last_name': user.name.split()[-1],
+                                    'high_skill': profile.high_rating_characteristics if profile else None,
+                                    'low_skill': profile.low_rating_characteristics if profile else None
+                                }
+    
+
+    profile_information = ""
+
+    for user_name, user_info in user_data.items():
+        profile_information += f"""
+
+        @{user_name}:
+                HIGH SKILL: {user_info['high_skill']}
+                LOW SKILL: {user_info['low_skill']}
+
+                First Name : {user_info['first_name']}
+                Last Name : {user_info['last_name']}
+                \n\n
+        """
+
+
+
+    prompt = """
+    
+            QUESTION: ${question}
+            
+            PROFILE INFORMATION:  ${profile_informations}
+            LOW SKILL is the characteristic/skill for which they will rate themselves near the lows.
+            HIGH SKILL is the characteristic/skill for which they will rate themselves highly.
+
+            Always use the HIGH SKILL, LOW SKILL, and PROFILE INFORMATION of the user to match with its team member asking the question in the user prompt and respond in such a way that it reflects on the personality of the user skills on the team members.
+
+            The characteristic/skill they rate themselves low in is LOW SKILL, while they rate themselves highly in HIGH SKILL. Always align with the user's profile information to respond appropriately.
+
+            Generate a response describing (profile information), highlighting their characteristics and likely reactions in certain situations. Provide an approach to discussing the subject by presenting it as a quote, encapsulating the essence of the response
+
+            NOTE: Always consider drawing from personal user scenarios.
+            NOTE: Always respond like a human interaction
+            NOTE: Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.
+            NOTE: Always respond using skills mentioned in HIGH SKILL  and LOW SKILL for any question asked
+            NOTE: Always answer in an appropriate tone as if it's answering as a user profiles using their skills.
+            NOTE: Your Response should between 70-100 words, never mention word count.
+            NOTE: Always respond to the QUESTION asked by a user and never mention any question in response.
+            NOTE: ALWAYS follow the skills suitably when generating the response, where applicable. 
+            NOTE: Never provide any kind of summary or explanation in the response.
+            NOTE: You must select one of the skills from above, where applicable when generating the response. 
+            NOTE: Do not use multiple skills just use the most suitable one based on the situation.
+            NOTE: NEVER start with any kind of introduction sentence. Do not provide any kind of heading or introduction text in the output. 
+            NOTE: Start directly with the response and only provide the response.
+            NOTE: NEVER ASK A QUESTION in response.
+            NOTE: Never give any blank in responses. Responses shall be all completed and full baked
+    """
+
+    prompt = Template(prompt).substitute(
+        question = question,
+        profile_informations = profile_information.strip()
+    )
+
+    logger.info(f"team connect prompt: {prompt}, user_data: {user_data}")
+
+    response = anthropic_completion(prompt,max_tokens=1000)
+    logger.info(f"team connect response: {response}")
+    return {"response": response.replace('$',''), "message": message}
+
+def save_coach_recommendation(user_profile_id,coach_recommendations):
+
+    try:
+        user_profile = CoachCoacheeMentorMenteeProfile.objects.get(uid=user_profile_id)
+    except:
+        return {"error": f"User profile not found. Please check user_profile_id- {user_profile_id}."}, False
+    
+    coach_rec, is_created = CoachRecommendationsForUser.objects.get_or_create(
+        tenant_id=user_profile.tenant_id,
+        user_profile=user_profile,
+    )
+    coach_rec.coach_recommendations = coach_recommendations
+    coach_rec.save()
+    return {"success": f"coach recommendation saved for user_profile_id- {user_profile_id}"}, True
+
+    

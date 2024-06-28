@@ -7,6 +7,7 @@ import logging
 from utilities.models import EmailSentDetails
 from string import Template
 import datetime
+from users.db import get_user_by_id
 
 from external_apis.slack_alert_api import send_slack_message
 
@@ -189,8 +190,10 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
 
 
 
-def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, bot_id, coach_name, bot_name,allow_reply = False,no_reply=False):
+def send_bot_conversation_email(candidate_name, conversation, to_email,summary, simulation, signature_bot, coach_name, bot_name,allow_reply = False,no_reply=False):
     msg_str = ""
+    bot_id = signature_bot.bot_id
+    sent_status = ""
     try:
         from_password = APP_PASSWORD
         from_email = FROM_EMAIL
@@ -207,7 +210,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
             msg['To'] = ', '.join(to_email)
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
-        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name)
+        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name,bot=signature_bot)
         email_wrapper = ""
         if no_reply:
             email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
@@ -222,7 +225,11 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
         server.starttls()
         server.login(LOGIN_EMAIL, from_password)
-        sent_status = server.sendmail(from_email, to_email, msg_str)
+        if not allow_reply:
+            for email in to_email:
+                sent_status = server.sendmail(from_email, email, msg_str)
+        else:
+            sent_status = server.sendmail(from_email, to_email, msg_str)
         server.quit()
         
         print("!!!!!!!!!!!!!!!!!!!!! Email sent successfully ==============> ", sent_status)
@@ -1333,7 +1340,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                         <table cellpadding="0" cellspacing="0" width="100%">
                                                                             <tbody>
                                                                                 <tr>
-                                                                                    <td align="center" class="esd-block-text">
+                                                                                    <td class="esd-block-text">
                                                                                         <div>${html_content}</div>
                                                                                     </td>
                                                                                 </tr>
@@ -1406,8 +1413,8 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                             <tbody>
                                                                                 <tr>
                                                                                     <td align="left" class="esd-block-text">
-                                                                                        <p>Thank you,</p>
-                                                                                        <p>Team Coachbots</p>
+                                                                                        <p>Best regards,</p>
+                                                                                        <p>The Team Coachbots</p>
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
@@ -1423,7 +1430,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td align="center" class="esd-block-text">
-                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) Coachbots 2024. Powered by Answer Cloud Technology Pvt. Ltd.</p>
+                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) CoachBots Inc. 2024. Powered by Answer Cloud Technologies Pvt Ltd.</p>
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
@@ -1471,24 +1478,79 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
 
     return template
 
-def get_transcript_block(conversation, summary, simulation,coach_name):
+def get_transcript_block(conversation, summary, simulation,coach_name,bot):
 
     simulation_block = get_simulation_block(simulation)
     data = ""
     for index,i in enumerate(conversation):
-        
-        data += f'''
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
-                <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
-            </td>
-        </tr>
-        <tr>
-            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
-                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{coach_name}: {i['coach']}</p>
-            </td>
-        </tr>
-    '''
+        if bot.bot_type == "deep_dive":
+            if index == 0:
+                data += f'''
+                        
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                    '''
+                
+            elif index == 1:
+                data += f'''
+                    <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                            <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                        </td>
+                    </tr>
+                '''
+
+            elif index == len(conversation)-2:
+                    data += f'''
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                    '''
+            elif index == len(conversation)-1:
+                    data += f'''
+                        <tr>
+                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                            <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{i['coach']}</p>
+                        </td>
+                    </tr>
+                    '''
+            else:
+
+                data += f'''
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                                <p style="color: #000000; padding: 10px 15px; margin: 0;">Answer: {i['user']}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                                <p style="color: #ffffff; padding: 10px 15px; margin: 0;">Question: {i['coach']}</p>
+                            </td>
+                        </tr>
+                    '''
+        else:
+            data += f'''
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
+                    <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #3498db;" valign="top" align="left" bgcolor="#3498db">
+                    <p style="color: #ffffff; padding: 10px 15px; margin: 0;">{coach_name}: {i['coach']}</p>
+                </td>
+            </tr>
+        '''
     template = """
     <td class="esd-stripe" align="center">
         <table bgcolor="#ffffff" class="es-content-body" align="center" cellpadding="0" cellspacing="0" width="600">
@@ -1608,3 +1670,40 @@ def get_simulation_block(simulation):
         </tr>
         """
         return template
+    
+
+def send_welcome_email(profile_type, user_email, user_name):
+    ## sending Welcome Message to user
+    subject = ""
+    html_content = ""
+    if profile_type in ['coach','mentor']:
+        subject = f"Welcome Aboard, {user_name}!"
+        html_content =f"""
+        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+            <div style="margin: 15px;">
+                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Thank you for creating your AI Frame - it's now live and ready to support your coaching and mentoring engagements. You can always edit your AI Frame through the profile section.</p>
+                <p>Your AI Frame will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
+                <p>We encourage you to explore the Creator Studio, where you can create and assign tailored simulations for your coachees. This feature will empower you to curate learning experiences that address their specific needs and goals.</p>
+                <p>Additionally, you can leverage the Action Plans and Session Notes sections to document and track the progress of your coaching journeys. These tools will help you provide meaningful support and guidance to your coachees.</p>
+                <p>We're excited to embark on this journey with you. Let's unlock your coachees' full potential together!</p>
+            </div>
+        </p>
+
+        """
+    elif profile_type in ['coachee','mentee']:
+        subject = f"Welcome Aboard, {user_name}!"
+        html_content = f"""
+        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+            <div style="margin: 15px;">
+                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Thank you for creating your profile - it's now live and ready to support your personal and professional development. You can always edit your information through the profile section.</p>
+                <p>Your profile will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
+                <p>We also encourage you to try out the various simulations available in our library. These immersive experiences will help you hone your skills and prepare you for real-world challenges.</p>
+                <p>We're excited to embark on this journey with you. Let's unlock your full potential together!</p>
+            </div>
+        </p>
+        """
+    
+    send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email, title=f'Dear {user_name},')
+

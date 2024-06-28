@@ -24,15 +24,88 @@ def get_default_values(choice:str):
 
     elif choice == "expertise":
         expertise =  [
-              "Career Management",
-              "Work Life Banlance",
-              "Project Management",
-              "Lateral Transfers",
-           ]
+                "Leadership Development",
+                "Stress Management",
+                "Hiring & Recruitment",
+                "People Management",
+                "Diversity & Inclusion",
+                "Career Navigation",
+                "Culture Alignment",
+                "Workplace Skills"
+                ]
         text = ",".join(expertise)
 
     return text
+
+def get_default_allowed_ips():
+    return {"feedback_deep-dive":""}
+def get_default_ui_information():
+    return {
+        'bottom_text': None,
+        'header': None,
+        'read_text': None,
+    }
+
+def get_default_help_text():
+    help_text_json = data = {
+        "network_directory": {
+            "header_text": "",
+            "join_the_network": "",
+            "search_filter": "",
+            "participant_listing": "",
+            "first_coach_profile": "",
+            "email": "",
+            "reviews": "",
+            "feedback": ""
+        },
+        "demo": {
+            "user_demos": "",
+            "system_demos": "",
+            "coachTalk": "",
+            "coachScribe": "",
+            "manager_plus": ""
+        },
+        "libarary": {
+            "nav_one": "",
+            "nav_two": "",
+            "test_category": "",
+            "simulations": "",
+            "coachTalk": "",
+            "coachScribe": ""
+        },
+        "creator_studio": {
+            "action_items": "",
+            "learning_ideas": "",
+            "scenario_creator": "",
+            "team_connect": "",
+            "deep_dive": "",
+            "knowledge_bots": ""
+        },
+        "profile": {
+            "session_reports": "",
+            "personal_leaderboard": "",
+            "kudos_board": "",
+            "directory_profile": "",
+            "my_connections": "",
+            "action_plan_session_notes": "",
+            "bot_conversations": "",
+            "my_rewards": "",
+            "competencies": "",
+            "idp": "",
+            "email_sign": ""
+        }
+    }
+
+    return help_text_json
     
+def get_default_signature_bot_page_information():
+    return {
+        "benefits": None,
+        "how_it_works": None,
+        "sample": {
+            "Quick Match": "The quick match demonstrates fitment between participants based on pre-decided criteria."
+        }
+    }
 
 
 class User(TenantAwareModel):
@@ -71,10 +144,16 @@ class UserAttribute(TenantAwareModel):
     custom_skill_prompt_1 = models.TextField(null=True, blank=True, default=None)
     custom_skill_prompt_2 = models.TextField(null=True, blank=True, default=None)
     test_previlage = models.TextField(null=True,blank=True,default=None)
-    competency_data = models.JSONField(null=True,blank=True,default=default_competency_data())
+    competency_data = models.JSONField(null=True,blank=True,default=default_competency_data)
     evaluate_relevency = models.BooleanField(null=True, blank = True, default=True)
-    
-
+    allow_audio_interactions = models.BooleanField(null=True, default=False)
+    prioritize_user_audio_interaction = models.BooleanField(null=True, default=False)
+    restricted_pages = models.TextField(null=True,blank=True,default=None)
+    restricted_features = models.TextField(null=True,blank=True,default=None)
+    assigned_tests = models.JSONField(null=True, blank=True, default=dict)
+    access_allowed = models.TextField(null=True,blank=True,default=None)
+    access_denied = models.TextField(null=True,blank=True,default=None)
+    preferences = models.JSONField(null=True, blank=True, default=dict)
 
     class Meta:
         db_table = "user_attribute"
@@ -105,6 +184,9 @@ class SignatureBot(TenantAwareModel):
     use_idp = models.BooleanField(null=True,default=False)
     bot_scenario_case = models.CharField(max_length=255, null=True, blank=True, choices=BotScenarioCaseChoice, default=BotScenarioCaseChoice.general)
     is_approval_email_sent = models.BooleanField(null=True,default=False)
+    bot_expires_at = models.DateTimeField(null=True,default=None,blank=True)
+    access_code = models.CharField(max_length=10, blank=True, null= True, default=None)
+    page_informations = models.JSONField(null=True, blank=True, default=get_default_signature_bot_page_information)
     
 
     class Meta:
@@ -158,7 +240,7 @@ class BotAndUserMapping(TenantAwareModel):
 
 class ClientUserInfo(TenantAwareModel):
     client_name = models.CharField(max_length=255)
-    owner_id = models.CharField(max_length=255)
+    owner_id = models.CharField(max_length=255,null=True, blank=True, default=None)
     attributes = models.JSONField(null=True, blank=True, default=None)
     member_emails = models.TextField(null=True, blank=True, default=None)
     member_mob_numbers = models.TextField(null=True, blank=True, default=None)
@@ -175,11 +257,27 @@ class ClientUserInfo(TenantAwareModel):
     coach_expertise = models.TextField(null=True, blank=True, default=get_default_values('expertise'))
     departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
     coach_mentor_previledge = models.TextField(null=True, blank=True, default=None)
-    is_coach_mentor_previledge = models.BooleanField(null=True, default=False)
+    is_coach_mentor_previledge = models.BooleanField(blank=True, default=False)
     restricted_pages = models.TextField(null=True, blank=True, default=None)
     restricted_features = models.TextField(null=True, blank=True, default=None)
+    domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
+    deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
+    allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips)
+    allow_audio_interactions = models.BooleanField(blank=True, default=False)
+    make_new_user_in_trail = models.BooleanField(blank=True, default=True)
+    heading = models.CharField(max_length=255,null=True, blank=True, default=None)
+    sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
+    tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
+    ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information)
+    widget_access_code = models.CharField(max_length=255,null=True, blank=True, default="DEMO2024")
+    help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
+    allow_paste_answer = models.BooleanField(blank=True, default=False)
+    webhook_url = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_secret = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
+    webhook_enabled = models.BooleanField(blank=True, default=False)
 
-
+    
 
 
     class Meta:
@@ -235,6 +333,10 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     journey_and_background = models.TextField(null=True, blank=True, default=None)
     mentorship_contribution = models.TextField(null=True, blank=True, default=None)
     is_approved_email_sent = models.BooleanField(null=True, blank=True, default=False)
+    discussion_topic = models.TextField(null=True, blank=True, default=None)
+    optional_file_data = models.JSONField(null=True, blank=True, default=None)
+    problem_statement = models.TextField(null=True, blank=True, default=None)
+
 
     
     
@@ -244,6 +346,22 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
 
         unique_together = (("tenant_id", "uid"),)
         
+
+class CoachRecommendationsForUser(TenantAwareModel):
+    user_profile = models.ForeignKey(
+        'CoachCoacheeMentorMenteeProfile', 
+        on_delete=models.CASCADE, 
+        related_name='coach_recommendations'
+    )
+    coach_recommendations = models.TextField(null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "coach_recommendations_for_user"
+        unique_together = (("tenant_id", "user_profile","deleted"),)
+        indexes = [
+            models.Index(fields=['user_profile']),
+            models.Index(fields=['tenant_id', 'user_profile']),
+        ]
         
 class CoachCoacheeRating(TenantAwareModel):
     coach_id = models.CharField(max_length=255)
