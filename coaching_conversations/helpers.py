@@ -1579,7 +1579,8 @@ def create_user_profile_and_bot(data,auth):
         "journey_and_background": journey_and_background,
         "voice_sample": voice_sample,
         "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring,
-        "discussion_topic": discussion_topic
+        "discussion_topic": discussion_topic,
+        "provide_answers_using_emojis" : provide_answers_using_emojis.strip().lower() == 'yes' if provide_answers_using_emojis else False
 
     }
 
