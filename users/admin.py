@@ -224,9 +224,11 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                         ],
                         "coach_qna": qna_for_coach_mentor.get('coach'),
                         "mentor_qna": qna_for_coach_mentor.get('mentor'),
-                        "discussion_topic": instance.discussion_topic
+                        "discussion_topic": instance.discussion_topic,
+                        "provide_answers_using_emojis": instance.provide_answers_using_emojis
                     }
-                    
+
+
 
                     print(additional_data)
 

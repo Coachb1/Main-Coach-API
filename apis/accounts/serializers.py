@@ -116,7 +116,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 "mentorship_contribution",
                 "discussion_topic",
                 "optional_file_data",
-                "problem_statement"
+                "problem_statement",
+                "provide_answers_using_emojis"
                 ]
 
         extra_kwargs = {
