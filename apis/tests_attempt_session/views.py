@@ -491,7 +491,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 logger.info(f"<< Client details >> {client_obj.client_name if client_obj else ''}, {client_obj.webhook_url}")
                 if client_obj.webhook_url:
                     logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>>>>>>")
-                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret) 
+                    invoke_webhook("simulation-attempted",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "simulation_title": test.title, "report_link": report_url, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret or "") 
             except Exception as e:
                 logger.info(f"Failed to invoke webhook")
 
@@ -839,7 +839,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 client_obj = get_client_info_from_user_detail(participant_attribute_obj.tenant_id,participant_email)
                 if client_obj.webhook_url:
                     logger.info(f"<<<<<<<<<<<< pushing data to WEBHOOK_URL >>  client_name: {client_obj.client_name}, webhookurl: {client_obj.webhook_url}  >>>>>>>")
-                    invoke_webhook("bot-interaction",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret) 
+                    invoke_webhook("bot-interaction",{"username":participant_attributes.get("username"),"client_id": client_obj.client_name if client_obj else "", "participant_email": participant_email, "Conversation_transcript": conv, "date": str(test_attempt_session.created.date())},client_obj.webhook_url, client_obj.webhook_secret or "") 
             except Exception as e:
                 logger.info(f"Failed to invoke webhook")
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
