@@ -2137,6 +2137,9 @@ class AccountsViewSet(ApiViewSet,
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
+                excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                excluded_emails = [email.strip() for email in excluded_emails]
+                emails = set(emails) - set(excluded_emails)
                 by_category = request.query_params.get('by_category')
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
@@ -2303,6 +2306,9 @@ class AccountsViewSet(ApiViewSet,
             client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
             emails = client.member_emails.split(',') if client.member_emails else []
             emails = [email.strip() for email in emails]
+            excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+            excluded_emails = [email.strip() for email in excluded_emails]
+            emails = set(emails) - set(excluded_emails)
             user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
             user_ids_list = list(user_ids.values_list('user_id', flat=True))
             profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list('uid', flat=True))
@@ -2490,6 +2496,9 @@ class AccountsViewSet(ApiViewSet,
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
+                excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                excluded_emails = [email.strip() for email in excluded_emails]
+                emails = set(emails) - set(excluded_emails)
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 feedback_bots = SignatureBot.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id__in=user_ids_list,bot_type=BotTypeChoice.feedback_bot)
