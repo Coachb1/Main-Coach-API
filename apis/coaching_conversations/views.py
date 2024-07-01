@@ -300,6 +300,14 @@ class CoachingConversationViewSet(ApiViewSet,
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
         user_bot_id = request.query_params.get('bot_id', None)
+        client_infos = ClientUserInfo.objects.all()
+        excluded_users = ""
+        for client_info in client_infos:
+            if client_info and client_info.excluded_users:
+                excluded_users += client_info.excluded_users
+            
+        excluded_emails = excluded_users.split(',') if excluded_users else []
+        excluded_emails = [email.strip() for email in excluded_emails]
 
         if mode == 'admin':
             try:
@@ -315,6 +323,11 @@ class CoachingConversationViewSet(ApiViewSet,
                 participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
 
                 for participant_id in participant_ids:
+                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id)
+                    if participant_attribute and participant_attribute.attributes:
+                        participant_email = participant_attribute.attributes.get('email')
+                        if participant_email in excluded_emails:
+                            continue
                     bot_sessions = sessions.filter(participant_id=participant_id)
                     data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
                     data_cov['bot_name'] = bot_att.bot_name
