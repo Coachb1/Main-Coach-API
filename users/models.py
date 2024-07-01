@@ -276,6 +276,7 @@ class ClientUserInfo(TenantAwareModel):
     webhook_secret = models.CharField(max_length=255,null=True, blank=True, default=None)
     webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
     webhook_enabled = models.BooleanField(blank=True, default=False)
+    excluded_users = models.TextField(null=True, blank=True, default=None)
 
     
 
