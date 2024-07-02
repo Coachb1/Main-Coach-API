@@ -72,6 +72,10 @@ from django.db import transaction
 from coaching_conversations.helpers import add_or_remove_emails_from_client
 from users.models import get_default_signature_bot_page_information
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_cookie, vary_on_headers
+
 logger = logging.getLogger(__name__)
 
 class AccountsViewSet(ApiViewSet,
@@ -2009,6 +2013,8 @@ class AccountsViewSet(ApiViewSet,
           
           
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
+    @method_decorator(cache_page(60 * 15))
+    @method_decorator(vary_on_cookie)
     def get_directory_informations(self,request,*args, **kwargs):
         """
         Retrieves directory information based on the provided email in the request query parameters.
