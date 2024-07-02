@@ -2014,7 +2014,7 @@ class AccountsViewSet(ApiViewSet,
           
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
     @method_decorator(cache_page(60 * 15))
-    @method_decorator(vary_on_cookie)
+    @method_decorator(vary_on_headers("Authorization"))
     def get_directory_informations(self,request,*args, **kwargs):
         """
         Retrieves directory information based on the provided email in the request query parameters.
