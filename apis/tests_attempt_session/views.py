@@ -270,6 +270,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_attributes = UserAttribute.objects.get(
                                     user_id=participant_id).attributes
             candidate_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
+            if not user_attributes.get('real_name'):
+                candidate_name = f"{user_attributes.get('name')} (username: {user_attributes.get('email')})"
             
             try:
                 send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
@@ -770,6 +772,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = test_attempt_session.participant_id
         candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()}"""
+        if signature_bot.bot_type == 'deep_dive':
+            candidate_name = f"""{get_user_display_name(
+            get_user_by_id(participant_id)).capitalize()}/{signature_bot.bot_id}"""
+        elif signature_bot.bot_Type == 'user_bot':
+            candidate_name = f"""{bot_att.bot_name.capitalize()}"""
+
         tenant = self.request.tenant
         save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
         save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
