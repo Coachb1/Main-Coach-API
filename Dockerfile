@@ -3,6 +3,7 @@ FROM 0b742944.c1.de1.container-registry.ovh.net/library/python:3.11-buster
 RUN apt-get update
 
 RUN apt-get install -y build-essential libssl-dev libxrender-dev wget gdebi
+RUN apt-get install libmemcached-dev zlib1g-dev
 
 RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.buster_amd64.deb
 
