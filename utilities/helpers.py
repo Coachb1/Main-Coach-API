@@ -850,7 +850,7 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
             {Priorities} : ${priorities}
 
-            This is the persons learning history {Learning history} and their Existing key skills {Existing key skills}. Please give me the top 2 technical or hard skills related to their career this person should prioritize to achieve their goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable. The skills should be directly related to their career or goals.
+            This is the persons learning history {Learning history} and their Existing key skills {Existing key skills}. Please give me the top 2 technical or hard skills related to their career this person should prioritize to achieve their goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable to address any identified skill gaps. The skills should be directly related to their career or goals.
             Only give me the name of top two skills.
             Output format : {{Skill1, Skill2}}
             DO not give a reason or explanation.
