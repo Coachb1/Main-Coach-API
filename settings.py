@@ -189,3 +189,13 @@ WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
 BACKEND = os.getenv("BACKEND")
 
 CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com']
+
+
+CACHE_HOST='memcached'
+CACHE_PORT=11211
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.memcached.PyLibMCCache',
+        'LOCATION': f'{CACHE_HOST}:{CACHE_PORT}',
+    }
+}
