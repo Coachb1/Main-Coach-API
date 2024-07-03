@@ -75,6 +75,7 @@ from users.models import get_default_signature_bot_page_information
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -2013,8 +2014,8 @@ class AccountsViewSet(ApiViewSet,
           
           
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
-    @method_decorator(cache_page(60 * 15))
-    @method_decorator(vary_on_cookie)
+    # @method_decorator(cache_page(60 * 15))
+    # @method_decorator(vary_on_cookie)
     def get_directory_informations(self,request,*args, **kwargs):
         """
         Retrieves directory information based on the provided email in the request query parameters.
@@ -2061,6 +2062,11 @@ class AccountsViewSet(ApiViewSet,
             email = request.query_params.get('email')
             logger.info(f"Retrieving directory information for email: {email}")
             if email:
+                cache_key = f"user-directory-info-{email}"
+                data = cache.get(cache_key)
+                if data:
+                    return Response(data, status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
@@ -2078,8 +2084,14 @@ class AccountsViewSet(ApiViewSet,
                 
                 serializer = DirectoryInfoSErializer(directories,many=True)
             else:
+                cache_key = f"user-directory-info-all"
+                data = cache.get(cache_key)
+                if data:
+                    return Response(data, status=status.HTTP_200_OK)
+                
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
                 serializer = DirectoryInfoSErializer(directories,many=True)
+                cache.set(cache_key,serializer.data,timeout=60*15)
                 
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
