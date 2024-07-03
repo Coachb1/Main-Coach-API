@@ -2640,7 +2640,7 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
     Read this {information} thoroughly. Now based on this information and your understanding create an advanced title and objective for quantitative method secondary research in the {information}. After creating provide these:
 
     Objective - Define the situation, and the problem. Never mention any characters or character names in the objective. Make the objective specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the Objective in 100 to 200 words. Do not add any conclusion.
-    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words and more than 15 words. The title should always be directly related to the given description. Make it very specific to the description.
 
     Always follow this format:
 
