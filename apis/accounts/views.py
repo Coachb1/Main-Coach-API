@@ -2084,8 +2084,12 @@ class AccountsViewSet(ApiViewSet,
             else:
                 cache_key = f"user-directory-info-all"
                 data = cache.get(cache_key)
+                logger.info(f"<<< cache_data : {data} >>>")
                 if data:
+                    logger.info("<<< Cache found in memcached >>>")
                     return Response(data, status=status.HTTP_200_OK)
+                
+                logger.info("<<<! Cache Not found in memcached !>>>")
                 
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
                 serializer = DirectoryInfoSErializer(directories,many=True)
