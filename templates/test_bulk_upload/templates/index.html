@@ -212,9 +212,9 @@ input[type='file']{
         <h1 class="welcome-text">Welcome to the Test Create Page!</h1>
         <p class="message-text">Upload a csv file to create tests.</p>
         <div class="button-div">
-            <button id="slack-redirect" class="select-button">Create test for slack</button>
-            <button id="slack-orchestrated-test-redirect" class="select-button">Orchestrated test for slack </button>
-            <button id="web-redirect" class="select-button">Create test for Web</button>
+            <button id="slack-redirect" class="select-button">Create Normal Scenarios</button>
+            <button id="slack-orchestrated-test-redirect" class="select-button">Create Dynamic/GD Scenarios</button>
+            <button id="bot-profile-upload" class="select-button">Create Bot/Profile</button>
         </div>
         <br><br>
         <h1 id="message" class="message-text red-text"></h1>
@@ -223,14 +223,14 @@ input[type='file']{
     <script>
         let slackRedirect = document.getElementById('slack-redirect');
         let slackOrchestratedRedirect = document.getElementById('slack-orchestrated-test-redirect');
-        let webRedirect = document.getElementById('web-redirect');
+        let profileUpload = document.getElementById('bot-profile-upload');
 
         slackRedirect.addEventListener('click', () => {
             window.location.href = '/api/create-test-slack/';
         });
 
-        webRedirect.addEventListener('click', () => {
-            window.location.href = '/api/create-test-web/';
+        profileUpload.addEventListener('click', () => {
+            window.location.href = '/api/upload-coach-bots/';
         });
         slackOrchestratedRedirect.addEventListener('click', () => {
             window.location.href = '/api/test-create-orchestrated-conversation-slack/';

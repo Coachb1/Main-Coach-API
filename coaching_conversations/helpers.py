@@ -30,7 +30,7 @@ from apis.accounts.serializers import UserIDPSerializers
 from utilities.models import SessionNotesRecommendations
 import requests
 from utilities.prompts import get_intake_summary_prompt
-from commons.utils import remove_punctuations
+from commons.utils import remove_punctuations, generic_completion
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
 from identities.models import Identity
@@ -2673,7 +2673,9 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
     for i in range(3):
         logger.info(f"Trying to extract information for the {i+1}")
         try:
-            response = anthropic_completion(prompt,max_tokens=1000)
+            response = generic_completion(prompt,tokens=1000,llm_order=['anthropic','gemini','gpt'])
+            if not response:
+                raise ValueError('Failed to generate')
             title, objective = extracter_for_deep_dive(response)        
         except Exception as e:
             logger.info(f"failed to extract required information, raw data : {response}")
@@ -2863,7 +2865,7 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
 
     logger.info(f"team connect prompt: {prompt}, user_data: {user_data}")
 
-    response = anthropic_completion(prompt,max_tokens=1000)
+    response = generic_completion(prompt,tokens=1000,llm_order=['anthropic','gemini','gpt'])
     logger.info(f"team connect response: {response}")
     return {"response": response.replace('$',''), "message": message}
 
