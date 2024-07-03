@@ -2081,6 +2081,7 @@ class AccountsViewSet(ApiViewSet,
                                                             ).filter(Q(profile_id__in=profile_ids) | Q(avatar_bot_id__in = bot_ids))
                 
                 serializer = DirectoryInfoSErializer(directories,many=True)
+                cache.set(cache_key,serializer.data,timeout=60*15)
             else:
                 cache_key = f"user-directory-info-all"
                 data = cache.get(cache_key)
