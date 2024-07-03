@@ -2084,7 +2084,7 @@ class AccountsViewSet(ApiViewSet,
             else:
                 cache_key = f"user-directory-info-all"
                 data = cache.get(cache_key)
-                logger.info(f"<<< cache_data : {data} >>>")
+                # logger.info(f"<<< cache_data : {data} >>>")
                 if data:
                     logger.info("<<< Cache found in memcached >>>")
                     return Response(data, status=status.HTTP_200_OK)
