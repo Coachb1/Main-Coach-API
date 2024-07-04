@@ -1348,7 +1348,7 @@ def set_language_skills_in_thread(user_response,test_attempt_session):
     Note : Do not include any introduction sentence or word-count in the output.
     \n\nAssistant:"""
 
-    language_skills = anthropic_completion(language_skills_prompt, 150)
+    language_skills = generic_completion(prompt=language_skills_prompt, tokens=150, llm_order=['anthropic','gemini','gpt'])
     logger.info(f"===========================> language_skills: {language_skills}")
     test_attempt_session.language_skills = language_skills
     test_attempt_session.save(update_fields=["language_skills"])
