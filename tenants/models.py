@@ -15,7 +15,7 @@ class Tenant(MyModel):
     mobile_number_restriction_whatsapp = models.BooleanField(default=False, null=True, blank=True)
     mobile_number_list = models.TextField(null=True,blank=True,default=None)
     web_test_code_json = models.JSONField(null=True,blank=True,default=None)
-    use_skills_from_skill_bank = models.BooleanField(default=False, null=True, blank=True)
+    use_skills_from_skill_bank = models.BooleanField(default=False, null=True, blank=False)
 
 
     class Meta:
