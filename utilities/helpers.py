@@ -850,13 +850,13 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
             {Priorities} : ${priorities}
 
-            This is the persons learning history {Learning history} and their Existing key skills {Existing key skills}. Please give me the top 2 technical or hard skills related to their career this person should prioritize to achieve their goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable to address any identified skill gaps. The skills should be directly related to their career or goals.
-            Only give me the name of top two skills.
-            Output format : {{Skill1, Skill2}}
+            This is the persons learning history {Learning history} and their Existing key skills {Existing key skills}. Please give me the upto 2 to 5 technical or hard skills related to their career this person should prioritize to achieve their goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable to address any identified skill gaps. The skills should be directly related to their career or goals.
+            Only give me the name of up to two skills and not more than five skills.
+            Output format : {{Skill1, Skill2, Skill3, Skill4, Skill5}}
             DO not give a reason or explanation.
             Do not include any introductory sentence.
-            Always remeber to not mention Skill1 , Skill2 in the responses.
-            NOTE: Never mention Skill1 , Skill2
+            Always remember to not mention Skill1, Skill2, Skill3, Skill4, Skill5 in the responses.
+            NOTE: Never mention Skill1, Skill2, Skill3, Skill4, Skill5
             \n\nAssistant:
             """
     
@@ -872,7 +872,7 @@ def get_hard_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     data = ""
     for i in range(2):
         # data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
-        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        data = generic_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -885,7 +885,7 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     """Generates Soft skill using generic completion method."""
 
     prompt = """
-            \n\nHuman:
+             \n\nHuman:
             {Key Focus areas}: ${focus_areas}
 
             {Learning history}: ${learning_history}
@@ -896,13 +896,14 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
 
             {Priorities} : ${priorities}
 
-            This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please give me the top 2 soft skills or leadership skills related to their career this person should prioritize to achieve their long term goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable.
-            Only give me the name of top two skills.
-            Output format : {{Skill1, Skill2}}
+            This is the person's learning history {Learning history} and their Existing key skills {Existing key skills }. Please give me up to 2 to 5 soft skills or leadership skills related to their career this person should prioritize to achieve their long term goals {Goals} based on their immediate focus areas {Key Focus areas}, priorities {Priorities}. These skills should be achievable and actionable.
+         
+            Only give me the name of up to two skills and not more than five skills.
+            Output format : {{Skill1, Skill2, Skill3, Skill4, Skill5}}
             DO not give a reason or explanation.
             Do not include any introductory sentence.
-            Always remeber to not mention Skill1 , Skill2 in the responses.
-            NOTE: Never mention Skill1 , Skill2 
+            Always remember to not mention Skill1, Skill2, Skill3, Skill4, Skill5 in the responses.
+            NOTE: Never mention Skill1, Skill2, Skill3, Skill4, Skill5
 
             \n\nAssistant:
             """
@@ -920,7 +921,7 @@ def get_soft_skills(focus_areas,learning_history,existing_skills,goals,prioritie
     data = ""
     for i in range(2):
         # data = anthropic_completion(prompt=prompt,max_tokens=1000).replace("{","").replace("}","")
-        data = gemini_completion(prompt=prompt).replace("{","").replace("}","")
+        data = generic_completion(prompt=prompt).replace("{","").replace("}","")
         print(data)
         if contains_skill(data):
             continue
@@ -1028,7 +1029,7 @@ def get_recommendation(prompt_type,hard_soft_skills):
     data = ""
     for i in range(2):
         # data = anthropic_completion(prompt=prompt,max_tokens=1000)
-        data = gemini_completion(prompt=prompt)
+        data = generic_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue
@@ -1071,7 +1072,7 @@ def get_course_recommendation(learning_history,existing_skills,hard_soft_skills)
     data = ""
     for i in range(2):
         # data = anthropic_completion(prompt=prompt,max_tokens=1000)
-        data = gemini_completion(prompt=prompt)
+        data = generic_completion(prompt=prompt)
         print(data)
         if contains_skill(data):
             continue

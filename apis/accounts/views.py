@@ -2095,6 +2095,8 @@ class AccountsViewSet(ApiViewSet,
                 data = cache.get(cache_key)
                 end = time.time()
                 logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
+
+
                 if data:
                     end_time = time.time()
                     logger.info(f"<<< Time taken to get directory information when CacheHit : {end_time-start_time} >>>")

@@ -4348,6 +4348,10 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "real_name": participant_attributes.get("real_name"),
     }
 
+    if not participant_attributes.get("real_name"):
+        data["real_name"] = participant_name
+        data["candidate_name"] = participant_attributes.get("email")
+
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
@@ -4411,6 +4415,9 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         "candidate_name": participant_name,
         "real_name": participant_attributes.get("real_name"),
     }
+    if not participant_attributes.get("real_name"):
+        data["real_name"] = participant_name
+        data["candidate_name"] = participant_attributes.get("email")
 
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 

@@ -252,7 +252,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
 
         if IS_DYNAMIC_THREAD in input_dict:
             if input_dict[IS_DYNAMIC_THREAD] and len(input_dict[IS_DYNAMIC_THREAD].strip()) > 0:
@@ -260,7 +260,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic_thread == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
                     
         # if there is INTERACTION_MODE availble in csv then it will overwrite 
         if INTERACTION_MODE in input_dict:
@@ -815,7 +815,7 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_logged_in'] = False
 
-
+        client_info = None
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip()
@@ -902,7 +902,7 @@ def format_test_data_slack(raw_data,tenant):
         # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
-        if tenant.use_skills_from_skill_bank:
+        if client_info.use_skills_from_skill_bank:
             unmatched_skills = []
             for skills in skills_list:
                 if skills not in defined_skills_list:
@@ -923,12 +923,12 @@ def format_test_data_slack(raw_data,tenant):
 
         if IS_CHECKIN_TYPE in input_dict:
             if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                if input_dict[IS_CHECKIN_TYPE].strip().lower() == 'true':
                     check_pass = False
                 else:
                     check_pass = True
 
-                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                if input_dict[IS_CHECKIN_TYPE].strip().lower() == 'true':
                     candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
                     if not candidate_type:
                         candidate_type = 'Manager'
@@ -946,13 +946,13 @@ def format_test_data_slack(raw_data,tenant):
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
-        if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+        if EMAIL_ADDRESS_LIST in input_dict:
+            if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+                email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
+                email_list = [email.strip() for email in email_list]
+                email_list = ','.join(email_list)
 
-            email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
-            email_list = [email.strip() for email in email_list]
-            email_list = ','.join(email_list)
-
-            output_dict['email_address_list'] = email_list
+                output_dict['email_address_list'] = email_list
 
         if SEND_ONLY_TO_EMAIL in input_dict:
             if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
@@ -997,23 +997,26 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_email_type'] = False
 
-        if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
-            email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
+        if EMAIL_CANDIDATE in input_dict:
+            if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
+                email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
 
-            if email_candidate == "true":
-                output_dict['email_candidate'] = True
-            elif email_candidate == "false":
-                output_dict['email_candidate'] = False
+                if email_candidate == "true":
+                    output_dict['email_candidate'] = True
+                elif email_candidate == "false":
+                    output_dict['email_candidate'] = False
+                else:
+                    output_dict['email_candidate'] = True
+
+        if CANDIDATE_TYPE in input_dict:
+            if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
+                output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
+
+        if MAX_TEST_ALLOWED in input_dict:
+            if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0:
+                output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
             else:
-                output_dict['email_candidate'] = True
-
-        if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
-            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
-
-        if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0:
-            output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
-        else:
-            output_dict['max_test_allowed'] = None
+                output_dict['max_test_allowed'] = None
 
         for key in input_dict:
             if key.startswith(QUESTION):
@@ -1355,7 +1358,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, CLIENT]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -1572,7 +1575,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE]
+                     SCENARIO_CASE, CLIENT, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -1597,6 +1600,10 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     elif not row_data[col]:
                         raise Exception(
                             f"Column '{col}' has null or empty value in row")
+                    if SCENARIO_CASE in row_data and row_data.get(SCENARIO_CASE) == 'interview' and BACKGROUND not in row_data:
+                        raise Exception(
+                            f"Column '{BACKGROUND}' has null or empty value in row"
+                        )
 
                 # If row is valid, append it to list of valid rows to be sent to API
                 valid_rows.append(row_data)

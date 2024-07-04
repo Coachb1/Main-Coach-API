@@ -108,6 +108,9 @@ def send_learner_path_email(tests, user):
     user_attributes = UserAttribute.objects.get(user_id=user.uid).attributes
     to_email = user_attributes.get("profile", {}).get("email")
     user_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
+    if not user_attributes.get('real_name'):
+        user_name = f"{user_attributes.get('name')} (username: {user_attributes.get('email')})"
+
 
     if to_email is None:
         logging.error(f"Email not found for user {user.uid}")
