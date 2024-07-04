@@ -252,7 +252,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
 
         if IS_DYNAMIC_THREAD in input_dict:
             if input_dict[IS_DYNAMIC_THREAD] and len(input_dict[IS_DYNAMIC_THREAD].strip()) > 0:
@@ -260,7 +260,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic_thread == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
                     
         # if there is INTERACTION_MODE availble in csv then it will overwrite 
         if INTERACTION_MODE in input_dict:
