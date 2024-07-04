@@ -32,10 +32,10 @@ class StartWithUserFilter(admin.SimpleListFilter):
 
 class TestAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('uid','test_code','title','test_type','interaction_mode','deleted', 'start_with_user')
+    list_display = ('uid','test_code','title','test_type','scenario_case','interaction_mode','deleted', 'start_with_user')
     search_fields = ('test_code','title')
     list_editable = ('deleted',)
-    list_filter = ('tenant_id','test_type',StartWithUserFilter)
+    list_filter = ('tenant_id','test_type','scenario_case',StartWithUserFilter)
     
     def start_with_user(self, obj):
         start_with_user_message = obj.orchestrated_conversation_details.get('start_with_user') if obj.orchestrated_conversation_details else None
