@@ -424,10 +424,6 @@ def format_test_orchestrated_conversation(raw_data):
         if output_dict["test_type"] == TestTypeChoices.dynamic_discussion and bot_count > 1:
             return {"error": "Dynamic discussion can only have one bot"}, False
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            check_pass = False
-        else:
-            check_pass = True
 
         print('#'*100, input_dict)
 
@@ -445,37 +441,47 @@ def format_test_orchestrated_conversation(raw_data):
 
         print('*'*100, output_dict)
 
-        # skills_list = input_dict[SKILLS_TO_EVALUATE]
-        # skills_list_temp = []
-        # for s in skills_list.split(','):
-        #     skills_list_temp.append(s.strip().capitalize())
-        # skills_list = skills_list_temp
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            # candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-            # if not candidate_type:
-            #     candidate_type = 'Manager'
-            # skills_list_candidate = set()
-            # for item in get_skills(candidate_type):
-            #     skills_list_candidate.add(item.capitalize())
-            # skills_list_candidate = list(skills_list_candidate)
+        check_pass = True
 
-            # print('*'*100)
-            # print(sorted(skills_list_candidate))
-            # print(sorted(skills_list))
-            # print()
-            # if sorted(skills_list_candidate) == sorted(skills_list):
-            check_pass = True
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
 
-        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+                if is_checkin_type == "true":
+                    output_dict['is_checkin_type'] = True
+                elif is_checkin_type == "false":
+                    output_dict['is_checkin_type'] = False
+                else:
+                    output_dict['is_checkin_type'] = False
 
-            if is_checkin_type == "true":
-                output_dict['is_checkin_type'] = True
-            elif is_checkin_type == "false":
-                output_dict['is_checkin_type'] = False
-            else:
-                output_dict['is_checkin_type'] = False
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    
+                    # skills_list = input_dict[SKILLS_TO_EVALUATE]
+                    # skills_list_temp = []
+                    # for s in skills_list.split(','):
+                    #     skills_list_temp.append(s.strip().capitalize())
+                    # skills_list = skills_list_temp
+
+                    # candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+                    # if not candidate_type:
+                    #     candidate_type = 'Manager'
+                    # skills_list_candidate = set()
+                    # for item in get_skills(candidate_type):
+                    #     skills_list_candidate.add(item.capitalize())
+                    # skills_list_candidate = list(skills_list_candidate)
+
+                    # print('*'*100)
+                    # print(sorted(skills_list_candidate))
+                    # print(sorted(skills_list))
+                    # print()
+                    # if sorted(skills_list_candidate) == sorted(skills_list):
+                    #     check_pass = True
+                    # else:
+                    #     check_pass = False
+                    check_pass = True
+
+            
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
