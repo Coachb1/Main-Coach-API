@@ -205,8 +205,7 @@ CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         # 'LOCATION': 'redis://localhost:6379/1',  # Update with your Redis server details
-        # 'LOCATION': 'redis://redis:6379/1',
-        'LOCATION': 'rediss://aadil:AVNS_rbWCJsYwlJtM3AhCVAe@redis-0bd8be50-o09afe6aa.database.cloud.ovh.net:20185',
+        'LOCATION': 'redis://redis:6379/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }

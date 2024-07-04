@@ -76,6 +76,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from django.core.cache import cache
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -2057,12 +2058,18 @@ class AccountsViewSet(ApiViewSet,
                 ]
         """
         try:
+            start_time = time.time()
             email = request.query_params.get('email')
             logger.info(f"Retrieving directory information for email: {email}")
             if email:
                 cache_key = f"user-directory-info-{email}"
+                start = time.time()
                 data = cache.get(cache_key)
+                end = time.time()
+                logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
                 if data:
+                    end_time = time.time()
+                    logger.info(f"<<< Time taken to get directory information when CacheHit : {end_time-start_time} >>>")
                     return Response(data, status=status.HTTP_200_OK)
                 
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
@@ -2084,10 +2091,13 @@ class AccountsViewSet(ApiViewSet,
                 cache.set(cache_key,serializer.data,timeout=60*15)
             else:
                 cache_key = f"user-directory-info-all"
+                start = time.time()
                 data = cache.get(cache_key)
-                logger.info(f"<<< cache_data : {data} >>>")
+                end = time.time()
+                logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
                 if data:
-                    logger.info("<<< Cache found in memcached >>>")
+                    end_time = time.time()
+                    logger.info(f"<<< Time taken to get directory information when CacheHit : {end_time-start_time} >>>")
                     return Response(data, status=status.HTTP_200_OK)
                 
                 logger.info("<<<! Cache Not found in memcached !>>>")
@@ -2095,6 +2105,9 @@ class AccountsViewSet(ApiViewSet,
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
                 serializer = DirectoryInfoSErializer(directories,many=True)
                 cache.set(cache_key,serializer.data,timeout=60*15)
+                
+            end_time = time.time()
+            logger.info(f"<<< Time taken to get directory information : {end_time-start_time} >>>")
                 
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
