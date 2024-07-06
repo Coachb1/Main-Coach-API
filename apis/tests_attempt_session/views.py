@@ -775,7 +775,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         if signature_bot.bot_type == 'deep_dive':
             candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()}/{signature_bot.bot_id}"""
-        elif signature_bot.bot_Type == 'user_bot':
+        elif signature_bot.bot_type == 'user_bot':
             candidate_name = f"""{bot_att.bot_name.capitalize()}"""
 
         tenant = self.request.tenant
