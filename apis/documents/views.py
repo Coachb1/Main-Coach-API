@@ -15,6 +15,7 @@ from commons.youtube_utils import get_youtube_transcript, repidapi_stt
 from commons.anthropic import anthropic_completion
 from commons.cloudinary import upload_image
 import logging
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
 
 logger = logging.getLogger("main")
 
@@ -103,19 +104,25 @@ class DocumentViewSet(ApiViewSet,
             return Response({"error": "Youtube link is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         choice = request.query_params.get("choice")
+        
+        cache_key = generate_cache_key('summary', youtube_link=youtube_link, choice=choice)
+        summary = get_cache(cache_key)
 
-        for i in range(2):
-            transcript = get_youtube_transcript(youtube_link)
-            if transcript is not None:
-                break
+        if summary is None:
+            for i in range(2):
+                transcript = get_youtube_transcript(youtube_link)
+                if transcript is not None:
+                    break
 
-        if transcript is None:
-            transcript = repidapi_stt(youtube_link)
-            
-        if transcript is None:
-            transcript = download_and_transcribe_audio(youtube_link)
+            if transcript is None:
+                transcript = repidapi_stt(youtube_link)
+                
+            if transcript is None:
+                transcript = download_and_transcribe_audio(youtube_link)
 
-        summary = get_summary(transcript,choice)
+            summary = get_summary(transcript,choice)
+
+            set_cache(cache_key, summary)
         return Response({"summary": summary})
 
 
