@@ -780,11 +780,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = test_attempt_session.participant_id
         candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()}"""
-        if signature_bot.bot_type == 'deep_dive':
-            candidate_name = f"""{get_user_display_name(
-            get_user_by_id(participant_id)).capitalize()}/{signature_bot.bot_id}"""
-        elif signature_bot.bot_Type == 'user_bot':
-            candidate_name = f"""{bot_att.bot_name.capitalize()}"""
+        
 
         tenant = self.request.tenant
         save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
@@ -816,11 +812,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
-        coach_name = ""
-        if coach_profile:
-            coach_name = coach_profile.name
-        else:
-            coach_name = bot_att.bot_name
+        coach_name = f"""{get_user_display_name(
+            get_user_by_id(signature_bot.user_id)).capitalize()}"""
+
+        if signature_bot.bot_type == 'deep_dive':
+            coach_name = f"""{coach_name} ({signature_bot.bot_id})"""
+        elif signature_bot.bot_type == 'user_bot':
+            coach_name = f"""{bot_att.bot_name.capitalize()}"""
 
 
         # recepients = ['bagoriarajan@gmail.com']
