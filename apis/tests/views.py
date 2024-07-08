@@ -1131,6 +1131,7 @@ class TestViewSet(ApiViewSet,
         competencies = request.query_params.get("competencies",None)
 
         logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
+
         
         cache_key = generate_cache_key('tests_by_competency', competencies=competencies, tenant_id=self.request.tenant.uid)
 
@@ -1160,6 +1161,7 @@ class TestViewSet(ApiViewSet,
                 # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
                 # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
             set_cache(cache_key, data)
+
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1211,7 +1213,7 @@ class TestViewSet(ApiViewSet,
         
         tests = Test.objects.filter(query)
         tests.filter(deleted=0)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case  } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1276,6 +1278,7 @@ class TestViewSet(ApiViewSet,
                     tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
                 test_dict = defaultdict(lambda: defaultdict(list))
 
+
                 # Organizing tests into the nested dictionary
                 for test in tests:
                     if test.tab_category:
@@ -1293,6 +1296,7 @@ class TestViewSet(ApiViewSet,
                 # Converting defaultdict to a regular dictionary
                 test_dict = dict(test_dict)
                 set_cache(cache_key, test_dict)
+
             return Response(test_dict, status=status.HTTP_200_OK)
         
         except Exception as e:

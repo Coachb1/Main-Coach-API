@@ -7247,7 +7247,7 @@ def extract_information(text):
         question_info.append({
             "question": que["text"],
             "question_type": "subjective",
-            "gpt_prompt_override": que["prompt"],
+            "gpt_prompt_override": que["prompt"].replace("{","").replace("}",""),
             "subjective_answer": "",
             "key_learning_point": extract_text_only(que['takeaway']),
             "key_learning_skills": extract_text_only(que['skills'])
@@ -7472,7 +7472,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
 
             """
@@ -7508,7 +7508,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
                 NOTE: Always mention in the context what role the user will be playing the role while answering.
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-                NOTE: Never miss Title, Description, Statement.
+                NOTE: Never miss Title, Description, Statement and other variables.
                 
                 \n\nAssistant:
                 """
@@ -7546,7 +7546,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
 
@@ -7584,7 +7584,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use interview for communication and information gathering.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
         elif case == 'checkin':
@@ -7622,7 +7622,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
                 NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
                 NOTE: Always use check-in for communication and information gathering.
-                NOTE: Never miss Title, Description, Statement.
+                NOTE: Never miss Title, Description, Statement and other variables.
 
                 \n\nAssistant:
 
@@ -7660,7 +7660,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
 
@@ -8010,7 +8010,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro'],"scenario_case": response['scenario_case']}
+                return {'title': response['title'],'test_code': response['test_code'],
+                        'description': response['description'],'test_type': response['test_type'],
+                        "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
+                        "interaction_mode": response['interaction_mode']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
@@ -8271,7 +8274,9 @@ def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
             "test_code": test.test_code,
             "description": test.description,
             "test_type": test.test_type,
-            "is_micro": test.is_micro
+            "is_micro": test.is_micro,
+            'interaction_mode': test.interaction_mode,
+            'scenario_case': test.scenario_case 
         })
 
     return test_list
