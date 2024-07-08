@@ -1215,6 +1215,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             data = {}
             if mode == 'get':
                 user_id = request.query_params.get('user_id',None)
+                cache_key = generate_cache_key('action-points', tenant_id=tenant.uid, user_id=user_id)
+                
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
                 try:
                     action_info = UserActionInfo.objects.get(tenant_id= tenant.uid,user_id = user_id)
                 except:
@@ -1228,6 +1233,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     "interaction_attempted": action_info.interaction_attempted,
                 }
                 data['action_points'] = action_data
+                set_cache(cache_key, data)
 
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)
