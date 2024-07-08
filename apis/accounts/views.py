@@ -567,12 +567,20 @@ class AccountsViewSet(ApiViewSet,
                 #     logger.exception(f"Feedback bot not found {e}")
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('get-user-feedback-data', bot_id=bot_id, feedback_type=feedback_type, participant_id=participant_id, qna_type=qna_type, tenant_id=request.tenant.uid)
+                
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+                
                 qna_type = request.query_params.get("qna_type",None)
 
                 # to get latest botqna for a user using participant_id
                 if participant_id:
                     recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
                     if recent_intake_data:
+                        set_cache(cache_key, data)
                         return Response({"intake_summary": recent_intake_data.intake_summary,"intake_id":recent_intake_data.uid},status=status.HTTP_200_OK)
                     else:
                         return Response({"error": "No Intake found for user."},status=status.HTTP_400_BAD_REQUEST)
@@ -645,6 +653,7 @@ class AccountsViewSet(ApiViewSet,
                 )
                 data['message'] = "created"
 
+            set_cache(cache_key, data)
             return Response(data,status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -2038,16 +2047,27 @@ class AccountsViewSet(ApiViewSet,
                 # user_id = request.data.get('user_id',None)
                 user_id = request.query_params.get('user_id',None)
                 idp_id = request.query_params.get('idp_id',None)
+                cache_key = generate_cache_key('process_idp', user_id=user_id, tenant_id=request.tenant.uid, idp_id=idp_id)
+
+                # get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+
                 if idp_id is not None:
                     data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True,idp_id=idp_id)
                     if not success:
                         return Response(data,status=status.HTTP_404_NOT_FOUND)
+                    
+                    set_cache(cache_key, data, 60*5)
                     return Response(data,status=status.HTTP_200_OK)
 
 
                 data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True)
                 if not success:
                     return Response(data,status=status.HTTP_404_NOT_FOUND)
+                
+                set_cache(cache_key, data, 60*5)
                 return Response(data,status=status.HTTP_200_OK)
             
             elif request.method == 'POST':
@@ -3331,6 +3351,14 @@ class AccountsViewSet(ApiViewSet,
             elif request.method == 'GET':
                 client_id = request.query_params.get('client_id',None)
                 client_name = request.query_params.get('client_name',None)
+                
+                cache_key = generate_cache_key('client_info', client_id=client_id, client_name=client_name, tenant_id=tenant.uid)
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+                
                 client = None
                 if client_id:
                     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
@@ -3338,11 +3366,18 @@ class AccountsViewSet(ApiViewSet,
                     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
 
                 if client:
-                    return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                    response_data = {'data': clientUserInfoSerializer(client).data}
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    return Response(response_data, status=status.HTTP_200_OK)
+
                 else:
 
                     all_clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
-                    return Response({'all_clients': clientUserInfoSerializer(all_clients,many=True).data}, status=status.HTTP_200_OK)
+                    response_data = {'all_clients': clientUserInfoSerializer(all_clients, many=True).data}
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    return Response(response_data, status=status.HTTP_200_OK)
 
             
             elif request.method == 'PATCH':
@@ -3416,7 +3451,23 @@ class AccountsViewSet(ApiViewSet,
 
         try:
             if request.method == 'GET':
-                return Response(DirectoryInfoSErializer(DirectoryPageInfo.objects.filter().order_by('-id'),many=True).data, status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('profile-approvals', 'GET')
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+
+                # If cache miss, query the database
+                directory_info = DirectoryPageInfo.objects.filter().order_by('-id')
+                response_data = DirectoryInfoSErializer(directory_info, many=True).data
+
+                # Set data in cache
+                set_cache(cache_key, response_data)
+
+                # Return the response
+                return Response(response_data, status=status.HTTP_200_OK)
+                
             
             elif request.method == 'PATCH':
                 data = request.data
