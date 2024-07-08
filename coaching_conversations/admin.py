@@ -51,7 +51,7 @@ class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
     def client_id(self, obj):
         logger.info(f"((((((((((((((((((((( USER Email : {self.user_email(obj).lower()} )))))))))))))))))))))")
         client = ClientUserInfo.objects.filter(deleted=False,member_emails__contains=self.user_email(obj).lower()).last()
-        return client.client_name or ""
+        return client.client_name if client else ""
     
     
     # def get_search_results(self, request, queryset, search_term):
