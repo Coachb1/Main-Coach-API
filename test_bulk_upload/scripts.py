@@ -491,25 +491,27 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        # if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
-
-        #     skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-        #     skill_list = [skill.strip() for skill in skill_list]
-        #     skill_list = ','.join(skill_list)
-        #     output_dict["skills_to_evaluate"] = skill_list
-
-        # saving skills_to_evaluate from backend only
-
         candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-        if not candidate_type:
-            candidate_type = 'Manager'
-        skills_list_candidate = set()
-        for item in get_skills(candidate_type):
-            skills_list_candidate.add(item.capitalize())
 
-        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
-        evaluation_skill_list = ','.join(evaluation_skill_list)
-        output_dict["skills_to_evaluate"] = evaluation_skill_list
+        if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
+
+            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+            skill_list = [skill.strip().capitalize() for skill in skill_list]
+            skill_list = ','.join(skill_list)
+            output_dict["skills_to_evaluate"] = skill_list
+        else:
+
+            # saving skills_to_evaluate from backend only
+
+            if not candidate_type:
+                candidate_type = 'Manager'
+            skills_list_candidate = set()
+            for item in get_skills(candidate_type):
+                skills_list_candidate.add(item.capitalize())
+
+            evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+            evaluation_skill_list = ','.join(evaluation_skill_list)
+            output_dict["skills_to_evaluate"] = evaluation_skill_list
 
 
         if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
