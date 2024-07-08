@@ -77,6 +77,7 @@ from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from django.core.cache import cache
 import time
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -463,7 +464,14 @@ class AccountsViewSet(ApiViewSet,
             mob_number = request.query_params.get('mob_number',None)
             tenant = self.request.tenant
 
-            logger.info(f"for: {mode}, user_id: {user_id},email: {email},mob_number: {mob_number}")
+            logger.info(f"Received request with parameters - mode: {mode}, user_id: {user_id}, email: {email}, mob_number: {mob_number}")
+            
+
+            cache_key = generate_cache_key("client_info",tenant.uid,mode,user_id,email,mob_number)
+            cached_data = get_cache(cache_key)
+            if cached_data:
+                return Response({"data":cached_data},status=status.HTTP_200_OK)
+            
             client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
             data = {}
 
@@ -499,6 +507,9 @@ class AccountsViewSet(ApiViewSet,
                                       )
 
                 data['user_info'] = user_info
+                
+            set_cache(cache_key, data, 60*15)
+            logger.info("Client information retrieval successful")
 
             return Response({"data":data },status=status.HTTP_200_OK)
 
@@ -653,32 +664,56 @@ class AccountsViewSet(ApiViewSet,
         Returns:
             dict: A dictionary containing the coach-coachee-mentor-mentee profile data.
         """
+        def get_profiles_by_user_id(user_id):
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, user_id=user_id)
+            return CoachCoacheeMentorMenteeProfileSerializer(profile, many=True).data
+
+        def get_profile_by_id(profile_id):
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=profile_id)
+            return CoachCoacheeMentorMenteeProfileSerializer(profile).data
+
+        def get_all_profiles(profile_type=None):
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, is_approved=True)
+            if profile_type:
+                profiles = profiles.filter(profile_type=profile_type)
+            return CoachCoacheeMentorMenteeProfileSerializer(profiles, many=True).data
 
 
         # return Response({"data":data},status=status.HTTP_200_OK)
         if request.method == 'GET':
             profile_id = request.query_params.get('profile_id',None)
             user_id = request.query_params.get('user_id',None)
+            profile_type = request.query_params.get('profile_type',None)
+            
             if user_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_id)
-                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
+                    cache_key = generate_cache_key('profiles_by_user_id', user_id=user_id)
+                    data = get_cache(cache_key)
+                    if data is None:
+                        data = get_profiles_by_user_id(user_id)
+                        set_cache(cache_key, data)
+                    return Response({"data": data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             if profile_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
-                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                    cache_key = generate_cache_key('profile_by_id', profile_id=profile_id)
+                    data = get_cache(cache_key)
+                    if data is None:
+                        data = get_profile_by_id(profile_id)
+                        set_cache(cache_key, data)
+                    return Response({"data": data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             else:
-                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True)
-                profile_type = request.query_params.get('profile_type',None)
-                if profile_type:
-                    profiles = profiles.filter(profile_type=profile_type)
-                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profiles,many=True).data },status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('all_profiles', profile_type=profile_type)
+                data = get_cache(cache_key)
+                if data is None:
+                    data = get_all_profiles(profile_type)
+                    set_cache(cache_key, data)
+                return Response({"data": data}, status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
             try:
@@ -849,6 +884,15 @@ class AccountsViewSet(ApiViewSet,
 
         logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
         
+        cache_key = generate_cache_key(
+            'get_bots', tenant_id=tenant_id, user_id=user_id, bot_type=bot_type, client_name=client_name, approved_only=approved_only
+        )
+
+        # Attempt to retrieve data from cache
+        cached_data = get_cache(cache_key)
+        if cached_data is not None:
+            return Response({"data": cached_data}, status=status.HTTP_200_OK)
+        
         all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
         if approved_only:
             all_bots = all_bots.filter(is_approved=True)
@@ -887,6 +931,7 @@ class AccountsViewSet(ApiViewSet,
             if deepdive_bot_access:
                 all_bots_data['deepdive_access'] = deepdive_bot_access
             data.append(all_bots_data)
+        set_cache(cache_key, data)
         return Response({"data": data},status=status.HTTP_200_OK)
         
 
@@ -1919,11 +1964,25 @@ class AccountsViewSet(ApiViewSet,
             data = []
             user_id = request.query_params.get('user_id')
             if request.method == 'GET':
-                competency_data = UserAttribute.objects.get(user_id=user_id).competency_data
-                if competency_data:
-                    data.append(competency_data)
+                cache_key = generate_cache_key('competency_data', user_id=user_id)
 
-                return Response(data,status=status.HTTP_200_OK)
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data is None:
+                    # Cache miss, perform the database query
+                    try:
+                        competency_data = UserAttribute.objects.get(user_id=user_id).competency_data
+                        if competency_data:
+                            data.append(competency_data)
+                        # Set data in cache
+                        set_cache(cache_key, data)
+                    except UserAttribute.DoesNotExist:
+                        logger.exception(f"UserAttribute for user_id {user_id} not found")
+                        return Response({"error": "UserAttribute not found"}, status=status.HTTP_404_NOT_FOUND)
+                else:
+                    data = cached_data
+
+                return Response(data, status=status.HTTP_200_OK)
             elif request.method == 'POST':
                 skill_data = request.query_params.get('competency_skills')
                 skill_data = {str(i+1): value for i, value in enumerate(skill_data.split(','))}
@@ -2170,13 +2229,22 @@ class AccountsViewSet(ApiViewSet,
         try:
             if request.method == "GET":
                 email = request.query_params.get('email')
+                by_category = request.query_params.get('by_category')
+                
+                cache_key = generate_cache_key('participant_leader_board_report', email=email, by_category=by_category, tenant_id=request.tenant.uid)
+
+                # Try to get data from cache
+                data = get_cache(cache_key)
+                if data is not None:
+                    return Response(data, status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
                 excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
                 excluded_emails = [email.strip() for email in excluded_emails]
                 emails = set(emails) - set(excluded_emails)
-                by_category = request.query_params.get('by_category')
+                
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
@@ -2255,13 +2323,17 @@ class AccountsViewSet(ApiViewSet,
                     data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                     for i, item in enumerate(data, start=1):
                         item['rating'] = i
-
+                        
+                    set_cache(cache_key, {"coach_mentor": coach, 'coachee_mentee': coachee, 'full_data': data})
+            
                     return Response({"coach_mentor": coach,'coachee_mentee': coachee, 'full_data': data},status=status.HTTP_200_OK)
 
 
                 data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i
+                    
+                set_cache(cache_key, data)
 
                 return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -2311,50 +2383,79 @@ class AccountsViewSet(ApiViewSet,
             coach_id = request.query_params.get('coach_id',None)
             coachee_id = request.query_params.get('coachee_id',None)
             logger.info(f"**************** connection_id: {connection_id},  coach_id: {coach_id},  coachee_id: {coachee_id}, tenant_id: {self.request.tenant.uid}")
-            if coach_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=coach_id, tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  coach connection: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
-            if connection_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id,tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  connections: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
-                
-            if coachee_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  coachee connection: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
             
-            # sending only that client members data
-            email = request.query_params.get('email')
-            client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-            emails = client.member_emails.split(',') if client.member_emails else []
-            emails = [email.strip() for email in emails]
-            excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
-            excluded_emails = [email.strip() for email in excluded_emails]
-            emails = set(emails) - set(excluded_emails)
-            user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
-            user_ids_list = list(user_ids.values_list('user_id', flat=True))
-            profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list('uid', flat=True))
-            logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+            cache_key = generate_cache_key(
+            'connection', 
+            tenant_id=self.request.tenant.uid,
+            connection_id=connection_id,
+            user_id=user_id,
+            coach_id=coach_id,
+            coachee_id=coachee_id
+            )
 
-            connections = CoachCoacheeConnection.objects.filter(Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
-                                                                deleted=False,
-                                                                tenant_id=self.request.tenant.uid,
-                                                                )
-            return Response({"data": CoachCoacheeConnectionSerializer(connections,many=True).data },status=status.HTTP_200_OK)
+            # get data from cache
+            data = get_cache(cache_key)
+            if data is None:
+
+                if coach_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.filter(deleted=False, coach_id=coach_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection, many=True).data}
+                        logger.info(f"#########################  coach connection: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+                elif connection_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.get(deleted=False, uid=connection_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection).data}
+                        logger.info(f"#########################  connections: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+                    
+                elif coachee_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.filter(deleted=False, coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection, many=True).data}
+                        logger.info(f"#########################  coachee connection: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+                
+                else:
+                    try:
+                        email = request.query_params.get('email')
+                        client = ClientUserInfo.objects.get(deleted=0, tenant_id=request.tenant.uid, member_emails__icontains=email)
+                        emails = client.member_emails.split(',') if client.member_emails else []
+                        emails = [email.strip() for email in emails]
+                        excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                        excluded_emails = [email.strip() for email in excluded_emails]
+                        emails = set(emails) - set(excluded_emails)
+                        user_ids = Identity.objects.filter(deleted=False, tenant_id=request.tenant.uid, value__in=emails)
+                        user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                        profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id__in=user_ids_list).values_list('uid', flat=True))
+                        logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+
+                        connections = CoachCoacheeConnection.objects.filter(
+                            Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
+                            deleted=False,
+                            tenant_id=self.request.tenant.uid,
+                        )
+                        data = {"data": CoachCoacheeConnectionSerializer(connections, many=True).data}
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connections not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+                # Set data in cache
+                set_cache(cache_key, data)
+
+            return Response(data, status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
             connection_id = request.data.get('connection_id',None)
@@ -2529,6 +2630,12 @@ class AccountsViewSet(ApiViewSet,
         try:
             if request.method == "GET":
                 email = request.query_params.get('email')
+                cache_key = generate_cache_key("feedback-leaderboard",tenant_id=request.tenant.uid, email=email)
+                cached_data = get_cache(cache_key)
+                
+                if cached_data:
+                    return Response({'group': cached_data},status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
@@ -2585,6 +2692,7 @@ class AccountsViewSet(ApiViewSet,
                 formatted_data = custom_sort_reverse(data=formatted_data,first_sort_filed="positive_feedback_count",second_sort_field="owner_name")
                 for rating, item in enumerate(formatted_data,start=1):
                     item['rating'] = rating
+                set_cache(cache_key,formatted_data)
 
                 return Response({'group': formatted_data},status=status.HTTP_200_OK)
         except Exception as e:
@@ -2920,12 +3028,27 @@ class AccountsViewSet(ApiViewSet,
         
         if request.method == 'GET':
             coach_id = request.query_params.get('coach_id',None)
-            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=request.tenant.uid, coach_id=coach_id)
-            total_ratings = len(ratings)
-            total_score = sum([rating.rating for rating in ratings])
-            if total_ratings == 0:
-                return Response({"rating":0},status=status.HTTP_200_OK)
-            return Response({"rating":total_score/total_ratings, "total_rating": total_ratings},status=status.HTTP_200_OK)
+            if not coach_id:
+                return Response({"error":"coach_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            cache_key = generate_cache_key('coach_ratings', tenant_id=request.tenant.uid, coach_id=coach_id)
+            
+            # get data from cache
+            data = get_cache(cache_key)
+            if data is None:
+                # Data not in cache, query the database
+                ratings = CoachCoacheeRating.objects.filter(deleted=False, tenant_id=request.tenant.uid, coach_id=coach_id)
+                total_ratings = len(ratings)
+                total_score = sum([rating.rating for rating in ratings])
+                if total_ratings == 0:
+                    data = {"rating": 0}
+                else:
+                    data = {"rating": total_score / total_ratings, "total_rating": total_ratings}
+                
+                # Save data to cache
+                set_cache(cache_key, data)
+            
+            return Response(data, status=status.HTTP_200_OK)
         
         if request.method == 'POST':
             data = request.data.copy()
@@ -3108,19 +3231,30 @@ class AccountsViewSet(ApiViewSet,
         tenant = request.tenant
         if request.method == 'GET':
             if request.query_params.get('all_clients',None):
-                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
-                client_data = []
-                for client in clients:
-                    client_data.append(
-                        {
-                            "client_name": client.client_name,
-                            "client_id": client.uid
-                        }
-                    )
+                cache_key = generate_cache_key('all_clients', tenant_uid=tenant.uid)
+                client_data = get_cache(cache_key)
+                
+                if client_data is None:
+                    clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                    client_data = []
+                    for client in clients:
+                        client_data.append(
+                            {
+                                "client_name": client.client_name,
+                                "client_id": client.uid
+                            }
+                        )
+                    set_cache(cache_key, client_data)
 
                 return Response(client_data,status=status.HTTP_200_OK)
             
-            client_user_data = get_client_user_data(tenant=tenant,client_name=request.query_params.get('client_name',None))
+            client_name = request.query_params.get('client_name', None)
+            cache_key = generate_cache_key('client_user_data', tenant_uid=tenant.uid, client_name=client_name)
+            client_user_data = get_cache(cache_key)
+            
+            if client_user_data is None:
+                client_user_data = get_client_user_data(tenant=tenant,client_name=client_name)
+                set_cache(cache_key, client_user_data)
             return Response(client_user_data,status=status.HTTP_200_OK)
         
         elif request.method == 'POST':

@@ -44,6 +44,7 @@ from commons.utils import get_bot_engagements
 from commons.notifications import send_error_notification
 from commons.webhook_utils import invoke_webhook
 from users.helpers import get_client_info_from_user_detail
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
 
 
 
@@ -242,6 +243,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         # participant_id = request.data.get("user_id")
         participant_id =  request.query_params.get("user_id")
 
+        cache_key = generate_cache_key('get_attempted_test_list', participant_id=participant_id)
+
+        # Attempt to retrieve data from cache
+        cached_data = get_cache(cache_key)
+        if cached_data is not None:
+            return Response({"data": cached_data, "status": "completed"}, status=status.HTTP_200_OK)
+
         # Filter the test_attempt_session with the given participant_id 
         test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
         checkin_type_sessions_count = test_attempt_sessions.filter(is_checkin_type=1).count()
@@ -252,7 +260,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
 
         data = {"codes": list(test_codes),"checkin_type_test_count": checkin_type_sessions_count, "total_session":test_attempt_sessions.count()}
-
+        set_cache(cache_key, data)
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
 
@@ -993,7 +1001,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             elif mode == 'mentee':
-                data = get_session_notes(user_id,mentor_id)
+                cache_key = generate_cache_key("session-notes",user_id=user_id, mentor_id=mentor_id)
+                data = get_cache(cache_key)
+                if not data:
+                    data = get_session_notes(user_id,mentor_id)
+                    set_cache(cache_key,data)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             else:
                 return Response({"details": 'for parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)

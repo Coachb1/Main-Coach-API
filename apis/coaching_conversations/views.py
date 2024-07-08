@@ -20,6 +20,7 @@ import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
 from coaching_conversations.helpers import generate_team_connect_response
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
 
 import logging
 
@@ -300,6 +301,13 @@ class CoachingConversationViewSet(ApiViewSet,
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
         user_bot_id = request.query_params.get('bot_id', None)
+        
+        cache_key = generate_cache_key("bot-conversation-data",tenant_id=tenant.uid, mode=mode, user_id=user_id, user_bot_id=user_bot_id)
+        cached_data = get_cache(cache_key)
+        
+        if cached_data:
+            return Response(data, status=status.HTTP_200_OK)
+        
         client_infos = ClientUserInfo.objects.all()
         excluded_users = ""
         for client_info in client_infos:
@@ -334,6 +342,7 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_cov['bot_id'] = bot.bot_id
                     data.append(data_cov)
 
+            set_cache(cache_key, data)
             return Response(data, status=status.HTTP_200_OK)
 
         elif mode == 'user':
@@ -358,6 +367,7 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_conv['bot_name'] = bot_att.bot_name
                     data_conv['bot_id'] = signature_bot.bot_id
                     data.append(data_conv)
+            set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)
 
         else:

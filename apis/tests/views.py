@@ -39,7 +39,7 @@ from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
 from commons.notifications import send_error_notification
 from tests.helpers import search_keywords, replace_words
-
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1132,27 +1132,36 @@ class TestViewSet(ApiViewSet,
 
         logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
 
-        data = {}
-        if competencies:
-            competencies = competencies.split(',')
+        
+        cache_key = generate_cache_key('tests_by_competency', competencies=competencies, tenant_id=self.request.tenant.uid)
 
-            for competency in competencies:
-                competency = competency.strip()
-                tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
-                temp_list = []
-                for test in tests:
-                    if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
-                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro, 'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case })
-                    else:
-                        questions = TestQuestion.objects.filter(test_id=test.uid)
-                        is_micro = False if ((questions.count() + 1) / 2) > 3 else True
-                        print(is_micro,questions.count())
-                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro,'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case  })
+        # Try to get data from cache
+        data = get_cache(cache_key)
+
+        if data is None:
+            data = {}
+            if competencies:
+                competencies = competencies.split(',')
+
+                for competency in competencies:
+                    competency = competency.strip()
+                    tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
+                    temp_list = []
+                    for test in tests:
+                        if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                        else:
+                            questions = TestQuestion.objects.filter(test_id=test.uid)
+                            is_micro = False if ((questions.count() + 1) / 2) > 3 else True
+                            print(is_micro,questions.count())
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
 
 
-                data[competency] = temp_list
-            # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
-            # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+                    data[competency] = temp_list
+                # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
+                # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+            set_cache(cache_key, data)
+
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1258,29 +1267,36 @@ class TestViewSet(ApiViewSet,
         """
         try:
             client_name = request.query_params.get("client_name",None)
-            if client_name:
-                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False,client_name=client_name)
-            else:
-                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
-            test_dict = defaultdict(lambda: defaultdict(list))
+            
+            cache_key = generate_cache_key('tests_by_client', client_name=client_name, tenant_id=request.tenant.uid)
+            test_dict = get_cache(cache_key)
+            
+            if test_dict is None:
+                if client_name:
+                    tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False,client_name=client_name)
+                else:
+                    tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
+                test_dict = defaultdict(lambda: defaultdict(list))
 
-            # Organizing tests into the nested dictionary
-            for test in tests:
-                if test.tab_category:
-                    tab_category = test.tab_category
-                    sub_tab_category = test.sub_tab_category or test.area_domain
-                    test_dict[tab_category][sub_tab_category].append({
-                        "title": test.title,
-                        "description": test.description,
-                        "test_code": test.test_code,
-                        "test_type": test.test_type,
-                        "is_recommended": test.is_recommended,
-                        "is_micro": test.is_micro,
-                        "scenario_case": test.scenario_case,
-                        'interaction_mode': test.interaction_mode
-                    })
-            # Converting defaultdict to a regular dictionary
-            test_dict = dict(test_dict)
+
+                # Organizing tests into the nested dictionary
+                for test in tests:
+                    if test.tab_category:
+                        tab_category = test.tab_category
+                        sub_tab_category = test.sub_tab_category or test.area_domain
+                        test_dict[tab_category][sub_tab_category].append({
+                            "title": test.title,
+                            "description": test.description,
+                            "test_code": test.test_code,
+                            "test_type": test.test_type,
+                            "is_recommended": test.is_recommended,
+                            "is_micro": test.is_micro,
+                            "scenario_case": test.scenario_case
+                        })
+                # Converting defaultdict to a regular dictionary
+                test_dict = dict(test_dict)
+                set_cache(cache_key, test_dict)
+
             return Response(test_dict, status=status.HTTP_200_OK)
         
         except Exception as e:
