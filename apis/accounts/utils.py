@@ -48,12 +48,10 @@ def delete_user_resources(user_uid):
         
         bot.delete()
 
-    with transaction.atomic():
-        UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
-        TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
-        SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete() 
-        SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete()  
-        Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
-        Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
-
+    if user:
+        with transaction.atomic():
+            UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).delete()
+            TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted=True)
+            SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user.uid).delete() 
+            SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user.uid).delete()  
 

@@ -3175,13 +3175,14 @@ class AccountsViewSet(ApiViewSet,
                 
                 bot.delete()
 
-            with transaction.atomic():
-                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
-                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
-                Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
-                Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
+            if user_uid:
+                with transaction.atomic():
+                    UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
+                    TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
+                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
+                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
+                    # Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
+                    # Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
 
 
 
@@ -3298,7 +3299,7 @@ class AccountsViewSet(ApiViewSet,
                     try:
                         user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
                         delete_user_resources(user_identity.user_id)
-                        logger.info("============== User Resources Deleted ===============")
+                        logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.user_id}===============")
                     except Exception as e:
                         logger.exception(f"==============Failed to delete user resources: {e}")
                 elif is_disable is not None:
