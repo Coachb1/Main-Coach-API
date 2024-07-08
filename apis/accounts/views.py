@@ -549,6 +549,7 @@ class AccountsViewSet(ApiViewSet,
             feedback_type = request.query_params.get("feedback_type",None)
             participant_id = request.query_params.get('user_id',None)
             qna_type = request.query_params.get('qna_type',None)
+            cache_key = ''
 
 
             data = {}
