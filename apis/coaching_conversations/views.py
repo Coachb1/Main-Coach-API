@@ -609,15 +609,29 @@ class CoachingConversationViewSet(ApiViewSet,
         try:
             if request.method == 'GET':
                 user_profile_id = request.query_params.get('user_profile_id')
+                cache_key = generate_cache_key('coach_recommendations', user_profile_id)
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response({"data": cached_data}, status=status.HTTP_200_OK)
+        
                 try:
                     profile = CoachCoacheeMentorMenteeProfile.objects.get(
                         deleted=False,
                         tenant_id=request.tenant.uid,
                         uid=user_profile_id
                     )
+                    recommendations = profile.coach_recommendations.all()
+                    response_data = recommendations[0].coach_recommendations.split(',') if recommendations else []
+                    
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    
+                    # Return the response
+                    return Response({"data": response_data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response({"error": f"Profile Not found for user_profile_id : {user_profile_id}, reason: {e}"}, status=status.HTTP_400_BAD_REQUEST)
-                return Response({"data": profile.coach_recommendations.all()[0].coach_recommendations.split(',') if len(profile.coach_recommendations.all()) > 0 else []}, status=status.HTTP_200_OK)
 
             elif request.method == 'POST':
                 user_profile_id = request.data.get('user_profile_id')
