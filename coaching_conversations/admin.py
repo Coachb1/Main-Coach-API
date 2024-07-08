@@ -27,11 +27,11 @@ class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
     
     def bot_id(self, obj):
         bot = self.get_bot_from_obj(obj)
-        return bot.bot_id
+        return bot.bot_id if bot else None
     
     def bot_name(self, obj):
         bot = self.get_bot_from_obj(obj)
-        return bot.bot_id
+        return bot.bot_id if bot else None
     
     def user_email(self, obj):
         try:
@@ -46,7 +46,7 @@ class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
     
     def bot_type(self, obj):
         bot = self.get_bot_from_obj(obj)
-        return bot.bot_type
+        return bot.bot_type if bot else None
     
     def client_id(self, obj):
         logger.info(f"((((((((((((((((((((( USER Email : {self.user_email(obj).lower()} )))))))))))))))))))))")

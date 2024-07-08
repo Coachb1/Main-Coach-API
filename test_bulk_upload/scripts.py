@@ -908,7 +908,15 @@ def format_test_data_slack(raw_data,tenant):
         # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
-        if client_info.use_skills_from_skill_bank:
+
+        use_skills_fron_skill_bank = False
+        if client_info:
+            use_skills_fron_skill_bank = client_info.use_skills_from_skill_bank
+
+        else:
+            use_skills_fron_skill_bank = tenant.use_skills_from_skill_bank
+
+        if use_skills_fron_skill_bank:
             unmatched_skills = []
             for skills in skills_list:
                 if skills not in defined_skills_list:
@@ -1364,7 +1372,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, CLIENT]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -1581,7 +1589,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE, CLIENT, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
+                     SCENARIO_CASE, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
