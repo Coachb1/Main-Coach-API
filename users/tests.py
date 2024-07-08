@@ -392,7 +392,8 @@ class ClientUserInfoTest(TestCase):
         # Create a ClientUserInfo instance for testing
 
         self.client_user_info = ClientUserInfo.objects.create(
-
+            tenant_id = '123',
+            
             client_name="Test Client",
 
             owner_id="123",
