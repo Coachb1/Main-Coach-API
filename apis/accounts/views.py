@@ -1349,7 +1349,7 @@ class AccountsViewSet(ApiViewSet,
                                     html = f"""
                                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                             <div style="margin: 15px;">
-                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation once it's live and ready for use.</p>
+                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
                                                 <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
                                                 <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
                                                 <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
