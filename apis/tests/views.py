@@ -39,7 +39,7 @@ from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
 from commons.notifications import send_error_notification
 from tests.helpers import search_keywords, replace_words
-from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 import logging
 
 logger = logging.getLogger(__name__)

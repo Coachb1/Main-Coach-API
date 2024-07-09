@@ -77,7 +77,7 @@ from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from django.core.cache import cache
 import time
-from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -806,6 +806,8 @@ class AccountsViewSet(ApiViewSet,
                         send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
+                    reset_cache_with_prefix('profiles_by_user_id')
+                    reset_cache_with_prefix('profile_by_id')
 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
