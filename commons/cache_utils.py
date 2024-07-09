@@ -1,5 +1,6 @@
 import logging
 from django.core.cache import cache
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def get_cache(key):
         logger.error(f"Error getting cache for key {key}: {e}")
 
 
-def set_cache(key, value, timeout=60*15):
+def set_cache(key, value, timeout=60*int(os.getenv("CACHE_TIMEOUT", 15))):
     try:
         cache.set(key, value, timeout=timeout)
         logger.info(f"Cache set for key: {key} with timeout: {timeout}")
@@ -36,3 +37,14 @@ def delete_cache(key):
         logger.info(f"Cache deleted for key: {key}")
     except Exception as e:
         logger.error(f"Error deleting cache for key {key}: {e}")
+        
+        
+def reset_cache_with_prefix(prefix):
+    """
+    Deletes all cache entries that contain the given prefix in their key.
+    """
+    try:
+        cache.delete_pattern(f"{prefix}*")
+        logger.info(f"Cache reset for keys with prefix: {prefix}")
+    except Exception as e:
+        logger.error(f"Error resetting cache for prefix {prefix}: {e}")

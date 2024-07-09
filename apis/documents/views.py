@@ -15,7 +15,7 @@ from commons.youtube_utils import get_youtube_transcript, repidapi_stt
 from commons.anthropic import anthropic_completion
 from commons.cloudinary import upload_image
 import logging
-from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 logger = logging.getLogger("main")
 
