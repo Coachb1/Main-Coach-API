@@ -20,7 +20,7 @@ import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
 from coaching_conversations.helpers import generate_team_connect_response
-from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 import logging
 
