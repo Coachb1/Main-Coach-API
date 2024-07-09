@@ -1685,7 +1685,7 @@ def send_welcome_email(profile_type, user_email, user_name):
         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
             <div style="margin: 15px;">
                 <p>Congratulations and welcome to the Coachbots community!</p>
-                <p>Thank you for creating your AI Frame - it's now live and ready to support your coaching and mentoring engagements. You can always edit your AI Frame through the profile section.</p>
+                <p>Thank you for creating your AI Frame - it will be live in the next 60 minutes and available in the directory to support your coaching and mentoring engagements. You can always edit your AI Frame through the profile section.</p>
                 <p>Your AI Frame will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
                 <p>We encourage you to explore the Creator Studio, where you can create and assign tailored simulations for your coachees. This feature will empower you to curate learning experiences that address their specific needs and goals.</p>
                 <p>Additionally, you can leverage the Action Plans and Session Notes sections to document and track the progress of your coaching journeys. These tools will help you provide meaningful support and guidance to your coachees.</p>
@@ -1700,7 +1700,7 @@ def send_welcome_email(profile_type, user_email, user_name):
         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
             <div style="margin: 15px;">
                 <p>Congratulations and welcome to the Coachbots community!</p>
-                <p>Thank you for creating your profile - it's now live and ready to support your personal and professional development. You can always edit your information through the profile section.</p>
+                <p>Thank you for creating your profile - it will be live in the next 60 minutes and ready to support your personal and professional development. You can always edit your information through the profile section.</p>
                 <p>Your profile will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
                 <p>We also encourage you to try out the various simulations available in our library. These immersive experiences will help you hone your skills and prepare you for real-world challenges.</p>
                 <p>We're excited to embark on this journey with you. Let's unlock your full potential together!</p>
