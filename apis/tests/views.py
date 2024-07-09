@@ -1306,7 +1306,58 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['PATCH'],detail=False, url_path="update_scenarios")
     def update_test_scenarios(self,request,*args, **kwargs):
+        """
+        ### Method: update_test_scenarios
 
+        #### Objective:
+        This method is used to update the scenarios for tests based on the provided data.
+
+        #### Process:
+        1. Extract the test data from the request.
+        2. Iterate over each test data entry.
+        3. Format the data by stripping any leading or trailing spaces.
+        4. Call the `update_scenarios` function with the formatted data.
+        5. Update the test scenarios based on the provided data.
+
+        #### Input Requirements:
+        - `test_data`: A list of dictionaries containing test data entries.
+        - Each dictionary should contain keys for 'Title', 'Test description', 'Test code', 'Question', 'Custom Prompt', 'KLS', and 'KLP'.
+        - The 'Question', 'Custom Prompt', 'KLS', and 'KLP' keys should have corresponding values for each question in the test.
+
+        #### Expected Output:
+        - Response: "updated" with status code 200 if the scenarios are successfully updated.
+        - Error response with status code 400 if any issues occur during the update process.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+        "test_data": [
+            {
+            "Title": "Test Title",
+            "Test description": "Test Description",
+            "Test code": "ABC123",
+            "Question 1": "Question 1",
+            "Custom Prompt 1": "Prompt 1",
+            "KLS 1": "Skill 1",
+            "KLP 1": "Learning Point 1"
+            },
+            {
+            "Title": "Another Test",
+            "Test description": "Another Description",
+            "Test code": "DEF456",
+            "Question 1": "Another Question",
+            "Custom Prompt 1": "Another Prompt",
+            "KLS 1": "Another Skill",
+            "KLP 1": "Another Learning Point"
+            }
+        ]
+        }
+        Response:
+
+        Status: 200
+        Body: "updated"
+        """
         try:
             data = request.data.get('test_data')
             for d in data:
@@ -1322,6 +1373,47 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_low_skill_count_test")
     def get_low_skill_count_test(self,request,*args, **kwargs):
+        """
+        ### Method: get_low_skill_count_test
+
+        #### Objective:
+        This method retrieves scenarios for tests with a low number of unique skills based on the provided minimum skill count and test codes.
+
+        #### Process:
+        1. Extract the minimum skill count and test codes from the request query parameters.
+        2. Retrieve the tenant information from the request.
+        3. Call the `get_low_skill_scenarios` function with the tenant, test codes, and minimum skill count.
+        4. Generate a list of scenarios with a low number of unique skills for the specified tests.
+
+        #### Input Requirements:
+        - `min_skill_count`: The minimum number of unique skills required for a test scenario.
+        - `test_codes`: Comma-separated test codes for filtering specific tests.
+
+        #### Expected Output:
+        - Response: A list of dictionaries containing test scenarios with a low number of unique skills.
+        - Each dictionary includes the test code, unique skills, and the count of unique skills.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+            "min_skill_count": 4,
+            "test_codes": "ABC123,DEF456"
+        }
+        Response:
+        [
+            {
+                "Test Code": "ABC123",
+                "Skills": "Skill1, Skill2, Skill3",
+                "Skill count": 3
+            },
+            {
+                "Test Code": "DEF456",
+                "Skills": "Skill1, Skill2",
+                "Skill count": 2
+            }
+        ]
+        """
         try:
             min_skill_count = request.query_params.get('min_skill_count')
             test_codes = request.query_params.get('test_codes')
@@ -1338,6 +1430,53 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['POST'],detail=False, url_path="assign_simulation")
     def assing_simulation(self, request, *args, **kwargs):
+        """
+        ### `assign_simulation` Method Documentation:
+
+        #### Objective:
+        Assign simulations to users based on the provided test codes, assigned to, and assigned by information.
+
+        #### Process Explanation:
+        1. Extract the test codes, assigned to, and assigned by information from the request data.
+        2. Iterate over each test code provided.
+        3. Retrieve the corresponding test from the database based on the test code and tenant ID.
+        4. Update the assigned to and assigned by fields of the test with the provided values.
+        5. Save the changes to the test object.
+        6. Return a success message if the assignment is completed successfully.
+
+        #### Input Requirements:
+        - `test_codes`: Comma-separated test codes for the simulations to be assigned.
+        - `assigned_to`: The user ID to whom the simulations are assigned.
+        - `assigned_by`: The user ID who is assigning the simulations.
+
+        #### Expected Output:
+        - If the assignment is successful, return a response with a success message.
+        - If any errors occur during the assignment process, return an error response with details.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+            "test_codes": "ABC123,DEF456",
+            "assigned_to": "user123",
+            "assigned_by": "admin456"
+        }
+        Response (Success):
+
+        {
+            "msg": "successfully assigned"
+        }
+        Response (Error - Test Code Not Found):
+
+        {
+            "error": "simulation not found"
+        }
+        Response (Error - Missing Fields):
+
+        {
+            "error": "test_codes are required"
+        }
+        """
         # return Response("ok")
         try:
             test_codes = request.data.get('test_codes')
