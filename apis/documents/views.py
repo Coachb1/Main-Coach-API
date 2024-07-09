@@ -135,6 +135,23 @@ class DocumentViewSet(ApiViewSet,
     
     @action(methods=["POST"], detail=False,parser_classes = [MultiPartParser], url_path="upload-image")
     def _upload_image(self, request, *args, **kwargs):
+
+        """
+        Uploads an image to Cloudinary.
+
+        This method handles the uploading of an image to Cloudinary service. It expects a multipart form data with an 'image_file' field containing the image to be uploaded. The process involves uploading the image to Cloudinary using the `upload_image` function from `commons.cloudinary` module. Upon successful upload, it retrieves the secure URL of the uploaded image.
+
+        Input:
+            - request: A multipart form data containing an 'image_file' field with the image to be uploaded.
+
+        Output:
+            - Upon successful upload, returns a JSON response containing the 'image_url' field with the secure URL of the uploaded image.
+
+        Example:
+            POST /documents/upload-image/:
+                Request: Multipart form data with 'image_file' field containing the image.
+                Response: {"image_url": "https://cloudinary.com/images/example.jpg"}
+        """
         try:
             image_file = request.data.get('image_file')
             logger.info(f"<<<<<<<<<<<<<<<< image_file : {image_file} >>>>>>>>>>>>>>>>")
