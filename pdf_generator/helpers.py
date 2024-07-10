@@ -509,7 +509,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         skills_graph_data = get_test_attempt_session_skills_graph(
             test_attempt_session, only_data=True)
         culture_graph_data = get_test_attempt_session_culture_skills_graph(
-            test_attempt_session, only_data=True)
+            test_attempt_session, only_data=True) if test_attempt_session.culture_skills_rating else None
         
         if test.is_checkin_type:
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
