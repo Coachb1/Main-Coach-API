@@ -229,7 +229,8 @@ def create_test(tenant: Tenant,
                 assigned_to: str,
                 assigned_by: str,
                 web_page_url:str,
-                sub_tab_category:str) -> tuple[Test, list[TestQuestion]]:
+                sub_tab_category:str,
+                calculate_culture: bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -415,7 +416,8 @@ def create_test(tenant: Tenant,
             assigned_to=assigned_to,
             assigned_by=assigned_by,
             web_page_url=web_page_url,
-            sub_tab_category=sub_tab_category
+            sub_tab_category=sub_tab_category,
+            calculate_culture=calculate_culture
         )
 
         test_questions = []
@@ -2989,22 +2991,34 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
+    
+    updated_fields = ["test_score","avg_score","finished_at","updated"]
+    
+    if test.calculate_culture:
+        culture_skills_rating = evaluate_group_discussion_conversation(
+            test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
 
-    culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
+        # Step 1: Sort the dictionary by its values in descending order
+        sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
 
-    # Step 1: Sort the dictionary by its values in descending order
-    sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
+        # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+        culture_skills_rating = dict(list(sorted_dict.items())[:8])
 
-    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
-    culture_skills_rating = dict(list(sorted_dict.items())[:8])
+        # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
+        for skill in culture_skills_rating:
+            if culture_skills_rating[skill] > 8.5:
+                culture_skills_rating[skill] = 8.5
+            elif culture_skills_rating[skill] < 0.5:
+                culture_skills_rating[skill] = 0.5
 
-    # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
-    for skill in culture_skills_rating:
-        if culture_skills_rating[skill] > 8.5:
-            culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 0.5:
-            culture_skills_rating[skill] = 0.5
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+
+        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+
+        test_attempt_session.culture_skills_rating = culture_skills_rating
+
+        updated_fields.append('culture_skills_rating')
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test,test.is_free)
@@ -3039,20 +3053,15 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating_score)
 
-    culture_skills_rating = update_culture_skills_if_same_scores(
-        culture_skills_rating)
     
     test_score = 0
     for skill in skills_rating:
         test_score += skills_rating[skill]
 
     avg_score = test_score / len(skills_rating.keys())
-    culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
-
-    test_attempt_session.culture_skills_rating = culture_skills_rating
     
-    updated_fields = ["culture_skills_rating"
-                      ,"test_score","avg_score","finished_at","updated"]
+    
+    
 
     skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     if skills_rating:
@@ -3380,7 +3389,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
-    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()}  # to strip extra qoutes from key
+    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()} if culture_skills else None # to strip extra qoutes from key
 
     data = {
         "participant_name": participant_name,
@@ -3816,14 +3825,6 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     for skill in skills_rating_score:
         test_score += skills_rating_score[skill]
 
-
-    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
-
-    logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
-
-    culture_skills_rating = update_culture_skills_if_same_scores(
-        culture_skills_rating)
-
     # update skills_rating field in test_attempt_session
     skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
     skills_rating_score = {key.capitalize() : value for key, value in skills_rating_score.items()}
@@ -3846,11 +3847,19 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     #     test_attempt_session.skills_explanation = skills_explanation
     #     updated_fields.append("skills_explanation")
 
-    if culture_skills_rating is not None:
-        culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
-        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
-        test_attempt_session.culture_skills_rating = culture_skills_rating
-        updated_fields.append("culture_skills_rating")
+    if test.calculate_culture:
+        culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+
+        logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
+
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+        
+        if culture_skills_rating is not None:
+            culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+            culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+            test_attempt_session.culture_skills_rating = culture_skills_rating
+            updated_fields.append("culture_skills_rating")
 
     # if culture_skills_explanation is not None:
     #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
