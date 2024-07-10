@@ -20,6 +20,7 @@ import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
 from coaching_conversations.helpers import generate_team_connect_response
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 import logging
 
@@ -300,6 +301,21 @@ class CoachingConversationViewSet(ApiViewSet,
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
         user_bot_id = request.query_params.get('bot_id', None)
+        
+        cache_key = generate_cache_key("bot-conversation-data",tenant_id=tenant.uid, mode=mode, user_id=user_id, user_bot_id=user_bot_id)
+        cached_data = get_cache(cache_key)
+        
+        if cached_data:
+            return Response(data, status=status.HTTP_200_OK)
+        
+        client_infos = ClientUserInfo.objects.all()
+        excluded_users = ""
+        for client_info in client_infos:
+            if client_info and client_info.excluded_users:
+                excluded_users += client_info.excluded_users
+            
+        excluded_emails = excluded_users.split(',') if excluded_users else []
+        excluded_emails = [email.strip() for email in excluded_emails]
 
         if mode == 'admin':
             try:
@@ -315,12 +331,18 @@ class CoachingConversationViewSet(ApiViewSet,
                 participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
 
                 for participant_id in participant_ids:
+                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id)
+                    if participant_attribute and participant_attribute.attributes:
+                        participant_email = participant_attribute.attributes.get('email')
+                        if participant_email in excluded_emails:
+                            continue
                     bot_sessions = sessions.filter(participant_id=participant_id)
                     data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
                     data_cov['bot_name'] = bot_att.bot_name
                     data_cov['bot_id'] = bot.bot_id
                     data.append(data_cov)
 
+            set_cache(cache_key, data)
             return Response(data, status=status.HTTP_200_OK)
 
         elif mode == 'user':
@@ -345,6 +367,7 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_conv['bot_name'] = bot_att.bot_name
                     data_conv['bot_id'] = signature_bot.bot_id
                     data.append(data_conv)
+            set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)
 
         else:
@@ -491,7 +514,50 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path='get-deep-dive-create-access')
     def get_deep_dive_create_access(self, request, *args, **kwargs):
+        """
+        #### Method: `get_deep_dive_create_access`
 
+        **Objective:**
+        This method checks if a user has access to create deep dive content based on their role or membership in a client organization.
+
+        **Process:**
+        1. Checks if the request method is GET.
+        2. Retrieves the user's email from the query parameters.
+        3. Validates the email parameter.
+        4. Retrieves the user based on the provided email using the `get_user_via_identity` function.
+        5. Checks if the user's role is in a predefined list of roles or if they are a deep dive creator.
+        6. Retrieves the client information and checks if the user's email is in the list of accessed emails.
+        7. Returns a response indicating whether the user has access or not.
+
+        **Input Requirements:**
+        - `request`: Django REST framework request object.
+        - `email`: Email address of the user to check access for.
+
+        **Expected Output:**
+        - If the email is missing: Returns a response with an error message "Email is required" and HTTP 400 status.
+        - If the user has access: Returns a response with "has_access" set to True and HTTP 200 status.
+        - If the user does not have access: Returns a response with "has_access" set to False and HTTP 200 status.
+        - If any error occurs during the process: Returns an error response with details and HTTP 400 status.
+
+        **Example:**
+        GET /coaching-conversations/get-deep-dive-create-access?email=user@example.com
+        Response Body (Success - User has access):
+        {
+            "has_access": true
+        }
+        Response Body (Success - User does not have access):
+        {
+            "has_access": false
+        }
+        Response Body (Error - Email missing):
+        {
+            "error": "Email is required"
+        }
+        Response Body (Error - Exception occurred):
+        {
+            "error": "Got error in deepdive-bot: <error_message>"
+        }
+        """
         try:
             if request.method == 'GET':
                 tenant = request.tenant
@@ -527,6 +593,49 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=["POST"], detail=False, url_path="save-response-style")
     def save_response_style(self, request, *args, **kwargs):
+        """
+        #### Method: `save_response_style`
+
+        **Objective:**
+        This method saves the preferred response style for a user by updating the `preferences` field in the `UserAttribute` model.
+
+        **Process:**
+        1. Retrieves the `user_id` and `response_style` from the request data.
+        2. Validates the presence of both `user_id` and `response_style`.
+        3. Retrieves the `UserAttribute` instance based on the `tenant_id`, `user_id`, and ensures it is not deleted.
+        4. Updates the `preferences` field with the new `response_style`.
+        5. Saves the changes to the `UserAttribute` instance.
+
+        **Input Requirements:**
+        - `request`: Django REST framework request object.
+        - `user_id`: The unique identifier of the user.
+        - `response_style`: The preferred response style to be saved.
+
+        **Expected Output:**
+        - On successful update, returns a response with a message "response style saved".
+        - If either `user_id` or `response_style` is missing, returns an error response with details.
+        - If any error occurs during the process, returns an error response indicating the issue.
+
+        **Example:**
+        POST /coaching-conversations/save-response-style
+        Request Body:
+        {
+            "user_id": "12345",
+            "response_style": "friendly"
+        }
+        Response Body (Success):
+        {
+            "message": "response style saved"
+        }
+        Response Body (Error - Missing Fields):
+        {
+            "error": "both user_id and response_style fields are required"
+        }
+        Response Body (Error - Exception):
+        {
+            "error": "something went wrong"
+        }
+        """
         try:
             user_id = request.data.get('user_id')
             response_style = request.data.get('response_style')
@@ -544,6 +653,50 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=['POST'], detail=False, url_path='team-connect')
     def team_connect(self, request, *args, **kwargs):
+        """
+        #### Method: `team_connect`
+
+        **Objective:**
+        This method generates a response for team connection based on user profiles and characteristics.
+
+        **Process:**
+        1. Receives the `tenant_id`, `user_ids`, and `question` as input.
+        2. Retrieves user data and profiles based on the provided `user_ids`.
+        3. Constructs a response message with user profile information and the input question.
+        4. Generates a response using the constructed prompt and user data.
+        5. Returns the response message along with any additional information.
+
+        **Input Requirements:**
+        - `tenant_id`: The ID of the tenant.
+        - `user_ids`: Comma-separated user IDs for whom to generate the response.
+        - `question`: The question for which the response is generated.
+
+        **Expected Output:**
+        - A response message containing the generated response for team connection.
+        - Additional messages or information based on the user profiles.
+        - Error messages if any input is missing or if an exception occurs.
+
+        **Example:**
+        POST /coaching-conversations/team-connect
+        Request Body:
+        {
+            "user_id": "12345",
+            "question": "How can we improve team collaboration?"
+        }
+        Response Body (Success):
+        {
+            "response": "Generated response for team connection",
+            "message": "Additional message based on user profiles"
+        }
+        Response Body (Error - Missing Fields):
+        {
+            "error": "user_id is required"
+        }
+        Response Body (Error - Exception):
+        {
+            "error": "Got error in team_connect: <error_message>"
+        }
+        """
         try:
             if request.method == 'POST':
                 tenant = request.tenant
@@ -564,6 +717,64 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path='analyze-bot-conversation')
     def analyze_bot_conversation(self, request, *args, **kwargs):
+        """
+        #### Method: `analyze_bot_conversation`
+
+        **Objective:**
+        This method aims to analyze bot conversations for a specific user in a test attempt session by retrieving relevant data.
+
+        **Process:**
+        1. Checks if the request method is GET.
+        2. Retrieves the `tenant`, `user_id`, and `bot_id` from the query parameters.
+        3. Validates the presence of both `user_id` and `bot_id`.
+        4. Retrieves test attempt sessions based on the `tenant`, `user_id`, and `bot_id`.
+        5. If no sessions are found, returns an error response.
+        6. Calls the `get_bot_conversation_data_user` function to fetch conversation data.
+        7. Returns a response with the conversation data if successful.
+
+        **Input Requirements:**
+        - `request`: Django REST framework request object.
+        - `user_id`: The ID of the user for whom to analyze bot conversations.
+        - `bot_id`: The ID of the bot associated with the conversations.
+
+        **Expected Output:**
+        - If successful, returns a response with the conversation data and HTTP 200 status.
+        - If either `user_id` or `bot_id` is missing, returns an error response with details and HTTP 400 status.
+        - If no conversations are found, returns an error response with details and HTTP 404 status.
+
+        **Example:**
+        GET /coaching-conversations/analyze-bot-conversation?user_id=12345&bot_id=67890
+        Response Body (Success):
+        {
+            "results": [
+                {
+                    "uid": "conversation123",
+                    "coach_message_text": "Hello, how can I help you?",
+                    "participant_message_text": "I have a question.",
+                    "status": "participant_message_saved",
+                    "created": "2022-01-01T00:01:00Z",
+                    "updated": "2022-01-01T00:01:00Z",
+                    "session_id": "session456"
+                }
+            ],
+            "participant_name": "John Doe",
+            "participant_uid": "12345",
+            "role": "user",
+            "date": "2022-01-01T00:00:00Z"
+        }
+        Response Body (Error - Missing Fields):
+        {
+            "error": "user_id and bot_id are required"
+        }
+        Response Body (Error - No Conversation Found):
+        {
+            "error": "No conversation found"
+        }
+        Response Body (Error - Exception):
+        {
+            "error": "Got error in analyze_bot_conversation: <error_message>"
+        }
+        """
         ### :TODO: incomplete implementation
         try:
             if request.method == 'GET':
@@ -583,18 +794,83 @@ class CoachingConversationViewSet(ApiViewSet,
         
     @action(methods=['GET','POST'], detail=False, url_path='get-or-save-coach-recommendations')
     def get_or_save_coach_recommendations(self, request, *args, **kwargs):
+        """
+        ### Method: `get_or_save_coach_recommendations`
+
+        **Objective:**
+        This method retrieves or saves coach recommendations for a user profile based on the request method. It aims to efficiently handle caching for recommendations retrieval and storage.
+
+        **Process:**
+        1. For GET requests:
+            - Retrieves the `user_profile_id` from query parameters.
+            - Generates a cache key for coach recommendations.
+            - Tries to fetch data from the cache.
+            - If cache miss, retrieves the user profile and associated recommendations.
+            - Sets the retrieved data in the cache and returns the recommendations.
+
+        2. For POST requests:
+            - Extracts `user_profile_id` and `coach_recommendations` from the request data.
+            - Validates the presence of both fields.
+            - Calls the `save_coach_recommendation` function to save the recommendations.
+            - Returns a success message if the saving is successful.
+
+        **Input Requirements:**
+        - For GET:
+            - `user_profile_id`: The ID of the user profile to retrieve recommendations for.
+        - For POST:
+            - `user_profile_id`: The ID of the user profile to save recommendations for.
+            - `coach_recommendations`: The recommendations to be saved.
+
+        **Expected Output:**
+        - For GET:
+            - Returns coach recommendations data if found in cache or database.
+        - For POST:
+            - Success message if recommendations are saved successfully.
+
+        **Example:**
+        GET /coaching-conversations/get-or-save-coach-recommendations?user_profile_id=12345
+        Response Body (Success - GET):
+        {
+            "data": ["Recommendation 1", "Recommendation 2"]
+        }
+
+        POST /coaching-conversations/get-or-save-coach-recommendations
+        Request Body:
+        {
+            "user_profile_id": "12345",
+            "coach_recommendations": "Recommendation 1, Recommendation 2"
+        }
+        Response Body (Success - POST):
+        {
+            "success": "coach recommendation saved for user_profile_id- 12345"
+        }
+        """
         try:
             if request.method == 'GET':
                 user_profile_id = request.query_params.get('user_profile_id')
+                cache_key = generate_cache_key('coach_recommendations', user_profile_id)
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response({"data": cached_data}, status=status.HTTP_200_OK)
+        
                 try:
                     profile = CoachCoacheeMentorMenteeProfile.objects.get(
                         deleted=False,
                         tenant_id=request.tenant.uid,
                         uid=user_profile_id
                     )
+                    recommendations = profile.coach_recommendations.all()
+                    response_data = recommendations[0].coach_recommendations.split(',') if recommendations else []
+                    
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    
+                    # Return the response
+                    return Response({"data": response_data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response({"error": f"Profile Not found for user_profile_id : {user_profile_id}, reason: {e}"}, status=status.HTTP_400_BAD_REQUEST)
-                return Response({"data": profile.coach_recommendations.all()[0].coach_recommendations.split(',') if len(profile.coach_recommendations.all()) > 0 else []}, status=status.HTTP_200_OK)
 
             elif request.method == 'POST':
                 user_profile_id = request.data.get('user_profile_id')

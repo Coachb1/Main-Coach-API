@@ -12,7 +12,7 @@ import string
 logger = logging.getLogger(__name__)
 
 @timeit
-def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
+def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False, llm_order=None):
     """
     Generates text completions based on a given prompt.
 
@@ -21,39 +21,86 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
         tokens (int, optional): The maximum number of tokens to generate in the completions. Defaults to 1200.
         fallback_text (str, optional): The fallback text to use if completions cannot be generated. Defaults to None.
         is_free (bool): A flag indicating if the completions should be generated for free or not.
+        llm_order (list, optional): A list specifying the order of LLMs to use eg: ['gemini', 'anthropic', 'gpt']. Defaults to None.
 
     Returns:
         str: The generated completions based on the given prompt.
     """
     response_text = fallback_text
+
+    # Define the default order of LLMs if not provided
+    default_order_free = ['anthropic', 'gemini']
+    default_order_paid = ['gemini', 'anthropic', 'gpt']
+
+    # Use the provided order or default order
     if is_free:
-        try:
-            response_text = anthropic_completion(prompt, tokens)
-            if len(response_text.strip()) == 0:
-                response_text = gemini_completion(prompt)
-        except Exception as e:
-            logger.exception(f"failed generic Completion: {e}")
-            response_text = fallback_text
-
+        llm_order = default_order_free
     else:
-        bison_feedback = gemini_completion(prompt)
-        if not bison_feedback or len(bison_feedback.strip()) == 0:
-            try:
-                response_text = anthropic_completion(prompt, tokens)
-                if len(response_text.strip()) == 0:
-                    raise ValueError("Got empty response")
-            except Exception as e:
-                logger.exception(e)
-                try:
-                    response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                    if len(response_text.strip()) == 0:
-                        raise ValueError("Got empty response")
-                except Exception as e:
-                    response_text = fallback_text
-        else:
-            response_text = bison_feedback
+        llm_order = llm_order if llm_order and len(llm_order) > 0 else default_order_paid
 
-    return response_text
+    def call_llm(llm, prompt, tokens):
+        if llm == 'anthropic':
+            return anthropic_completion(prompt, tokens)
+        elif llm == 'gemini':
+            return gemini_completion(prompt)
+        elif llm == 'gpt':
+            return gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+        return None
+
+    for llm in llm_order:
+        try:
+            response_text = call_llm(llm, prompt, tokens)
+            if response_text and len(response_text.strip()) > 0:
+                break
+        except Exception as e:
+            logger.exception(f"Failed with {llm}: {e}")
+
+    return response_text if response_text and len(response_text.strip()) > 0 else fallback_text
+
+
+# @timeit
+# def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False):
+#     """
+#     Generates text completions based on a given prompt.
+
+#     Args:
+#         prompt (str): The prompt for which completions are requested.
+#         tokens (int, optional): The maximum number of tokens to generate in the completions. Defaults to 1200.
+#         fallback_text (str, optional): The fallback text to use if completions cannot be generated. Defaults to None.
+#         is_free (bool): A flag indicating if the completions should be generated for free or not.
+
+#     Returns:
+#         str: The generated completions based on the given prompt.
+#     """
+#     response_text = fallback_text
+#     if is_free:
+#         try:
+#             response_text = anthropic_completion(prompt, tokens)
+#             if len(response_text.strip()) == 0:
+#                 response_text = gemini_completion(prompt)
+#         except Exception as e:
+#             logger.exception(f"failed generic Completion: {e}")
+#             response_text = fallback_text
+
+#     else:
+#         bison_feedback = gemini_completion(prompt)
+#         if not bison_feedback or len(bison_feedback.strip()) == 0:
+#             try:
+#                 response_text = anthropic_completion(prompt, tokens)
+#                 if len(response_text.strip()) == 0:
+#                     raise ValueError("Got empty response")
+#             except Exception as e:
+#                 logger.exception(e)
+#                 try:
+#                     response_text = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+#                     if len(response_text.strip()) == 0:
+#                         raise ValueError("Got empty response")
+#                 except Exception as e:
+#                     response_text = fallback_text
+#         else:
+#             response_text = bison_feedback
+
+#     return response_text
 
 
 

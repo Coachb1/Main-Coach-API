@@ -30,7 +30,7 @@ from apis.accounts.serializers import UserIDPSerializers
 from utilities.models import SessionNotesRecommendations
 import requests
 from utilities.prompts import get_intake_summary_prompt
-from commons.utils import remove_punctuations
+from commons.utils import remove_punctuations, generic_completion
 from tests.helpers import get_relevant_session_summary
 from documents.utils import get_document_summary
 from identities.models import Identity
@@ -1579,7 +1579,8 @@ def create_user_profile_and_bot(data,auth):
         "journey_and_background": journey_and_background,
         "voice_sample": voice_sample,
         "mentorship_contribution": discuss_how_you_helped_others_in_coachMentoring,
-        "discussion_topic": discussion_topic
+        "discussion_topic": discussion_topic,
+        "provide_answers_using_emojis" : provide_answers_using_emojis.strip().lower() == 'yes' if provide_answers_using_emojis else False
 
     }
 
@@ -2639,7 +2640,7 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
     Read this {information} thoroughly. Now based on this information and your understanding create an advanced title and objective for quantitative method secondary research in the {information}. After creating provide these:
 
     Objective - Define the situation, and the problem. Never mention any characters or character names in the objective. Make the objective specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the Objective in 100 to 200 words. Do not add any conclusion.
-    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+    Title - Give a specific and relevant title for this objective. The title should NEVER be less than 8 words and more than 15 words. The title should always be directly related to the given description. Make it very specific to the description.
 
     Always follow this format:
 
@@ -2672,7 +2673,9 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
     for i in range(3):
         logger.info(f"Trying to extract information for the {i+1}")
         try:
-            response = anthropic_completion(prompt,max_tokens=1000)
+            response = generic_completion(prompt,tokens=1000,llm_order=['anthropic','gemini','gpt'])
+            if not response:
+                raise ValueError('Failed to generate')
             title, objective = extracter_for_deep_dive(response)        
         except Exception as e:
             logger.info(f"failed to extract required information, raw data : {response}")
@@ -2862,7 +2865,7 @@ def generate_team_connect_response(tenant_id:str,user_ids:str, question:str):
 
     logger.info(f"team connect prompt: {prompt}, user_data: {user_data}")
 
-    response = anthropic_completion(prompt,max_tokens=1000)
+    response = generic_completion(prompt,tokens=1000,llm_order=['anthropic','gemini','gpt'])
     logger.info(f"team connect response: {response}")
     return {"response": response.replace('$',''), "message": message}
 

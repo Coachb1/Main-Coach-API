@@ -187,6 +187,7 @@ class SignatureBot(TenantAwareModel):
     bot_expires_at = models.DateTimeField(null=True,default=None,blank=True)
     access_code = models.CharField(max_length=10, blank=True, null= True, default=None)
     page_informations = models.JSONField(null=True, blank=True, default=get_default_signature_bot_page_information)
+    is_private = models.BooleanField(null=True,default=False)
     
 
     class Meta:
@@ -276,6 +277,8 @@ class ClientUserInfo(TenantAwareModel):
     webhook_secret = models.CharField(max_length=255,null=True, blank=True, default=None)
     webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
     webhook_enabled = models.BooleanField(blank=True, default=False)
+    excluded_users = models.TextField(null=True, blank=True, default=None)
+    use_skills_from_skill_bank = models.BooleanField(default=False, null=True, blank=False)
 
     
 
@@ -336,6 +339,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     discussion_topic = models.TextField(null=True, blank=True, default=None)
     optional_file_data = models.JSONField(null=True, blank=True, default=None)
     problem_statement = models.TextField(null=True, blank=True, default=None)
+    provide_answers_using_emojis = models.BooleanField(null=True, blank=True, default=False)
 
 
     

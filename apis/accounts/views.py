@@ -72,6 +72,13 @@ from django.db import transaction
 from coaching_conversations.helpers import add_or_remove_emails_from_client
 from users.models import get_default_signature_bot_page_information
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_cookie, vary_on_headers
+from django.core.cache import cache
+import time
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
+
 logger = logging.getLogger(__name__)
 
 class AccountsViewSet(ApiViewSet,
@@ -325,7 +332,7 @@ class AccountsViewSet(ApiViewSet,
                 key = title_parts[0].strip().capitalize()
             
                 data.append({"title": item.title,"description": item.description, "domain": key,
-                                "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended})
+                                "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended, "scenario_case": item.scenario_case})
 
         if candidate_type:
             tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,candidate_type=candidate_type.strip().lower())
@@ -333,7 +340,7 @@ class AccountsViewSet(ApiViewSet,
                 if test.area_domain:
                     key = test.area_domain
                     data.append({"title": item.title,"description": item.description, "domain": key,
-                                    "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended})
+                                    "test_code": item.test_code, "interaction_mode": item.interaction_mode, "is_micro": item.is_micro, "is_recommended": item.is_recommended, "scenario_case": item.scenario_case})
 
         
         group_data = {}
@@ -384,6 +391,7 @@ class AccountsViewSet(ApiViewSet,
         data['access_code'] = signature_bot.access_code
         data['tag'] = signature_bot.tag
         data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
+        data['is_private'] = signature_bot.is_private
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
@@ -457,7 +465,14 @@ class AccountsViewSet(ApiViewSet,
             mob_number = request.query_params.get('mob_number',None)
             tenant = self.request.tenant
 
-            logger.info(f"for: {mode}, user_id: {user_id},email: {email},mob_number: {mob_number}")
+            logger.info(f"Received request with parameters - mode: {mode}, user_id: {user_id}, email: {email}, mob_number: {mob_number}")
+            
+
+            cache_key = generate_cache_key("client_info",tenant.uid,mode,user_id,email,mob_number)
+            cached_data = get_cache(cache_key)
+            if cached_data:
+                return Response({"data":cached_data},status=status.HTTP_200_OK)
+            
             client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
             data = {}
 
@@ -493,6 +508,9 @@ class AccountsViewSet(ApiViewSet,
                                       )
 
                 data['user_info'] = user_info
+                
+            set_cache(cache_key, data, 60*15)
+            logger.info("Client information retrieval successful")
 
             return Response({"data":data },status=status.HTTP_200_OK)
 
@@ -532,6 +550,7 @@ class AccountsViewSet(ApiViewSet,
             feedback_type = request.query_params.get("feedback_type",None)
             participant_id = request.query_params.get('user_id',None)
             qna_type = request.query_params.get('qna_type',None)
+            cache_key = ''
 
 
             data = {}
@@ -550,12 +569,20 @@ class AccountsViewSet(ApiViewSet,
                 #     logger.exception(f"Feedback bot not found {e}")
                 #     data['positive_msgs'] = []
                 #     return Response(data,status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('get-user-feedback-data', bot_id=bot_id, feedback_type=feedback_type, participant_id=participant_id, qna_type=qna_type, tenant_id=request.tenant.uid)
+                
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+                
                 qna_type = request.query_params.get("qna_type",None)
 
                 # to get latest botqna for a user using participant_id
                 if participant_id:
                     recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
                     if recent_intake_data:
+                        set_cache(cache_key, data)
                         return Response({"intake_summary": recent_intake_data.intake_summary,"intake_id":recent_intake_data.uid},status=status.HTTP_200_OK)
                     else:
                         return Response({"error": "No Intake found for user."},status=status.HTTP_400_BAD_REQUEST)
@@ -628,6 +655,7 @@ class AccountsViewSet(ApiViewSet,
                 )
                 data['message'] = "created"
 
+            set_cache(cache_key, data)
             return Response(data,status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -647,32 +675,56 @@ class AccountsViewSet(ApiViewSet,
         Returns:
             dict: A dictionary containing the coach-coachee-mentor-mentee profile data.
         """
+        def get_profiles_by_user_id(user_id):
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, user_id=user_id)
+            return CoachCoacheeMentorMenteeProfileSerializer(profile, many=True).data
+
+        def get_profile_by_id(profile_id):
+            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=profile_id)
+            return CoachCoacheeMentorMenteeProfileSerializer(profile).data
+
+        def get_all_profiles(profile_type=None):
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, is_approved=True)
+            if profile_type:
+                profiles = profiles.filter(profile_type=profile_type)
+            return CoachCoacheeMentorMenteeProfileSerializer(profiles, many=True).data
 
 
         # return Response({"data":data},status=status.HTTP_200_OK)
         if request.method == 'GET':
             profile_id = request.query_params.get('profile_id',None)
             user_id = request.query_params.get('user_id',None)
+            profile_type = request.query_params.get('profile_type',None)
+            
             if user_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user_id)
-                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
+                    cache_key = generate_cache_key('profiles_by_user_id', user_id=user_id)
+                    data = get_cache(cache_key)
+                    if data is None:
+                        data = get_profiles_by_user_id(user_id)
+                        set_cache(cache_key, data)
+                    return Response({"data": data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             if profile_id:
                 try:
-                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
-                    return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                    cache_key = generate_cache_key('profile_by_id', profile_id=profile_id)
+                    data = get_cache(cache_key)
+                    if data is None:
+                        data = get_profile_by_id(profile_id)
+                        set_cache(cache_key, data)
+                    return Response({"data": data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
             else:
-                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True)
-                profile_type = request.query_params.get('profile_type',None)
-                if profile_type:
-                    profiles = profiles.filter(profile_type=profile_type)
-                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profiles,many=True).data },status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('all_profiles', profile_type=profile_type)
+                data = get_cache(cache_key)
+                if data is None:
+                    data = get_all_profiles(profile_type)
+                    set_cache(cache_key, data)
+                return Response({"data": data}, status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
             try:
@@ -755,6 +807,8 @@ class AccountsViewSet(ApiViewSet,
                         send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
+                    # reset_cache_with_prefix('profiles_by_user_id')
+                    # reset_cache_with_prefix('profile_by_id')
 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
@@ -843,6 +897,15 @@ class AccountsViewSet(ApiViewSet,
 
         logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
         
+        cache_key = generate_cache_key(
+            'get_bots', tenant_id=tenant_id, user_id=user_id, bot_type=bot_type, client_name=client_name, approved_only=approved_only
+        )
+
+        # Attempt to retrieve data from cache
+        cached_data = get_cache(cache_key)
+        if cached_data is not None:
+            return Response({"data": cached_data}, status=status.HTTP_200_OK)
+        
         all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
         if approved_only:
             all_bots = all_bots.filter(is_approved=True)
@@ -881,6 +944,7 @@ class AccountsViewSet(ApiViewSet,
             if deepdive_bot_access:
                 all_bots_data['deepdive_access'] = deepdive_bot_access
             data.append(all_bots_data)
+        set_cache(cache_key, data)
         return Response({"data": data},status=status.HTTP_200_OK)
         
 
@@ -1159,6 +1223,11 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.bot_scenario_case = bot_scenario_case
                         updated_fields.append('bot_scenario_case')
 
+                    if data.get('is_private',None) != None:
+                        signature_bot.is_private = True if data.get('is_private') in ['True','true',1,True] else False
+                        updated_fields.append('is_private')
+
+
                     if faqs:
                         try:
                             new_faqs = json.loads(faqs)
@@ -1288,7 +1357,7 @@ class AccountsViewSet(ApiViewSet,
                                     html = f"""
                                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                             <div style="margin: 15px;">
-                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation once it's live and ready for use.</p>
+                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
                                                 <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
                                                 <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
                                                 <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
@@ -1368,7 +1437,8 @@ class AccountsViewSet(ApiViewSet,
                         error_msg = f"couldn't save bot_url in CoachCoacheeMentorMenteeProfile: {e}\n\n"
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
-                    
+                        
+                    # reset_cache_with_prefix("get_bots")
                     return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
@@ -1553,6 +1623,9 @@ class AccountsViewSet(ApiViewSet,
 
                                 
                 updated_data = data.get("updated_data",None)
+                if data.get('is_private') != None:
+                        signature_bot.is_private = True if data.get('is_private') in ['true','True',True,1] else False
+                        signature_bot.save(update_fields = ['is_private'])
 
                 if signature_bot.bot_type == BotTypeChoice.user_bot:
                     knowledge_bot_faqs =  data.get('faqs',None)
@@ -1563,6 +1636,7 @@ class AccountsViewSet(ApiViewSet,
 
 
                 if updated_data:
+                    updated_data = json.loads(updated_data) if isinstance(updated_data, str) else updated_data
                     
                     additional_data = updated_data.get('additional_data')
                     profile_description = additional_data.get("profile_description",None)
@@ -1579,7 +1653,11 @@ class AccountsViewSet(ApiViewSet,
 
                     signature_bot.bot_details = bot_details
                     signature_bot.data = bot_data
-                    signature_bot.save(update_fields=["bot_details","data"])
+
+                    updated_fields = ["bot_details","data"]
+
+                    
+                    signature_bot.save(update_fields=updated_fields)
 
                     
                     fitment_answer = updated_data.get('fitment_answers',None)
@@ -1913,11 +1991,25 @@ class AccountsViewSet(ApiViewSet,
             data = []
             user_id = request.query_params.get('user_id')
             if request.method == 'GET':
-                competency_data = UserAttribute.objects.get(user_id=user_id).competency_data
-                if competency_data:
-                    data.append(competency_data)
+                cache_key = generate_cache_key('competency_data', user_id=user_id)
 
-                return Response(data,status=status.HTTP_200_OK)
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data is None:
+                    # Cache miss, perform the database query
+                    try:
+                        competency_data = UserAttribute.objects.get(user_id=user_id).competency_data
+                        if competency_data:
+                            data.append(competency_data)
+                        # Set data in cache
+                        set_cache(cache_key, data)
+                    except UserAttribute.DoesNotExist:
+                        logger.exception(f"UserAttribute for user_id {user_id} not found")
+                        return Response({"error": "UserAttribute not found"}, status=status.HTTP_404_NOT_FOUND)
+                else:
+                    data = cached_data
+
+                return Response(data, status=status.HTTP_200_OK)
             elif request.method == 'POST':
                 skill_data = request.query_params.get('competency_skills')
                 skill_data = {str(i+1): value for i, value in enumerate(skill_data.split(','))}
@@ -1973,16 +2065,27 @@ class AccountsViewSet(ApiViewSet,
                 # user_id = request.data.get('user_id',None)
                 user_id = request.query_params.get('user_id',None)
                 idp_id = request.query_params.get('idp_id',None)
+                cache_key = generate_cache_key('process_idp', user_id=user_id, tenant_id=request.tenant.uid, idp_id=idp_id)
+
+                # get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+
                 if idp_id is not None:
                     data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True,idp_id=idp_id)
                     if not success:
                         return Response(data,status=status.HTTP_404_NOT_FOUND)
+                    
+                    set_cache(cache_key, data, 60*5)
                     return Response(data,status=status.HTTP_200_OK)
 
 
                 data, success = process_idp("",user_id,request.tenant.uid,access_token,only_data=True)
                 if not success:
                     return Response(data,status=status.HTTP_404_NOT_FOUND)
+                
+                set_cache(cache_key, data, 60*5)
                 return Response(data,status=status.HTTP_200_OK)
             
             elif request.method == 'POST':
@@ -1992,6 +2095,8 @@ class AccountsViewSet(ApiViewSet,
                 data, success = process_idp(idp_data,user_id,request.tenant.uid,access_token)
                 if not success:
                     return Response(data,status=status.HTTP_404_NOT_FOUND)
+                
+                # reset_cache_with_prefix("process_idp")
                 return Response(data,status=status.HTTP_200_OK)
             
             elif request.method == 'PATCH':
@@ -2052,9 +2157,20 @@ class AccountsViewSet(ApiViewSet,
                 ]
         """
         try:
+            start_time = time.time()
             email = request.query_params.get('email')
             logger.info(f"Retrieving directory information for email: {email}")
             if email:
+                cache_key = f"user-directory-info-{email}"
+                start = time.time()
+                data = cache.get(cache_key)
+                end = time.time()
+                logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
+                if data:
+                    end_time = time.time()
+                    logger.info(f"<<< Time taken to get directory information when CacheHit : {end_time-start_time} >>>")
+                    return Response(data, status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
@@ -2071,9 +2187,28 @@ class AccountsViewSet(ApiViewSet,
                                                             ).filter(Q(profile_id__in=profile_ids) | Q(avatar_bot_id__in = bot_ids))
                 
                 serializer = DirectoryInfoSErializer(directories,many=True)
+                set_cache(cache_key, serializer.data)
             else:
+                cache_key = f"user-directory-info-all"
+                start = time.time()
+                data = cache.get(cache_key)
+                end = time.time()
+                logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
+
+
+                if data:
+                    end_time = time.time()
+                    logger.info(f"<<< Time taken to get directory information when CacheHit : {end_time-start_time} >>>")
+                    return Response(data, status=status.HTTP_200_OK)
+                
+                logger.info("<<<! Cache Not found in memcached !>>>")
+                
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
                 serializer = DirectoryInfoSErializer(directories,many=True)
+                set_cache(cache_key,serializer.data)
+                
+            end_time = time.time()
+            logger.info(f"<<< Time taken to get directory information : {end_time-start_time} >>>")
                 
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -2134,10 +2269,22 @@ class AccountsViewSet(ApiViewSet,
         try:
             if request.method == "GET":
                 email = request.query_params.get('email')
+                by_category = request.query_params.get('by_category')
+                
+                cache_key = generate_cache_key('participant_leader_board_report', email=email, by_category=by_category, tenant_id=request.tenant.uid)
+
+                # Try to get data from cache
+                data = get_cache(cache_key)
+                if data is not None:
+                    return Response(data, status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
-                by_category = request.query_params.get('by_category')
+                excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                excluded_emails = [email.strip() for email in excluded_emails]
+                emails = set(emails) - set(excluded_emails)
+                
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
@@ -2216,13 +2363,17 @@ class AccountsViewSet(ApiViewSet,
                     data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                     for i, item in enumerate(data, start=1):
                         item['rating'] = i
-
+                        
+                    set_cache(cache_key, {"coach_mentor": coach, 'coachee_mentee': coachee, 'full_data': data})
+            
                     return Response({"coach_mentor": coach,'coachee_mentee': coachee, 'full_data': data},status=status.HTTP_200_OK)
 
 
                 data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i
+                    
+                set_cache(cache_key, data)
 
                 return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -2272,47 +2423,79 @@ class AccountsViewSet(ApiViewSet,
             coach_id = request.query_params.get('coach_id',None)
             coachee_id = request.query_params.get('coachee_id',None)
             logger.info(f"**************** connection_id: {connection_id},  coach_id: {coach_id},  coachee_id: {coachee_id}, tenant_id: {self.request.tenant.uid}")
-            if coach_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coach_id=coach_id, tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  coach connection: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
-            if connection_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.get(deleted=False,uid=connection_id,tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  connections: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
-                
-            if coachee_id:
-                try:
-                    connection = CoachCoacheeConnection.objects.filter(deleted=False,coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
-                    logger.info(f"#########################  coachee connection: {connection}")
-                    return Response({"data": CoachCoacheeConnectionSerializer(connection,many=True).data },status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"connection not found"},status=status.HTTP_404_NOT_FOUND)
             
-            # sending only that client members data
-            email = request.query_params.get('email')
-            client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
-            emails = client.member_emails.split(',') if client.member_emails else []
-            emails = [email.strip() for email in emails]
-            user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
-            user_ids_list = list(user_ids.values_list('user_id', flat=True))
-            profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list).values_list('uid', flat=True))
-            logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+            cache_key = generate_cache_key(
+            'connection', 
+            tenant_id=self.request.tenant.uid,
+            connection_id=connection_id,
+            user_id=user_id,
+            coach_id=coach_id,
+            coachee_id=coachee_id
+            )
 
-            connections = CoachCoacheeConnection.objects.filter(Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
-                                                                deleted=False,
-                                                                tenant_id=self.request.tenant.uid,
-                                                                )
-            return Response({"data": CoachCoacheeConnectionSerializer(connections,many=True).data },status=status.HTTP_200_OK)
+            # get data from cache
+            data = get_cache(cache_key)
+            if data is None:
+
+                if coach_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.filter(deleted=False, coach_id=coach_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection, many=True).data}
+                        logger.info(f"#########################  coach connection: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+                elif connection_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.get(deleted=False, uid=connection_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection).data}
+                        logger.info(f"#########################  connections: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+                    
+                elif coachee_id:
+                    try:
+                        connection = CoachCoacheeConnection.objects.filter(deleted=False, coachee_id=coachee_id, tenant_id=self.request.tenant.uid)
+                        data = {"data": CoachCoacheeConnectionSerializer(connection, many=True).data}
+                        logger.info(f"#########################  coachee connection: {connection}")
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connection not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+                
+                else:
+                    try:
+                        email = request.query_params.get('email')
+                        client = ClientUserInfo.objects.get(deleted=0, tenant_id=request.tenant.uid, member_emails__icontains=email)
+                        emails = client.member_emails.split(',') if client.member_emails else []
+                        emails = [email.strip() for email in emails]
+                        excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                        excluded_emails = [email.strip() for email in excluded_emails]
+                        emails = set(emails) - set(excluded_emails)
+                        user_ids = Identity.objects.filter(deleted=False, tenant_id=request.tenant.uid, value__in=emails)
+                        user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                        profile_ids = list(CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, tenant_id=request.tenant.uid, user_id__in=user_ids_list).values_list('uid', flat=True))
+                        logger.info(f"profile_ids: {profile_ids}, user_ids: {user_ids_list}")
+
+                        connections = CoachCoacheeConnection.objects.filter(
+                            Q(coach_id__in=profile_ids) | Q(coachee_id__in=profile_ids),
+                            deleted=False,
+                            tenant_id=self.request.tenant.uid,
+                        )
+                        data = {"data": CoachCoacheeConnectionSerializer(connections, many=True).data}
+                    except Exception as e:
+                        logger.exception(e)
+                        data = {"error": "connections not found"}
+                        return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+                # Set data in cache
+                set_cache(cache_key, data)
+
+            return Response(data, status=status.HTTP_200_OK)
 
         if request.method == 'PATCH':
             connection_id = request.data.get('connection_id',None)
@@ -2370,6 +2553,7 @@ class AccountsViewSet(ApiViewSet,
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
+                    # reset_cache_with_prefix("connection")
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
@@ -2487,9 +2671,18 @@ class AccountsViewSet(ApiViewSet,
         try:
             if request.method == "GET":
                 email = request.query_params.get('email')
+                cache_key = generate_cache_key("feedback-leaderboard",tenant_id=request.tenant.uid, email=email)
+                cached_data = get_cache(cache_key)
+                
+                if cached_data:
+                    return Response({'group': cached_data},status=status.HTTP_200_OK)
+                
                 client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=email)
                 emails = client.member_emails.split(',') if client.member_emails else []
                 emails = [email.strip() for email in emails]
+                excluded_emails = client.excluded_users.split(',') if client.excluded_users else []
+                excluded_emails = [email.strip() for email in excluded_emails]
+                emails = set(emails) - set(excluded_emails)
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
                 feedback_bots = SignatureBot.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id__in=user_ids_list,bot_type=BotTypeChoice.feedback_bot)
@@ -2540,6 +2733,7 @@ class AccountsViewSet(ApiViewSet,
                 formatted_data = custom_sort_reverse(data=formatted_data,first_sort_filed="positive_feedback_count",second_sort_field="owner_name")
                 for rating, item in enumerate(formatted_data,start=1):
                     item['rating'] = rating
+                set_cache(cache_key,formatted_data)
 
                 return Response({'group': formatted_data},status=status.HTTP_200_OK)
         except Exception as e:
@@ -2875,12 +3069,27 @@ class AccountsViewSet(ApiViewSet,
         
         if request.method == 'GET':
             coach_id = request.query_params.get('coach_id',None)
-            ratings = CoachCoacheeRating.objects.filter(deleted=False,tenant_id=request.tenant.uid, coach_id=coach_id)
-            total_ratings = len(ratings)
-            total_score = sum([rating.rating for rating in ratings])
-            if total_ratings == 0:
-                return Response({"rating":0},status=status.HTTP_200_OK)
-            return Response({"rating":total_score/total_ratings, "total_rating": total_ratings},status=status.HTTP_200_OK)
+            if not coach_id:
+                return Response({"error":"coach_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            cache_key = generate_cache_key('coach_ratings', tenant_id=request.tenant.uid, coach_id=coach_id)
+            
+            # get data from cache
+            data = get_cache(cache_key)
+            if data is None:
+                # Data not in cache, query the database
+                ratings = CoachCoacheeRating.objects.filter(deleted=False, tenant_id=request.tenant.uid, coach_id=coach_id)
+                total_ratings = len(ratings)
+                total_score = sum([rating.rating for rating in ratings])
+                if total_ratings == 0:
+                    data = {"rating": 0}
+                else:
+                    data = {"rating": total_score / total_ratings, "total_rating": total_ratings}
+                
+                # Save data to cache
+                set_cache(cache_key, data)
+            
+            return Response(data, status=status.HTTP_200_OK)
         
         if request.method == 'POST':
             data = request.data.copy()
@@ -2914,6 +3123,41 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['POST'], detail=False, url_path='automation-cleanup')
     def automation_cleanup(self, request, *args, **kwargs):
+        """
+        Objective:
+        This method is responsible for cleaning up automation-related resources associated with a user based on the provided `verify_hash`. It allows for deleting user-related data and resources if required.
+
+        #### Process:
+        1. Verify the `verify_hash` provided in the request data.
+        2. If the `verify_hash` matches the expected value, proceed with the cleanup process.
+        3. Retrieve the `user_uid` and determine if the user data needs to be deleted.
+        4. Delete user-related resources such as profiles, connections, directory pages, bots, user attributes, identities, and other associated data.
+        5. Optionally, delete the user itself if `is_delete_user` flag is set to `True`.
+        6. Clean up additional resources like `UserActionInfo`, `TestAttemptSession`, `SessionNotesRecommendations`, and update related test data.
+        7. Update client information by removing the user's email from client records if present.
+
+        #### Input Requirements:
+        - `verify_hash`: A verification hash to authorize the cleanup process.
+        - `user_uid`: The unique identifier of the user for whom resources need to be cleaned up.
+        - `is_delete_user`: A flag indicating whether to delete the user along with associated resources.
+
+        #### Expected Output:
+        - If successful, the method returns a JSON response with a message indicating the cleanup process completion.
+        - If any errors occur during the cleanup process, an error message is returned.
+
+        #### Example:
+        POST Request Body:
+        {
+            "verify_hash": "c2FtcGxlLWNvZGUtZm9yLXByb3RlY3Rpb24tYW5kLXZhbGlkYXRpb24K",
+            "user_uid": "12345",
+            "is_delete_user": true
+        }
+
+        Response:
+        {
+            "message": "deleted"
+        }
+        """
         # logger.info(f"((((((((((((((((((((( QUERY PARAMS: {request.query_params})))))))))))))))))))))")
         logger.info(f"((((((((((((((((((((( DATA : {request.data})))))))))))))))))))))")
         
@@ -2987,13 +3231,14 @@ class AccountsViewSet(ApiViewSet,
                 
                 bot.delete()
 
-            with transaction.atomic():
-                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
-                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
-                Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
-                Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
+            if user_uid:
+                with transaction.atomic():
+                    UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
+                    TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
+                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
+                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
+                    # Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
+                    # Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
 
 
 
@@ -3063,19 +3308,30 @@ class AccountsViewSet(ApiViewSet,
         tenant = request.tenant
         if request.method == 'GET':
             if request.query_params.get('all_clients',None):
-                clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
-                client_data = []
-                for client in clients:
-                    client_data.append(
-                        {
-                            "client_name": client.client_name,
-                            "client_id": client.uid
-                        }
-                    )
+                cache_key = generate_cache_key('all_clients', tenant_uid=tenant.uid)
+                client_data = get_cache(cache_key)
+                
+                if client_data is None:
+                    clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
+                    client_data = []
+                    for client in clients:
+                        client_data.append(
+                            {
+                                "client_name": client.client_name,
+                                "client_id": client.uid
+                            }
+                        )
+                    set_cache(cache_key, client_data)
 
                 return Response(client_data,status=status.HTTP_200_OK)
             
-            client_user_data = get_client_user_data(tenant=tenant,client_name=request.query_params.get('client_name',None))
+            client_name = request.query_params.get('client_name', None)
+            cache_key = generate_cache_key('client_user_data', tenant_uid=tenant.uid, client_name=client_name)
+            client_user_data = get_cache(cache_key)
+            
+            if client_user_data is None:
+                client_user_data = get_client_user_data(tenant=tenant,client_name=client_name)
+                set_cache(cache_key, client_user_data)
             return Response(client_user_data,status=status.HTTP_200_OK)
         
         elif request.method == 'POST':
@@ -3099,7 +3355,7 @@ class AccountsViewSet(ApiViewSet,
                     try:
                         user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
                         delete_user_resources(user_identity.user_id)
-                        logger.info("============== User Resources Deleted ===============")
+                        logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.user_id}===============")
                     except Exception as e:
                         logger.exception(f"==============Failed to delete user resources: {e}")
                 elif is_disable is not None:
@@ -3111,12 +3367,42 @@ class AccountsViewSet(ApiViewSet,
                 send_error_notification("update_client_id",f" Failed to update client : {e}",data=request.data)
                 return Response({'msg':f"Failed to update client : {e}"},status=status.HTTP_400_BAD_REQUEST) 
             
-
+            # reset_cache_with_prefix("all_clients")
             return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
 
     @action(methods=['POST'], detail=False, url_path='create-or-assign-client-id')
     def create_or_assign_client(self, request, *args, **kwargs):
+        """
+        #### Objective:
+        This method assigns a client ID to a given email address or creates a new client if it doesn't exist, based on the provided parameters.
 
+        #### Process Explanation:
+        1. Receives a POST request with the email and a flag to create a new client if not found.
+        2. Retrieves the tenant from the request.
+        3. Validates the presence of the email parameter.
+        4. Converts the create_client_if_not_exists flag to a boolean.
+        5. Calls the 'create_or_assign_client_id' function with the email, tenant, and create_client flag.
+        6. Returns a response message indicating the assignment of the email to the client.
+
+        #### Input Requirements:
+        - POST request with the 'email' parameter.
+        - Optional 'create_client_if_not_exists' flag to create a new client if not found.
+
+        #### Expected Output:
+        - Response message confirming the assignment of the email to a client.
+
+        #### Example:
+        POST request:
+        {
+            "email": "example@example.com",
+            "create_client_if_not_exists": true
+        }
+
+        Response:
+        {
+            "msg": "assigned example@example.com to ClientName"
+        }
+        """
         if request.method == 'POST':
             tenant = request.tenant
             email = request.data.get('email',None)
@@ -3134,6 +3420,53 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['POST','GET','PATCH'], detail=False, url_path='get-create-or-update-client-id')
     def create_client_id(self, request, *args, **kwargs):
+        """
+        ### Method: create_client_id
+
+        #### Objective:
+        This method is responsible for creating, updating, or retrieving client information based on the provided data. It allows for creating a new client, updating existing client details, or fetching client information.
+
+        #### Process Explanation:
+        1. **POST Method**:
+        - Creates a new client if a client with the same name doesn't already exist.
+        - Input: JSON data containing client information like client name.
+        - Output: JSON response with the created client data if successful.
+
+        2. **GET Method**:
+        - Retrieves client information based on client ID or client name.
+        - Input: Query parameters client_id or client_name.
+        - Output: JSON response with the client data if found, or all clients if no specific client is provided.
+
+        3. **PATCH Method**:
+        - Updates an existing client based on the provided client ID.
+        - Input: JSON data with client ID and updated client information.
+        - Output: JSON response with the updated client data if successful.
+
+        #### Input Requirements:
+        - For POST: JSON data with client information like client name.
+        - For GET: Query parameters client_id or client_name.
+        - For PATCH: JSON data with client ID and updated client information.
+
+        #### Expected Output:
+        - For POST: JSON response with the created client data.
+        - For GET: JSON response with the client data if found, or all clients if no specific client is provided.
+        - For PATCH: JSON response with the updated client data.
+
+        #### Example:
+        1. **POST Request**:
+        - Endpoint: /get-create-or-update-client-id
+        - Request Body: {"client_name": "New Client"}
+        - Response: {"data": {"client_id": "123", "client_name": "New Client", ...}}
+
+        2. **GET Request**:
+        - Endpoint: /get-create-or-update-client-id?client_id=123
+        - Response: {"data": {"client_id": "123", "client_name": "Existing Client", ...}}
+
+        3. **PATCH Request**:
+        - Endpoint: /get-create-or-update-client-id
+        - Request Body: {"client_id": "123", "client_name": "Updated Client"}
+        - Response: {"updated": {"client_id": "123", "client_name": "Updated Client", ...}}
+        """
         try:
             tenant = request.tenant
             if request.method == 'POST':
@@ -3152,6 +3485,14 @@ class AccountsViewSet(ApiViewSet,
             elif request.method == 'GET':
                 client_id = request.query_params.get('client_id',None)
                 client_name = request.query_params.get('client_name',None)
+                
+                cache_key = generate_cache_key('client_info', client_id=client_id, client_name=client_name, tenant_id=tenant.uid)
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+                
                 client = None
                 if client_id:
                     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
@@ -3159,11 +3500,18 @@ class AccountsViewSet(ApiViewSet,
                     client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
 
                 if client:
-                    return Response({'data': clientUserInfoSerializer(client).data}, status=status.HTTP_200_OK)
+                    response_data = {'data': clientUserInfoSerializer(client).data}
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    return Response(response_data, status=status.HTTP_200_OK)
+
                 else:
 
                     all_clients = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid)
-                    return Response({'all_clients': clientUserInfoSerializer(all_clients,many=True).data}, status=status.HTTP_200_OK)
+                    response_data = {'all_clients': clientUserInfoSerializer(all_clients, many=True).data}
+                    # Set data in cache
+                    set_cache(cache_key, response_data)
+                    return Response(response_data, status=status.HTTP_200_OK)
 
             
             elif request.method == 'PATCH':
@@ -3185,6 +3533,51 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['PATCH'], detail=False, url_path='update-user-account')
     def update_user_account(self, request, *args, **kwargs):
+        """
+        ### Method: `update_user_account`
+
+        #### Objective:
+        Update a user account with the provided user data.
+
+        #### Process:
+        1. Check if the request method is PATCH.
+        2. Retrieve the `tenant` from the request.
+        3. Get the `user_id` from the request data.
+        4. Call the `update_user_account` function with the `tenant_id`, `user_id`, and `user_data`.
+        5. Return the updated user account data in the response.
+
+        #### Input Requirements:
+        - `tenant`: The tenant object from the request.
+        - `user_id`: The ID of the user to be updated.
+        - `user_data`: The data to update the user account.
+
+        #### Expected Output:
+        - If successful, return the updated user account data in the response.
+        - If the `user_id` is not provided, return a 400 Bad Request response with a message.
+
+        #### Example:
+        ```python
+        # Request
+        PATCH /update-user-account
+        {
+            "user_id": "12345",
+            "user_data": {
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "role": "admin"
+            }
+        }
+
+        # Response
+        {
+            "updated": {
+                "id": 12345,
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "role": "admin"
+            }
+        }
+        """
         try:
             tenant = self.request.tenant
             if request.method == 'PATCH':
@@ -3206,6 +3599,36 @@ class AccountsViewSet(ApiViewSet,
     
     @action(methods=['GET','POST'], detail=False, url_path='get_low_high_skills')
     def get_low_high_skills(self, request, *args, **kwargs):
+        """
+        #### Method: `get_low_high_skills`
+
+        This method retrieves and returns the high and low skills of a user based on the provided `user_id`.
+
+        **Objective:**
+        Retrieve the high and low skills of a user from the `CoachCoacheeMentorMenteeProfile` or `SignatureBot` based on the `user_id`.
+
+        **Process:**
+        1. Check if a `CoachCoacheeMentorMenteeProfile` exists for the user. If found, extract the high and low skills from the profile.
+        2. If no profile is found, check for a `SignatureBot` of type 'feedback_bot' for the user. If found, extract the skills data from the bot attributes.
+        3. Return the high and low skills data.
+
+        **Input:**
+        - `user_id`: The ID of the user for whom to retrieve the skills.
+
+        **Output:**
+        - `high_skill`: The high skills of the user.
+        - `low_skill`: The low skills of the user.
+
+        **Example:**
+        GET Request:
+        Endpoint: /get_low_high_skills?user_id=12345
+
+        Response:
+        {
+            "high_skill": "Communication, Leadership",
+            "low_skill": "Time Management, Technical Skills"
+        }
+        """
         # return Response("ok")
         try:
             user_id = request.query_params.get('user_id')
@@ -3234,10 +3657,76 @@ class AccountsViewSet(ApiViewSet,
         
     @action(methods=['GET','PATCH'], detail=False, url_path='profile_approvals')
     def profile_approvals(self, request, *args, **kwargs):
+        """
+        ### Method: profile_approvals
 
+        #### Objective:
+        This method handles GET and PATCH requests to manage profile approvals in the system. It retrieves a list of directory page information for approval or updates the approval status and visibility of a specific profile.
+
+        #### Process:
+        - For GET request:
+            - Retrieves directory page information for approval.
+            - Caches the data for future requests.
+            - Returns a list of directory page information.
+
+        - For PATCH request:
+            - Updates the approval status and visibility of a specific profile based on the provided ID.
+            - Optionally deletes a profile if specified.
+            - Returns the updated or deleted profile information.
+
+        #### Input Requirements:
+        - For GET request: No input required.
+        - For PATCH request:
+            - ID of the profile to update.
+            - Optional fields for approval status, visibility, and deletion.
+
+        #### Expected Output:
+        - For GET request:
+            - A list of directory page information for approval.
+            - Cached data for future requests.
+
+        - For PATCH request:
+            - Updated or deleted profile information.
+            - Confirmation messages for successful updates or deletions.
+
+        #### Example:
+        - GET Request:
+            - Endpoint: /profile_approvals
+            - Response:
+                {
+                    "data": [
+                        { "profile_id": 1, "profile_name": "John Doe", "approved": true, "visible": true },
+                        { "profile_id": 2, "profile_name": "Jane Smith", "approved": false, "visible": true }
+                    ]
+                }
+
+        - PATCH Request:
+            - Endpoint: /profile_approvals
+            - Data: { "id": 1, "approved": true, "visible": false, "is_delete": false }
+            - Response: { "updated": { "profile_id": 1, "profile_name": "John Doe", "approved": true, "visible": false } }
+
+            - Data: { "id": 2, "is_delete": true }
+            - Response: { "deleted": { "profile_id": 2, "profile_name": "Jane Smith", "approved": false, "visible": true } }
+        """
         try:
             if request.method == 'GET':
-                return Response(DirectoryInfoSErializer(DirectoryPageInfo.objects.filter().order_by('-id'),many=True).data, status=status.HTTP_200_OK)
+                cache_key = generate_cache_key('profile-approvals', 'GET')
+
+                # Try to get data from cache
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
+
+                # If cache miss, query the database
+                directory_info = DirectoryPageInfo.objects.filter().order_by('-id')
+                response_data = DirectoryInfoSErializer(directory_info, many=True).data
+
+                # Set data in cache
+                set_cache(cache_key, response_data)
+
+                # Return the response
+                return Response(response_data, status=status.HTTP_200_OK)
+                
             
             elif request.method == 'PATCH':
                 data = request.data
@@ -3268,6 +3757,58 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path='get-user-details')
     def get_user_details(self, request, *args, **kwargs):
+        """
+        ### Method: get_user_details
+
+        #### Objective:
+        This method retrieves user details based on specified filters like date range, user email, client ID, and user type. It aims to provide a comprehensive overview of user activities and profiles within the system.
+
+        #### Process:
+        1. Accepts query parameters for filtering user details.
+        2. Retrieves users based on the provided filters.
+        3. Fetches related information like identity, profile, and user action details.
+        4. Constructs a structured response containing user details, interactions, connections, and bot counts.
+        5. Flattens the data for easy processing and analysis.
+        6. Generates an Excel file with the formatted user details.
+
+        #### Input Requirements:
+        - Query parameters: 'from' (start date), 'to' (end date), 'user_email', 'client_id', 'user_type'.
+        - User data including creation date, identity, profile, and user action information.
+
+        #### Expected Output:
+        - A structured response with user details, interactions, connections, and bot counts.
+        - An Excel file ('formatted_output.xlsx') containing formatted user details.
+
+        #### Example:
+        GET /get-user-details?from=2022-01-01&to=2022-12-31&client_id=ClientA&user_type=coachee
+
+        Response:
+        {
+            "data": [
+                {
+                    "client_id": "ClientA",
+                    "intake_date": "2022-05-15",
+                    "user_email": "user@example.com",
+                    "user_type": "coachee",
+                    "simulations_created": 3,
+                    "approval_status": true,
+                    "connections_count": 2,
+                    "intake_data": { "profile_details": { ... } },
+                    "conversation_count": 10,
+                    "interaction_count": 20,
+                    "feedback_given": 5,
+                    "feedback_received": 8,
+                    "knowledge_bot_count": 2,
+                    "deep_dive_bot_count": 1,
+                    "avatar_bot_count": 3
+                },
+                ...
+            ]
+        }
+
+        Excel File:
+        - Download 'formatted_output.xlsx' containing the formatted user details.
+        """
         try:
             from_date = request.query_params.get('from',None)
             to_date = request.query_params.get('to',None)
@@ -3419,6 +3960,31 @@ class AccountsViewSet(ApiViewSet,
         
     @action(methods=['GET'], detail=False, url_path='code-promp_text-prompt')
     def code_text_prompt(self, request, *args, **kwargs):
+        """
+        Objective:
+        This method `code_text_prompt` generates code and text prompts for creating simulation scenarios based on given information. It aims to provide diverse and challenging scenarios for skill practice.
+
+        Explanation:
+        The method takes a query parameter 'n' to specify the number of prompts to generate. It then generates both code and text prompts using AI language models. The code prompt is designed to create a scenario without explanations or word counts, while the text prompt instructs the user to create a simulation situation based on the given information.
+
+        Input Requirements:
+        - 'n': An integer specifying the number of prompts to generate.
+
+        Expected Output:
+        The method returns a response containing:
+        - Count of generated code and text prompts.
+        - Sets of generated code and text prompts.
+
+        Example:
+        {
+        "set_count": {
+            "code_prompt": 50,
+            "text_prompt": 50
+        },
+        "code_prompt_set": [code prompts],
+        "text_prompt_set": [text prompts]
+        }
+        """
         n = request.query_params.get('n',50)
         try:
             n = int(n)
@@ -3539,6 +4105,48 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['GET','POST'], detail=False, url_path='save-webhook-url')
     def save_webhook_url(self, request, *args, **kwargs):
+        """
+        ### Method: `save_webhook_url`
+
+        #### Objective:
+        Save a webhook URL for a specific client in the system.
+
+        #### Process:
+        This method allows saving a webhook URL for a client by providing the webhook URL and client ID as query parameters. It validates the input parameters, retrieves the corresponding client, updates the webhook URL for the client, and saves the changes.
+
+        #### Input Requirements:
+        - `webhook_url`: The URL of the webhook to be saved.
+        - `client_id`: The ID of the client for whom the webhook URL is being saved.
+
+        #### Expected Output:
+        - If successful, it returns a JSON response with a message indicating that the webhook URL has been saved.
+        - If any required input parameter is missing, it returns a JSON response with an error message specifying the missing parameter.
+        - If the provided client ID is invalid, it returns a JSON response with an error message indicating an invalid client ID.
+
+        #### Example:
+        - **Request:**
+            ```
+            GET /save-webhook-url?webhook_url=https://example.com/webhook&client_id=12345
+            ```
+        - **Response (Success):**
+            ```
+            {
+                "message": "webhook_url saved"
+            }
+            ```
+        - **Response (Missing Parameter):**
+            ```
+            {
+                "error": "webhook_url is required"
+            }
+            ```
+        - **Response (Invalid Client ID):**
+            ```
+            {
+                "error": "Invalid client_id"
+            }
+            ```
+        """
         try:
             # return Response("Ok")
             # webhook_url = request.data.get('webhook_url',None)

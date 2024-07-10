@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "email_sender.apps.EmailSenderConfig",
     "corsheaders",
     "utilities.apps.UtilitiesConfig",
+    'clearcache',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -189,3 +190,26 @@ WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
 BACKEND = os.getenv("BACKEND")
 
 CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com']
+
+
+# CACHE_HOST='localhost'
+# CACHE_PORT=11211
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+#         'LOCATION': f'{CACHE_HOST}:{CACHE_PORT}',
+#     }
+# }
+
+
+if ENV != 'local':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            # 'LOCATION': 'redis://localhost:6379/1',  # Update with your Redis server details
+            'LOCATION': 'redis://redis:6379/1',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }

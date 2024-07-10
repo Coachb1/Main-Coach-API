@@ -44,6 +44,7 @@ from commons.utils import get_bot_engagements
 from commons.notifications import send_error_notification
 from commons.webhook_utils import invoke_webhook
 from users.helpers import get_client_info_from_user_detail
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 
 
@@ -242,6 +243,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         # participant_id = request.data.get("user_id")
         participant_id =  request.query_params.get("user_id")
 
+        cache_key = generate_cache_key('get_attempted_test_list', participant_id=participant_id)
+
+        # Attempt to retrieve data from cache
+        cached_data = get_cache(cache_key)
+        if cached_data is not None:
+            return Response({"data": cached_data, "status": "completed"}, status=status.HTTP_200_OK)
+
         # Filter the test_attempt_session with the given participant_id 
         test_attempt_sessions = TestAttemptSession.objects.filter(participant_id=participant_id, deleted=0, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
         checkin_type_sessions_count = test_attempt_sessions.filter(is_checkin_type=1).count()
@@ -252,7 +260,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
 
         data = {"codes": list(test_codes),"checkin_type_test_count": checkin_type_sessions_count, "total_session":test_attempt_sessions.count()}
-
+        set_cache(cache_key, data)
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
 
@@ -270,6 +278,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
             user_attributes = UserAttribute.objects.get(
                                     user_id=participant_id).attributes
             candidate_name = f"{user_attributes.get('real_name')} (username: {user_attributes.get('name')})"
+            if not user_attributes.get('real_name'):
+                candidate_name = f"{user_attributes.get('name')} (username: {user_attributes.get('email')})"
             
             try:
                 send_feedbackd_email(candidate_name, test_id, test_title, session_id, rating, feedback)
@@ -412,16 +422,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
                     logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
 
-                    culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
-                    logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+                    if test.calculate_culture:
+                        culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                        logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
 
                     if skills_explanation:
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
+                    
 
                 else:
                 
@@ -452,14 +464,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if not test.scenario_case == ScenarioCaseChoices.pitch: 
-                        culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
-                        logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
-                    else:
-                        culture_skills_explanation = None            
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
+                    if test.calculate_culture:
+                        if not test.scenario_case == ScenarioCaseChoices.pitch: 
+                            culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                            logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
+                        else:
+                            culture_skills_explanation = None   
+
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
                 
 
                 #####################* explanation end #################
@@ -770,6 +784,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         participant_id = test_attempt_session.participant_id
         candidate_name = f"""{get_user_display_name(
             get_user_by_id(participant_id)).capitalize()}"""
+        
+
         tenant = self.request.tenant
         save_user_action_info(tenant.uid,participant_id,"transcript_email_sent") # saving action point
         save_user_action_info(tenant.uid,signature_bot.user_id,"transcript_email_recieved")
@@ -800,11 +816,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
-        coach_name = ""
-        if coach_profile:
-            coach_name = coach_profile.name
-        else:
-            coach_name = bot_att.bot_name
+        coach_name = f"""{get_user_display_name(
+            get_user_by_id(signature_bot.user_id)).capitalize()}"""
+
+        if signature_bot.bot_type == 'deep_dive':
+            coach_name = f"""{coach_name} ({signature_bot.bot_id})"""
+        elif signature_bot.bot_type == 'user_bot':
+            coach_name = f"""{bot_att.bot_name.capitalize()}"""
 
 
         # recepients = ['bagoriarajan@gmail.com']
@@ -987,7 +1005,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     return Response({"Error":errors['error']}, status=status.HTTP_400_BAD_REQUEST)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             elif mode == 'mentee':
-                data = get_session_notes(user_id,mentor_id)
+                cache_key = generate_cache_key("session-notes",user_id=user_id, mentor_id=mentor_id)
+                data = get_cache(cache_key)
+                if not data:
+                    data = get_session_notes(user_id,mentor_id)
+                    set_cache(cache_key,data)
                 return Response({"data":data}, status=status.HTTP_200_OK)
             else:
                 return Response({"details": 'for parameter not found. please check'},status=status.HTTP_400_BAD_REQUEST)
@@ -1197,6 +1219,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             data = {}
             if mode == 'get':
                 user_id = request.query_params.get('user_id',None)
+                cache_key = generate_cache_key('action-points', tenant_id=tenant.uid, user_id=user_id)
+                
+                cached_data = get_cache(cache_key)
+                if cached_data:
+                    return Response(cached_data, status=status.HTTP_200_OK)
                 try:
                     action_info = UserActionInfo.objects.get(tenant_id= tenant.uid,user_id = user_id)
                 except:
@@ -1210,6 +1237,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     "interaction_attempted": action_info.interaction_attempted,
                 }
                 data['action_points'] = action_data
+                set_cache(cache_key, data)
 
             elif mode == "save":
                 user_id = request.query_params.get('user_id',None)

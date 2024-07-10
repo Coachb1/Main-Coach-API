@@ -91,6 +91,7 @@ PAGE_NAME = 'Page Name'
 USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
 RESPONDER = "Responder"
+CALCULATE_CULTURE = "Calculate Culture"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -252,7 +253,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
 
         if IS_DYNAMIC_THREAD in input_dict:
             if input_dict[IS_DYNAMIC_THREAD] and len(input_dict[IS_DYNAMIC_THREAD].strip()) > 0:
@@ -260,7 +261,7 @@ def format_test_orchestrated_conversation(raw_data):
 
                 if is_dynamic_thread == "true":
                     output_dict["test_type"] = TestTypeChoices.dynamic_discussion_thread
-                    output_dict["interaction_mode"] = 'audio'
+                    output_dict["interaction_mode"] = 'any'
                     
         # if there is INTERACTION_MODE availble in csv then it will overwrite 
         if INTERACTION_MODE in input_dict:
@@ -334,6 +335,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_recommended'] = False
                 else:
                     output_dict['is_recommended'] = False
+
+        if CALCULATE_CULTURE in input_dict:
+            if input_dict[CALCULATE_CULTURE] and len(input_dict[CALCULATE_CULTURE].strip()) > 0:
+                calculate_culture = input_dict[CALCULATE_CULTURE].strip().lower()
+
+                if calculate_culture == "true":
+                    output_dict['calculate_culture'] = True
+                elif calculate_culture == "false":
+                    output_dict['calculate_culture'] = False
+                else:
+                    output_dict['calculate_culture'] = True 
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -424,10 +436,6 @@ def format_test_orchestrated_conversation(raw_data):
         if output_dict["test_type"] == TestTypeChoices.dynamic_discussion and bot_count > 1:
             return {"error": "Dynamic discussion can only have one bot"}, False
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            check_pass = False
-        else:
-            check_pass = True
 
         print('#'*100, input_dict)
 
@@ -445,37 +453,47 @@ def format_test_orchestrated_conversation(raw_data):
 
         print('*'*100, output_dict)
 
-        # skills_list = input_dict[SKILLS_TO_EVALUATE]
-        # skills_list_temp = []
-        # for s in skills_list.split(','):
-        #     skills_list_temp.append(s.strip().capitalize())
-        # skills_list = skills_list_temp
 
-        if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
-            # candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-            # if not candidate_type:
-            #     candidate_type = 'Manager'
-            # skills_list_candidate = set()
-            # for item in get_skills(candidate_type):
-            #     skills_list_candidate.add(item.capitalize())
-            # skills_list_candidate = list(skills_list_candidate)
+        check_pass = True
 
-            # print('*'*100)
-            # print(sorted(skills_list_candidate))
-            # print(sorted(skills_list))
-            # print()
-            # if sorted(skills_list_candidate) == sorted(skills_list):
-            check_pass = True
+        if IS_CHECKIN_TYPE in input_dict:
+            if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
+                is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
 
-        if input_dict[IS_CHECKIN_TYPE] and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-            is_checkin_type = input_dict[IS_CHECKIN_TYPE].strip().lower()
+                if is_checkin_type == "true":
+                    output_dict['is_checkin_type'] = True
+                elif is_checkin_type == "false":
+                    output_dict['is_checkin_type'] = False
+                else:
+                    output_dict['is_checkin_type'] = False
 
-            if is_checkin_type == "true":
-                output_dict['is_checkin_type'] = True
-            elif is_checkin_type == "false":
-                output_dict['is_checkin_type'] = False
-            else:
-                output_dict['is_checkin_type'] = False
+                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                    
+                    # skills_list = input_dict[SKILLS_TO_EVALUATE]
+                    # skills_list_temp = []
+                    # for s in skills_list.split(','):
+                    #     skills_list_temp.append(s.strip().capitalize())
+                    # skills_list = skills_list_temp
+
+                    # candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+                    # if not candidate_type:
+                    #     candidate_type = 'Manager'
+                    # skills_list_candidate = set()
+                    # for item in get_skills(candidate_type):
+                    #     skills_list_candidate.add(item.capitalize())
+                    # skills_list_candidate = list(skills_list_candidate)
+
+                    # print('*'*100)
+                    # print(sorted(skills_list_candidate))
+                    # print(sorted(skills_list))
+                    # print()
+                    # if sorted(skills_list_candidate) == sorted(skills_list):
+                    #     check_pass = True
+                    # else:
+                    #     check_pass = False
+                    check_pass = True
+
+            
 
         if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
@@ -485,25 +503,27 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        # if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
-
-        #     skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-        #     skill_list = [skill.strip() for skill in skill_list]
-        #     skill_list = ','.join(skill_list)
-        #     output_dict["skills_to_evaluate"] = skill_list
-
-        # saving skills_to_evaluate from backend only
-
         candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
-        if not candidate_type:
-            candidate_type = 'Manager'
-        skills_list_candidate = set()
-        for item in get_skills(candidate_type):
-            skills_list_candidate.add(item.capitalize())
 
-        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
-        evaluation_skill_list = ','.join(evaluation_skill_list)
-        output_dict["skills_to_evaluate"] = evaluation_skill_list
+        if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
+
+            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+            skill_list = [skill.strip().capitalize() for skill in skill_list]
+            skill_list = ','.join(skill_list)
+            output_dict["skills_to_evaluate"] = skill_list
+        else:
+
+            # saving skills_to_evaluate from backend only
+
+            if not candidate_type:
+                candidate_type = 'Manager'
+            skills_list_candidate = set()
+            for item in get_skills(candidate_type):
+                skills_list_candidate.add(item.capitalize())
+
+            evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+            evaluation_skill_list = ','.join(evaluation_skill_list)
+            output_dict["skills_to_evaluate"] = evaluation_skill_list
 
 
         if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
@@ -747,6 +767,16 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_recommended'] = False
 
+        if CALCULATE_CULTURE in input_dict:
+            if input_dict[CALCULATE_CULTURE] and len(input_dict[CALCULATE_CULTURE].strip()) > 0:
+                calculate_culture = input_dict[CALCULATE_CULTURE].strip().lower()
+
+                if calculate_culture == "true":
+                    output_dict['calculate_culture'] = True
+                elif calculate_culture == "false":
+                    output_dict['calculate_culture'] = False
+                else:
+                    output_dict['calculate_culture'] = True
 
         if IS_PITCH in input_dict:
             if input_dict[IS_PITCH] and len(input_dict[IS_PITCH].strip()) > 0:
@@ -815,7 +845,7 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_logged_in'] = False
 
-
+        client_info = None
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
                 output_dict['client_name'] = input_dict[CLIENT].strip()
@@ -902,7 +932,15 @@ def format_test_data_slack(raw_data,tenant):
         # mismatch skill logic
         defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
 
-        if tenant.use_skills_from_skill_bank:
+
+        use_skills_fron_skill_bank = False
+        if client_info:
+            use_skills_fron_skill_bank = client_info.use_skills_from_skill_bank
+
+        else:
+            use_skills_fron_skill_bank = tenant.use_skills_from_skill_bank
+
+        if use_skills_fron_skill_bank:
             unmatched_skills = []
             for skills in skills_list:
                 if skills not in defined_skills_list:
@@ -923,12 +961,12 @@ def format_test_data_slack(raw_data,tenant):
 
         if IS_CHECKIN_TYPE in input_dict:
             if input_dict.get(IS_CHECKIN_TYPE) and len(input_dict[IS_CHECKIN_TYPE].strip()) > 0:
-                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                if input_dict[IS_CHECKIN_TYPE].strip().lower() == 'true':
                     check_pass = False
                 else:
                     check_pass = True
 
-                if input_dict[IS_CHECKIN_TYPE] == 'TRUE':
+                if input_dict[IS_CHECKIN_TYPE].strip().lower() == 'true':
                     candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
                     if not candidate_type:
                         candidate_type = 'Manager'
@@ -946,13 +984,13 @@ def format_test_data_slack(raw_data,tenant):
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
-        if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+        if EMAIL_ADDRESS_LIST in input_dict:
+            if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+                email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
+                email_list = [email.strip() for email in email_list]
+                email_list = ','.join(email_list)
 
-            email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
-            email_list = [email.strip() for email in email_list]
-            email_list = ','.join(email_list)
-
-            output_dict['email_address_list'] = email_list
+                output_dict['email_address_list'] = email_list
 
         if SEND_ONLY_TO_EMAIL in input_dict:
             if input_dict[SEND_ONLY_TO_EMAIL] and len(input_dict[SEND_ONLY_TO_EMAIL].strip()) > 0:
@@ -997,23 +1035,26 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_email_type'] = False
 
-        if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
-            email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
+        if EMAIL_CANDIDATE in input_dict:
+            if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
+                email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
 
-            if email_candidate == "true":
-                output_dict['email_candidate'] = True
-            elif email_candidate == "false":
-                output_dict['email_candidate'] = False
+                if email_candidate == "true":
+                    output_dict['email_candidate'] = True
+                elif email_candidate == "false":
+                    output_dict['email_candidate'] = False
+                else:
+                    output_dict['email_candidate'] = True
+
+        if CANDIDATE_TYPE in input_dict:
+            if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
+                output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
+
+        if MAX_TEST_ALLOWED in input_dict:
+            if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0:
+                output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
             else:
-                output_dict['email_candidate'] = True
-
-        if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
-            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
-
-        if input_dict[MAX_TEST_ALLOWED] and len(input_dict[MAX_TEST_ALLOWED].strip()) > 0:
-            output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
-        else:
-            output_dict['max_test_allowed'] = None
+                output_dict['max_test_allowed'] = None
 
         for key in input_dict:
             if key.startswith(QUESTION):
@@ -1572,7 +1613,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE]
+                     SCENARIO_CASE, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
 
     access_token = login_slack(email, password, subdomain_prefix)
 
@@ -1597,6 +1638,10 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     elif not row_data[col]:
                         raise Exception(
                             f"Column '{col}' has null or empty value in row")
+                    if SCENARIO_CASE in row_data and row_data.get(SCENARIO_CASE) == 'interview' and BACKGROUND not in row_data:
+                        raise Exception(
+                            f"Column '{BACKGROUND}' has null or empty value in row"
+                        )
 
                 # If row is valid, append it to list of valid rows to be sent to API
                 valid_rows.append(row_data)
