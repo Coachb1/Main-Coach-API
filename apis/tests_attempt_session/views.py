@@ -422,16 +422,18 @@ class TestAttemptSessionViewSet(ApiViewSet,
                     skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
                     logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
 
-                    culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
-                    logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+                    if test.calculate_culture:
+                        culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
+                        logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
 
                     if skills_explanation:
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
+                    
 
                 else:
                 
@@ -462,7 +464,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if not test.scenario_case == ScenarioCaseChoices.pitch: 
+                    if not test.scenario_case == ScenarioCaseChoices.pitch and test.calculate_culture: 
                         culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
                         logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
                     else:

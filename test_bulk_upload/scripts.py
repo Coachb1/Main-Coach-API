@@ -91,6 +91,7 @@ PAGE_NAME = 'Page Name'
 USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
 RESPONDER = "Responder"
+CALCULATE_CULTURE = "Calculate Culture"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -334,6 +335,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_recommended'] = False
                 else:
                     output_dict['is_recommended'] = False
+
+        if CALCULATE_CULTURE in input_dict:
+            if input_dict[CALCULATE_CULTURE] and len(input_dict[CALCULATE_CULTURE].strip()) > 0:
+                calculate_culture = input_dict[CALCULATE_CULTURE].strip().lower()
+
+                if calculate_culture == "true":
+                    output_dict['calculate_culture'] = True
+                elif calculate_culture == "false":
+                    output_dict['calculate_culture'] = False
+                else:
+                    output_dict['calculate_culture'] = True 
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -755,6 +767,16 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_recommended'] = False
 
+        if CALCULATE_CULTURE in input_dict:
+            if input_dict[CALCULATE_CULTURE] and len(input_dict[CALCULATE_CULTURE].strip()) > 0:
+                calculate_culture = input_dict[CALCULATE_CULTURE].strip().lower()
+
+                if calculate_culture == "true":
+                    output_dict['calculate_culture'] = True
+                elif calculate_culture == "false":
+                    output_dict['calculate_culture'] = False
+                else:
+                    output_dict['calculate_culture'] = True
 
         if IS_PITCH in input_dict:
             if input_dict[IS_PITCH] and len(input_dict[IS_PITCH].strip()) > 0:
