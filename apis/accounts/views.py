@@ -1222,6 +1222,11 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.bot_scenario_case = bot_scenario_case
                         updated_fields.append('bot_scenario_case')
 
+                    if data.get('is_private',None) != None:
+                        signature_bot.is_private = True if data.get('is_private') in ['True','true',1,True] else False
+                        updated_data.append('is_private')
+
+
                     if faqs:
                         try:
                             new_faqs = json.loads(faqs)
@@ -1643,7 +1648,13 @@ class AccountsViewSet(ApiViewSet,
 
                     signature_bot.bot_details = bot_details
                     signature_bot.data = bot_data
-                    signature_bot.save(update_fields=["bot_details","data"])
+
+                    updated_fields = ["bot_details","data"]
+
+                    if updated_data.get('is_private') != None:
+                        signature_bot.is_private = True if updated_data.get('is_private') in ['true','True',True,1] else False
+                        updated_fields.append('is_private')
+                    signature_bot.save(update_fields=updated_fields)
 
                     
                     fitment_answer = updated_data.get('fitment_answers',None)
