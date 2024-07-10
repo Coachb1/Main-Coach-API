@@ -391,6 +391,7 @@ class AccountsViewSet(ApiViewSet,
         data['access_code'] = signature_bot.access_code
         data['tag'] = signature_bot.tag
         data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
+        data['is_private'] = signature_bot.is_private
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
