@@ -1225,7 +1225,7 @@ class AccountsViewSet(ApiViewSet,
 
                     if data.get('is_private',None) != None:
                         signature_bot.is_private = True if data.get('is_private') in ['True','true',1,True] else False
-                        updated_data.append('is_private')
+                        updated_fields.append('is_private')
 
 
                     if faqs:
@@ -1623,6 +1623,9 @@ class AccountsViewSet(ApiViewSet,
 
                                 
                 updated_data = data.get("updated_data",None)
+                if data.get('is_private') != None:
+                        signature_bot.is_private = True if data.get('is_private') in ['true','True',True,1] else False
+                        signature_bot.save(update_fields = ['is_private'])
 
                 if signature_bot.bot_type == BotTypeChoice.user_bot:
                     knowledge_bot_faqs =  data.get('faqs',None)
@@ -1633,6 +1636,7 @@ class AccountsViewSet(ApiViewSet,
 
 
                 if updated_data:
+                    updated_data = json.loads(updated_data) if isinstance(updated_data, str) else updated_data
                     
                     additional_data = updated_data.get('additional_data')
                     profile_description = additional_data.get("profile_description",None)
@@ -1652,9 +1656,7 @@ class AccountsViewSet(ApiViewSet,
 
                     updated_fields = ["bot_details","data"]
 
-                    if updated_data.get('is_private') != None:
-                        signature_bot.is_private = True if updated_data.get('is_private') in ['true','True',True,1] else False
-                        updated_fields.append('is_private')
+                    
                     signature_bot.save(update_fields=updated_fields)
 
                     
