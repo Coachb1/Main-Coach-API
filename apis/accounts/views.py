@@ -2171,7 +2171,7 @@ class AccountsViewSet(ApiViewSet,
                                                             ).filter(Q(profile_id__in=profile_ids) | Q(avatar_bot_id__in = bot_ids))
                 
                 serializer = DirectoryInfoSErializer(directories,many=True)
-                cache.set(cache_key,serializer.data,timeout=60*15)
+                set_cache(cache_key, serializer.data)
             else:
                 cache_key = f"user-directory-info-all"
                 start = time.time()
@@ -2189,7 +2189,7 @@ class AccountsViewSet(ApiViewSet,
                 
                 directories = DirectoryPageInfo.objects.filter(is_visible=True,is_approved=True)
                 serializer = DirectoryInfoSErializer(directories,many=True)
-                cache.set(cache_key,serializer.data,timeout=60*15)
+                set_cache(cache_key,serializer.data)
                 
             end_time = time.time()
             logger.info(f"<<< Time taken to get directory information : {end_time-start_time} >>>")
