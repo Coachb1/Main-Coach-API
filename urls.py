@@ -11,6 +11,7 @@ urlpatterns = [
     path('hi', lambda x : JsonResponse({'msg':'Hello'})),
     path("api/", include("apis.urls")),
     path('custom-admin/', admin.site.urls),
+    path('admin/clearcache/', include('clearcache.urls'))
 ]
 
 if not settings.DEBUG:
