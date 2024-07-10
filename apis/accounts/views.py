@@ -807,8 +807,8 @@ class AccountsViewSet(ApiViewSet,
                         send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
-                    reset_cache_with_prefix('profiles_by_user_id')
-                    reset_cache_with_prefix('profile_by_id')
+                    # reset_cache_with_prefix('profiles_by_user_id')
+                    # reset_cache_with_prefix('profile_by_id')
 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
@@ -1438,7 +1438,7 @@ class AccountsViewSet(ApiViewSet,
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                         
-                    reset_cache_with_prefix("get_bots")
+                    # reset_cache_with_prefix("get_bots")
                     return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
@@ -2095,6 +2095,8 @@ class AccountsViewSet(ApiViewSet,
                 data, success = process_idp(idp_data,user_id,request.tenant.uid,access_token)
                 if not success:
                     return Response(data,status=status.HTTP_404_NOT_FOUND)
+                
+                # reset_cache_with_prefix("process_idp")
                 return Response(data,status=status.HTTP_200_OK)
             
             elif request.method == 'PATCH':
@@ -2551,7 +2553,7 @@ class AccountsViewSet(ApiViewSet,
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
-                    reset_cache_with_prefix("connection")
+                    # reset_cache_with_prefix("connection")
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
@@ -3365,7 +3367,7 @@ class AccountsViewSet(ApiViewSet,
                 send_error_notification("update_client_id",f" Failed to update client : {e}",data=request.data)
                 return Response({'msg':f"Failed to update client : {e}"},status=status.HTTP_400_BAD_REQUEST) 
             
-            reset_cache_with_prefix("all_clients")
+            # reset_cache_with_prefix("all_clients")
             return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
 
     @action(methods=['POST'], detail=False, url_path='create-or-assign-client-id')

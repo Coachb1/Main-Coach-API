@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "email_sender.apps.EmailSenderConfig",
     "corsheaders",
     "utilities.apps.UtilitiesConfig",
+    'clearcache',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
