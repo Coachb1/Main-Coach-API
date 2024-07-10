@@ -86,3 +86,6 @@ coverage==7.4.4
 scikit-learn==1.5.0
 vertexai==1.49.0
 json5==0.9.25
+pylibmc==1.6.3
+django-redis==5.4.0
+django-clearcache==1.2.1

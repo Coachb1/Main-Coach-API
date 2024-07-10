@@ -12,6 +12,7 @@ from email_sender.helpers import send_email_with_html_template, send_welcome_ema
 from users.db import get_user_attribute,get_user_by_id,get_user_display_name
 from users.choices import ProfileTypeChoice
 import logging
+from commons.cache_utils import  reset_cache_with_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,9 @@ admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAd
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     if kwargs['created']:
         return  
+    
+    # clear the related caches
+    # reset_cache_with_prefix('user-directory')
 
     # Send email when is_approved is changed to True
 

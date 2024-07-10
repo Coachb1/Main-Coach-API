@@ -87,6 +87,7 @@ class Test(TenantAwareModel):
     assigned_by = models.CharField(max_length=64, null=True, blank=True, default=None)
     web_page_url = models.CharField(max_length=500, null=True, blank=True, default=None)
     sub_tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
+    calculate_culture = models.BooleanField(default=True, null=True)
 
 
 

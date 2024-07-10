@@ -15,6 +15,7 @@ from commons.youtube_utils import get_youtube_transcript, repidapi_stt
 from commons.anthropic import anthropic_completion
 from commons.cloudinary import upload_image
 import logging
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
 logger = logging.getLogger("main")
 
@@ -103,19 +104,25 @@ class DocumentViewSet(ApiViewSet,
             return Response({"error": "Youtube link is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         choice = request.query_params.get("choice")
+        
+        cache_key = generate_cache_key('summary', youtube_link=youtube_link, choice=choice)
+        summary = get_cache(cache_key)
 
-        for i in range(2):
-            transcript = get_youtube_transcript(youtube_link)
-            if transcript is not None:
-                break
+        if summary is None:
+            for i in range(2):
+                transcript = get_youtube_transcript(youtube_link)
+                if transcript is not None:
+                    break
 
-        if transcript is None:
-            transcript = repidapi_stt(youtube_link)
-            
-        if transcript is None:
-            transcript = download_and_transcribe_audio(youtube_link)
+            if transcript is None:
+                transcript = repidapi_stt(youtube_link)
+                
+            if transcript is None:
+                transcript = download_and_transcribe_audio(youtube_link)
 
-        summary = get_summary(transcript,choice)
+            summary = get_summary(transcript,choice)
+
+            set_cache(cache_key, summary)
         return Response({"summary": summary})
 
 
@@ -128,6 +135,23 @@ class DocumentViewSet(ApiViewSet,
     
     @action(methods=["POST"], detail=False,parser_classes = [MultiPartParser], url_path="upload-image")
     def _upload_image(self, request, *args, **kwargs):
+
+        """
+        Uploads an image to Cloudinary.
+
+        This method handles the uploading of an image to Cloudinary service. It expects a multipart form data with an 'image_file' field containing the image to be uploaded. The process involves uploading the image to Cloudinary using the `upload_image` function from `commons.cloudinary` module. Upon successful upload, it retrieves the secure URL of the uploaded image.
+
+        Input:
+            - request: A multipart form data containing an 'image_file' field with the image to be uploaded.
+
+        Output:
+            - Upon successful upload, returns a JSON response containing the 'image_url' field with the secure URL of the uploaded image.
+
+        Example:
+            POST /documents/upload-image/:
+                Request: Multipart form data with 'image_file' field containing the image.
+                Response: {"image_url": "https://cloudinary.com/images/example.jpg"}
+        """
         try:
             image_file = request.data.get('image_file')
             logger.info(f"<<<<<<<<<<<<<<<< image_file : {image_file} >>>>>>>>>>>>>>>>")

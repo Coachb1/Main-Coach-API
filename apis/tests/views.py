@@ -39,7 +39,7 @@ from commons.youtube_utils import get_youtube_transcript
 from documents.utils import get_summary
 from commons.notifications import send_error_notification
 from tests.helpers import search_keywords, replace_words
-
+from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1132,27 +1132,36 @@ class TestViewSet(ApiViewSet,
 
         logger.info(f">>>>>>>>>>>>> competencies : {competencies}")
 
-        data = {}
-        if competencies:
-            competencies = competencies.split(',')
+        
+        cache_key = generate_cache_key('tests_by_competency', competencies=competencies, tenant_id=self.request.tenant.uid)
 
-            for competency in competencies:
-                competency = competency.strip()
-                tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
-                temp_list = []
-                for test in tests:
-                    if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
-                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
-                    else:
-                        questions = TestQuestion.objects.filter(test_id=test.uid)
-                        is_micro = False if ((questions.count() + 1) / 2) > 3 else True
-                        print(is_micro,questions.count())
-                        temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
+        # Try to get data from cache
+        data = get_cache(cache_key)
+
+        if data is None:
+            data = {}
+            if competencies:
+                competencies = competencies.split(',')
+
+                for competency in competencies:
+                    competency = competency.strip()
+                    tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency_group=competency)
+                    temp_list = []
+                    for test in tests:
+                        if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                        else:
+                            questions = TestQuestion.objects.filter(test_id=test.uid)
+                            is_micro = False if ((questions.count() + 1) / 2) > 3 else True
+                            print(is_micro,questions.count())
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
 
 
-                data[competency] = temp_list
-            # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
-            # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+                    data[competency] = temp_list
+                # tests = Test.objects.filter(deleted=0,tenant_id=self.request.tenant.uid,competency__in=competencies)
+                # data = [{"title": test.title,"description":test.description,"test_code": test.test_code } for test in tests]
+            set_cache(cache_key, data)
+
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1204,7 +1213,7 @@ class TestViewSet(ApiViewSet,
         
         tests = Test.objects.filter(query)
         tests.filter(deleted=0)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case  } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1258,28 +1267,36 @@ class TestViewSet(ApiViewSet,
         """
         try:
             client_name = request.query_params.get("client_name",None)
-            if client_name:
-                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False,client_name=client_name)
-            else:
-                tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
-            test_dict = defaultdict(lambda: defaultdict(list))
+            
+            cache_key = generate_cache_key('tests_by_client', client_name=client_name, tenant_id=request.tenant.uid)
+            test_dict = get_cache(cache_key)
+            
+            if test_dict is None:
+                if client_name:
+                    tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False,client_name=client_name)
+                else:
+                    tests = Test.objects.filter(deleted=False, tenant_id=self.request.tenant.uid,tab_category__isnull=False)
+                test_dict = defaultdict(lambda: defaultdict(list))
 
-            # Organizing tests into the nested dictionary
-            for test in tests:
-                if test.tab_category:
-                    tab_category = test.tab_category
-                    sub_tab_category = test.sub_tab_category or test.area_domain
-                    test_dict[tab_category][sub_tab_category].append({
-                        "title": test.title,
-                        "description": test.description,
-                        "test_code": test.test_code,
-                        "test_type": test.test_type,
-                        "is_recommended": test.is_recommended,
-                        "is_micro": test.is_micro,
-                        "scenario_case": test.scenario_case
-                    })
-            # Converting defaultdict to a regular dictionary
-            test_dict = dict(test_dict)
+
+                # Organizing tests into the nested dictionary
+                for test in tests:
+                    if test.tab_category:
+                        tab_category = test.tab_category
+                        sub_tab_category = test.sub_tab_category or test.area_domain
+                        test_dict[tab_category][sub_tab_category].append({
+                            "title": test.title,
+                            "description": test.description,
+                            "test_code": test.test_code,
+                            "test_type": test.test_type,
+                            "is_recommended": test.is_recommended,
+                            "is_micro": test.is_micro,
+                            "scenario_case": test.scenario_case
+                        })
+                # Converting defaultdict to a regular dictionary
+                test_dict = dict(test_dict)
+                set_cache(cache_key, test_dict)
+
             return Response(test_dict, status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -1289,7 +1306,58 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['PATCH'],detail=False, url_path="update_scenarios")
     def update_test_scenarios(self,request,*args, **kwargs):
+        """
+        ### Method: update_test_scenarios
 
+        #### Objective:
+        This method is used to update the scenarios for tests based on the provided data.
+
+        #### Process:
+        1. Extract the test data from the request.
+        2. Iterate over each test data entry.
+        3. Format the data by stripping any leading or trailing spaces.
+        4. Call the `update_scenarios` function with the formatted data.
+        5. Update the test scenarios based on the provided data.
+
+        #### Input Requirements:
+        - `test_data`: A list of dictionaries containing test data entries.
+        - Each dictionary should contain keys for 'Title', 'Test description', 'Test code', 'Question', 'Custom Prompt', 'KLS', and 'KLP'.
+        - The 'Question', 'Custom Prompt', 'KLS', and 'KLP' keys should have corresponding values for each question in the test.
+
+        #### Expected Output:
+        - Response: "updated" with status code 200 if the scenarios are successfully updated.
+        - Error response with status code 400 if any issues occur during the update process.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+        "test_data": [
+            {
+            "Title": "Test Title",
+            "Test description": "Test Description",
+            "Test code": "ABC123",
+            "Question 1": "Question 1",
+            "Custom Prompt 1": "Prompt 1",
+            "KLS 1": "Skill 1",
+            "KLP 1": "Learning Point 1"
+            },
+            {
+            "Title": "Another Test",
+            "Test description": "Another Description",
+            "Test code": "DEF456",
+            "Question 1": "Another Question",
+            "Custom Prompt 1": "Another Prompt",
+            "KLS 1": "Another Skill",
+            "KLP 1": "Another Learning Point"
+            }
+        ]
+        }
+        Response:
+
+        Status: 200
+        Body: "updated"
+        """
         try:
             data = request.data.get('test_data')
             for d in data:
@@ -1305,6 +1373,47 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_low_skill_count_test")
     def get_low_skill_count_test(self,request,*args, **kwargs):
+        """
+        ### Method: get_low_skill_count_test
+
+        #### Objective:
+        This method retrieves scenarios for tests with a low number of unique skills based on the provided minimum skill count and test codes.
+
+        #### Process:
+        1. Extract the minimum skill count and test codes from the request query parameters.
+        2. Retrieve the tenant information from the request.
+        3. Call the `get_low_skill_scenarios` function with the tenant, test codes, and minimum skill count.
+        4. Generate a list of scenarios with a low number of unique skills for the specified tests.
+
+        #### Input Requirements:
+        - `min_skill_count`: The minimum number of unique skills required for a test scenario.
+        - `test_codes`: Comma-separated test codes for filtering specific tests.
+
+        #### Expected Output:
+        - Response: A list of dictionaries containing test scenarios with a low number of unique skills.
+        - Each dictionary includes the test code, unique skills, and the count of unique skills.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+            "min_skill_count": 4,
+            "test_codes": "ABC123,DEF456"
+        }
+        Response:
+        [
+            {
+                "Test Code": "ABC123",
+                "Skills": "Skill1, Skill2, Skill3",
+                "Skill count": 3
+            },
+            {
+                "Test Code": "DEF456",
+                "Skills": "Skill1, Skill2",
+                "Skill count": 2
+            }
+        ]
+        """
         try:
             min_skill_count = request.query_params.get('min_skill_count')
             test_codes = request.query_params.get('test_codes')
@@ -1321,6 +1430,53 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['POST'],detail=False, url_path="assign_simulation")
     def assing_simulation(self, request, *args, **kwargs):
+        """
+        ### `assign_simulation` Method Documentation:
+
+        #### Objective:
+        Assign simulations to users based on the provided test codes, assigned to, and assigned by information.
+
+        #### Process Explanation:
+        1. Extract the test codes, assigned to, and assigned by information from the request data.
+        2. Iterate over each test code provided.
+        3. Retrieve the corresponding test from the database based on the test code and tenant ID.
+        4. Update the assigned to and assigned by fields of the test with the provided values.
+        5. Save the changes to the test object.
+        6. Return a success message if the assignment is completed successfully.
+
+        #### Input Requirements:
+        - `test_codes`: Comma-separated test codes for the simulations to be assigned.
+        - `assigned_to`: The user ID to whom the simulations are assigned.
+        - `assigned_by`: The user ID who is assigning the simulations.
+
+        #### Expected Output:
+        - If the assignment is successful, return a response with a success message.
+        - If any errors occur during the assignment process, return an error response with details.
+
+        #### Example:
+        Request Data:
+        ```json
+        {
+            "test_codes": "ABC123,DEF456",
+            "assigned_to": "user123",
+            "assigned_by": "admin456"
+        }
+        Response (Success):
+
+        {
+            "msg": "successfully assigned"
+        }
+        Response (Error - Test Code Not Found):
+
+        {
+            "error": "simulation not found"
+        }
+        Response (Error - Missing Fields):
+
+        {
+            "error": "test_codes are required"
+        }
+        """
         # return Response("ok")
         try:
             test_codes = request.data.get('test_codes')

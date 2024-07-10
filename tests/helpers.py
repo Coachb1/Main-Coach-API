@@ -229,7 +229,8 @@ def create_test(tenant: Tenant,
                 assigned_to: str,
                 assigned_by: str,
                 web_page_url:str,
-                sub_tab_category:str) -> tuple[Test, list[TestQuestion]]:
+                sub_tab_category:str,
+                calculate_culture: bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -415,7 +416,8 @@ def create_test(tenant: Tenant,
             assigned_to=assigned_to,
             assigned_by=assigned_by,
             web_page_url=web_page_url,
-            sub_tab_category=sub_tab_category
+            sub_tab_category=sub_tab_category,
+            calculate_culture=calculate_culture
         )
 
         test_questions = []
@@ -1348,7 +1350,7 @@ def set_language_skills_in_thread(user_response,test_attempt_session):
     Note : Do not include any introduction sentence or word-count in the output.
     \n\nAssistant:"""
 
-    language_skills = anthropic_completion(language_skills_prompt, 150)
+    language_skills = generic_completion(prompt=language_skills_prompt, tokens=150, llm_order=['anthropic','gemini','gpt'])
     logger.info(f"===========================> language_skills: {language_skills}")
     test_attempt_session.language_skills = language_skills
     test_attempt_session.save(update_fields=["language_skills"])
@@ -2989,22 +2991,34 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
+    
+    updated_fields = ["test_score","avg_score","finished_at","updated"]
+    
+    if test.calculate_culture:
+        culture_skills_rating = evaluate_group_discussion_conversation(
+            test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
 
-    culture_skills_rating = evaluate_group_discussion_conversation(
-        test_attempt_session, chat_conversation, user_persona, objective, test.test_code,test,test.is_free)
+        # Step 1: Sort the dictionary by its values in descending order
+        sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
 
-    # Step 1: Sort the dictionary by its values in descending order
-    sorted_dict = dict(sorted(culture_skills_rating.items(), key=lambda item: item[1], reverse=True))
+        # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
+        culture_skills_rating = dict(list(sorted_dict.items())[:8])
 
-    # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
-    culture_skills_rating = dict(list(sorted_dict.items())[:8])
+        # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
+        for skill in culture_skills_rating:
+            if culture_skills_rating[skill] > 8.5:
+                culture_skills_rating[skill] = 8.5
+            elif culture_skills_rating[skill] < 0.5:
+                culture_skills_rating[skill] = 0.5
 
-    # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
-    for skill in culture_skills_rating:
-        if culture_skills_rating[skill] > 8.5:
-            culture_skills_rating[skill] = 8.5
-        elif culture_skills_rating[skill] < 0.5:
-            culture_skills_rating[skill] = 0.5
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+
+        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+
+        test_attempt_session.culture_skills_rating = culture_skills_rating
+
+        updated_fields.append('culture_skills_rating')
 
     skills_rating = evaluate_skills_group_discussion_conversation(
         test_attempt_session, chat_conversation, user_persona, objective, test.skills_to_evaluate,test,test.is_free)
@@ -3039,20 +3053,15 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     skills_rating = update_skills_rating_if_same_scores(skills_rating_score)
 
-    culture_skills_rating = update_culture_skills_if_same_scores(
-        culture_skills_rating)
     
     test_score = 0
     for skill in skills_rating:
         test_score += skills_rating[skill]
 
     avg_score = test_score / len(skills_rating.keys())
-    culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
-
-    test_attempt_session.culture_skills_rating = culture_skills_rating
     
-    updated_fields = ["culture_skills_rating"
-                      ,"test_score","avg_score","finished_at","updated"]
+    
+    
 
     skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     if skills_rating:
@@ -3380,7 +3389,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     meeting_summary = test_attempt_session.meeting_summary
     areas_of_improvement = test_attempt_session.areas_of_improvement
     culture_skills = test_attempt_session.culture_skills_rating
-    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()}  # to strip extra qoutes from key
+    culture_skills = {key.strip('"\'' ): value for key, value in culture_skills.items()} if culture_skills else None # to strip extra qoutes from key
 
     data = {
         "participant_name": participant_name,
@@ -3816,14 +3825,6 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     for skill in skills_rating_score:
         test_score += skills_rating_score[skill]
 
-
-    culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
-
-    logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
-
-    culture_skills_rating = update_culture_skills_if_same_scores(
-        culture_skills_rating)
-
     # update skills_rating field in test_attempt_session
     skills_rating_score = {key.strip('"\'' ): value for key, value in skills_rating_score.items()}  # to strip extra qoutes from key
     skills_rating_score = {key.capitalize() : value for key, value in skills_rating_score.items()}
@@ -3846,11 +3847,19 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     #     test_attempt_session.skills_explanation = skills_explanation
     #     updated_fields.append("skills_explanation")
 
-    if culture_skills_rating is not None:
-        culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
-        culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
-        test_attempt_session.culture_skills_rating = culture_skills_rating
-        updated_fields.append("culture_skills_rating")
+    if test.calculate_culture:
+        culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+
+        logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
+
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+        
+        if culture_skills_rating is not None:
+            culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+            culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+            test_attempt_session.culture_skills_rating = culture_skills_rating
+            updated_fields.append("culture_skills_rating")
 
     # if culture_skills_explanation is not None:
     #     test_attempt_session.culture_skills_explanation = culture_skills_explanation
@@ -4348,6 +4357,10 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "real_name": participant_attributes.get("real_name"),
     }
 
+    if not participant_attributes.get("real_name"):
+        data["real_name"] = participant_name
+        data["candidate_name"] = participant_attributes.get("email")
+
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
@@ -4411,6 +4424,9 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         "candidate_name": participant_name,
         "real_name": participant_attributes.get("real_name"),
     }
+    if not participant_attributes.get("real_name"):
+        data["real_name"] = participant_name
+        data["candidate_name"] = participant_attributes.get("email")
 
     email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
 
@@ -7240,7 +7256,7 @@ def extract_information(text):
         question_info.append({
             "question": que["text"],
             "question_type": "subjective",
-            "gpt_prompt_override": que["prompt"],
+            "gpt_prompt_override": que["prompt"].replace("{","").replace("}",""),
             "subjective_answer": "",
             "key_learning_point": extract_text_only(que['takeaway']),
             "key_learning_skills": extract_text_only(que['skills'])
@@ -7465,7 +7481,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
 
             """
@@ -7501,7 +7517,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
                 NOTE: Always mention in the context what role the user will be playing the role while answering.
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-                NOTE: Never miss Title, Description, Statement.
+                NOTE: Never miss Title, Description, Statement and other variables.
                 
                 \n\nAssistant:
                 """
@@ -7539,7 +7555,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use suitable literary genre to genre create the response.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
 
@@ -7577,7 +7593,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
             NOTE: Always use interview for communication and information gathering.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
         elif case == 'checkin':
@@ -7615,7 +7631,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
                 NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
                 NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
                 NOTE: Always use check-in for communication and information gathering.
-                NOTE: Never miss Title, Description, Statement.
+                NOTE: Never miss Title, Description, Statement and other variables.
 
                 \n\nAssistant:
 
@@ -7653,7 +7669,7 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
             NOTE: "Rating" must be included.
             NOTE : Make sure the simulation is very advanced and tough.
             NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
-            NOTE: Never miss Title, Description, Statement.
+            NOTE: Never miss Title, Description, Statement and other variables.
             \n\nAssistant:
             """
 
@@ -8003,7 +8019,10 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 
                 # if resp.status_code != 201:
                 #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],'description': response['description'],'test_type': response['test_type'],"is_micro": response['is_micro'],"scenario_case": response['scenario_case']}
+                return {'title': response['title'],'test_code': response['test_code'],
+                        'description': response['description'],'test_type': response['test_type'],
+                        "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
+                        "interaction_mode": response['interaction_mode']}
                 
             except Exception as e:
                 logger.error(e,exc_info=True)
@@ -8264,7 +8283,9 @@ def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
             "test_code": test.test_code,
             "description": test.description,
             "test_type": test.test_type,
-            "is_micro": test.is_micro
+            "is_micro": test.is_micro,
+            'interaction_mode': test.interaction_mode,
+            'scenario_case': test.scenario_case 
         })
 
     return test_list

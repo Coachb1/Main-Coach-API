@@ -55,10 +55,10 @@ class CoachRecommendationsAdmin(admin.ModelAdmin):
 
 class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','allow_paste_answer','heading','sub_heading','tag_line')
+    list_display = ('id','uid','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer')
     list_filter = ('client_name',)
     search_fields = ('client_name','domain_name')
-    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','allow_paste_answer')
+    list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank')
     ordering = ('-id',)
 
 
@@ -191,96 +191,96 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
     
     
 
-    bot_ids = instance.bot_ids
-    if bot_ids:
-        bot_ids = [b_id.strip() for b_id in bot_ids.split(',')]
-        bots = SignatureBot.objects.filter(deleted=False,bot_id__in=bot_ids)
-        for bot in bots:
-            if bot.bot_type == 'avatar_bot':
-                try:
-                    additional_data =  {
-                        "profile_type": instance.profile_type,
-                        "area_domain": instance.area_domain,
-                        "experience": instance.experience,
-                        "mentoring_preferences": instance.mentoring_preferences,
-                        "mentoring_frameworks": instance.mentoring_frameworks,
-                        "dominant_point_of_view": instance.dominant_point_of_view,
-                        "problem_solving_approach": instance.problem_solving_approach,
-                        "admired_leaders": instance.admired_leaders,
-                        "profile_description": instance.about,
-                        "department": instance.department,
-                        "youtube_links": provided_links.get("youtube_links"),
-                        "article_links": provided_links.get("article_links"),
-                        "voice_sample": instance.voice_sample,
-                        "discuss_how_you_helped_others_in_coachMentoring": instance.mentorship_contribution,
-                        "allow_coachee_to_create_session": instance.allow_coachee_to_create_session,
-                        "significant_challenges_and_solutions": instance.significant_challenges_and_solutions ,
-                        "common_phrases_and_expressions": instance.common_phrases_and_expressions,
-                        "journey_and_background": instance.journey_and_background,
-                        "fitment_answers": [
-                            instance.coaching_level,
-                            instance.coach_same_department,
-                            instance.supported_outcome,
-                        ],
-                        "coach_qna": qna_for_coach_mentor.get('coach'),
-                        "mentor_qna": qna_for_coach_mentor.get('mentor'),
-                        "discussion_topic": instance.discussion_topic
-                    }
-                    
+    bots = SignatureBot.objects.filter(deleted=False,tenant_id=instance.tenant_id,user_id=instance.user_id)
 
-                    print(additional_data)
-
-                    add_data = bot.data['additional_data']
-                    # already_extracted_yt_link = add_data.get('youtube_links',[])
-                    # already_extracted_article_link = add_data.get('article_links',[])
-                    if add_data:
-                        print(f'type of add_data: {type(add_data)}')
-                        for key, value in additional_data.items():
-                            add_data[key] = value
-                        bot.data['additional_data'] = add_data
-
-                    bot.bot_details['coach_name'] = instance.name
-                    bot.bot_details['info'] = instance.about
-                    bot.save()
-
-                    
-
-                    bot_att = BotAttribute.objects.filter(deleted=False, bot_id = bot.uid).last()
-                    if bot_att:
-                        bot_att.about = instance.about
-                        bot_att.save()
+    for bot in bots:
+        if bot.bot_type == 'avatar_bot':
+            try:
+                additional_data =  {
+                    "profile_type": instance.profile_type,
+                    "area_domain": instance.area_domain,
+                    "experience": instance.experience,
+                    "mentoring_preferences": instance.mentoring_preferences,
+                    "mentoring_frameworks": instance.mentoring_frameworks,
+                    "dominant_point_of_view": instance.dominant_point_of_view,
+                    "problem_solving_approach": instance.problem_solving_approach,
+                    "admired_leaders": instance.admired_leaders,
+                    "profile_description": instance.about,
+                    "department": instance.department,
+                    "youtube_links": provided_links.get("youtube_links"),
+                    "article_links": provided_links.get("article_links"),
+                    "voice_sample": instance.voice_sample,
+                    "discuss_how_you_helped_others_in_coachMentoring": instance.mentorship_contribution,
+                    "allow_coachee_to_create_session": instance.allow_coachee_to_create_session,
+                    "significant_challenges_and_solutions": instance.significant_challenges_and_solutions ,
+                    "common_phrases_and_expressions": instance.common_phrases_and_expressions,
+                    "journey_and_background": instance.journey_and_background,
+                    "fitment_answers": [
+                        instance.coaching_level,
+                        instance.coach_same_department,
+                        instance.supported_outcome,
+                    ],
+                    "coach_qna": qna_for_coach_mentor.get('coach'),
+                    "mentor_qna": qna_for_coach_mentor.get('mentor'),
+                    "discussion_topic": instance.discussion_topic,
+                    "provide_answers_using_emojis": instance.provide_answers_using_emojis
+                }
 
 
-                    # media_data = {}
-                    # yt_links = [link.strip() for link in provided_links.get('youtube_links',[])]
-                    # yt_links_to_be_extracted = []
-                    # for yt_link in yt_links:
-                    #     if yt_link not in already_extracted_yt_link:
-                    #         yt_links_to_be_extracted.append(yt_link)
-                    # article_links = [link.strip() for link in provided_links.get('article_links',[])]
-                    # article_links_to_be_extracted = []
-                    # for yt_link in article_links:
-                    #     if yt_link not in already_extracted_article_link:
-                    #         article_links_to_be_extracted.append(yt_link)
 
-                    # if len(yt_links_to_be_extracted) > 0:
-                    #     media_data['youtube_links'] = yt_links_to_be_extracted
-                    # if len(article_links_to_be_extracted) > 0:
-                    #     media_data['article_links'] = article_links_to_be_extracted
+                print(additional_data)
 
-                    # if media_data:
-                    #     url = f"{BACKEND}/api/v1/accounts/create-bot-by-details/"
-                    #     data_json = {'bot_id': bot.uid,"media_data": media_data,}
-                    #     resp = requests.request(
-                    #         'PATCH',
-                    #         url,
-                    #         headers=headers,
-                    #         data=json.dumps(data_json),
-                    #     )
+                add_data = bot.data['additional_data']
+                # already_extracted_yt_link = add_data.get('youtube_links',[])
+                # already_extracted_article_link = add_data.get('article_links',[])
+                if add_data:
+                    print(f'type of add_data: {type(add_data)}')
+                    for key, value in additional_data.items():
+                        add_data[key] = value
+                    bot.data['additional_data'] = add_data
 
-                    #     print(resp.json())
-                except Exception as e:
-                    print(f'failed to update bot {e}')
+                bot.bot_details['coach_name'] = instance.name
+                bot.bot_details['info'] = instance.about
+                bot.save()
+
+                
+
+                bot_att = BotAttribute.objects.filter(deleted=False, bot_id = bot.uid).last()
+                if bot_att:
+                    bot_att.about = instance.about
+                    bot_att.save()
+
+
+                # media_data = {}
+                # yt_links = [link.strip() for link in provided_links.get('youtube_links',[])]
+                # yt_links_to_be_extracted = []
+                # for yt_link in yt_links:
+                #     if yt_link not in already_extracted_yt_link:
+                #         yt_links_to_be_extracted.append(yt_link)
+                # article_links = [link.strip() for link in provided_links.get('article_links',[])]
+                # article_links_to_be_extracted = []
+                # for yt_link in article_links:
+                #     if yt_link not in already_extracted_article_link:
+                #         article_links_to_be_extracted.append(yt_link)
+
+                # if len(yt_links_to_be_extracted) > 0:
+                #     media_data['youtube_links'] = yt_links_to_be_extracted
+                # if len(article_links_to_be_extracted) > 0:
+                #     media_data['article_links'] = article_links_to_be_extracted
+
+                # if media_data:
+                #     url = f"{BACKEND}/api/v1/accounts/create-bot-by-details/"
+                #     data_json = {'bot_id': bot.uid,"media_data": media_data,}
+                #     resp = requests.request(
+                #         'PATCH',
+                #         url,
+                #         headers=headers,
+                #         data=json.dumps(data_json),
+                #     )
+
+                #     print(resp.json())
+            except Exception as e:
+                print(f'failed to update bot {e}')
 
 post_save.connect(sync_profile_and_bot_data, sender=CoachCoacheeMentorMenteeProfile)
 post_save.connect(new_create_client_info_activity, sender=ClientUserInfo)

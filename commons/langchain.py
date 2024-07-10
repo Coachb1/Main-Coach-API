@@ -193,11 +193,11 @@ def transcribe_audio(file_path, video_id):
         if file_size_in_mb < 25:
             print("Transcribing the audio file...(less than 25 mb) ")
             with open(file_path, "rb") as audio_file:
-                transcript = openai.Audio.transcribe("whisper-1", audio_file)
+                transcript = openai.audio.transcriptions.create(model="whisper-1", file=audio_file, language="en")
                 
                 # Writing the content of transcript into a txt file
                 with open(transcript_filepath, 'w') as transcript_file:
-                    transcript_file.write(transcript['text'])
+                    transcript_file.write(transcript.text)
 
             # Deleting the mp3 file
             os.remove(file_path)
@@ -220,11 +220,11 @@ def transcribe_audio(file_path, video_id):
                 chunk.export(chunk_path, format="mp3")
 
                 with open(chunk_path, "rb") as audio_file:
-                    transcript = openai.Audio.transcribe("whisper-1", audio_file)
+                    transcript = openai.audio.transcriptions.create(model="whisper-1", file=audio_file, language="en")
                     
                     # append the content of transcript into a txt file
                     with open(transcript_filepath, 'a') as transcript_file:
-                        transcript_file.write(transcript['text'])
+                        transcript_file.write(transcript.text)
                 
                 chunk_no += 1
 

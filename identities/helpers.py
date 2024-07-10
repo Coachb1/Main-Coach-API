@@ -53,6 +53,7 @@ def get_user_via_identity(tenant: Tenant,
     Returns:
         User: The user object corresponding to the given tenant, identity type, and identity value.
     """
+    user = None
     try:
         identity = Identity.objects.get(
             tenant_id=tenant.uid,
