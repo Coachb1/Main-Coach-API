@@ -464,14 +464,16 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.skills_explanation = skills_explanation
                         updated_fields.append("skills_explanation")
 
-                    if not test.scenario_case == ScenarioCaseChoices.pitch and test.calculate_culture: 
-                        culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
-                        logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
-                    else:
-                        culture_skills_explanation = None            
-                    if culture_skills_explanation:
-                        test_attempt_session.culture_skills_explanation = culture_skills_explanation
-                        updated_fields.append("culture_skills_explanation")
+                    if test.calculate_culture:
+                        if not test.scenario_case == ScenarioCaseChoices.pitch: 
+                            culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
+                            logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
+                        else:
+                            culture_skills_explanation = None   
+
+                        if culture_skills_explanation:
+                            test_attempt_session.culture_skills_explanation = culture_skills_explanation
+                            updated_fields.append("culture_skills_explanation")
                 
 
                 #####################* explanation end #################
