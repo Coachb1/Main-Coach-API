@@ -223,7 +223,7 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
             data['email'] = user_att.attributes.get('email')
             data['user_id'] = user.uid
-            data['created'] = user.created
+            data['created'] = profile.created if profile else user.created
 
             if profile and profile.admirer_user_ids:
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
