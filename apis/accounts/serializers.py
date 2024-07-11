@@ -221,7 +221,7 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
                 user = get_user_by_id(profile.user_id)
 
             user_att = UserAttribute.objects.get(deleted=False,user_id=user.uid)
-            data['email'] = user_att.attributes.get('email')
+            data['email'] = profile.email if profile else user_att.attributes.get('email')
             data['user_id'] = user.uid
             data['created'] = profile.created if profile else user.created
 
