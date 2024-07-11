@@ -3171,6 +3171,8 @@ class AccountsViewSet(ApiViewSet,
         user_uid = request.data.get('user_uid',None)
         is_delete_user = request.data.get('is_delete_user',False)
         is_delete_user = True if is_delete_user in ['true','True',True] else False
+        emails_to_delete = request.data.get("emails_to_delete")
+        
         tenant_id = self.request.tenant.uid
         # coach_user_uid = request.data.get('coach_user_uid',None)
         
@@ -3257,6 +3259,22 @@ class AccountsViewSet(ApiViewSet,
 
         
         try:
+            if emails_to_delete:
+                delete_count = 0
+                for email in emails_to_delete.split(","):
+                    logger.info(f"deleting user with email : {email}")
+                    try:
+                        user_uid = Identity.objects.get(identity_type="deepchat_unique_id",value=email).user_id
+                        delete_user_related_resources(user_uid)
+                        if is_delete_user:
+                            delete_user(user_uid)
+                        delete_count += 1
+                        logger.info(f"user with email: {email} deleted")
+                    except:
+                        logger.info(f"User not found for email : {email}")
+                        
+                return Response({"message":f"{delete_count} user deleted"})
+                        
             delete_user_related_resources(user_uid)
             if is_delete_user:
                 delete_user(user_uid)
