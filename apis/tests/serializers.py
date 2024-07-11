@@ -128,7 +128,7 @@ class CreateTestSerializer(serializers.Serializer):
     web_page_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     sub_tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     calculate_culture = serializers.BooleanField(
-        required=False, default=False)
+        required=False, default=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
