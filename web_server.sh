@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 ./manage.py migrate
+./manage.py collectstatic --noinput
 gunicorn --bind 0.0.0.0:"${WEB_SERVER_PORT:=8000}"\
          --timeout 300 \
          --graceful-timeout 30 \
