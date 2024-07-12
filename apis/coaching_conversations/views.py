@@ -306,7 +306,7 @@ class CoachingConversationViewSet(ApiViewSet,
         cached_data = get_cache(cache_key)
         
         if cached_data:
-            return Response(data, status=status.HTTP_200_OK)
+            return Response(cached_data, status=status.HTTP_200_OK)
         
         client_infos = ClientUserInfo.objects.all()
         excluded_users = ""

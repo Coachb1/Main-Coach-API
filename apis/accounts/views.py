@@ -2163,7 +2163,7 @@ class AccountsViewSet(ApiViewSet,
             if email:
                 cache_key = f"user-directory-info-{email}"
                 start = time.time()
-                data = cache.get(cache_key)
+                data = get_cache(cache_key)
                 end = time.time()
                 logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
                 if data:
@@ -2191,7 +2191,7 @@ class AccountsViewSet(ApiViewSet,
             else:
                 cache_key = f"user-directory-info-all"
                 start = time.time()
-                data = cache.get(cache_key)
+                data = get_cache(cache_key)
                 end = time.time()
                 logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
 
