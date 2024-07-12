@@ -509,7 +509,7 @@ class AccountsViewSet(ApiViewSet,
 
                 data['user_info'] = user_info
                 
-            set_cache(cache_key, data, 60*15)
+            set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
 
             return Response({"data":data },status=status.HTTP_200_OK)
