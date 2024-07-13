@@ -47,7 +47,7 @@ def get_default_ui_information():
     }
 
 def get_default_help_text():
-    help_text_json = data = {
+    help_text_json = {
         "network_directory": {
             "header_text": "",
             "join_the_network": "",
