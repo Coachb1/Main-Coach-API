@@ -12,7 +12,7 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','profile_type','name', 'email')
     list_filter = ('profile_type','status','department','is_approved')
-    search_fields = ('name', 'email', 'unique_id', 'user_id', 'low_rating_characteristics','high_rating_characteristics','mentoring_preferences'
+    search_fields = ('name', 'uid','email', 'unique_id', 'user_id', 'low_rating_characteristics','high_rating_characteristics','mentoring_preferences'
                     ,'voice_sample','coaching_level',
                         'coach_same_department',
                         'coaching_style',
@@ -25,7 +25,7 @@ class SignatureBotAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private')
-    search_fields = ('bot_name','bot_id','bot_type')
+    search_fields = ('bot_name','bot_id','bot_type','uid')
     list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private')
     ordering = ('-id',)
 
@@ -57,7 +57,7 @@ class ClientUserInfoAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','client_name','domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer')
     list_filter = ('client_name',)
-    search_fields = ('client_name','domain_name')
+    search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name','member_emails','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank')
     ordering = ('-id',)
 

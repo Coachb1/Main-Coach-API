@@ -2344,7 +2344,63 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if client_data.get('accessed_bot_ids') != None:
                 client.accessed_bot_ids= client_data.get('accessed_bot_ids')
                 updated_fields.append('accessed_bot_ids')
-                
+
+            if client_data.get('make_new_user_in_trail') is not None:
+                client.make_new_user_in_trail = client_data.get('make_new_user_in_trail')
+                updated_fields.append('make_new_user_in_trail')
+
+            if client_data.get('heading'):
+                client.heading = client_data.get('heading')
+                updated_fields.append('heading')
+
+            if client_data.get('sub_heading'):
+                client.sub_heading = client_data.get('sub_heading')
+                updated_fields.append('sub_heading')
+
+            if client_data.get('tag_line'):
+                client.tag_line = client_data.get('tag_line')
+                updated_fields.append('tag_line')
+
+            if client_data.get('ui_information'):
+                client.ui_information = client_data.get('ui_information')
+                updated_fields.append('ui_information')
+
+            if client_data.get('widget_access_code'):
+                client.widget_access_code = client_data.get('widget_access_code')
+                updated_fields.append('widget_access_code')
+
+            if client_data.get('help_text'):
+                client.help_text = client_data.get('help_text')
+                updated_fields.append('help_text')
+
+            if client_data.get('allow_paste_answer') is not None:
+                client.allow_paste_answer = client_data.get('allow_paste_answer')
+                updated_fields.append('allow_paste_answer')
+
+            if client_data.get('webhook_url'):
+                client.webhook_url = client_data.get('webhook_url')
+                updated_fields.append('webhook_url')
+
+            if client_data.get('webhook_secret'):
+                client.webhook_secret = client_data.get('webhook_secret')
+                updated_fields.append('webhook_secret')
+
+            if client_data.get('webhook_token'):
+                client.webhook_token = client_data.get('webhook_token')
+                updated_fields.append('webhook_token')
+
+            if client_data.get('webhook_enabled') is not None:
+                client.webhook_enabled = client_data.get('webhook_enabled')
+                updated_fields.append('webhook_enabled')
+
+            if client_data.get('excluded_users'):
+                client.excluded_users = client_data.get('excluded_users')
+                updated_fields.append('excluded_users')
+
+            if client_data.get('use_skills_from_skill_bank') is not None:
+                client.use_skills_from_skill_bank = client_data.get('use_skills_from_skill_bank')
+                updated_fields.append('use_skills_from_skill_bank')  
+
             if client_data.get('member_emails'):
                 emails = [email.strip() for email in client_data.get('member_emails').split(',') if len(email) > 0]
                 for email in emails:
@@ -2366,19 +2422,33 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
     else:
         client = create_client_id(
             tenant_id=tenant_id,
-            client_name=client_data.get('client_name',None),
-            domain=client_data.get('domain_name',None),
-            demo_ids= client_data.get('demo_ids',None),
-            restricted_features= client_data.get('restricted_features',None),
-            restricted_ids=client_data.get('restricted_ids',None),
-            restricted_pages=client_data.get('restricted_pages',None),
-            allowed_ips= client_data.get('allowed_ips',None),
-            coach_expertise=client_data.get('coach_expertise',None),
-            coach_skills=client_data.get("coach_skills",None),
-            departments= client_data.get('departments',None),
-            accessed_bot_ids= client_data.get('accessed_bot_ids',None),
-            member_emails= client_data.get('member_emails',None),
-            allow_audio_interactions= client_data.get('allow_audio_interactions',None)
+            client_name=client_data.get('client_name', None),
+            domain=client_data.get('domain_name', None),
+            demo_ids=client_data.get('demo_ids', None),
+            restricted_features=client_data.get('restricted_features', None),
+            restricted_ids=client_data.get('restricted_ids', None),
+            restricted_pages=client_data.get('restricted_pages', None),
+            allowed_ips=client_data.get('allowed_ips', None),
+            coach_expertise=client_data.get('coach_expertise', None),
+            coach_skills=client_data.get('coach_skills', None),
+            departments=client_data.get('departments', None),
+            accessed_bot_ids=client_data.get('accessed_bot_ids', None),
+            member_emails=client_data.get('member_emails', None),
+            allow_audio_interactions=client_data.get('allow_audio_interactions', None),
+            make_new_user_in_trail=client_data.get('make_new_user_in_trail', None),
+            heading=client_data.get('heading', None),
+            sub_heading=client_data.get('sub_heading', None),
+            tag_line=client_data.get('tag_line', None),
+            ui_information=client_data.get('ui_information', None),
+            widget_access_code=client_data.get('widget_access_code', None),
+            help_text=client_data.get('help_text', None),
+            allow_paste_answer=client_data.get('allow_paste_answer', None),
+            webhook_url=client_data.get('webhook_url', None),
+            webhook_secret=client_data.get('webhook_secret', None),
+            webhook_token=client_data.get('webhook_token', None),
+            webhook_enabled=client_data.get('webhook_enabled', None),
+            excluded_users=client_data.get('excluded_users', None),
+            use_skills_from_skill_bank=client_data.get('use_skills_from_skill_bank', None)
         )
     return client
 
@@ -2399,7 +2469,21 @@ def create_client_id(
         coach_expertise=None,
         accessed_bot_ids=None,
         member_emails=None,
-        allow_audio_interactions=None
+        allow_audio_interactions=None,
+        make_new_user_in_trail=None,
+        heading=None,
+        sub_heading=None,
+        tag_line=None,
+        ui_information=None,
+        widget_access_code=None,
+        help_text=None,
+        allow_paste_answer=None,
+        webhook_url=None,
+        webhook_secret=None,
+        webhook_token=None,
+        webhook_enabled=None,
+        excluded_users=None,
+        use_skills_from_skill_bank=None,
         ):
     
 
@@ -2438,9 +2522,52 @@ def create_client_id(
     if accessed_bot_ids:
         client.accessed_bot_ids= accessed_bot_ids
         updated_fields.append('accessed_bot_ids')
-    if allow_audio_interactions:
+    if allow_audio_interactions != None:
         client.allow_audio_interactions = allow_audio_interactions
         updated_fields.append('allow_audio_interactions')
+
+    if make_new_user_in_trail != None:
+        client.make_new_user_in_trail = make_new_user_in_trail
+        updated_fields.append('make_new_user_in_trail')
+    if heading:
+        client.heading=heading
+        updated_fields.append('heading')
+    if sub_heading:
+        client.sub_heading=sub_heading
+        updated_fields.append('sub_heading')
+    if tag_line:
+        client.tag_line=tag_line
+        updated_fields.append('tag_line')
+    if ui_information:
+        client.ui_information=ui_information
+        updated_fields.append('ui_information')
+    if widget_access_code:
+        client.widget_access_code=widget_access_code
+        updated_fields.append('widget_access_code')
+    if help_text:
+        client.help_text=help_text
+        updated_fields.append('help_text')
+    if allow_paste_answer != None:
+        client.allow_paste_answer = allow_paste_answer
+        updated_fields.append('allow_paste_answer')
+    if webhook_url:
+        client.webhook_url=webhook_url
+        updated_fields.append('webhook_url')
+    if webhook_secret:
+        client.webhook_secret=webhook_secret
+        updated_fields.append('webhook_secret')
+    if webhook_token:
+        client.webhook_token=webhook_token
+        updated_fields.append('webhook_token')
+    if webhook_enabled != None:
+        client.webhook_enabled=webhook_enabled
+        updated_fields.append('webhook_enabled')
+    if excluded_users:
+        client.excluded_users=excluded_users
+        updated_fields.append('excluded_users')
+    if use_skills_from_skill_bank != None:
+        client.use_skills_from_skill_bank=use_skills_from_skill_bank
+        updated_fields.append('use_skills_from_skill_bank')
 
     if member_emails:
         emails = [email.strip() for email in member_emails.split(',') if len(email) > 0]
