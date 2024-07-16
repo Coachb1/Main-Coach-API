@@ -885,7 +885,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         elif signature_bot.bot_type == BotTypeChoice.deep_dive:
             if signature_bot.data:
                 bot_title = signature_bot.data.get('bot_title')
-                bot_objective = signature_bot.data.get('bot_objective')
+                bot_objective = signature_bot.data.get('bot_context')
                 logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
                 prompt = Template(prompt).substitute(
@@ -1128,7 +1128,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         elif signature_bot.bot_type == BotTypeChoice.deep_dive:
             if signature_bot.data:
                 bot_title = signature_bot.data.get('bot_title')
-                bot_objective = signature_bot.data.get('bot_objective')
+                bot_objective = signature_bot.data.get('bot_context')
                 logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
                 prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.deep_dive)).substitute(
