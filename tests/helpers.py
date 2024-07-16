@@ -5614,6 +5614,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 @timeit
 def extract_question(text, responder_name):
     # Define the regular expression pattern to match the question part
+    text = text.replace('{',"").replace("}","")
     pattern = r":\s*([^:]+)$"
     
     # Search for the pattern in the provided text
