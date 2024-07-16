@@ -1068,9 +1068,16 @@ class AccountsViewSet(ApiViewSet,
                         return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
 
                     context = data.get('context')
+                    bot_title = data.get('bot_title')
+                    bot_objective = data.get('bot_objective')
                     if (context is None or context == '' ) and bot_type in [BotTypeChoice.deep_dive]:
                         return Response({"error": "context is required"},status=status.HTTP_400_BAD_REQUEST)
-
+                    if (data.get('bot_title') is None or data.get('bot_title')  == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "bot_title is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if (bot_objective is None or bot_objective  == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "bot_objective is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
 
                     participant_id = data.get('participant_id')
                     if participant_id is None or participant_id == '':
@@ -1082,7 +1089,7 @@ class AccountsViewSet(ApiViewSet,
 
                     bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
                     if bot_type == BotTypeChoice.deep_dive:
-                        bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+                        bot_id = "-".join(["engagement-survey" ,"".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
 
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
@@ -1134,9 +1141,10 @@ class AccountsViewSet(ApiViewSet,
                     deep_dive_data = {}
                     if bot_type == BotTypeChoice.deep_dive:
                         additional_prompt_for_deepdive = data.get('additional_prompt_for_deep',None)
-                        deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
-                        all_data['bot_title'] = deep_dive_data['bot_title']
-                        all_data['bot_objective'] = deep_dive_data['bot_objective']
+                        # deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
+                        all_data['bot_title'] = bot_title
+                        all_data['bot_objective'] = bot_objective
+                        all_data['bot_context'] = bot_objective + '\n' + context
                         deep_dive_data = all_data
 
                     all_data['coach_data'] = coach_data
@@ -1322,7 +1330,7 @@ class AccountsViewSet(ApiViewSet,
                         elif bot_type == BotTypeChoice.user_bot:
                             bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
                         elif bot_type == BotTypeChoice.deep_dive:
-                            bot_url = f"{bot_base_url}/deep-dive/{bot_id}"
+                            bot_url = f"{bot_base_url}/engagement-survey/{bot_id}"
 
                         bot_snippet = f"""
                                     <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
