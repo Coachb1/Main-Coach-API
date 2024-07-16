@@ -1998,8 +1998,8 @@ class AccountsViewSet(ApiViewSet,
         try:
             data = []
             user_id = request.query_params.get('user_id')
+            cache_key = generate_cache_key('competency_data', user_id=user_id)
             if request.method == 'GET':
-                cache_key = generate_cache_key('competency_data', user_id=user_id)
 
                 # Try to get data from cache
                 cached_data = get_cache(cache_key)
@@ -2024,6 +2024,8 @@ class AccountsViewSet(ApiViewSet,
                 user_att = UserAttribute.objects.get(user_id=user_id)
                 user_att.competency_data = skill_data
                 user_att.save(update_fields=["competency_data"])
+
+                set_cache(cache_key, [skill_data])
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
         
         except Exception as e:
