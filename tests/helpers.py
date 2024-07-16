@@ -5247,7 +5247,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Test Description: ${description}
 
-                    Customer Comment: ${user_comment}
+                    Customer Comment: ${sales_comment}
 
                     Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
@@ -5302,7 +5302,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Bot response: ${bot_response}
 
-                Customer Comment: ${user_comment}
+                Customer Comment: ${sales_comment}
 
                 Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
