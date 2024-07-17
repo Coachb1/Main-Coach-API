@@ -92,6 +92,8 @@ USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
 RESPONDER = "Responder"
 CALCULATE_CULTURE = "Calculate Culture"
+TEST_SNIPPET_LINK = "Test Snippet Link"
+QUE_SNIPPET_LINK = "Que Snippet Link"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -294,6 +296,10 @@ def format_test_orchestrated_conversation(raw_data):
         if SUB_TAB_CATEGORY in input_dict:
             if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
                 output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
+
+        if TEST_SNIPPET_LINK in input_dict:
+            if input_dict[TEST_SNIPPET_LINK] and len(input_dict[TEST_SNIPPET_LINK].strip()) > 0 :
+                output_dict['snippet_url'] = input_dict[TEST_SNIPPET_LINK].strip().capitalize()
 
         if 'tab_category' not in output_dict:
             if COMPETENCY_SKILLS in input_dict:
@@ -882,6 +888,10 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
                 output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
 
+        if TEST_SNIPPET_LINK in input_dict:
+            if input_dict[TEST_SNIPPET_LINK] and len(input_dict[TEST_SNIPPET_LINK].strip()) > 0 :
+                output_dict['snippet_url'] = input_dict[TEST_SNIPPET_LINK].strip().capitalize()
+
         if 'tab_category' not in output_dict:
             if COMPETENCY_SKILLS in input_dict:
                 if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
@@ -1073,6 +1083,10 @@ def format_test_data_slack(raw_data,tenant):
 
                 if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+
+                if f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["snippet_url"] = input_dict.get(f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}", '')
+
                 if f"{ANSWER} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{ANSWER} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["mcq_answer"] = input_dict.get(f"{ANSWER} {key[len(QUESTION) + 1:]}", '') # here I am using mcq_answer as correct answer
 
@@ -1171,6 +1185,8 @@ def format_test_data_slack(raw_data,tenant):
 
                     if f"{MEDIA_LINK} {key_name}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key_name}"]) > 0:
                         question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key_name}", '')
+                    if f"{QUE_SNIPPET_LINK} {key_name}" in input_dict and len(input_dict[f"{QUE_SNIPPET_LINK} {key_name}"]) > 0:
+                        question["snippet_url"] = input_dict.get(f"{QUE_SNIPPET_LINK} {key_name}", '')
 
                     output_dict["questions"].append(question)
         print(media_json)      
