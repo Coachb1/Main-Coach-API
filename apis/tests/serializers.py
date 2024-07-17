@@ -28,6 +28,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     mcq_path = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
+    snippet_url = serializers.CharField(required=False)
 
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -129,6 +130,7 @@ class CreateTestSerializer(serializers.Serializer):
     sub_tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     calculate_culture = serializers.BooleanField(
         required=False, default=True)
+    snippet_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -146,7 +148,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "mcq_options",
                   "mcq_path",
                   "created",
-                  "updated"]
+                  "updated",
+                  "snippet_url"]
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
@@ -208,7 +211,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "creator_email",
                   "web_page_url",
                   "sub_tab_category",
-                  "calculate_culture"
+                  "calculate_culture",
+                  "snippet_url"
                   ]
 
     def get_questions(self, instance):

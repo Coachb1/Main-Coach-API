@@ -230,7 +230,8 @@ def create_test(tenant: Tenant,
                 assigned_by: str,
                 web_page_url:str,
                 sub_tab_category:str,
-                calculate_culture: bool) -> tuple[Test, list[TestQuestion]]:
+                calculate_culture: bool,
+                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -417,7 +418,8 @@ def create_test(tenant: Tenant,
             assigned_by=assigned_by,
             web_page_url=web_page_url,
             sub_tab_category=sub_tab_category,
-            calculate_culture=calculate_culture
+            calculate_culture=calculate_culture,
+            snippet_url=snippet_url
         )
 
         test_questions = []
@@ -455,7 +457,8 @@ def create_test(tenant: Tenant,
                 mcq_path= question.get('mcq_path'),
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=klp,
-                key_learning_skills=kls
+                key_learning_skills=kls,
+                snippet_url=question.get('snippet_url')
             )
 
             #
