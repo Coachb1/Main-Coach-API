@@ -2615,7 +2615,7 @@ class AccountsViewSet(ApiViewSet,
                 coachee_email = coachee.email
                 subject = "You have a connection request"
                 html = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your account to approve or reject. Thank you!</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
