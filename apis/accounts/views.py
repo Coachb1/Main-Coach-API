@@ -2534,11 +2534,13 @@ class AccountsViewSet(ApiViewSet,
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
                         """
 
+                    reset_cache_with_prefix('get_bots')
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
             
             if coach_id and coachee_id:
@@ -2551,6 +2553,7 @@ class AccountsViewSet(ApiViewSet,
                 if data.get('status') == CoachCoacheeConnectionStatusChoice.accepted:
                     connection.status = CoachCoacheeConnectionStatusChoice.accepted
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
                     coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                     coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                     
@@ -2568,6 +2571,7 @@ class AccountsViewSet(ApiViewSet,
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
         if request.method == 'POST':
@@ -2607,6 +2611,7 @@ class AccountsViewSet(ApiViewSet,
                 serializer = CoachCoacheeConnectionSerializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 created_connection = serializer.save()
+                reset_cache_with_prefix('get_bots')
                 coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                 coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                 
