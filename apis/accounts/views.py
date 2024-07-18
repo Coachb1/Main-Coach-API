@@ -1446,7 +1446,7 @@ class AccountsViewSet(ApiViewSet,
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                         
-                    # reset_cache_with_prefix("get_bots")
+                    reset_cache_with_prefix("get_bots")
                     return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
@@ -2025,7 +2025,9 @@ class AccountsViewSet(ApiViewSet,
                 user_att.competency_data = skill_data
                 user_att.save(update_fields=["competency_data"])
 
-                set_cache(cache_key, [skill_data])
+                # set_cache(cache_key, [skill_data])
+                reset_cache_with_prefix('competency_data')
+                reset_cache_with_prefix('tests_by_competency')
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
         
         except Exception as e:
