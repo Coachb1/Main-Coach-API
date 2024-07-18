@@ -2025,7 +2025,9 @@ class AccountsViewSet(ApiViewSet,
                 user_att.competency_data = skill_data
                 user_att.save(update_fields=["competency_data"])
 
-                set_cache(cache_key, [skill_data])
+                # set_cache(cache_key, [skill_data])
+                reset_cache_with_prefix('competency_data')
+                reset_cache_with_prefix('tests_by_competency')
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
         
         except Exception as e:
