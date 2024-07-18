@@ -2535,12 +2535,14 @@ class AccountsViewSet(ApiViewSet,
                         """
 
                     reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
                     reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
             
             if coach_id and coachee_id:
@@ -2554,6 +2556,7 @@ class AccountsViewSet(ApiViewSet,
                     connection.status = CoachCoacheeConnectionStatusChoice.accepted
                     connection.save(update_fields=['status'])
                     reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                     coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                     
@@ -2572,6 +2575,7 @@ class AccountsViewSet(ApiViewSet,
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
                     reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
         if request.method == 'POST':
@@ -2612,6 +2616,7 @@ class AccountsViewSet(ApiViewSet,
                 serializer.is_valid(raise_exception=True)
                 created_connection = serializer.save()
                 reset_cache_with_prefix('get_bots')
+                reset_cache_with_prefix('connection')
                 coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                 coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                 
