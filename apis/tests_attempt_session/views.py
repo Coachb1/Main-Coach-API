@@ -938,7 +938,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if user_email == 'Anonymous User':
                     candidate_name = "Anonymous User"
 
-                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
+                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true', candidate_email=user_email)
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})
