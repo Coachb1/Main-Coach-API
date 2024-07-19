@@ -758,6 +758,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
         bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
+        logger.info(f"************** user_email: {user_email}, bot_owner_email: {bot_owner_email}")
 
         try:
             coachee_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id, tenant_id=request.tenant.uid)
