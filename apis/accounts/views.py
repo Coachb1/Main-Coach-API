@@ -424,8 +424,8 @@ class AccountsViewSet(ApiViewSet,
 
             coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id).first()
 
-            data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
             if coach_profile:
+                data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
                 data['profile_details'] = CoachCoacheeMentorMenteeProfileSerializer(coach_profile).data
 
             
