@@ -331,7 +331,7 @@ class CoachingConversationViewSet(ApiViewSet,
                 participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
 
                 for participant_id in participant_ids:
-                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id)
+                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id).first()
                     if participant_attribute and participant_attribute.attributes:
                         participant_email = participant_attribute.attributes.get('email')
                         if participant_email in excluded_emails:
