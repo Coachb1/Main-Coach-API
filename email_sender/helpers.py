@@ -220,9 +220,9 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name,bot=signature_bot)
         email_wrapper = ""
         if no_reply:
-            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}({to_email[0]})!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
+            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
         else:    
-            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}({to_email[0]})!',note='(NOTE : Always "reply all" to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)')
+            email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Always "reply all" to make sure the coach(mentor) and coachee(mentee) receive the emails directly.)')
 
         msg.attach(MIMEText(email_wrapper, 'html'))
         msg_str = msg.as_string()
