@@ -247,7 +247,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args) """
         # send_error_notification("send_bot_conversation_email", str(e), {"to_email": to_email, "candidate_name": candidate_name, "conversation": conversation})
 
-def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email, is_positive=False):
+def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email, is_positive=False, candidate_email=None):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 
@@ -260,12 +260,12 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
 
     html_body= ''
     if type_of_email == 'like' or type_of_email == 'dislike':
-        text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a critical feedback for you!"
+        text = f"You created feedback page for collecting peer feedback. {candidate_name}({candidate_email}) just left a critical feedback for you!"
         if type_of_email == 'like':
-            text = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
+            text = f"You created feedback page for collecting peer feedback. {candidate_name}({candidate_email}) just left a glowing feedback for you!"
         html_body = get_like_dislike_email_body(text)
     elif type_of_email == 'feedback_conv':
-        message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a feedback for you!"
+        message = f"You created feedback page for collecting peer feedback. {candidate_name}({candidate_email}) just left a feedback for you!"
         # if is_positive:
         #     message = f"You created feedback page for collecting peer feedback. {candidate_name} just left a glowing feedback for you!"
         html_body = get_feedback_conv_email_body(message, conversation)
