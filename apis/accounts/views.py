@@ -807,8 +807,9 @@ class AccountsViewSet(ApiViewSet,
                         send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
-                    # reset_cache_with_prefix('profiles_by_user_id')
-                    # reset_cache_with_prefix('profile_by_id')
+                    reset_cache_with_prefix('profiles_by_user_id')
+                    reset_cache_with_prefix('profile_by_id')
+                    reset_cache_with_prefix('all_profiles')
 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
@@ -876,6 +877,10 @@ class AccountsViewSet(ApiViewSet,
                         is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
                         ai_email = generate_email(created_profile.name,created_profile.id)
                         )
+                
+                reset_cache_with_prefix('profiles_by_user_id')
+                reset_cache_with_prefix('profile_by_id')
+                reset_cache_with_prefix('all_profiles')
                 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
             except Exception as e:
