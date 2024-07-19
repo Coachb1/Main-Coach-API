@@ -831,6 +831,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
             candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
+            if candidate_name.lower().strip() != "anonymous user":
+                candidate_name = f"{candidate_name} ({submitted_email})"
             send_bot_conversation_email( 
                 candidate_name=candidate_name, 
                 conversation=conv, 
