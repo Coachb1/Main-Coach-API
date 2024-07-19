@@ -88,6 +88,7 @@ class AccountSerializer(serializers.ModelSerializer):
             client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
             if client:
                 data['client_allow_audio_interactions'] = client.allow_audio_interactions
+                data['send_profile_for_reapproval'] = client.send_profile_for_reapproval
         return data
 
 
