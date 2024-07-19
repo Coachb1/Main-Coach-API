@@ -2663,7 +2663,7 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
                         A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
                         </p>
                         """
-        send_email_with_html_template(subject=subject,html_content=html_content)
+        send_email_with_html_template(subject=subject,html_content=html_content,to_email='info@coachbots.com')
 
     return client.client_name if client else None
 
