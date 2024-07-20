@@ -2921,6 +2921,15 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
                 bot_llm_response_text = extract_question(bot_llm_response_text,question.question_for)
             
+            
+            
+        initial_bot_questions = test.orchestrated_conversation_details.get('initial_messages')
+        
+        for initial_bot_question in initial_bot_questions:
+            if calculate_similarity(initial_bot_question, bot_llm_response_text) > 80:
+                logger.info(f"############### bot llm response is similar to initial bot response. so generating new response no:{i+1} ## Current: {bot_llm_response_text}, ## Initial: {initial_bot_question} ***************")
+                continue
+        
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
             if previous_bot_response and previous_bot_response.response_text:
