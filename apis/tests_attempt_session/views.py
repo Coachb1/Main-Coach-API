@@ -813,7 +813,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
-        recepients = [submitted_email,"coachbots@googlegroups.com"]
+        recepients = [submitted_email]
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
