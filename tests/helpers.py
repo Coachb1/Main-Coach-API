@@ -79,7 +79,7 @@ from django.db.models import Q
 from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
-
+from users.helpers import get_client_info_from_user_detail
 
 logger = logging.getLogger(__name__)
 
@@ -4343,6 +4343,8 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_address_list = email_address_list.split(",")
     email_address_list = [email_address.strip()
                           for email_address in email_address_list]
+    
+
 
     if is_whatsapp:
         participant_name = participant_attributes.get("user_name")
@@ -4368,6 +4370,18 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email',None)
+
+    # fatchin client information if any and adding its email address list to test's emailaddress list.
+
+    client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
+    if client:
+        logger.info(f" << Client Name: {client.client_name}>>")
+        if client.email_address_list:
+            email_address_list.extend([email.strip() 
+                                    for email in client.email_address_list.split(',')])
+            email_address_list = list(set(email_address_list))  # removing duplicates
+            logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
+
 
     for to_email in email_address_list:
         try:
@@ -4436,7 +4450,17 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email')
 
-    
+    # fatchin client information if any and adding its email address list to test's emailaddress list.
+
+    client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
+    if client:
+        logger.info(f" << Client Name: {client.client_name}>>")
+        if client.email_address_list:
+            email_address_list.extend([email.strip() 
+                                    for email in client.email_address_list.split(',')])
+            email_address_list = list(set(email_address_list))  # removing duplicates
+            logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
+
 
     for to_email in email_address_list:
         try:
