@@ -1506,3 +1506,30 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":f"something went wrong : {e.args}"},status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['GET'],detail=False, url_path="get-tests-by-filter")
+    def get_tests_by_filter(self, request, *args, **kwargs):
+        """
+        This function retrieves tests based on the provided filter parameters.
+
+        Parameters:
+        request (Request): The request object containing the query parameters.
+        *args, **kwargs: Additional arguments and keyword arguments.
+
+        Returns:
+        Response: A response object containing a list of tests that match the filter parameters.
+        If an exception occurs during the retrieval process, it returns a response with an error message.
+
+        Raises:
+        Exception: If any error occurs during the retrieval process.
+        """
+        try:
+            filter_params = request.query_params.dict()
+            # code to fetch all tests with filter_params
+            tests = Test.objects.filter(**filter_params, tenant_id=request.tenant.uid, deleted=False).values("test_code", "title", "description","test_type",'client_name')
+            return Response(list(tests), status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Failed to fetch tests by filter : {e}")
+            return Response({"error": f"Failed to fetch tests by filter : {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
