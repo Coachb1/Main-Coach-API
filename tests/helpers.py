@@ -4378,7 +4378,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         logger.info(f" << Client Name: {client.client_name}>>")
         if client.email_address_list:
             email_address_list.extend([email.strip() 
-                                    for email in client.email_address_list.split(',')])
+                                    for email in client.email_address_list.split(',') if len(email.strip())>0])
             email_address_list = list(set(email_address_list))  # removing duplicates
             logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
 
@@ -4457,7 +4457,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         logger.info(f" << Client Name: {client.client_name}>>")
         if client.email_address_list:
             email_address_list.extend([email.strip() 
-                                    for email in client.email_address_list.split(',')])
+                                    for email in client.email_address_list.split(',') if len(email.strip())>0])
             email_address_list = list(set(email_address_list))  # removing duplicates
             logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
 
