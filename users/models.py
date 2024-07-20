@@ -280,6 +280,7 @@ class ClientUserInfo(TenantAwareModel):
     excluded_users = models.TextField(null=True, blank=True, default=None)
     use_skills_from_skill_bank = models.BooleanField(default=False, blank=True)
     send_profile_for_reapproval = models.BooleanField(default=False, blank=True)
+    email_address_list = models.TextField(null=True, blank=True, default=None)
 
     
 
