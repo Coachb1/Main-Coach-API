@@ -515,7 +515,7 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
 
                 skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-                skill_list = [skill.strip().capitalize() for skill in skill_list]
+                skill_list = [skill.strip() for skill in skill_list]
                 skill_list = ','.join(skill_list)
                 output_dict["skills_to_evaluate"] = skill_list
         else:
@@ -526,7 +526,7 @@ def format_test_orchestrated_conversation(raw_data):
                 candidate_type = 'Manager'
             skills_list_candidate = set()
             for item in get_skills(candidate_type):
-                skills_list_candidate.add(item.capitalize())
+                skills_list_candidate.add(item)
 
             evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
             evaluation_skill_list = ','.join(evaluation_skill_list)
@@ -933,15 +933,15 @@ def format_test_data_slack(raw_data,tenant):
             if key.startswith(KLS):
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
-                    skills_list.add(skill.strip().capitalize())
+                    skills_list.add(skill.strip())
             elif key.startswith('Skill'):    # for mcq type of test
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
-                    skills_list.add(skill.strip().capitalize())
+                    skills_list.add(skill.strip())
         skills_list = list(skills_list)
 
         # mismatch skill logic
-        defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
+        defined_skills_list = [ skill['name'].strip().lower() for skill in pre_defined_skills ]
 
 
         use_skills_fron_skill_bank = False
@@ -954,7 +954,7 @@ def format_test_data_slack(raw_data,tenant):
         if use_skills_fron_skill_bank:
             unmatched_skills = []
             for skills in skills_list:
-                if skills not in defined_skills_list:
+                if skills.lower() not in defined_skills_list:
                     unmatched_skills.append(skills)
 
             if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
@@ -983,9 +983,9 @@ def format_test_data_slack(raw_data,tenant):
                         candidate_type = 'Manager'
                     skills_list_candidate = set()
                     for item in get_skills(candidate_type):
-                        skills_list_candidate.add(item.capitalize())
+                        skills_list_candidate.add(item.lower())
                     skills_list_candidate = list(skills_list_candidate)
-                    if sorted(skills_list_candidate) == sorted(skills_list):
+                    if sorted(skills_list_candidate) == sorted([i.lower() for i in skills_list]):
                         check_pass = True
 
         skills_list = ','.join(skills_list)

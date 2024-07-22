@@ -4,54 +4,113 @@ from tests.models import TestAttemptSession, Test
 from coaching_conversations.helpers import add_or_remove_emails_from_client
 from identities.models import Identity
 from django.db import transaction
+from commons.notifications import send_error_notification
+from email_sender.helpers import send_email_with_html_template
 import logging
+import traceback
+import datetime
 
 logger = logging.getLogger(__name__)
 
 
-def delete_user_resources(user_uid):
+def delete_user_resources(user_uid, remove_from_client=False):
     logger.info("Deleting user resources for user %s", user_uid)
-    user = User.objects.get(uid=user_uid)
-    tenant_id = user.tenant_id
-    profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-    for profile in profiles:
+    deleted_list = []
+    deleted_msg = ""
+    try:
+        user = User.objects.get(uid=user_uid)
+        tenant_id = user.tenant_id
+        connection_uids = []
+        profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+        profile_ids = []
+        for profile in profiles:
+            profile_ids.append(profile.uid)
+            
+            # delete connections if user has coachee profile
+            connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
+            for connection in connections:
+                deleted_list.append(f"connection coachee: {connection.uid}")
+                connection_uids.append(connection.uid)
+                connection.delete()
+                
+            # delete connections if user has coach profile
+            connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
+            for connection in connections:
+                deleted_list.append(f"connection coach : {connection.uid}")
+                connection_uids.append(connection.uid)
+                connection.delete()
+                
+            # delete directorypage for this profile
+            dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+            for dir_info in dir_infos:
+                deleted_list.append(f"directorypage : {dir_info.name}")
+                dir_info.delete()
+                
+            deleted_list.append(f"profile : {profile.uid}")
+            profile.delete()
         
-        # delete connections if user has coachee profile
-        connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
-        for connection in connections:
-            connection.delete()
-            
-        # delete connections if user has coach profile
-        connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
-        for connection in connections:
-            connection.delete()
-            
-        # delete directorypage for this profile
-        dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
-        for dir_info in dir_infos:
-            dir_info.delete()
-            
-        profile.delete()
-    
-    # delete bots if user has any
-    bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-    for bot in bots:
-        # delete bot related resources
-        bot_attributes = BotAttribute.objects.filter(bot_id=bot.bot_id)
-        for bot_attribute in bot_attributes:
-            bot_attribute.delete()
-            
-        bot_qnas = BotQnA.objects.filter(bot_id=bot.bot_id)
-        for bot_qna in bot_qnas:
-            bot_qna.delete()
-            
+        # delete bots if user has any
+        bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+        for bot in bots:
+            # delete bot related resources
+            bot_attributes = BotAttribute.objects.filter(bot_id=bot.bot_id)
+            for bot_attribute in bot_attributes:
+                deleted_list.append(f"bot_attribute : {bot_attribute.uid}")
+                bot_attribute.delete()
+                
+            bot_qnas = BotQnA.objects.filter(bot_id=bot.bot_id)
+            for bot_qna in bot_qnas:
+                deleted_list.append(f"bot_qna_{bot_qna.bot_id} : {bot_qna.uid}")
+                bot_qna.delete()
+                
+            deleted_list.append(f"bot : {bot.bot_id}")
+            bot.delete()
+
+        if user:
+            with transaction.atomic():
+                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).delete()
+                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted=True)
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user.uid).delete() 
+                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user.uid).delete()  
+
         
-        bot.delete()
+        if remove_from_client:
+            try:
+                identity = Identity.objects.get(user_id=user_uid)
+                user_email = identity.value
+                clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
+                for client in clients:
+                    add_or_remove_emails_from_client(client,'member_emails',user_email,True)
+                    add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
+                    deleted_list.append(f'removed from client : {client.client_name}')
+            except Exception as e:
+                logger.exception(f"failed to delete client for the user {user_uid}: {e}")
 
-    if user:
-        with transaction.atomic():
-            UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).delete()
-            TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted=True)
-            SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user.uid).delete() 
-            SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user.uid).delete()  
 
+        # checking if all data is deleted:
+        profile_ids.append(user_uid)
+        deleted_msg += f"""
+        
+        profile: {CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid).count()}
+        connections coach: {CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id__in=profile_ids).count()}
+        connections coachee: {CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id__in=profile_ids).count()}
+        directorypage: {DirectoryPageInfo.objects.filter(profile_id__in=profile_ids).count()}
+        bot: {SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid).count()}
+        user_action_info: {UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).count()}
+        test_attempt_session: {TestAttemptSession.objects.filter(tenant_id=tenant_id, deleted=False, participant_id=user.uid).count()}
+        session_notes_recommendations_mentee: {SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user.uid).count()}
+        session_notes_recommendations_mentor: {SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user.uid).count()}
+        """
+        if remove_from_client:
+            deleted_msg += f"clients: {ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email).count()}"
+
+
+        logger.info(f"delete_list : {deleted_list}, deleted_msg: {deleted_msg}")
+        content = f"User: {user.name}- ({user.uid}) \n at => " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n" + "*"*20 + "User resources deleted." + "*"*20 + "<br/><br/>"
+        content += "deleted check: " + deleted_msg + "\n" 
+        send_email_with_html_template("User Resource Deletion",content)
+    except Exception as e:
+        logger.error({"Error":e}, exc_info=True)
+        error = f"Got Error: {e}"
+        error += "\n traceback: " + traceback.format_exc()
+        send_error_notification("delete user resources after client change" if not remove_from_client else "delete user resources from collab", error,{'user_uid':user_uid,'deleted_list': deleted_list,"deleted_confirmation": deleted_msg})
