@@ -3435,8 +3435,8 @@ def get_participant_info(participant: User):
         "name": get_user_display_name(participant),
         "role": participant.role,
         "skills_info": participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object)>0 else {},
-        "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0) if len(participant_skill_rating_object)>0 else {},
-        "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0) if len(participant_skill_rating_object)>0 else {}
+        "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0) if len(participant_skill_rating_object)>0 else 0,
+        "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0) if len(participant_skill_rating_object)>0 else 0
     }
 
     return participant_info
