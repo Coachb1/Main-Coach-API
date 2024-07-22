@@ -1,4 +1,4 @@
 # coach-api readme 
 
-The official Coachbots API
+The official Coachbots API repo update
 .
