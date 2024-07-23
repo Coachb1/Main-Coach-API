@@ -28,7 +28,8 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     mcq_path = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
-    snippet_url = serializers.CharField(required=False)
+    snippet_url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    question_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -52,6 +53,8 @@ class CreateTestSerializer(serializers.Serializer):
     title = serializers.CharField()
     description = serializers.CharField()
     email_address_list = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
+    test_code = serializers.CharField(
         required=False, default=None, allow_null=True, allow_blank=True)
     max_test_allowed = serializers.IntegerField(
         required=False, allow_null=True, default=None)
