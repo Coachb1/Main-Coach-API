@@ -2421,7 +2421,9 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if len(updated_fields)> 0:
                 client.save(update_fields=updated_fields)
 
-        return client
+
+        return ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,uid=client_data.get('client_id',None)).first()
+    
     else:
         client = create_client_id(
             tenant_id=tenant_id,
