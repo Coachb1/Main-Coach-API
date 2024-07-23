@@ -1938,7 +1938,7 @@ def add_or_remove_emails_from_client(client, field, user_email, remove=False):
         setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
         client.save(update_fields=[field])  # Save the changes to the specified field
 
-def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
+def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None, send_email=True):
     """
     Updates the membership of a user identified by their email across client records within a specific tenant.
     This function removes the user's email from an old client's member list and adds it to a new client's member list.
@@ -2020,42 +2020,43 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
         user_email=user_email,
     )
 
-    user = get_user_via_identity(
-        tenant=Tenant.objects.get(uid=tenant_id),
-        identity_type="deepchat_unique_id",
-        identity_value=user_email
-    )
-    user_name = user.name if user else "User"
+    if send_email:
+        user = get_user_via_identity(
+            tenant=Tenant.objects.get(uid=tenant_id),
+            identity_type="deepchat_unique_id",
+            identity_value=user_email
+        )
+        user_name = user.name if user else "User"
 
-    ## sending Welcome Message to user
-    subject = f"Welcome to Coachbots - Unleash Your Potential!"
-    html_content = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-                        <div style="margin: 15px;">
-                            <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                            <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
-                            <p>To get started, please take a moment to:</p>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 1: [Join the Network]</strong>
-                                <ul>
-                                    <li>Join as Coach/Mentor</li>
-                                    <li>Join as Coachee/Mentee</li>
-                                    <li>Join Feedback Network</li>
-                                </ul>
+        ## sending Welcome Message to user
+        subject = f"Welcome to Coachbots - Unleash Your Potential!"
+        html_content = f"""
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                            <div style="margin: 15px;">
+                                <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                <p>To get started, please take a moment to:</p>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 1: [Join the Network]</strong>
+                                    <ul>
+                                        <li>Join as Coach/Mentor</li>
+                                        <li>Join as Coachee/Mentee</li>
+                                        <li>Join Feedback Network</li>
+                                    </ul>
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
+                                </div>
+                                <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
+                                <p>Here's to your success!</p>
                             </div>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
-                            </div>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
-                            </div>
-                            <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
-                            <p>Here's to your success!</p>
-                        </div>
-                    </p>
-                    """
-    
-    send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
+                        </p>
+                        """
+        
+        send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
 
 
 
@@ -2409,7 +2410,8 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
                         tenant_id=tenant_id,
                         old_client_id=None,
                         new_client_id=client.uid,
-                        user_email=email
+                        user_email=email,
+                        send_email=False
                     )
 
             if client_data.get('allow_audio_interactions') is not None:
