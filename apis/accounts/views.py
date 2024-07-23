@@ -79,6 +79,12 @@ from django.core.cache import cache
 import time
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 
+import openpyxl
+import os
+from openpyxl.styles import Font
+from collections.abc import MutableMapping
+from django.http import HttpResponse
+
 logger = logging.getLogger(__name__)
 
 class AccountsViewSet(ApiViewSet,
@@ -3912,6 +3918,7 @@ class AccountsViewSet(ApiViewSet,
                 created_tests = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id=user.uid)
                 user_detail['simulations_created'] = created_tests.count()
                 
+                profile_specific_fields = []
                 if profile:
                     user_detail['approval_status'] = profile.is_approved
                     coacheeconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
@@ -3938,11 +3945,7 @@ class AccountsViewSet(ApiViewSet,
                 
                 
             data = user_details
-            import openpyxl
-            import os
-            from openpyxl.styles import Font
-            from collections.abc import MutableMapping
-            from django.http import HttpResponse
+
 
             def flatten_dict(d, parent_key='', sep='_'):
                 items = []
@@ -3954,9 +3957,9 @@ class AccountsViewSet(ApiViewSet,
                         items.append((new_key, v))
                 return dict(items)
 
-
+            # Client ID, Date created, user Name, Email ID, Profile Type, Connections, Intake form data, Report links.
             # Define the specific fields to keep first in order
-            specific_fields = ["client_id", "intake_date", "details_user_email", "details_user_type"]
+            specific_fields = ["client_id", "intake_date","intake_data_name","user_email","user_type","connections_count", "details_user_email", "details_user_type"]
 
             # Flatten each dictionary in the list
             flattened_data = [flatten_dict(item) for item in data]
