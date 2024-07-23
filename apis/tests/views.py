@@ -13,7 +13,7 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
-from tests.helpers import (create_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
+from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios)
 from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion
 from users.permissions import IsAuthenticatedUser
@@ -47,7 +47,8 @@ logger = logging.getLogger(__name__)
 
 class TestViewSet(ApiViewSet,
                   mixins.ListModelMixin,
-                  mixins.RetrieveModelMixin):
+                  mixins.RetrieveModelMixin,
+                  mixins.UpdateModelMixin):
     """
     This code defines a class called `TestViewSet` which is a viewset for handling API requests related to tests. It includes various methods for creating, retrieving, and manipulating test data.
 
@@ -114,13 +115,41 @@ class TestViewSet(ApiViewSet,
         if serializer.validated_data["creator_id"] is None:
             serializer.validated_data["creator_id"] = request.auth_user.uid
 
-        test, test_questions = create_test(
-            tenant=request.tenant,
-            **serializer.validated_data
-        )
+
+        if serializer.validated_data.get('test_code'):
+            test, test_questions = update_test(
+                tenant=request.tenant,
+                **serializer.validated_data
+            )
+
+        else:
+
+            test, test_questions = create_test(
+                tenant=request.tenant,
+                **serializer.validated_data
+            )
 
         return Response(self.serializer_class(instance=test).data, status=status.HTTP_201_CREATED)
 
+    @action(methods=["PATCH"], detail=True, url_path="update-test")
+    def update_test(self, request, *args, **kwargs):
+        """
+        Partially updates an existing test based on the provided data.
+        """
+        serializer = CreateTestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        print(serializer.validated_data)
+
+        if serializer.validated_data["creator_id"] is None:
+            serializer.validated_data["creator_id"] = request.auth_user.uid
+
+        test, test_questions = update_test(
+            tenant=request.tenant,
+            **serializer.validated_data
+        )
+ 
+        return Response(self.serializer_class(instance=test).data, status=status.HTTP_200_OK)
+    
     @action(methods=["GET"], detail=True, url_path="flash-cards")
     def get_test_flash_cards(self, request, *args, **kwargs):
         test = self.get_object()
