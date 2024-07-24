@@ -130,18 +130,26 @@ def get_client_info_from_user_detail(tenant_id, email = None, user_uid = None):
         return None
     
     def get_client_from_email(email):
-        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=email).first()
-        return client
+        try:
+            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=email).first()
+            return client
+        except Exception as e:
+            logger.exception("get client from email failed: %s", e)
+            return None
     
     if email:
         return get_client_from_email(email)
     
     if user_uid:
-        user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_uid).attributes.get('email',None)
-        if not user_email:
+        try:
+            user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_uid).attributes.get('email',None)
+            if not user_email:
+                return None
+            
+            return get_client_from_email(user_email)
+        except Exception as e:
+            logger.exception("get user email failed: %s", e)
             return None
-        
-        return get_client_from_email(user_email)
     
 
 def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):

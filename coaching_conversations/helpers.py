@@ -885,7 +885,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         elif signature_bot.bot_type == BotTypeChoice.deep_dive:
             if signature_bot.data:
                 bot_title = signature_bot.data.get('bot_title')
-                bot_objective = signature_bot.data.get('bot_objective')
+                bot_objective = signature_bot.data.get('bot_context')
                 logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
                 prompt = Template(prompt).substitute(
@@ -1128,7 +1128,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         elif signature_bot.bot_type == BotTypeChoice.deep_dive:
             if signature_bot.data:
                 bot_title = signature_bot.data.get('bot_title')
-                bot_objective = signature_bot.data.get('bot_objective')
+                bot_objective = signature_bot.data.get('bot_context')
                 logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
                 prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.deep_dive)).substitute(
@@ -1938,7 +1938,7 @@ def add_or_remove_emails_from_client(client, field, user_email, remove=False):
         setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
         client.save(update_fields=[field])  # Save the changes to the specified field
 
-def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None):
+def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None, send_email=True):
     """
     Updates the membership of a user identified by their email across client records within a specific tenant.
     This function removes the user's email from an old client's member list and adds it to a new client's member list.
@@ -2020,42 +2020,43 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
         user_email=user_email,
     )
 
-    user = get_user_via_identity(
-        tenant=Tenant.objects.get(uid=tenant_id),
-        identity_type="deepchat_unique_id",
-        identity_value=user_email
-    )
-    user_name = user.name if user else "User"
+    if send_email:
+        user = get_user_via_identity(
+            tenant=Tenant.objects.get(uid=tenant_id),
+            identity_type="deepchat_unique_id",
+            identity_value=user_email
+        )
+        user_name = user.name if user else "User"
 
-    ## sending Welcome Message to user
-    subject = f"Welcome to Coachbots - Unleash Your Potential!"
-    html_content = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-                        <div style="margin: 15px;">
-                            <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                            <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
-                            <p>To get started, please take a moment to:</p>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 1: [Join the Network]</strong>
-                                <ul>
-                                    <li>Join as Coach/Mentor</li>
-                                    <li>Join as Coachee/Mentee</li>
-                                    <li>Join Feedback Network</li>
-                                </ul>
+        ## sending Welcome Message to user
+        subject = f"Welcome to Coachbots - Unleash Your Potential!"
+        html_content = f"""
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                            <div style="margin: 15px;">
+                                <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                <p>To get started, please take a moment to:</p>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 1: [Join the Network]</strong>
+                                    <ul>
+                                        <li>Join as Coach/Mentor</li>
+                                        <li>Join as Coachee/Mentee</li>
+                                        <li>Join Feedback Network</li>
+                                    </ul>
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
+                                </div>
+                                <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
+                                <p>Here's to your success!</p>
                             </div>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
-                            </div>
-                            <div style="margin-bottom: 10px;">
-                                <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
-                            </div>
-                            <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
-                            <p>Here's to your success!</p>
-                        </div>
-                    </p>
-                    """
-    
-    send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
+                        </p>
+                        """
+        
+        send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
 
 
 
@@ -2246,6 +2247,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "widget_access_code": client.widget_access_code,
         "allow_paste_answer": client.allow_paste_answer,
         'help_text': client.help_text or get_default_help_text(),
+        "send_profile_for_reapproval": client.send_profile_for_reapproval
 
     }
     user_info['user_id'] = user_account.uid
@@ -2344,7 +2346,63 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if client_data.get('accessed_bot_ids') != None:
                 client.accessed_bot_ids= client_data.get('accessed_bot_ids')
                 updated_fields.append('accessed_bot_ids')
-                
+
+            if client_data.get('make_new_user_in_trail') is not None:
+                client.make_new_user_in_trail = client_data.get('make_new_user_in_trail')
+                updated_fields.append('make_new_user_in_trail')
+
+            if client_data.get('heading'):
+                client.heading = client_data.get('heading')
+                updated_fields.append('heading')
+
+            if client_data.get('sub_heading'):
+                client.sub_heading = client_data.get('sub_heading')
+                updated_fields.append('sub_heading')
+
+            if client_data.get('tag_line'):
+                client.tag_line = client_data.get('tag_line')
+                updated_fields.append('tag_line')
+
+            if client_data.get('ui_information'):
+                client.ui_information = client_data.get('ui_information')
+                updated_fields.append('ui_information')
+
+            if client_data.get('widget_access_code'):
+                client.widget_access_code = client_data.get('widget_access_code')
+                updated_fields.append('widget_access_code')
+
+            if client_data.get('help_text'):
+                client.help_text = client_data.get('help_text')
+                updated_fields.append('help_text')
+
+            if client_data.get('allow_paste_answer') is not None:
+                client.allow_paste_answer = client_data.get('allow_paste_answer')
+                updated_fields.append('allow_paste_answer')
+
+            if client_data.get('webhook_url'):
+                client.webhook_url = client_data.get('webhook_url')
+                updated_fields.append('webhook_url')
+
+            if client_data.get('webhook_secret'):
+                client.webhook_secret = client_data.get('webhook_secret')
+                updated_fields.append('webhook_secret')
+
+            if client_data.get('webhook_token'):
+                client.webhook_token = client_data.get('webhook_token')
+                updated_fields.append('webhook_token')
+
+            if client_data.get('webhook_enabled') is not None:
+                client.webhook_enabled = client_data.get('webhook_enabled')
+                updated_fields.append('webhook_enabled')
+
+            if client_data.get('excluded_users'):
+                client.excluded_users = client_data.get('excluded_users')
+                updated_fields.append('excluded_users')
+
+            if client_data.get('use_skills_from_skill_bank') is not None:
+                client.use_skills_from_skill_bank = client_data.get('use_skills_from_skill_bank')
+                updated_fields.append('use_skills_from_skill_bank')  
+
             if client_data.get('member_emails'):
                 emails = [email.strip() for email in client_data.get('member_emails').split(',') if len(email) > 0]
                 for email in emails:
@@ -2352,7 +2410,8 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
                         tenant_id=tenant_id,
                         old_client_id=None,
                         new_client_id=client.uid,
-                        user_email=email
+                        user_email=email,
+                        send_email=False
                     )
 
             if client_data.get('allow_audio_interactions') is not None:
@@ -2362,23 +2421,39 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if len(updated_fields)> 0:
                 client.save(update_fields=updated_fields)
 
-        return client
+
+        return ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,uid=client_data.get('client_id',None)).first()
+    
     else:
         client = create_client_id(
             tenant_id=tenant_id,
-            client_name=client_data.get('client_name',None),
-            domain=client_data.get('domain_name',None),
-            demo_ids= client_data.get('demo_ids',None),
-            restricted_features= client_data.get('restricted_features',None),
-            restricted_ids=client_data.get('restricted_ids',None),
-            restricted_pages=client_data.get('restricted_pages',None),
-            allowed_ips= client_data.get('allowed_ips',None),
-            coach_expertise=client_data.get('coach_expertise',None),
-            coach_skills=client_data.get("coach_skills",None),
-            departments= client_data.get('departments',None),
-            accessed_bot_ids= client_data.get('accessed_bot_ids',None),
-            member_emails= client_data.get('member_emails',None),
-            allow_audio_interactions= client_data.get('allow_audio_interactions',None)
+            client_name=client_data.get('client_name', None),
+            domain=client_data.get('domain_name', None),
+            demo_ids=client_data.get('demo_ids', None),
+            restricted_features=client_data.get('restricted_features', None),
+            restricted_ids=client_data.get('restricted_ids', None),
+            restricted_pages=client_data.get('restricted_pages', None),
+            allowed_ips=client_data.get('allowed_ips', None),
+            coach_expertise=client_data.get('coach_expertise', None),
+            coach_skills=client_data.get('coach_skills', None),
+            departments=client_data.get('departments', None),
+            accessed_bot_ids=client_data.get('accessed_bot_ids', None),
+            member_emails=client_data.get('member_emails', None),
+            allow_audio_interactions=client_data.get('allow_audio_interactions', None),
+            make_new_user_in_trail=client_data.get('make_new_user_in_trail', None),
+            heading=client_data.get('heading', None),
+            sub_heading=client_data.get('sub_heading', None),
+            tag_line=client_data.get('tag_line', None),
+            ui_information=client_data.get('ui_information', None),
+            widget_access_code=client_data.get('widget_access_code', None),
+            help_text=client_data.get('help_text', None),
+            allow_paste_answer=client_data.get('allow_paste_answer', None),
+            webhook_url=client_data.get('webhook_url', None),
+            webhook_secret=client_data.get('webhook_secret', None),
+            webhook_token=client_data.get('webhook_token', None),
+            webhook_enabled=client_data.get('webhook_enabled', None),
+            excluded_users=client_data.get('excluded_users', None),
+            use_skills_from_skill_bank=client_data.get('use_skills_from_skill_bank', None)
         )
     return client
 
@@ -2399,7 +2474,21 @@ def create_client_id(
         coach_expertise=None,
         accessed_bot_ids=None,
         member_emails=None,
-        allow_audio_interactions=None
+        allow_audio_interactions=None,
+        make_new_user_in_trail=None,
+        heading=None,
+        sub_heading=None,
+        tag_line=None,
+        ui_information=None,
+        widget_access_code=None,
+        help_text=None,
+        allow_paste_answer=None,
+        webhook_url=None,
+        webhook_secret=None,
+        webhook_token=None,
+        webhook_enabled=None,
+        excluded_users=None,
+        use_skills_from_skill_bank=None,
         ):
     
 
@@ -2438,9 +2527,52 @@ def create_client_id(
     if accessed_bot_ids:
         client.accessed_bot_ids= accessed_bot_ids
         updated_fields.append('accessed_bot_ids')
-    if allow_audio_interactions:
+    if allow_audio_interactions != None:
         client.allow_audio_interactions = allow_audio_interactions
         updated_fields.append('allow_audio_interactions')
+
+    if make_new_user_in_trail != None:
+        client.make_new_user_in_trail = make_new_user_in_trail
+        updated_fields.append('make_new_user_in_trail')
+    if heading:
+        client.heading=heading
+        updated_fields.append('heading')
+    if sub_heading:
+        client.sub_heading=sub_heading
+        updated_fields.append('sub_heading')
+    if tag_line:
+        client.tag_line=tag_line
+        updated_fields.append('tag_line')
+    if ui_information:
+        client.ui_information=ui_information
+        updated_fields.append('ui_information')
+    if widget_access_code:
+        client.widget_access_code=widget_access_code
+        updated_fields.append('widget_access_code')
+    if help_text:
+        client.help_text=help_text
+        updated_fields.append('help_text')
+    if allow_paste_answer != None:
+        client.allow_paste_answer = allow_paste_answer
+        updated_fields.append('allow_paste_answer')
+    if webhook_url:
+        client.webhook_url=webhook_url
+        updated_fields.append('webhook_url')
+    if webhook_secret:
+        client.webhook_secret=webhook_secret
+        updated_fields.append('webhook_secret')
+    if webhook_token:
+        client.webhook_token=webhook_token
+        updated_fields.append('webhook_token')
+    if webhook_enabled != None:
+        client.webhook_enabled=webhook_enabled
+        updated_fields.append('webhook_enabled')
+    if excluded_users:
+        client.excluded_users=excluded_users
+        updated_fields.append('excluded_users')
+    if use_skills_from_skill_bank != None:
+        client.use_skills_from_skill_bank=use_skills_from_skill_bank
+        updated_fields.append('use_skills_from_skill_bank')
 
     if member_emails:
         emails = [email.strip() for email in member_emails.split(',') if len(email) > 0]
@@ -2535,7 +2667,7 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
                         A new user, <b>{user.name}</b>, with email <b>{email}</b>, has recently signed up for a trial of our platform. Please reach out to them to offer assistance or guidance.
                         </p>
                         """
-        send_email_with_html_template(subject=subject,html_content=html_content)
+        send_email_with_html_template(subject=subject,html_content=html_content,to_email='info@coachbots.com')
 
     return client.client_name if client else None
 

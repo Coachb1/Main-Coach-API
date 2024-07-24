@@ -33,7 +33,7 @@ class StartWithUserFilter(admin.SimpleListFilter):
 class TestAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
     list_display = ('uid','test_code','title','test_type','scenario_case','interaction_mode','deleted','calculate_culture', 'start_with_user')
-    search_fields = ('test_code','title')
+    search_fields = ('test_code','title','uid')
     list_editable = ('deleted','calculate_culture')
     list_filter = ('tenant_id','test_type','scenario_case','calculate_culture','interaction_mode',StartWithUserFilter)
     
@@ -45,7 +45,7 @@ class TestAdmin(ExportActionMixin, admin.ModelAdmin):
 class TestQuestionAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
     list_display = ('uid','test_id','question_number','question','question_for','deleted')
-    search_fields = ('test_id',)
+    search_fields = ('test_id','uid')
     list_editable = ('deleted',)
     list_filter = ('tenant_id','test_id')
 

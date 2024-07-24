@@ -758,6 +758,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
         bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
+        logger.info(f"************** user_email: {user_email}, bot_owner_email: {bot_owner_email}")
 
         try:
             coachee_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,user_id=test_attempt_session.participant_id, tenant_id=request.tenant.uid)
@@ -812,7 +813,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
-        recepients = [submitted_email,"coachbots@googlegroups.com"]
+        recepients = [submitted_email]
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
@@ -830,6 +831,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
             candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
+            if candidate_name.lower().strip() != "anonymous user":
+                candidate_name = f"{candidate_name} ({submitted_email})"
             send_bot_conversation_email( 
                 candidate_name=candidate_name, 
                 conversation=conv, 
@@ -938,7 +941,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if user_email == 'Anonymous User':
                     candidate_name = "Anonymous User"
 
-                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true')
+                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true', candidate_email=user_email)
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})

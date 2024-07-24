@@ -88,6 +88,7 @@ class Test(TenantAwareModel):
     web_page_url = models.CharField(max_length=500, null=True, blank=True, default=None)
     sub_tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
     calculate_culture = models.BooleanField(default=True, null=True)
+    snippet_url = models.CharField(max_length=500, null=True, blank=True, default=None)
 
 
 
@@ -121,6 +122,7 @@ class TestQuestion(TenantAwareModel):
     flash_card_doc_id = models.TextField(null=True, blank=True, default=None)
     loader_wait_text = models.TextField(null=True, blank=True, default=None)
     mcq_path = models.TextField(null=True, blank=True,default=None)
+    snippet_url = models.TextField(null=True, blank=True,default=None)
 
     class Meta:
         db_table = "test_question"
