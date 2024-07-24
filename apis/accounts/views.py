@@ -20,7 +20,7 @@ from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer, CoachCoacheeConnectionSerializer
 from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer,
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
-                                        CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer,)
+                                        CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer, LLMMappingSerializer)
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -49,7 +49,7 @@ from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
-from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
+from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable
 from commons.utils import extract_file_and_text, get_list_from_string
                     
 from itertools import groupby
@@ -400,6 +400,10 @@ class AccountsViewSet(ApiViewSet,
         data['is_private'] = signature_bot.is_private
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
+
+        llms = LLMMappingTable.objects.filter(deleted=False, bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id).first()
+        if llms:
+            data['selected_llms'] = LLMMappingSerializer(llms).data
 
         if client:
             data["allowed_ips"] = client.allowed_ips
