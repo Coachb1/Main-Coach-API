@@ -12,6 +12,11 @@ class StatusChoice(DjangoChoices):
     available = ChoiceItem("available")
     booked = ChoiceItem("booked")
 
+class LLMChoice(DjangoChoices):
+    gpt = ChoiceItem("gpt")
+    anthropic = ChoiceItem("anthropic")
+    gemini = ChoiceItem("gemini")
+
 
 class ProfileTypeChoice(DjangoChoices):
     coach = ChoiceItem("coach")
