@@ -1,6 +1,6 @@
 from django.db import models
 from tenants.models import TenantAwareModel
-from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice
+from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice, LLMChoice
 from utilities.choices import UserCanJoinAsChoices
 
 class JotUrlSession(models.Model):
@@ -203,3 +203,15 @@ class EmailSentDetails(TenantAwareModel):
 
     class Meta:
         db_table = "email_sent_details"
+
+
+# Table to store llm name to be used in different sections
+class LLMMappingTable(TenantAwareModel):
+    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
+    llm1 = models.CharField(max_length=255,null=True,blank=True,choices=LLMChoice,default=LLMChoice.gemini)
+    llm2 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.anthropic)
+    llm3 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.gpt)
+
+    class Meta:
+        db_table = "llm_mapping_table"
+        unique_together = ('bot_type', 'tenant_id')
