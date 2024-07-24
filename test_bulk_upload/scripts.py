@@ -13,6 +13,7 @@ from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
+from tests.models import Test, TestQuestion
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -92,6 +93,9 @@ USER_EMAIL = 'User Email'
 COMPETENCY_SKILLS= 'Competency Skill'
 RESPONDER = "Responder"
 CALCULATE_CULTURE = "Calculate Culture"
+TEST_SNIPPET_LINK = "Test Snippet Link"
+QUE_SNIPPET_LINK = "Que Snippet Link"
+TEST_CODE = "Test Code"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -203,6 +207,12 @@ def format_test_orchestrated_conversation(raw_data):
     try:
         input_dict = json.loads(raw_data)
 
+        test = None
+        if TEST_CODE in input_dict and len(input_dict[TEST_CODE].strip()) > 0:
+            test = Test.objects.filter(test_code = input_dict[TEST_CODE].strip()).first()
+            if not test:
+                return {"error": f"Test code not found to update : {input_dict[TEST_CODE].strip()}"}, False
+            
         output_dict = {
             "creator_id": None,
             "title": input_dict['Title'],
@@ -215,6 +225,9 @@ def format_test_orchestrated_conversation(raw_data):
             "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
             "questions": [],
         }
+
+        if test:
+            output_dict['test_code'] = test.test_code
         media_json = {}
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
             image_link = input_dict[TEST_IMAGE_LINK].strip()
@@ -294,6 +307,10 @@ def format_test_orchestrated_conversation(raw_data):
         if SUB_TAB_CATEGORY in input_dict:
             if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
                 output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
+
+        if TEST_SNIPPET_LINK in input_dict:
+            if input_dict[TEST_SNIPPET_LINK] and len(input_dict[TEST_SNIPPET_LINK].strip()) > 0 :
+                output_dict['snippet_url'] = input_dict[TEST_SNIPPET_LINK].strip().capitalize()
 
         if 'tab_category' not in output_dict:
             if COMPETENCY_SKILLS in input_dict:
@@ -505,12 +522,13 @@ def format_test_orchestrated_conversation(raw_data):
 
         candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
 
-        if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
+        if SKILLS_TO_EVALUATE in input_dict:
+            if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
 
-            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-            skill_list = [skill.strip().capitalize() for skill in skill_list]
-            skill_list = ','.join(skill_list)
-            output_dict["skills_to_evaluate"] = skill_list
+                skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+                skill_list = [skill.strip() for skill in skill_list]
+                skill_list = ','.join(skill_list)
+                output_dict["skills_to_evaluate"] = skill_list
         else:
 
             # saving skills_to_evaluate from backend only
@@ -519,7 +537,7 @@ def format_test_orchestrated_conversation(raw_data):
                 candidate_type = 'Manager'
             skills_list_candidate = set()
             for item in get_skills(candidate_type):
-                skills_list_candidate.add(item.capitalize())
+                skills_list_candidate.add(item)
 
             evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
             evaluation_skill_list = ','.join(evaluation_skill_list)
@@ -559,6 +577,12 @@ def format_test_orchestrated_conversation(raw_data):
                 
         output_dict['orchestrated_conversation_details'] = orchestrated_conversation_details
         logger.info(f"<<<<<<<<Input Dict: {input_dict}>>>>>>>>>")
+        
+        question_to_update = None
+        if test:
+            question_to_update = TestQuestion.objects.filter(test_id=test.uid).order_by('question_number').values_list('question_number','uid')
+            question_to_update = {str(question_number): uid for question_number, uid in question_to_update}
+
         for key in input_dict:
             if key.isdigit():
                 question = {
@@ -567,6 +591,9 @@ def format_test_orchestrated_conversation(raw_data):
                     "gpt_prompt_override": "",
                     "subjective_answer": ""
                 }
+                if question_to_update:
+                    print(question_to_update[f"{int(key)+1}"],question_to_update)
+                    question['question_id'] = question_to_update[f"{int(key)+1}"]
                 # if "Please respond in order to continue" in input_dict[key]:
                 #     question['question_for'] = "user"
 
@@ -607,6 +634,8 @@ def format_test_orchestrated_conversation(raw_data):
         output_dict['is_micro'] = False if ((len(output_dict.get('questions')) + 1) / 2) > 3 else True
         output_dict['total_question'] = len(output_dict.get('questions'))
 
+
+        print(output_dict)
         output_json = json.dumps(output_dict)
 
         return output_json, check_pass
@@ -692,6 +721,13 @@ def format_test_data_slack(raw_data,tenant):
     try:
         input_dict = json.loads(raw_data)
 
+        test = None
+        if TEST_CODE in input_dict and len(input_dict[TEST_CODE].strip())>0:
+            test = Test.objects.filter(test_code=input_dict[TEST_CODE].strip()).first()
+            if not test:
+                return {"error": f"Test code not found : {input_dict[TEST_CODE]}"}, False
+            
+
         output_dict = {
             "creator_id": None,
             "title": input_dict[TITLE],
@@ -703,6 +739,9 @@ def format_test_data_slack(raw_data,tenant):
             "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
             "questions": [],
         }
+
+        if test:
+            output_dict['test_code'] = test.test_code
         media_json = {}
 
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
@@ -882,6 +921,10 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[SUB_TAB_CATEGORY] and len(input_dict[SUB_TAB_CATEGORY].strip()) > 0 :
                 output_dict['sub_tab_category'] = input_dict[SUB_TAB_CATEGORY].strip().capitalize()
 
+        if TEST_SNIPPET_LINK in input_dict:
+            if input_dict[TEST_SNIPPET_LINK] and len(input_dict[TEST_SNIPPET_LINK].strip()) > 0 :
+                output_dict['snippet_url'] = input_dict[TEST_SNIPPET_LINK].strip().capitalize()
+
         if 'tab_category' not in output_dict:
             if COMPETENCY_SKILLS in input_dict:
                 if input_dict[COMPETENCY_SKILLS] and len(input_dict[COMPETENCY_SKILLS].strip()) > 0 :
@@ -922,15 +965,15 @@ def format_test_data_slack(raw_data,tenant):
             if key.startswith(KLS):
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
-                    skills_list.add(skill.strip().capitalize())
+                    skills_list.add(skill.strip())
             elif key.startswith('Skill'):    # for mcq type of test
                 temp_skills = input_dict[key].split(',')
                 for skill in temp_skills:
-                    skills_list.add(skill.strip().capitalize())
+                    skills_list.add(skill.strip())
         skills_list = list(skills_list)
 
         # mismatch skill logic
-        defined_skills_list = [ skill['name'].strip().capitalize() for skill in pre_defined_skills ]
+        defined_skills_list = [ skill['name'].strip().lower() for skill in pre_defined_skills ]
 
 
         use_skills_fron_skill_bank = False
@@ -943,7 +986,7 @@ def format_test_data_slack(raw_data,tenant):
         if use_skills_fron_skill_bank:
             unmatched_skills = []
             for skills in skills_list:
-                if skills not in defined_skills_list:
+                if skills.lower() not in defined_skills_list:
                     unmatched_skills.append(skills)
 
             if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
@@ -972,9 +1015,9 @@ def format_test_data_slack(raw_data,tenant):
                         candidate_type = 'Manager'
                     skills_list_candidate = set()
                     for item in get_skills(candidate_type):
-                        skills_list_candidate.add(item.capitalize())
+                        skills_list_candidate.add(item.lower())
                     skills_list_candidate = list(skills_list_candidate)
-                    if sorted(skills_list_candidate) == sorted(skills_list):
+                    if sorted(skills_list_candidate) == sorted([i.lower() for i in skills_list]):
                         check_pass = True
 
         skills_list = ','.join(skills_list)
@@ -1056,6 +1099,11 @@ def format_test_data_slack(raw_data,tenant):
             else:
                 output_dict['max_test_allowed'] = None
 
+        question_to_update = None
+        if test:
+            question_to_update = TestQuestion.objects.filter(test_id=test.uid).order_by('question_number').values_list('question_number','uid')
+            question_to_update = {str(question_number): uid for question_number, uid in question_to_update}
+
         for key in input_dict:
             if key.startswith(QUESTION):
                 question = {
@@ -1067,12 +1115,20 @@ def format_test_data_slack(raw_data,tenant):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
+                if question_to_update:
+                    print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
+                    question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
+
                 if input_dict[SCENARIO_CASE] == 'process_training' or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
                 if f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key[len(QUESTION) + 1:]}", '')
+
+                if f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["snippet_url"] = input_dict.get(f"{QUE_SNIPPET_LINK} {key[len(QUESTION) + 1:]}", '')
+
                 if f"{ANSWER} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{ANSWER} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["mcq_answer"] = input_dict.get(f"{ANSWER} {key[len(QUESTION) + 1:]}", '') # here I am using mcq_answer as correct answer
 
@@ -1171,6 +1227,8 @@ def format_test_data_slack(raw_data,tenant):
 
                     if f"{MEDIA_LINK} {key_name}" in input_dict and len(input_dict[f"{MEDIA_LINK} {key_name}"]) > 0:
                         question["media_link"] = input_dict.get(f"{MEDIA_LINK} {key_name}", '')
+                    if f"{QUE_SNIPPET_LINK} {key_name}" in input_dict and len(input_dict[f"{QUE_SNIPPET_LINK} {key_name}"]) > 0:
+                        question["snippet_url"] = input_dict.get(f"{QUE_SNIPPET_LINK} {key_name}", '')
 
                     output_dict["questions"].append(question)
         print(media_json)      
@@ -1202,6 +1260,7 @@ def format_test_data_slack(raw_data,tenant):
 
                 output_dict["questions"].append(question)
 
+        print('output_dict',output_dict)
         output_json = json.dumps(output_dict)
 
         return output_json, check_pass
@@ -1399,6 +1458,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                      INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
+    is_update = False
 
     if access_token:
         logger.info("Login successful")
@@ -1447,6 +1507,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             # Call the API for all valid rows
             for row_data in valid_rows:
                 # logger.info(row_data)
+                is_update = True if TEST_CODE in row_data.keys() and len(row_data[TEST_CODE].strip())> 0 else False
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
@@ -1471,7 +1532,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         logger.info("[Response Received]\n")
 
                         row_data = json.loads(raw_data)
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
                                                 ] = response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
@@ -1481,7 +1542,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     except Exception as e:
                         logger.error(e)
                         return {
-                            "errors": [f"Error occurred; Could not create tests {e.args}"],
+                            "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"],
                             "exception": True,
                             "response": response
                         }
@@ -1518,9 +1579,9 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                                             
                     else:
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                                ] = "Not Created For This Title Because of it is not suiatable for checkin type test"
+                                                ] = "Not updated For This Title Because of it is not suiatable for checkin type test" if is_update else "Not Created For This Title Because of it is not suiatable for checkin type test"
                     
-                        occured_errors.append("Not Created For This Title Because of it is not suiatable for checkin type test")
+                        occured_errors.append("Not updated For This Title Because of it is not suiatable for checkin type test" if is_update else "Not Created For This Title Because of it is not suiatable for checkin type test")
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1542,7 +1603,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             print('occured', len(occured_errors))
             if len(occured_errors)> 0:
                 return {
-                "message": "Test created successfully",
+                "message": "Test updated successfully" if is_update else "Test created successfully",
                 'errors': occured_errors,
                 "exception": True,
                 'file_response': file_response,
@@ -1550,7 +1611,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             else:
                 return {
                     "success": True,
-                    "message": "Test created successfully",
+                    "message": "Test updated successfully" if is_update else "Test created successfully",
                     'errors': [],
                     'file_response': file_response,
                 }
@@ -1558,7 +1619,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
         except Exception as e:
             logger.exception(e)
             return {
-                "errors": [f"Error occurred; Could not create tests {e.args}"],
+                "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,
             }
     else:
@@ -1616,6 +1677,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                      SCENARIO_CASE, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
 
     access_token = login_slack(email, password, subdomain_prefix)
+    is_update = False
 
     if access_token:
         logger.info("Login successful")
@@ -1655,6 +1717,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             for row_data in valid_rows:
 
                 # logger.info(row_data)
+                is_update = True if TEST_CODE in row_data and len(row_data[TEST_CODE])> 0 else False
                 raw_data = json.dumps(row_data)
                 # Format the data as per the API requirements
                 # Sending the creator_id as a parameter change it later
@@ -1679,7 +1742,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         logger.info("[Response Received]\n")
 
                         row_data = json.loads(raw_data)
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
                                                 ] = response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
@@ -1689,7 +1752,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     except Exception as e:
                         logger.exception(e)
                         return {
-                            "errors": [f"Error occurred; Could not create tests {e.args}"],
+                            "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"] ,
                             "exception": True,
                             "response": response
                         }
@@ -1716,10 +1779,10 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         #     "exception": True,
                         # }
                     else:
-                        occured_errors.append("Not Created For This Title, Reason: Check-in type")
+                        occured_errors.append("Not updated For This Title, Reason: Check-in type" if is_update else "Not Created For This Title, Reason: Check-in type")
 
                         test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
-                                                ] = "Not Created For This Title, Reason: Check-in type"
+                                                ] = "Not updated For This Title, Reason: Check-in type" if is_update else "Not Created For This Title, Reason: Check-in type"
                     cnt += 1
 
             logger.info(f"Total successful records created: {record_created}")
@@ -1741,7 +1804,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             print('occured', len(occured_errors))
             if len(occured_errors)> 0:
                 return {
-                "message": "Test created successfully",
+                "message": "Test updated successfully" if is_update else "Test created successfully",
                 'errors': occured_errors,
                 "exception": True,
                 'file_response': file_response,
@@ -1749,7 +1812,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             else:
                 return {
                     "success": True,
-                    "message": "Test created successfully",
+                    "message": "Test updated successfully" if is_update else "Test created successfully",
                     'errors': [],
                     'file_response': file_response,
                 }
@@ -1757,7 +1820,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
         except Exception as e:
             logger.error(e)
             return {
-                "errors": [f"Error occurred; Could not create tests {e.args}"],
+                "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"],
                 "exception": True,
             }
     else:

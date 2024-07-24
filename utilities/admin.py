@@ -1,9 +1,11 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP, ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge
+from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP ,\
+        ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
+from django.utils.translation import gettext_lazy as _
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
@@ -13,6 +15,9 @@ from users.db import get_user_attribute,get_user_by_id,get_user_display_name
 from users.choices import ProfileTypeChoice
 import logging
 from commons.cache_utils import  reset_cache_with_prefix
+from users.models import ClientUserInfo
+from users.helpers import get_client_info_from_user_detail
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +31,80 @@ class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
     search_fields = ('id', 'subject','status','sent_by', 'is_sent')
     list_filter = ('is_sent',)
 
+class ClientNameFilter(admin.SimpleListFilter):
+    title = _('Client Name')
+    parameter_name = 'client_name'
+
+    def lookups(self, request, model_admin):
+        # Generate the list of client names to filter by
+        client_names = set()
+        # for obj in model_admin.model.objects.all():
+        #     profile = CoachCoacheeMentorMenteeProfile.objects.filter(uid=obj.profile_id).first()
+        #     if profile:
+        #         client_name = get_client_info_from_user_detail(
+        #                                                         tenant_id=profile.tenant_id,
+        #                                                         user_uid=profile.user_id
+        #                                                        )
+        #         if client_name:
+        #             client_names.add((client_name.client_name, client_name.client_name))
+        clients = set(ClientUserInfo.objects.all().values_list('client_name',flat=True))
+        for client_name in clients:
+            client_names.add((client_name, client_name))
+        return sorted(client_names)
+
+    def queryset(self, request, queryset):
+        if self.value():
+            client = ClientUserInfo.objects.filter(client_name=self.value()).first()
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(email__in=client.member_emails.split(",") if client else [])
+            return queryset.filter(profile_id__in=list(profiles.values_list('uid',flat=True)))
+        return queryset
+
 class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
-    list_filter = ('profile_type',"expertise",'status','department','is_visible',"is_approved")
-    search_fields = ('name',"profile_type","bot_type","department","is_approved","is_visible","expertise","avatar_bot_id","custom_user_bot_id")
-    list_editable = ('name','profile_type',"bot_type","skills","avatar_bot_id","avatar_bot_url","expertise","avatar_snippit","feedback_wall",'custom_user_bot_url','custom_user_bot_id', 'department','description','timer_enabled','time_value_in_days','timer_reset','visual_tag','ai_email','is_visible',"is_approved")
+    list_display = (
+        'id', 'client_name','name','description','profile_type', 'bot_type', 'skills', 'avatar_bot_id', 'avatar_bot_url',
+        'expertise', 'avatar_snippit', 'feedback_wall', 'custom_user_bot_url', 'custom_user_bot_id',
+        'department', 'timer_enabled', 'time_value_in_days', 'timer_reset',
+        'visual_tag', 'ai_email', 'is_visible', 'is_approved'
+    )
+    list_filter = (
+        ClientNameFilter, 'profile_type', 'expertise', 'status', 'department', 'is_visible', 'is_approved'
+    )
+    search_fields = (
+        'name', 'profile_type', 'bot_type', 'department', 'is_approved', 'is_visible',
+        'expertise', 'avatar_bot_id', 'custom_user_bot_id', 'client_name'
+    )
+    list_editable = (
+        'name', 'profile_type', 'bot_type', 'skills', 'avatar_bot_id', 'avatar_bot_url',
+        'expertise', 'avatar_snippit', 'feedback_wall', 'custom_user_bot_url', 'custom_user_bot_id',
+        'department', 'description', 'timer_enabled', 'time_value_in_days', 'timer_reset',
+        'visual_tag', 'ai_email', 'is_visible', 'is_approved'
+    )
     ordering = ['-id']
+
+    def client_name(self, obj):
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(uid=obj.profile_id).first()
+        client_name = None
+        if profile:
+            client = get_client_info_from_user_detail(tenant_id=profile.tenant_id,
+                                                    user_uid=profile.user_id
+                                                    )
+            client_name = client.client_name if client else None
+        return client_name
+
+    client_name.short_description = 'Client Name'
 
 class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','client_name','email',"can_join_as")
     list_filter = ('client_name','email',"can_join_as")
     search_fields = ('client_name','email',"can_join_as")
     list_editable = ('client_name','email',"can_join_as")
+
+class LLMMappingAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','bot_type','llm1',"llm2","llm3")
+    list_filter = ('bot_type',)
+    search_fields = ('bot_type',)
+    list_editable = ('llm1',"llm2","llm3",)
 
 class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
     list_per_page = 10
@@ -58,6 +124,7 @@ admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
 admin.site.register(UserActionInfo)
 admin.site.register(EmailSentDetails, EmailSentDetailsAdmin)
 admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAdmin)
+admin.site.register(LLMMappingTable, LLMMappingAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):

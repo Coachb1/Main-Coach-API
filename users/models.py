@@ -47,7 +47,7 @@ def get_default_ui_information():
     }
 
 def get_default_help_text():
-    help_text_json = data = {
+    help_text_json = {
         "network_directory": {
             "header_text": "",
             "join_the_network": "",
@@ -264,7 +264,7 @@ class ClientUserInfo(TenantAwareModel):
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips)
-    allow_audio_interactions = models.BooleanField(blank=True, default=False)
+    allow_audio_interactions = models.BooleanField(blank=True, default=True)
     make_new_user_in_trail = models.BooleanField(blank=True, default=True)
     heading = models.CharField(max_length=255,null=True, blank=True, default=None)
     sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
@@ -278,7 +278,9 @@ class ClientUserInfo(TenantAwareModel):
     webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
     webhook_enabled = models.BooleanField(blank=True, default=False)
     excluded_users = models.TextField(null=True, blank=True, default=None)
-    use_skills_from_skill_bank = models.BooleanField(default=False, null=True, blank=False)
+    use_skills_from_skill_bank = models.BooleanField(default=False, blank=True)
+    send_profile_for_reapproval = models.BooleanField(default=False, blank=True)
+    email_address_list = models.TextField(null=True, blank=True, default=None)
 
     
 

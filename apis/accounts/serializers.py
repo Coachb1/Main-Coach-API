@@ -3,7 +3,7 @@ from rest_framework import serializers
 from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo
 from commons.cloudinary import upload_image
-from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge
+from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
 from commons.recommendation import recommend_coach_tfidf, recommend_coach_keyword
@@ -88,6 +88,7 @@ class AccountSerializer(serializers.ModelSerializer):
             client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
             if client:
                 data['client_allow_audio_interactions'] = client.allow_audio_interactions
+                data['send_profile_for_reapproval'] = client.send_profile_for_reapproval
         return data
 
 
@@ -164,6 +165,12 @@ class BotAttributeSerializer(serializers.ModelSerializer):
         model = BotAttribute
         fields = '__all__'
 
+
+class LLMMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LLMMappingTable
+        fields = '__all__'
+
 class SignatureBotSerializer(serializers.ModelSerializer):
     class Meta:
         model = SignatureBot
@@ -174,7 +181,9 @@ class SignatureBotSerializer(serializers.ModelSerializer):
         res = super().to_representation(instance)
         user = User.objects.get(deleted=False,uid=instance.user_id)
         res['creator_name'] = user.name
-
+        llms = LLMMappingTable.objects.filter(deleted=False,tenant_id=instance.tenant_id,bot_type=instance.bot_type).first()
+        if llms:
+            res['selected_llms'] = LLMMappingSerializer(llms).data
         return res
 
 class UserIDPSerializers(serializers.ModelSerializer):

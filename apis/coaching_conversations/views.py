@@ -306,7 +306,7 @@ class CoachingConversationViewSet(ApiViewSet,
         cached_data = get_cache(cache_key)
         
         if cached_data:
-            return Response(data, status=status.HTTP_200_OK)
+            return Response(cached_data, status=status.HTTP_200_OK)
         
         client_infos = ClientUserInfo.objects.all()
         excluded_users = ""
@@ -331,7 +331,7 @@ class CoachingConversationViewSet(ApiViewSet,
                 participant_ids = list(set(sessions.values_list('participant_id', flat=True)))
 
                 for participant_id in participant_ids:
-                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id)
+                    participant_attribute = UserAttribute.objects.filter(tenant_id=tenant.uid, user_id=participant_id).first()
                     if participant_attribute and participant_attribute.attributes:
                         participant_email = participant_attribute.attributes.get('email')
                         if participant_email in excluded_emails:
@@ -340,6 +340,8 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_cov = get_bot_conversation_data_user(bot_sessions, tenant, participant_id)
                     data_cov['bot_name'] = bot_att.bot_name
                     data_cov['bot_id'] = bot.bot_id
+                    data_cov['bot_type'] = bot.bot_type
+                    data_cov['bot_scenario_case'] = bot.bot_scenario_case
                     data.append(data_cov)
 
             set_cache(cache_key, data)
@@ -366,6 +368,8 @@ class CoachingConversationViewSet(ApiViewSet,
                 if len(data_conv['results']) > 0:
                     data_conv['bot_name'] = bot_att.bot_name
                     data_conv['bot_id'] = signature_bot.bot_id
+                    data_conv['bot_type'] = signature_bot.bot_type
+                    data_conv['bot_scenario_case'] = signature_bot.bot_scenario_case
                     data.append(data_conv)
             set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)

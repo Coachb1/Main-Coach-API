@@ -20,7 +20,7 @@ from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from apis.accounts.serializers import AccountSerializer, UserAttributesUserContextSerializer, CoachCoacheeConnectionSerializer
 from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMentorMenteeProfileSerializer,
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
-                                        CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer,)
+                                        CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer, LLMMappingSerializer)
 from clients.permissions import IsAuthenticatedClient
 from tests.models import TestAttemptSession, Test
 from users.permissions import IsAuthenticatedUser
@@ -49,7 +49,7 @@ from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
-from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge
+from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable
 from commons.utils import extract_file_and_text, get_list_from_string
                     
 from itertools import groupby
@@ -78,6 +78,12 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from django.core.cache import cache
 import time
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
+
+import openpyxl
+import os
+from openpyxl.styles import Font
+from collections.abc import MutableMapping
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -395,6 +401,10 @@ class AccountsViewSet(ApiViewSet,
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
+        llms = LLMMappingTable.objects.filter(deleted=False, bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id).first()
+        if llms:
+            data['selected_llms'] = LLMMappingSerializer(llms).data
+
         if client:
             data["allowed_ips"] = client.allowed_ips
 
@@ -424,8 +434,8 @@ class AccountsViewSet(ApiViewSet,
 
             coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id).first()
 
-            data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
             if coach_profile:
+                data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
                 data['profile_details'] = CoachCoacheeMentorMenteeProfileSerializer(coach_profile).data
 
             
@@ -509,7 +519,7 @@ class AccountsViewSet(ApiViewSet,
 
                 data['user_info'] = user_info
                 
-            set_cache(cache_key, data, 60*15)
+            set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
 
             return Response({"data":data },status=status.HTTP_200_OK)
@@ -807,8 +817,9 @@ class AccountsViewSet(ApiViewSet,
                         send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
                         
                     directory.delete()
-                    # reset_cache_with_prefix('profiles_by_user_id')
-                    # reset_cache_with_prefix('profile_by_id')
+                    reset_cache_with_prefix('profiles_by_user_id')
+                    reset_cache_with_prefix('profile_by_id')
+                    reset_cache_with_prefix('all_profiles')
 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
@@ -876,6 +887,10 @@ class AccountsViewSet(ApiViewSet,
                         is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
                         ai_email = generate_email(created_profile.name,created_profile.id)
                         )
+                
+                reset_cache_with_prefix('profiles_by_user_id')
+                reset_cache_with_prefix('profile_by_id')
+                reset_cache_with_prefix('all_profiles')
                 
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
             except Exception as e:
@@ -1068,9 +1083,16 @@ class AccountsViewSet(ApiViewSet,
                         return Response({"error": "profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
 
                     context = data.get('context')
+                    bot_title = data.get('bot_title')
+                    bot_objective = data.get('bot_objective')
                     if (context is None or context == '' ) and bot_type in [BotTypeChoice.deep_dive]:
                         return Response({"error": "context is required"},status=status.HTTP_400_BAD_REQUEST)
-
+                    if (data.get('bot_title') is None or data.get('bot_title')  == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "bot_title is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if (bot_objective is None or bot_objective  == '' ) and bot_type in [BotTypeChoice.deep_dive]:
+                        return Response({"error": "bot_objective is required"},status=status.HTTP_400_BAD_REQUEST)
+                    
 
                     participant_id = data.get('participant_id')
                     if participant_id is None or participant_id == '':
@@ -1082,7 +1104,7 @@ class AccountsViewSet(ApiViewSet,
 
                     bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
                     if bot_type == BotTypeChoice.deep_dive:
-                        bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, "".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
+                        bot_id = "-".join(["engagement-survey" ,"".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
 
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
@@ -1134,9 +1156,10 @@ class AccountsViewSet(ApiViewSet,
                     deep_dive_data = {}
                     if bot_type == BotTypeChoice.deep_dive:
                         additional_prompt_for_deepdive = data.get('additional_prompt_for_deep',None)
-                        deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
-                        all_data['bot_title'] = deep_dive_data['bot_title']
-                        all_data['bot_objective'] = deep_dive_data['bot_objective']
+                        # deep_dive_data = generate_title_and_objective_for_deep_dive(context,additional_prompt=additional_prompt_for_deepdive)
+                        all_data['bot_title'] = bot_title
+                        all_data['bot_objective'] = bot_objective
+                        all_data['bot_context'] = bot_objective + '\n' + context
                         deep_dive_data = all_data
 
                     all_data['coach_data'] = coach_data
@@ -1322,7 +1345,7 @@ class AccountsViewSet(ApiViewSet,
                         elif bot_type == BotTypeChoice.user_bot:
                             bot_url = f"{bot_base_url}/knowledge-bot/{bot_id}"
                         elif bot_type == BotTypeChoice.deep_dive:
-                            bot_url = f"{bot_base_url}/deep-dive/{bot_id}"
+                            bot_url = f"{bot_base_url}/engagement-survey/{bot_id}"
 
                         bot_snippet = f"""
                                     <div class="deep-chat-poc2" data-bot-id="{bot_id}"></div>
@@ -1438,7 +1461,7 @@ class AccountsViewSet(ApiViewSet,
                         error_msg += traceback.format_exc()
                         send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id})
                         
-                    # reset_cache_with_prefix("get_bots")
+                    reset_cache_with_prefix("get_bots")
                     return Response({"bot_id":signature_bot.bot_id,"bot_uid": signature_bot.uid, 'deep_dive_data': deep_dive_data },status=status.HTTP_200_OK)
                 
                 except Exception as e:
@@ -1990,8 +2013,8 @@ class AccountsViewSet(ApiViewSet,
         try:
             data = []
             user_id = request.query_params.get('user_id')
+            cache_key = generate_cache_key('competency_data', user_id=user_id)
             if request.method == 'GET':
-                cache_key = generate_cache_key('competency_data', user_id=user_id)
 
                 # Try to get data from cache
                 cached_data = get_cache(cache_key)
@@ -2016,6 +2039,10 @@ class AccountsViewSet(ApiViewSet,
                 user_att = UserAttribute.objects.get(user_id=user_id)
                 user_att.competency_data = skill_data
                 user_att.save(update_fields=["competency_data"])
+
+                # set_cache(cache_key, [skill_data])
+                reset_cache_with_prefix('competency_data')
+                reset_cache_with_prefix('tests_by_competency')
                 return Response({"msg":"saved"},status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -2163,7 +2190,7 @@ class AccountsViewSet(ApiViewSet,
             if email:
                 cache_key = f"user-directory-info-{email}"
                 start = time.time()
-                data = cache.get(cache_key)
+                data = get_cache(cache_key)
                 end = time.time()
                 logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
                 if data:
@@ -2191,7 +2218,7 @@ class AccountsViewSet(ApiViewSet,
             else:
                 cache_key = f"user-directory-info-all"
                 start = time.time()
-                data = cache.get(cache_key)
+                data = get_cache(cache_key)
                 end = time.time()
                 logger.info(f"<<< Time taken to get cache_data : {end-start} >>>")
 
@@ -2524,11 +2551,15 @@ class AccountsViewSet(ApiViewSet,
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
                         """
 
+                    reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
             
             if coach_id and coachee_id:
@@ -2541,6 +2572,8 @@ class AccountsViewSet(ApiViewSet,
                 if data.get('status') == CoachCoacheeConnectionStatusChoice.accepted:
                     connection.status = CoachCoacheeConnectionStatusChoice.accepted
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                     coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                     
@@ -2558,6 +2591,8 @@ class AccountsViewSet(ApiViewSet,
                 else:
                     connection.status = CoachCoacheeConnectionStatusChoice.rejected
                     connection.save(update_fields=['status'])
+                    reset_cache_with_prefix('get_bots')
+                    reset_cache_with_prefix('connection')
                     return Response({"data": CoachCoacheeConnectionSerializer(connection).data },status=status.HTTP_200_OK)
 
         if request.method == 'POST':
@@ -2597,6 +2632,8 @@ class AccountsViewSet(ApiViewSet,
                 serializer = CoachCoacheeConnectionSerializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 created_connection = serializer.save()
+                reset_cache_with_prefix('get_bots')
+                reset_cache_with_prefix('connection')
                 coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coach_id)
                 coachee = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=request.tenant.uid,uid=coachee_id)
                 
@@ -2605,7 +2642,7 @@ class AccountsViewSet(ApiViewSet,
                 coachee_email = coachee.email
                 subject = "You have a connection request"
                 html = f"""
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your dashboard to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your account to approve or reject. Thank you!</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
@@ -3196,65 +3233,65 @@ class AccountsViewSet(ApiViewSet,
 
             
             
-        def delete_user_related_resources(user_uid):
-            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-            for profile in profiles:
+        # def delete_user_related_resources(user_uid):
+        #     profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+        #     for profile in profiles:
                 
-                # delete connections if user has coachee profile
-                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
-                for connection in connections:
-                    connection.delete()
+        #         # delete connections if user has coachee profile
+        #         connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
+        #         for connection in connections:
+        #             connection.delete()
                     
-                # delete connections if user has coach profile
-                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
-                for connection in connections:
-                    connection.delete()
+        #         # delete connections if user has coach profile
+        #         connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
+        #         for connection in connections:
+        #             connection.delete()
 
-                # delete directorypage for this profile
-                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
-                for dir_info in dir_infos:
-                    dir_info.delete()
+        #         # delete directorypage for this profile
+        #         dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+        #         for dir_info in dir_infos:
+        #             dir_info.delete()
                     
-                profile.delete()
+        #         profile.delete()
             
-            # delete bots if user has any
-            bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-            for bot in bots:
-                print(bot.bot_type)
-                # delete bot related resources
-                bot_attributes = BotAttribute.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
-                for bot_attribute in bot_attributes:
-                    bot_attribute.delete()
+        #     # delete bots if user has any
+        #     bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+        #     for bot in bots:
+        #         print(bot.bot_type)
+        #         # delete bot related resources
+        #         bot_attributes = BotAttribute.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
+        #         for bot_attribute in bot_attributes:
+        #             bot_attribute.delete()
                     
-                bot_qnas = BotQnA.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
-                for bot_qna in bot_qnas:
-                    bot_qna.delete()
+        #         bot_qnas = BotQnA.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
+        #         for bot_qna in bot_qnas:
+        #             bot_qna.delete()
                     
                 
-                bot.delete()
+        #         bot.delete()
 
-            if user_uid:
-                with transaction.atomic():
-                    UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
-                    TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
-                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
-                    SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
-                    # Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
-                    # Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
+        #     if user_uid:
+        #         with transaction.atomic():
+        #             UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
+        #             TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
+        #             SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
+        #             SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
+        #             # Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
+        #             # Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
 
 
 
-            try:
-                identity = Identity.objects.get(user_id=user_uid)
-                user_email = identity.value
-                clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
-                for client in clients:
-                    add_or_remove_emails_from_client(client,'member_emails',user_email,True)
-                    add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
-            except Exception as e:
-                logger.exception(f"failed to delete client for the user {user_uid}: {e}")
+        #     try:
+        #         identity = Identity.objects.get(user_id=user_uid)
+        #         user_email = identity.value
+        #         clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
+        #         for client in clients:
+        #             add_or_remove_emails_from_client(client,'member_emails',user_email,True)
+        #             add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
+        #     except Exception as e:
+        #         logger.exception(f"failed to delete client for the user {user_uid}: {e}")
 
-            #deleting test created by user_uid
+        #     #deleting test created by user_uid
 
 
         
@@ -3265,7 +3302,7 @@ class AccountsViewSet(ApiViewSet,
                     logger.info(f"deleting user with email : {email}")
                     try:
                         user_uid = Identity.objects.get(identity_type="deepchat_unique_id",value=email).user_id
-                        delete_user_related_resources(user_uid)
+                        delete_user_resources(user_uid,remove_from_client=True)
                         if is_delete_user:
                             delete_user(user_uid)
                         delete_count += 1
@@ -3275,7 +3312,7 @@ class AccountsViewSet(ApiViewSet,
                         
                 return Response({"message":f"{delete_count} user deleted"})
                         
-            delete_user_related_resources(user_uid)
+            delete_user_resources(user_uid,remove_from_client=True)
             if is_delete_user:
                 delete_user(user_uid)
             return Response({"message":"deleted"},status=status.HTTP_200_OK)
@@ -3885,6 +3922,7 @@ class AccountsViewSet(ApiViewSet,
                 created_tests = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id=user.uid)
                 user_detail['simulations_created'] = created_tests.count()
                 
+                profile_specific_fields = []
                 if profile:
                     user_detail['approval_status'] = profile.is_approved
                     coacheeconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
@@ -3911,11 +3949,7 @@ class AccountsViewSet(ApiViewSet,
                 
                 
             data = user_details
-            import openpyxl
-            import os
-            from openpyxl.styles import Font
-            from collections.abc import MutableMapping
-            from django.http import HttpResponse
+
 
             def flatten_dict(d, parent_key='', sep='_'):
                 items = []
@@ -3927,9 +3961,9 @@ class AccountsViewSet(ApiViewSet,
                         items.append((new_key, v))
                 return dict(items)
 
-
+            # Client ID, Date created, user Name, Email ID, Profile Type, Connections, Intake form data, Report links.
             # Define the specific fields to keep first in order
-            specific_fields = ["client_id", "intake_date", "details_user_email", "details_user_type"]
+            specific_fields = ["client_id", "intake_date","intake_data_name","user_email","user_type","connections_count", "details_user_email", "details_user_type"]
 
             # Flatten each dictionary in the list
             flattened_data = [flatten_dict(item) for item in data]

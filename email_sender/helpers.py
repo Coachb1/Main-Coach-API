@@ -14,6 +14,10 @@ from external_apis.slack_alert_api import send_slack_message
 from external_apis.slack_alert_api import send_slack_message
 # from commons.notifications import send_error_notification
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
 FROM_EMAIL_DISPLAY = "Coachbots Report <mail@coachbots.com>"
@@ -230,6 +234,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         server.login(LOGIN_EMAIL, from_password)
         if not allow_reply:
             for email in to_email:
+                logger.info(f"sending email to {email}")
                 sent_status = server.sendmail(from_email, email, msg_str)
         else:
             sent_status = server.sendmail(from_email, to_email, msg_str)
@@ -247,7 +252,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         print("!!!!!!!!!!!!!!!!!!!!! Erro while sending emails ==============> ", e.args) """
         # send_error_notification("send_bot_conversation_email", str(e), {"to_email": to_email, "candidate_name": candidate_name, "conversation": conversation})
 
-def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email, is_positive=False):
+def send_feedback_conversation_email(candidate_name, conversation, to_email, type_of_email, is_positive=False, candidate_email=None):
     from_password = APP_PASSWORD
     from_email = FROM_EMAIL
 

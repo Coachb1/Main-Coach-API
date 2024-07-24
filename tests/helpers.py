@@ -79,7 +79,7 @@ from django.db.models import Q
 from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
-
+from users.helpers import get_client_info_from_user_detail
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +172,7 @@ def get_unique_deep_dive_access_code(tenant: Tenant) -> str:
 
 @timeit
 def create_test(tenant: Tenant,
+                test_code:str,
                 creator_id: str,
                 title: str,
                 description: str,
@@ -230,7 +231,8 @@ def create_test(tenant: Tenant,
                 assigned_by: str,
                 web_page_url:str,
                 sub_tab_category:str,
-                calculate_culture: bool) -> tuple[Test, list[TestQuestion]]:
+                calculate_culture: bool,
+                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -417,7 +419,8 @@ def create_test(tenant: Tenant,
             assigned_by=assigned_by,
             web_page_url=web_page_url,
             sub_tab_category=sub_tab_category,
-            calculate_culture=calculate_culture
+            calculate_culture=calculate_culture,
+            snippet_url=snippet_url
         )
 
         test_questions = []
@@ -455,7 +458,8 @@ def create_test(tenant: Tenant,
                 mcq_path= question.get('mcq_path'),
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=klp,
-                key_learning_skills=kls
+                key_learning_skills=kls,
+                snippet_url=question.get('snippet_url')
             )
 
             #
@@ -465,6 +469,296 @@ def create_test(tenant: Tenant,
             test_questions.append(test_q)
 
     logger.info("created test for tenant %s", tenant.uid)
+
+    return test, test_questions
+
+@timeit
+def update_test(tenant: Tenant,
+                test_code: str,
+                creator_id: str,
+                title: str,
+                description: str,
+                candidate_type: str,
+                email_address_list: str,
+                max_test_allowed: int,
+                send_only_to_email: bool,
+                interaction_mode: str,
+                test_type: str,
+                gpt_prompt_override: str,
+                email_candidate: bool,
+                test_related_context: str,
+                orchestrated_conversation_details: dict,
+                description_media: str,
+                is_single_bot: bool,
+                is_checkin_type: bool,
+                skills_to_evaluate: str,
+                tedtalk_and_hbr_case: str,
+                is_learner_path: bool,
+                is_email_type: bool,
+                scenario_case: str,
+                is_game_type: bool,
+                is_free: bool,
+                is_micro: bool,
+                image_url: str,
+                rating: str,
+                source: str,
+                client_name: str,
+                questions: list,
+                goals: str,
+                course: str,
+                industry: str,
+                exp_level: str,
+                total_question: int,
+                certificate_details: dict,
+                ui_information: dict,
+                is_self_created: bool,
+                is_logged_in: bool,
+                is_immersive: bool,
+                media_props: dict,
+                is_transcript_only: bool,
+                is_pitch: bool,
+                articles: str,
+                bot_name: str,
+                creator_user_id: str,
+                competency_group: str,
+                area_domain: str,
+                tab_category: str,
+                is_recommended: bool,
+                visual_tags: str,
+                page_name: str,
+                scenario_summary: str,
+                creator_email: str,
+                is_assigned: bool,
+                assigned_to: str,
+                assigned_by: str,
+                web_page_url: str,
+                sub_tab_category: str,
+                calculate_culture: bool,
+                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
+    
+    try:
+        test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
+    except Test.DoesNotExist:
+        logger.exception("failed to update test, test with code %s does not exist", test_code)
+        raise serializers.ValidationError("invalid test code")
+
+    try:
+        creator = User.objects.get(tenant_id=tenant.uid, uid=creator_id, deleted=0)
+    except User.DoesNotExist:
+        logger.exception("failed to update test, creator with id %s does not exist", creator_id)
+        raise serializers.ValidationError("invalid creator id")
+
+    with transaction.atomic():
+        # Only update fields if the new value is different from the current value
+        if test.title != title:
+            test.title = title
+        if test.candidate_type != candidate_type:
+            test.candidate_type = candidate_type
+        if test.email_address_list != email_address_list:
+            test.email_address_list = email_address_list
+        if test.send_only_to_email != send_only_to_email:
+            test.send_only_to_email = send_only_to_email
+        if test.email_candidate != email_candidate:
+            test.email_candidate = email_candidate
+        if test.gpt_prompt_override != gpt_prompt_override:
+            test.gpt_prompt_override = gpt_prompt_override
+        if test.description != description:
+            test.description = description
+        if test.interaction_mode != interaction_mode:
+            test.interaction_mode = interaction_mode
+        if test.test_type != test_type:
+            test.test_type = test_type
+        if test.is_single_bot != is_single_bot:
+            test.is_single_bot = is_single_bot
+        if test.is_learner_path != is_learner_path:
+            test.is_learner_path = is_learner_path
+        if test.is_checkin_type != is_checkin_type:
+            test.is_checkin_type = is_checkin_type
+        if test.is_email_type != is_email_type:
+            test.is_email_type = is_email_type
+        if test.skills_to_evaluate != skills_to_evaluate:
+            test.skills_to_evaluate = skills_to_evaluate
+        if test.tedtalk_and_hbr_case != tedtalk_and_hbr_case:
+            test.tedtalk_and_hbr_case = tedtalk_and_hbr_case
+        if test.test_related_context != test_related_context:
+            test.test_related_context = test_related_context
+        if test.orchestrated_conversation_details != orchestrated_conversation_details:
+            test.orchestrated_conversation_details = orchestrated_conversation_details
+        if test.description_media != description_media:
+            test.description_media = description_media
+        if test.max_test_allowed != max_test_allowed:
+            test.max_test_allowed = max_test_allowed
+        if test.scenario_case != scenario_case:
+            test.scenario_case = scenario_case
+        if test.is_game_type != is_game_type:
+            test.is_game_type = is_game_type
+        if test.is_free != is_free:
+            test.is_free = is_free
+        if test.is_micro != is_micro:
+            test.is_micro = is_micro
+        if test.rating != rating:
+            test.rating = rating
+        if test.image_url != image_url:
+            test.image_url = image_url
+        if test.source != source:
+            test.source = source
+        if test.client_name != client_name:
+            test.client_name = client_name
+        if test.goals != goals:
+            test.goals = goals
+        if test.course != course:
+            test.course = course
+        if test.industry != industry:
+            test.industry = industry
+        if test.exp_level != exp_level:
+            test.exp_level = exp_level
+        if test.total_question != total_question:
+            test.total_question = total_question
+        if test.certificate_details != certificate_details:
+            test.certificate_details = certificate_details
+        if test.ui_information != ui_information:
+            test.ui_information = ui_information
+        if test.is_self_created != is_self_created:
+            test.is_self_created = is_self_created
+        if test.is_logged_in != is_logged_in:
+            test.is_logged_in = is_logged_in
+        if test.is_immersive != is_immersive:
+            test.is_immersive = is_immersive
+        if test.media_props != media_props:
+            test.media_props = media_props
+        if test.is_transcript_only != is_transcript_only:
+            test.is_transcript_only = is_transcript_only
+        if test.is_pitch != is_pitch:
+            test.is_pitch = is_pitch
+        if test.articles != articles:
+            test.articles = articles
+        if test.bot_name != bot_name:
+            test.bot_name = bot_name
+        if test.creator_user_id != creator_user_id:
+            test.creator_user_id = creator_user_id
+        if test.competency_group != competency_group:
+            test.competency_group = competency_group
+        if test.area_domain != area_domain:
+            test.area_domain = area_domain
+        if test.tab_category != tab_category:
+            test.tab_category = tab_category
+        if test.is_recommended != is_recommended:
+            test.is_recommended = is_recommended
+        if test.visual_tags != visual_tags:
+            test.visual_tags = visual_tags
+        if test.page_name != page_name:
+            test.page_name = page_name
+        if test.scenario_summary != scenario_summary:
+            test.scenario_summary = scenario_summary
+        if test.creator_email != creator_email:
+            test.creator_email = creator_email
+        if test.is_assigned != is_assigned:
+            test.is_assigned = is_assigned
+        if test.assigned_to != assigned_to:
+            test.assigned_to = assigned_to
+        if test.assigned_by != assigned_by:
+            test.assigned_by = assigned_by
+        if test.web_page_url != web_page_url:
+            test.web_page_url = web_page_url
+        if test.sub_tab_category != sub_tab_category:
+            test.sub_tab_category = sub_tab_category
+        if test.calculate_culture != calculate_culture:
+            test.calculate_culture = calculate_culture
+        if test.snippet_url != snippet_url:
+            test.snippet_url = snippet_url
+
+        test.save()
+
+        # Update or create test questions
+        test_questions = []
+        for question in questions:
+            if question.get("question_id"):  # Update existing question
+                try:
+                    test_q = TestQuestion.objects.get(tenant_id=tenant.uid, test_id=test.uid, uid=question.get("question_id"))
+                    # Only update fields if the new value is different from the current value
+
+
+                    if test_q.media_link != question.get("media_link"):
+                        test_q.media_link = question.get("media_link")
+
+                    if test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
+                        test_q.gpt_prompt_override = question.get("gpt_prompt_override")
+
+                    if test_q.question != question.get("question"):
+                        test_q.question = question.get("question")
+
+                    if test_q.can_be_skipped != question.get("can_be_skipped", False):
+                        test_q.can_be_skipped = question.get("can_be_skipped", False)
+
+                    if test_q.is_view_only != question.get("is_view_only", False):
+                        test_q.is_view_only = question.get("is_view_only", False)
+
+                    if test_q.subjective_answer != question.get("subjective_answer"):
+                        test_q.subjective_answer = question.get("subjective_answer")
+
+                    if test_q.objective_answer != question.get("objective_answer"):
+                        test_q.objective_answer = question.get("objective_answer")
+
+                    if test_q.mcq_options != question.get("mcq_options"):
+                        test_q.mcq_options = question.get("mcq_options")
+
+                    if test_q.mcq_answer != question.get("mcq_answer"):
+                        test_q.mcq_answer = question.get("mcq_answer")
+
+                    if test_q.mcq_path != question.get('mcq_path'):
+                        test_q.mcq_path = question.get('mcq_path')
+
+                    if test_q.loader_wait_text != question.get("loader_wait_text"):
+                        test_q.loader_wait_text = question.get("loader_wait_text")
+                        
+                    if not(test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread):
+                        if test_q.key_learning_point != (question.get("key_learning_point")
+                                                        or get_question_key_learning_point(test_title=title, test_question=question.get("question"))):
+                            test_q.key_learning_point = (question.get("key_learning_point")
+                                                        or get_question_key_learning_point(test_title=title, test_question=question.get("question")))
+                        if test_q.key_learning_skills != (question.get("key_learning_skills")
+                                                        or get_question_key_learning_skills(test_title=title, test_question=question.get("question"))):
+                            test_q.key_learning_skills = (question.get("key_learning_skills")
+                                                        or get_question_key_learning_skills(test_title=title, test_question=question.get("question")))
+                                                        
+                    if test_q.snippet_url != question.get('snippet_url'):
+                        test_q.snippet_url = question.get('snippet_url')
+
+                    test_q.save()
+                except TestQuestion.DoesNotExist:
+                    logger.exception("failed to update question, question with id %s does not exist", question.get("question_id"))
+                    raise serializers.ValidationError("invalid question id")
+            else:  # Create a new question
+                test_q = TestQuestion.objects.create(
+                    tenant_id=tenant.uid,
+                    test_id=test.uid,
+                    question_number=question.get("question_number"),
+                    question_type=question.get("question_type"),
+                    question_for=question.get("question_for"),
+                    media_link=question.get("media_link"),
+                    gpt_prompt_override=question.get("gpt_prompt_override"),
+                    question=question.get("question"),
+                    can_be_skipped=question.get("can_be_skipped", False),
+                    is_view_only=question.get("is_view_only", False),
+                    subjective_answer=question.get("subjective_answer"),
+                    objective_answer=question.get("objective_answer"),
+                    mcq_options=question.get("mcq_options"),
+                    mcq_answer=question.get("mcq_answer"),
+                    mcq_path=question.get('mcq_path'),
+                    loader_wait_text=question.get("loader_wait_text"),
+                    key_learning_point=(
+                        question.get("key_learning_point")
+                        or get_question_key_learning_point(test_title=title, test_question=question.get("question"))
+                    ),
+                    key_learning_skills=(
+                        question.get("key_learning_skills")
+                        or get_question_key_learning_skills(test_title=title, test_question=question.get("question"))
+                    ),
+                    snippet_url=question.get('snippet_url')
+                )
+                test_questions.append(test_q)
+
+    logger.info("updated test for tenant %s", tenant.uid)
 
     return test, test_questions
 
@@ -2918,6 +3212,15 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
                 bot_llm_response_text = extract_question(bot_llm_response_text,question.question_for)
             
+            
+            
+        initial_bot_questions = test.orchestrated_conversation_details.get('initial_messages')
+        
+        for initial_bot_question in initial_bot_questions:
+            if calculate_similarity(initial_bot_question, bot_llm_response_text) > 80:
+                logger.info(f"############### bot llm response is similar to initial bot response. so generating new response no:{i+1} ## Current: {bot_llm_response_text}, ## Initial: {initial_bot_question} ***************")
+                continue
+        
         current_and_previous_question_similarity = 0
         for previous_bot_response in previous_bot_responses:
             if previous_bot_response and previous_bot_response.response_text:
@@ -4340,6 +4643,8 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     email_address_list = email_address_list.split(",")
     email_address_list = [email_address.strip()
                           for email_address in email_address_list]
+    
+
 
     if is_whatsapp:
         participant_name = participant_attributes.get("user_name")
@@ -4365,6 +4670,18 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email',None)
+
+    # fatchin client information if any and adding its email address list to test's emailaddress list.
+
+    client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
+    if client:
+        logger.info(f" << Client Name: {client.client_name}>>")
+        if client.email_address_list:
+            email_address_list.extend([email.strip() 
+                                    for email in client.email_address_list.split(',') if len(email.strip())>0])
+            email_address_list = list(set(email_address_list))  # removing duplicates
+            logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
+
 
     for to_email in email_address_list:
         try:
@@ -4433,7 +4750,17 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email')
 
-    
+    # fatchin client information if any and adding its email address list to test's emailaddress list.
+
+    client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
+    if client:
+        logger.info(f" << Client Name: {client.client_name}>>")
+        if client.email_address_list:
+            email_address_list.extend([email.strip() 
+                                    for email in client.email_address_list.split(',') if len(email.strip())>0])
+            email_address_list = list(set(email_address_list))  # removing duplicates
+            logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
+
 
     for to_email in email_address_list:
         try:
@@ -4657,17 +4984,18 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             "Feedback for the candidate's responses : "
 
-            Key insights to improve
+            - Key insights to improve the response - 10 words maximum
 
-            What went well ?
+            - What went well ? - 10 words maximum
 
-            What did not work ?
+            - What did not work ? - 10 words maximum
 
-            A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            Pro Interview Insights
+            - Pro Interview Insights  - 10 words maximum
+        
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
             NOTE : Always consider the information provided in the "background" when generating the feedback
 
@@ -4682,8 +5010,6 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the candidate’s answer in "Key insights to improve the response."
 
             NOTE : In cases where the "Candidate Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-            NOTE : Minimum response length is 250 words. Always adhere to the same.
 
             NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
 
@@ -4925,17 +5251,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     "Feedback for the manager comments/responses : "
 
-                    Key insights to improve the response
+                    - Key insights to improve the response - 10 words maximum
 
-                    What went well ?
+                    - What went well ? - 10 words maximum
 
-                    What did not work ?
+                    - What did not work ? - 10 words maximum
 
-                    A sample candidate answer
+                    - A sample candidate answer - 60 words maximum
 
-                    A counter intuitive insight
+                    - A counter intuitive insight - 10 words maximum
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -4950,8 +5276,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -4981,17 +5305,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             "Feedback for the manager comments/responses : "
 
-            Key insights to improve the response
+            - Key insights to improve the response - 10 words maximum
 
-            What went well ?
+            - What went well ? - 10 words maximum
 
-            What did not work ?
+            - What did not work ? - 10 words maximum
 
-            A sample candidate answer
+            - A sample candidate answer - 60 words maximum
 
-            A counter intuitive insight
+            - A counter intuitive insight - 10 words maximum
 
-            NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5004,8 +5328,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
 
             NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
-
-            NOTE : Minimum response length is 60 words. Always adhere to the same.
 
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
@@ -5038,17 +5360,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     "Feedback for the team member's comments/responses : "
 
-                    Key insights to improve the response
+                    - Key insights to improve the response - 10 words maximum
 
-                    What went well ?
+                    - What went well ? - 10 words maximum
 
-                    What did not work ?
+                    - What did not work ? - 10 words maximum
 
-                    A sample candidate answer
+                    - A sample candidate answer - 60 words maximum
 
-                    A counter intuitive insight
+                    - A counter intuitive insight - 10 words maximum
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5063,8 +5385,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team members answer in "Key insights to improve the response."
 
                     NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5095,17 +5415,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 "Feedback for the team member comments/responses : "
 
-                Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                What went well ?
+                - What went well ? - 10 words maximum
 
-                What did not work ?
+                - What did not work ? - 10 words maximum
 
-                A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5118,8 +5438,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : If the Team Member Comment is a question, provide feedback on how the team member can ask better questions.
 
                 NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
-
-                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
 
@@ -5152,17 +5470,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     "Feedback for the Sales rep comments/responses : "
 
-                    Key insights to improve the response
+                    - Key insights to improve the response - 10 words maximum
 
-                    What went well ?
+                    - What went well ? - 10 words maximum
 
-                    What did not work ?
+                    - What did not work ? - 10 words maximum
 
-                    A sample candidate answer
+                    - A sample candidate answer - 60 words maximum
 
-                    A counter intuitive insight
+                    - A counter intuitive insight - 10 words maximum
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5177,8 +5495,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep’s answer in "Key insights to improve the response."
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5209,17 +5525,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 "Feedback for the Sales rep comments/responses : "
 
-                Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                What went well ?
+                - What went well ? - 10 words maximum
 
-                What did not work ?
+                - What did not work ? - 10 words maximum
 
-                A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                A counter intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5232,8 +5548,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
 
                 NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
-
-                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
 
@@ -5260,23 +5574,23 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Test Description: ${description}
 
-                    Customer Comment: ${user_comment}
+                    Customer Comment: ${sales_comment}
 
                     Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
                     "Feedback for the customer comments/responses: "
 
-                    Key insights to improve the response
+                    - Key insights to improve the response - 10 words maximum
 
-                    What went well?
+                    - What went well ? - 10 words maximum
 
-                    What did not work?
+                    - What did not work ? - 10 words maximum
 
-                    A sample candidate answer
+                    - A sample candidate answer - 60 words maximum
 
-                    A counter intuitive insight
+                    - A counter intuitive insight - 10 words maximum
 
-                    NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                     NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5291,8 +5605,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s answer in "Key insights to improve the response."
 
                     NOTE: In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-                    NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                     NOTE: Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
@@ -5317,23 +5629,23 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Bot response: ${bot_response}
 
-                Customer Comment: ${user_comment}
+                Customer Comment: ${sales_comment}
 
                 Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
                 "Feedback for the customer comments/responses: "
 
-                Key insights to improve the response
+                - Key insights to improve the response - 10 words maximum
 
-                What went well?
+                - What went well ? - 10 words maximum
 
-                What did not work?
+                - What did not work ? - 10 words maximum
 
-                A sample candidate answer
+                - A sample candidate answer - 60 words maximum
 
-                A counter-intuitive insight
+                - A counter intuitive insight - 10 words maximum
 
-                NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above. 
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
 
                 NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
 
@@ -5346,8 +5658,6 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE: If the Customer Comment is a question, provide feedback on how the customer can ask better questions.
 
                 NOTE: A sample candidate answer is a sample Customer Comment based on the context provided.
-
-                NOTE : Minimum response length is 60 words. Always adhere to the same.
 
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s response in "Key insights to improve the response."
 
@@ -5614,6 +5924,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
 @timeit
 def extract_question(text, responder_name):
     # Define the regular expression pattern to match the question part
+    text = text.replace('{',"").replace("}","")
     pattern = r":\s*([^:]+)$"
     
     # Search for the pattern in the provided text
@@ -5889,7 +6200,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
                     Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
                     Always stick with the role who is asking question from the (main context) while generating questions.
-                    Read the (Current response) and (Current conversation) and make sure the next question is unique and has not been repeated in the (Current response) and (Current conversation) before. Never ask a question that has been asked before.
+                    Read the (Current response) and (Current conversation) and make sure the next question is unique and has not been repeated in the (Current response) and (Current conversation) before. Never ask a question that has been asked before. Never repeat the same response.
                     NOTE: The question should not be more than 25 words.
                     NOTE: There will be always one role of the user who will never ask any question, but only answer. Never generate questions for that role of the user from the (main context).
                     NOTE: Analyse the role of the user who will never ask questions from the (main context) and never generate questions from his side.
@@ -5899,6 +6210,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
                     NOTE: Always follow the format but never mention in the response.
                     NOTE: Never give brackets to show the response.
+                    Note: Never ask a question that has been asked before. Never repeat the same response.
                     \n\nAssistant:
                 """).substitute(
                     test_main_context=main_context,
@@ -7954,7 +8266,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                 "creator_id": admin_user.uid,
                 "title": json.loads(context)['title'] if origin == "script" else title,
                 "description": description,
-                "email_address_list":'mail@coachbots.com',
+                "email_address_list":'coachbots@googlegroups.com',
                 "questions": question_info,
                 "scenario_case": 'pms' if competency is not None else scenario_case,
                 "interaction_mode":'any',
@@ -8199,7 +8511,7 @@ def create_one_question_scenario_from_context(prompt_type:str, information:str,a
                     "creator_id": admin_user.uid,
                     "title": title,
                     "description": description,
-                    "email_address_list":'mail@coachbots.com',
+                    "email_address_list":'coachbots@googlegroups.com',
                     "questions": question_info,
                     "scenario_case": 'simulation',
                     "interaction_mode":'any',
