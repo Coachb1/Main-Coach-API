@@ -2549,6 +2549,7 @@ class AccountsViewSet(ApiViewSet,
                     subject = "Connection Approved"
                     html = f"""
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You may have refresh the system for the changes to reflect.</p>
                         """
 
                     reset_cache_with_prefix('get_bots')
@@ -2583,6 +2584,7 @@ class AccountsViewSet(ApiViewSet,
                     subject = "Connection Approved"
                     html = f"""
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> You may have refresh the system for the changes to reflect.</p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
