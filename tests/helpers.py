@@ -2879,7 +2879,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
                                                     test.title,
                                                     )
 
-        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
+            logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
         relevance = 1
         if "relevance" in relevancy_score:
             relevance = int(relevancy_score['relevance'])
