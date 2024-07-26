@@ -1659,7 +1659,16 @@ class AccountsViewSet(ApiViewSet,
 
 
                 if updated_data:
+                        
                     updated_data = json.loads(updated_data) if isinstance(updated_data, str) else updated_data
+                    if signature_bot.bot_type == BotTypeChoice.feedback_bot:
+                        low_skill = updated_data.get("low_rating_characteristics")
+                        high_skill = updated_data.get("high_rating_characteristics")
+                        
+                        if None in [low_skill, high_skill]:
+                            return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                        
+                        sync_user_low_high_skills(self.request.tenant.uid, signature_bot.user_id, low_skill, high_skill)
                     
                     additional_data = updated_data.get('additional_data')
                     profile_description = additional_data.get("profile_description",None)
