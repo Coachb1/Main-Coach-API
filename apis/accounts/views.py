@@ -518,6 +518,17 @@ class AccountsViewSet(ApiViewSet,
                                       )
 
                 data['user_info'] = user_info
+
+            elif mode == 'only_client_data':
+                client = ''
+                if user_id:
+                    client = client_info.filter(member_user_ids__contains = user_id)
+                if email:
+                    client = client_info.filter(member_emails__contains = email)
+                if mob_number:
+                    client = client_info.filter(member_mob_numbers__contains = mob_number)
+
+                data['only_client_data'] = clientUserInfoSerializer(client.first()).data
                 
             set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
@@ -3594,12 +3605,21 @@ class AccountsViewSet(ApiViewSet,
             
             elif request.method == 'PATCH':
                 client_id = request.data.get('client_id',None)
-                if not client_id:
-                    return Response({'msg':f"Please ensure that the client_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                client_name = request.data.get('client_name',None)
+                data = request.data.copy()
+                if not (client_id or client_name):
+                    return Response({'msg':f"Please ensure that the client_id  or client_name is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
                 
+                if client_name:
+                    clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,client_name=client_name).first()
+                    if not clients:
+                        return Response({'msg': 'no client found for given client_name'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    data['client_id'] = clients.uid
+
                 client = update_or_create_client_id(
                     tenant_id=tenant.uid,
-                    client_data=request.data,
+                    client_data=data,
                     is_update=True
                 )
 
