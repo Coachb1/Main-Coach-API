@@ -2640,6 +2640,17 @@ class AccountsViewSet(ApiViewSet,
                 data = request.data.copy()
                 data['tenant_id'] = self.request.tenant.uid
                 data['coach_avatar_bot_id'] = avatar_bot_id
+
+                existing_connection = CoachCoacheeConnection.objects.filter(
+                    tenant_id=data['tenant_id'],
+                    coach_id=coach_id,
+                    coachee_id=coachee_id
+                ).first()
+
+                if existing_connection:
+                    # Handle the existing record case (e.g., return an error or update the record)
+                    return Response({"error":'A connection with the same tenant_id, coach_id, and coachee_id already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
                 serializer = CoachCoacheeConnectionSerializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 created_connection = serializer.save()
@@ -2654,6 +2665,7 @@ class AccountsViewSet(ApiViewSet,
                 subject = "You have a connection request"
                 html = f"""
                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your account to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You may have refresh the system for the changes to reflect.</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
