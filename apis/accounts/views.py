@@ -518,6 +518,17 @@ class AccountsViewSet(ApiViewSet,
                                       )
 
                 data['user_info'] = user_info
+
+            elif mode == 'only_client_data':
+                client = ''
+                if user_id:
+                    client = client_info.filter(member_user_ids__contains = user_id)
+                if email:
+                    client = client_info.filter(member_emails__contains = email)
+                if mob_number:
+                    client = client_info.filter(member_mob_numbers__contains = mob_number)
+
+                data['only_client_data'] = clientUserInfoSerializer(client.first()).data
                 
             set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
@@ -1659,7 +1670,16 @@ class AccountsViewSet(ApiViewSet,
 
 
                 if updated_data:
+                        
                     updated_data = json.loads(updated_data) if isinstance(updated_data, str) else updated_data
+                    if signature_bot.bot_type == BotTypeChoice.feedback_bot:
+                        low_skill = updated_data.get("low_rating_characteristics")
+                        high_skill = updated_data.get("high_rating_characteristics")
+                        
+                        if None in [low_skill, high_skill]:
+                            return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
+                        
+                        sync_user_low_high_skills(self.request.tenant.uid, signature_bot.user_id, low_skill, high_skill)
                     
                     additional_data = updated_data.get('additional_data')
                     profile_description = additional_data.get("profile_description",None)
@@ -2549,6 +2569,7 @@ class AccountsViewSet(ApiViewSet,
                     subject = "Connection Approved"
                     html = f"""
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You may have refresh the system for the changes to reflect.</p>
                         """
 
                     reset_cache_with_prefix('get_bots')
@@ -2583,6 +2604,7 @@ class AccountsViewSet(ApiViewSet,
                     subject = "Connection Approved"
                     html = f"""
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> Congratuations, {coach_name} has approved your connection request.</p>
+                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"> You may have refresh the system for the changes to reflect.</p>
                         """
 
                     send_email_with_html_template(subject=subject,html_content=html,to_email=coachee_email)
@@ -2629,6 +2651,17 @@ class AccountsViewSet(ApiViewSet,
                 data = request.data.copy()
                 data['tenant_id'] = self.request.tenant.uid
                 data['coach_avatar_bot_id'] = avatar_bot_id
+
+                existing_connection = CoachCoacheeConnection.objects.filter(
+                    tenant_id=data['tenant_id'],
+                    coach_id=coach_id,
+                    coachee_id=coachee_id
+                ).first()
+
+                if existing_connection:
+                    # Handle the existing record case (e.g., return an error or update the record)
+                    return Response({"error":'A connection with the same tenant_id, coach_id, and coachee_id already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
                 serializer = CoachCoacheeConnectionSerializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 created_connection = serializer.save()
@@ -2643,6 +2676,7 @@ class AccountsViewSet(ApiViewSet,
                 subject = "You have a connection request"
                 html = f"""
                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You have got a connection request from <b>{coachee_name} - {coachee_email}</b>, please log in to your account to approve or reject. Thank you!</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">You may have refresh the system for the changes to reflect.</p>
                     """
 
                 send_email_with_html_template(subject=subject,html_content=html,to_email=coach.email,title=f'Hey {coach_name}!')
@@ -3571,12 +3605,21 @@ class AccountsViewSet(ApiViewSet,
             
             elif request.method == 'PATCH':
                 client_id = request.data.get('client_id',None)
-                if not client_id:
-                    return Response({'msg':f"Please ensure that the client_id is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
+                client_name = request.data.get('client_name',None)
+                data = request.data.copy()
+                if not (client_id or client_name):
+                    return Response({'msg':f"Please ensure that the client_id  or client_name is provided as a parameter."},status=status.HTTP_400_BAD_REQUEST)
                 
+                if client_name:
+                    clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,client_name=client_name).first()
+                    if not clients:
+                        return Response({'msg': 'no client found for given client_name'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    data['client_id'] = clients.uid
+
                 client = update_or_create_client_id(
                     tenant_id=tenant.uid,
-                    client_data=request.data,
+                    client_data=data,
                     is_update=True
                 )
 
