@@ -588,6 +588,7 @@ class TestViewSet(ApiViewSet,
         page_name = request.query_params.get('page_name',None)
         competency_skills = request.query_params.get('competency_skills',None)
         tab_category = request.query_params.get('tab_category',None)
+        client_name = request.query_params.get('client_name',None)
 
 
         test_list = []
@@ -612,13 +613,16 @@ class TestViewSet(ApiViewSet,
                 tests = tests.filter(page_name=page_name)
 
             if competency_skills:
-                tests = tests.exclude(competency_group=None)
+                tests = tests.exclude(competency_group__in=[None,""])
             if tab_category:
                 tests = tests.filter(tab_category=tab_category)
 
+            if client_name:
+                tests = tests.filter(client_name=client_name)
+
 
         cnt = 1
-        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills"
+        csv_heading = "Title,Test code,Test description,Description Media,Ted talks and HBR Case,is checkin type,is_email_type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills,Client Name"
         for test in tests:
             temp={}
             questions = TestQuestion.objects.filter(test_id=test.uid)
@@ -640,6 +644,7 @@ class TestViewSet(ApiViewSet,
                 temp["Scenario Case"] = test.scenario_case
                 temp['Tab category'] = test.tab_category
                 temp['Competency Skills'] = test.competency_group
+                temp['Client Name'] = test.client_name
 
                 for question in questions:
                     if cnt == 1:
@@ -681,6 +686,7 @@ class TestViewSet(ApiViewSet,
         page_name = request.query_params.get('page_name',None)
         competency_skills = request.query_params.get('competency_skills',None)
         tab_category = request.query_params.get('tab_category',None)
+        client_name = request.query_params.get('client_name',None)
 
         test_list = []
         tests = Test.objects.filter()
@@ -700,13 +706,15 @@ class TestViewSet(ApiViewSet,
             if page_name:
                 tests = tests.filter(page_name=page_name)
             if competency_skills:
-                tests = tests.exclude(competency_group=None)
+                tests = tests.exclude(competency_group__in=[None,""])
             if tab_category:
                 tests = tests.filter(tab_category=tab_category)
-            
+            if client_name:
+                tests = tests.filter(client_name=client_name)
+
 
         cnt = 1
-        csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills"
+        csv_heading = "Test Code,Title,Context,Description Media,Ted talks and HBR Case,is checkin type,Candidate Type,Email Address List,Interaction Mode,Test Type,Scenario Case,Tab category,Competency Skills,Client Name"
         for test in tests:
             
             temp={}
@@ -730,6 +738,7 @@ class TestViewSet(ApiViewSet,
                 temp["Scenario Case"] = test.scenario_case
                 temp['Tab category'] = test.tab_category
                 temp['Competency Skills'] = test.competency_group
+                temp['Client Name'] = test.client_name
 
 
                 orch_details = test.orchestrated_conversation_details
