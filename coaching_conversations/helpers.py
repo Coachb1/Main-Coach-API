@@ -636,20 +636,21 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    response_style = None
-    try:
-        user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
-        user_preferences = user_attributes.preferences
-        logger.info(f"<<<<<<<<<<<<<<<<<< user_attributes pref : {user_preferences}, participant_id : {test_attempt_session.participant_id} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        if not user_preferences:
-            user_preferences = {}
-        if 'response_style' in user_preferences:
-            response_style = get_response_style(user_preferences['response_style'])
-            logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            if response_style:
-                prompt = prompt + f" {response_style}"
-    except Exception as e:
-        logger.exception(f"got error: {e}")
+    if signature_bot.bot_type == 'avatar_bot' and not signature_bot.bot_scenario_case == 'icons_by_ai':
+        response_style = None
+        try:
+            user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
+            user_preferences = user_attributes.preferences
+            logger.info(f"<<<<<<<<<<<<<<<<<< user_attributes pref : {user_preferences}, participant_id : {test_attempt_session.participant_id} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            if not user_preferences:
+                user_preferences = {}
+            if 'response_style' in user_preferences:
+                response_style = get_response_style(user_preferences['response_style'])
+                logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                if response_style:
+                    prompt = prompt + f" {response_style}"
+        except Exception as e:
+            logger.exception(f"got error: {e}")
             
 
     next_conversation = CoachingConversation.objects.create(
@@ -881,7 +882,23 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 user_context = current_conv,
                 user_personality = personality
             )
+        
+        elif bot_type == 'user_bot':
+            if signature_bot.faqs:
+                coach_info += "\n FAQS: \n"
+                try:
+                    faq = json.loads(signature_bot.faqs)
+                except:
+                    faq = signature_bot.faqs
 
+                for que, ans in faq.items():
+                    coach_info += f"Question: {que}, Answer: {ans}\n"
+
+            prompt = Template(prompt).safe_substitute(
+                user_info = coach_info,
+                user_context = current_conv
+            )
+        
         elif signature_bot.bot_type == BotTypeChoice.deep_dive:
             if signature_bot.data:
                 bot_title = signature_bot.data.get('bot_title')
@@ -1287,10 +1304,8 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         Break down and clearly explain complex concepts in the given field.
         If the FAQs are provided use the answers given to address the commonly asked questions. 
         Always respond in less than 50 tokens. Never mention the token count.
-
-        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
-        NOTE: If the given User Context is irrelevant to the User Situation please just respond with "I am specifically trained for the subject matter described as defined in my page. Unfortunately I can not answer this question."
         NOTE: Always respond in less than 50 tokens. Never mention the token count.
+        Assistant:\n\n
         """
 
     elif bot_type == BotTypeChoice.deep_dive:
