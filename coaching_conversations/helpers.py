@@ -636,20 +636,21 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    response_style = None
-    try:
-        user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
-        user_preferences = user_attributes.preferences
-        logger.info(f"<<<<<<<<<<<<<<<<<< user_attributes pref : {user_preferences}, participant_id : {test_attempt_session.participant_id} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        if not user_preferences:
-            user_preferences = {}
-        if 'response_style' in user_preferences:
-            response_style = get_response_style(user_preferences['response_style'])
-            logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            if response_style:
-                prompt = prompt + f" {response_style}"
-    except Exception as e:
-        logger.exception(f"got error: {e}")
+    if signature_bot.bot_type == 'avatar_bot' and not signature_bot.bot_scenario_case == 'icons_by_ai':
+        response_style = None
+        try:
+            user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
+            user_preferences = user_attributes.preferences
+            logger.info(f"<<<<<<<<<<<<<<<<<< user_attributes pref : {user_preferences}, participant_id : {test_attempt_session.participant_id} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            if not user_preferences:
+                user_preferences = {}
+            if 'response_style' in user_preferences:
+                response_style = get_response_style(user_preferences['response_style'])
+                logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                if response_style:
+                    prompt = prompt + f" {response_style}"
+        except Exception as e:
+            logger.exception(f"got error: {e}")
             
 
     next_conversation = CoachingConversation.objects.create(
@@ -1303,8 +1304,6 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         Break down and clearly explain complex concepts in the given field.
         If the FAQs are provided use the answers given to address the commonly asked questions. 
         Always respond in less than 50 tokens. Never mention the token count.
-
-        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
         NOTE: Always respond in less than 50 tokens. Never mention the token count.
         Assistant:\n\n
         """
