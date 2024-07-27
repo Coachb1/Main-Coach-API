@@ -2879,7 +2879,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
                                                     test.title,
                                                     )
 
-        logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
+            logger.info(f"@@@@@@@@@@@@@@@@@@@@@@ relevancy_score @@@@@@@@@@@@@@@@@@@@@@: {relevancy_score}, is_evaluated: {is_evaluated} ")
         relevance = 1
         if "relevance" in relevancy_score:
             relevance = int(relevancy_score['relevance'])
@@ -4963,10 +4963,194 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
     return skills_rating
 
 @timeit
+def get_feedback_output_format_prompt(prompt_type,test_type):
+    if prompt_type == 'code':
+        if test_type == 'interview':
+            return """
+            RUN THE BELOW CODE AS IT IS WHILE GENERATING RESPONSE:
+            # Define word limits for each section
+            word_limits = {
+                "Key insights to improve the response": 10,
+                "What went well?": 10,
+                "What did not work?": 10,
+                "A sample candidate answer": 20,
+                "Pro Interview Insights": 10
+            }
+
+            # Function to truncate text to word limit
+            def truncate_text(text, word_limit):
+                if not isinstance(text, str):
+                    raise ValueError("Input text must be a string")
+                words = text.split()
+                if len(words) > word_limit:
+                    return ' '.join(words[:word_limit])
+                return text
+
+            # Function to generate feedback
+            def generate_feedback(key_insights, what_went_well, what_did_not_work, sample_candidate_answer, pro_interview_insights):
+                if not all(isinstance(x, str) for x in [key_insights, what_went_well, what_did_not_work, sample_candidate_answer, pro_interview_insights]):
+                    raise ValueError("All input values must be strings")
+
+                feedback = {
+                    "Key insights to improve the response": truncate_text(key_insights, word_limits["Key insights to improve the response"]),
+                    "What went well?": truncate_text(what_went_well, word_limits["What went well?"]),
+                    "What did not work?": truncate_text(what_did_not_work, word_limits["What did not work?"]),
+                    "A sample candidate answer": truncate_text(sample_candidate_answer, word_limits["A sample candidate answer"]),
+                    "Pro interview insights": truncate_text(pro_interview_insights, word_limits["Pro Interview Insights"])
+                }
+
+                # Ensure total word count never exceeds 60 words
+                total_words = sum(len(section.split()) for section in feedback.values())
+                if total_words > 60:
+                    for key, value in feedback.items():
+                        words = value.split()
+                        excess_words = total_words - 60
+                        if excess_words > 0:
+                            feedback[key] = ' '.join(words[:-excess_words])
+                            total_words = sum(len(section.split()) for section in feedback.values())
+                            if total_words <= 60:
+                                break
+
+                return feedback
+
+            # Generate the feedback
+            try:
+                key_insights = "This is a sample key insight to improve the response"
+                what_went_well = "This is a sample of what went well"
+                what_did_not_work = "This is a sample of what did not work"
+                sample_candidate_answer = "This is a sample candidate answer"
+                pro_interview_insights = "This is a sample pro interveiw insights"
+
+                feedback = generate_feedback(key_insights, what_went_well, what_did_not_work, sample_candidate_answer, pro_interview_insights)
+
+                # Print the feedback
+                final_response = ""
+                for key, value in feedback.items():
+                    final_response += f"\n{key}: {value}"
+                print(final_response)
+            except ValueError as e:
+                print(f"Error: {e}")
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+
+
+            NOTE: The total number of words should be at the maximum 60 words. Provide the feedback exactly in the format and sections above. 
+            """
+
+        else:
+            return """
+            RUN THE BELOW CODE AS IT IS WHILE GENERATING RESPONSE:
+            # Define word limits for each section
+            word_limits = {
+                "Key insights to improve the response": 10,
+                "What went well?": 10,
+                "What did not work?": 10,
+                "A sample candidate answer": 20,
+                "A counter intuitive insight": 10
+            }
+
+            # Function to truncate text to word limit
+            def truncate_text(text, word_limit):
+                if not isinstance(text, str):
+                    raise ValueError("Input text must be a string")
+                words = text.split()
+                if len(words) > word_limit:
+                    return ' '.join(words[:word_limit])
+                return text
+
+            # Function to generate feedback
+            def generate_feedback(key_insights, what_went_well, what_did_not_work, sample_candidate_answer, counter_intuitive_insight):
+                if not all(isinstance(x, str) for x in [key_insights, what_went_well, what_did_not_work, sample_candidate_answer, counter_intuitive_insight]):
+                    raise ValueError("All input values must be strings")
+
+                feedback = {
+                    "Key insights to improve the response": truncate_text(key_insights, word_limits["Key insights to improve the response"]),
+                    "What went well?": truncate_text(what_went_well, word_limits["What went well?"]),
+                    "What did not work?": truncate_text(what_did_not_work, word_limits["What did not work?"]),
+                    "A sample candidate answer": truncate_text(sample_candidate_answer, word_limits["A sample candidate answer"]),
+                    "A counter intuitive insight": truncate_text(counter_intuitive_insight, word_limits["A counter intuitive insight"])
+                }
+
+                # Ensure total word count never exceeds 60 words
+                total_words = sum(len(section.split()) for section in feedback.values())
+                if total_words > 60:
+                    for key, value in feedback.items():
+                        words = value.split()
+                        excess_words = total_words - 60
+                        if excess_words > 0:
+                            feedback[key] = ' '.join(words[:-excess_words])
+                            total_words = sum(len(section.split()) for section in feedback.values())
+                            if total_words <= 60:
+                                break
+
+                return feedback
+
+            # Generate the feedback
+            try:
+                key_insights = "This is a sample key insight to improve the response"
+                what_went_well = "This is a sample of what went well"
+                what_did_not_work = "This is a sample of what did not work"
+                sample_candidate_answer = "This is a sample candidate answer"
+                counter_intuitive_insight = "This is a sample counter intuitive insight"
+
+                feedback = generate_feedback(key_insights, what_went_well, what_did_not_work, sample_candidate_answer, counter_intuitive_insight)
+
+                # Print the feedback
+                final_response = ""
+                for key, value in feedback.items():
+                    final_response += f"\n{key}: {value}"
+                print(final_response)
+            except ValueError as e:
+                print(f"Error: {e}")
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+
+
+            NOTE: The total number of words should be at the maximum 60 words. Provide the feedback exactly in the format and sections above. 
+            """
+
+    else: 
+        if test_type == "interview":
+            return"""
+            "Feedback for the candidate's responses : "
+
+            - Key insights to improve the response - 10 words maximum
+
+            - What went well ? - 10 words maximum
+
+            - What did not work ? - 10 words maximum
+
+            - A sample candidate answer - 60 words maximum
+
+            - Pro Interview Insights  - 10 words maximum
+        
+
+            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
+            """
+        else:
+            return """
+               Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                - Key insights to improve the response - 10 words maximum
+
+                - What went well ? - 10 words maximum
+
+                - What did not work ? - 10 words maximum
+
+                - A sample candidate answer - 60 words maximum
+
+                - A counter intuitive insight - 10 words maximum
+
+                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.          
+                """
+
+
+
+@timeit
 def get_interview_feedback(title,description,background, question_text,candidate_comment):
     """
     to get interview feedback prompt
     """
+    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='interview')
     prompt = Template("""
             \n\nHuman:
 
@@ -4982,21 +5166,8 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. The feedback should be structured in the following format:
 
-            "Feedback for the candidate's responses : "
-
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - Pro Interview Insights  - 10 words maximum
-        
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+            ${format_prompt}
+                      
             NOTE : Always consider the information provided in the "background" when generating the feedback
 
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
@@ -5022,7 +5193,8 @@ def get_interview_feedback(title,description,background, question_text,candidate
                     description=description,
                     question_text=question_text,
                     candidate_comment= candidate_comment,
-                    background=background
+                    background=background,
+                    format_prompt=format_prompt
                 )
     return prompt
 
@@ -5053,6 +5225,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
         articles = None
             
 
+    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
 
     if question_context:
         if articles:
@@ -5067,17 +5240,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
+                ${format_prompt}
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5093,7 +5256,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question_context=question_context,
                                     candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt,
-                                    article_info=article_information)
+                                    article_info=article_information,
+                                    format_prompt=format_prompt)
 
         else:
             template = Template(
@@ -5106,17 +5270,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
         
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
+                ${format_prompt}
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5131,7 +5285,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question=question,
                                     question_context=question_context,
                                     candidate_reply=candidate_reply,
-                                    user_feedback_prompt=user_feedback_prompt)
+                                    user_feedback_prompt=user_feedback_prompt,
+                                    format_prompt=format_prompt)
     else:
         if articles:
             template = Template(
@@ -5144,17 +5299,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Article: ${article_info} 
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.          
+                ${format_prompt}
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5169,7 +5314,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     question=question,
                                     candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt,
-                                    article_info=article_information)
+                                    article_info=article_information,
+                                    format_prompt=format_prompt)
 
 
         else:
@@ -5182,17 +5328,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
                 
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.           
+                ${format_prompt}
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
                 NOTE: Never give any feedback on the Question or anybody asking the question.
                 NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -5206,7 +5342,8 @@ def get_chat_conversation_prompt_v3(test_title: str,
                                     test_description=test_description,
                                     question=question,
                                     candidate_reply=candidate_reply,
-                                    user_feedback_prompt=user_feedback_prompt)
+                                    user_feedback_prompt=user_feedback_prompt,
+                                    format_prompt=format_prompt)
 
 
 @timeit
@@ -5235,6 +5372,9 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
     >>> get_user_first_dynamic_discussion_prompt('sales-customer', 'Sales Pitch Test', 'Evaluate the sales rep’s pitch.', 'The sales rep's comment is...', '', 1)
     # Returns the generated discussion prompt for providing feedback on a sales rep's comment.
     """
+
+    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+
     match scenareo:
         case 'manager-team':
             if question_number == 1:
@@ -5249,20 +5389,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
 
-                    "Feedback for the manager comments/responses : "
-
-                    - Key insights to improve the response - 10 words maximum
-
-                    - What went well ? - 10 words maximum
-
-                    - What did not work ? - 10 words maximum
-
-                    - A sample candidate answer - 60 words maximum
-
-                    - A counter intuitive insight - 10 words maximum
-
-                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                    ${format_prompt}
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
                     NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5288,7 +5415,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 """
                         )
                 return template.substitute(title=test_title, description=test_description,
-                                            manager_context=comment)
+                                            manager_context=comment,
+                                            format_prompt=format_prompt)
 
             template = Template(
             '''
@@ -5303,20 +5431,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
 
-            "Feedback for the manager comments/responses : "
-
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - A counter intuitive insight - 10 words maximum
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+            ${format_prompt}
             NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
             NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5343,7 +5458,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             
             return template.substitute(title=test_title, description=test_description,
-                                        manager_context=comment, bot_response=bot_response)
+                                        manager_context=comment, bot_response=bot_response,
+                                        format_prompt=format_prompt)
             
         case 'team-manager':
             if question_number == 1:
@@ -5358,20 +5474,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Please provide communication and subject matter feedback for a team member who has provided a "Team Member Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
 
-                    "Feedback for the team member's comments/responses : "
-
-                    - Key insights to improve the response - 10 words maximum
-
-                    - What went well ? - 10 words maximum
-
-                    - What did not work ? - 10 words maximum
-
-                    - A sample candidate answer - 60 words maximum
-
-                    - A counter intuitive insight - 10 words maximum
-
-                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                    ${format_prompt}
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
                     NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5398,7 +5501,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 """
                         )
                 return template.substitute(title=test_title, description=test_description,
-                                            team_comment=comment)
+                                            team_comment=comment, format_prompt=format_prompt)
 
             template = Template(
             '''
@@ -5412,21 +5515,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 Team Member Comment : ${team_comment}
 
                 Please provide communication and subject matter feedback for a team member who has provided a "Team Member". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
-
-                "Feedback for the team member comments/responses : "
-
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                ${format_prompt}
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5454,7 +5543,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             
             return template.substitute(title=test_title, description=test_description,
-                                        team_comment=comment, bot_response=bot_response)
+                                        team_comment=comment, bot_response=bot_response,
+                                        format_prompt=format_prompt)
         case 'sales-customer':
             if question_number == 1:
                 template = Template(
@@ -5468,20 +5558,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
 
-                    "Feedback for the Sales rep comments/responses : "
-
-                    - Key insights to improve the response - 10 words maximum
-
-                    - What went well ? - 10 words maximum
-
-                    - What did not work ? - 10 words maximum
-
-                    - A sample candidate answer - 60 words maximum
-
-                    - A counter intuitive insight - 10 words maximum
-
-                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                    ${format_prompt}
                     NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
                     NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5508,7 +5585,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 """
                         )
                 return template.substitute(title=test_title, description=test_description,
-                                            sales_comment=comment)
+                                            sales_comment=comment, format_prompt=format_prompt)
 
             template = Template(
             '''
@@ -5523,20 +5600,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
 
-                "Feedback for the Sales rep comments/responses : "
-
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                ${format_prompt}
                 NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5564,7 +5628,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             
             return template.substitute(title=test_title, description=test_description,
-                                        sales_comment=comment, bot_response=bot_response)
+                                        sales_comment=comment, bot_response=bot_response,
+                                        format_prompt=format_prompt)
         case 'customer-sales':
             if question_number == 1:
                 template = Template(
@@ -5578,20 +5643,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
-                    "Feedback for the customer comments/responses: "
-
-                    - Key insights to improve the response - 10 words maximum
-
-                    - What went well ? - 10 words maximum
-
-                    - What did not work ? - 10 words maximum
-
-                    - A sample candidate answer - 60 words maximum
-
-                    - A counter intuitive insight - 10 words maximum
-
-                    NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                    ${format_prompt}
                     NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
 
                     NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5618,7 +5670,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 """
                         )
                 return template.substitute(title=test_title, description=test_description,
-                                            sales_comment=comment)
+                                            sales_comment=comment, format_prompt=format_prompt)
 
             template = Template(
             '''
@@ -5633,20 +5685,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
 
-                "Feedback for the customer comments/responses: "
-
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
-
+                ${format_prompt}
                 NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
 
                 NOTE: Do not include any mentions of word count requirements or limits in your response.
@@ -5673,7 +5712,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             ''')
             
             return template.substitute(title=test_title, description=test_description,
-                                        sales_comment=comment, bot_response=bot_response)
+                                        sales_comment=comment, bot_response=bot_response,
+                                        format_prompt=format_prompt)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type for geting feedback prompt: %s", scenareo)
             return "nothing"
@@ -6291,13 +6331,13 @@ def get_email_type_prompt(test_title,
         Please provide feedback on this email. Please do not add any introductory sentence and come to the point directly. Do not include any response to the email. The feedback should be directed to the writer of the email. Please add a sample re-written email.
 
         Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-        - What went well ?
-        - What could be improved ?
-        - Some new ideas to reframe the context 
-        - A sample re-written email.
-        - A counter intuitive insight 
+        - What went well ? - 10 words maximum
+        - What could be improved ? - 10 words maximum
+        - Some new ideas to reframe the context - 10 words maximum
+        - A sample re-written email. - 20 words maximum
+        - A counter intuitive insight - 10 words maximum
 
-        NOTE: The total number of words should be at the minimum 400 words and maximum 500 words. Provide the feedback exactly in the format and sections above.
+        NOTE: The total number of words should be at the maximum 60 words. Provide the feedback exactly in the format and sections above.
         NOTE: Do not include any mentions of word count requirements or limits in your response.
         NOTE: Never give any feedback on the Question or anybody asking the question.
         NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -6322,6 +6362,8 @@ def get_overridden_prompt(prompt_template: str,
                           question_context: str,
                           candidate_reply: str,
                           user_feedback_prompt:str):
+    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+
     if question_context:
         template = Template(
             """
@@ -6335,17 +6377,7 @@ def get_overridden_prompt(prompt_template: str,
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             The feedback should be structured in the following format: 
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - A counter intuitive insight - 10 words maximum
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
+            ${format_prompt}
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -6360,7 +6392,8 @@ def get_overridden_prompt(prompt_template: str,
                                    question_context=question_context,
                                    prompt_template=prompt_template,
                                    candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
+                                   user_feedback_prompt=user_feedback_prompt,
+                                   format_prompt=format_prompt)
 
     else:
         template = Template(
@@ -6373,17 +6406,7 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - A counter intuitive insight - 10 words maximum
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
+            ${format_prompt}
             NOTE: Do not include any mentions of word count requirements or limits in your response.
             NOTE: Never give any feedback on the Question or anybody asking the question.
             NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
@@ -6397,7 +6420,8 @@ def get_overridden_prompt(prompt_template: str,
                                    question=question,
                                    prompt_template=prompt_template,
                                    candidate_reply=candidate_reply,
-                                   user_feedback_prompt=user_feedback_prompt)
+                                   user_feedback_prompt=user_feedback_prompt,
+                                   format_prompt=format_prompt)
     
 
 @timeit
@@ -6407,6 +6431,8 @@ def get_english_support_feedback_prompt(prompt_template: str,
                         question: str,
                         candidate_reply: str,
                         user_feedback_prompt:str):
+        format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+
         template = Template(
             """
             \n\nHuman:
@@ -6422,18 +6448,7 @@ def get_english_support_feedback_prompt(prompt_template: str,
 
             Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
 
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - A counter intuitive insight - 10 words maximum
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above. 
-
+            ${format_prompt}
             NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
 
             NOTE: Only provide feedback on the English proficiency of the candidate.
@@ -6456,7 +6471,8 @@ def get_english_support_feedback_prompt(prompt_template: str,
                             question=question,
                             prompt_template=prompt_template,
                             candidate_reply=candidate_reply,
-                            user_feedback_prompt=user_feedback_prompt)
+                            user_feedback_prompt=user_feedback_prompt,
+                            format_prompt=format_prompt)
 
     
 @timeit
