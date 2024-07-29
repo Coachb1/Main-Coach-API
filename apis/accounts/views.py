@@ -978,6 +978,9 @@ class AccountsViewSet(ApiViewSet,
     def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False, deleted_data = {}):
         extracted_from_youtube = {}
         extracted_media_data = {}
+        
+        if not isinstance(youtube_links, list):
+            youtube_links = [youtube_links]
 
         logger.info(f"*************** youtube_links in process_and_store : {youtube_links}")
 
@@ -988,6 +991,7 @@ class AccountsViewSet(ApiViewSet,
                     for i in range(2):
                         transcript = get_youtube_transcript(link)
                         if transcript is not None:
+                            logger.info(f"transcript: {transcript}")
                             break
                     if transcript is None:
                         transcript = download_and_transcribe_audio(link)
