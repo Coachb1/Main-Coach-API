@@ -987,6 +987,7 @@ class AccountsViewSet(ApiViewSet,
         transcript = None
         for link in youtube_links:
             if link != '':
+                logger.info(f"Gettinggs transcript for youtube link: {link}")
                 try:
                     for i in range(2):
                         transcript = get_youtube_transcript(link)
@@ -994,8 +995,9 @@ class AccountsViewSet(ApiViewSet,
                             logger.info(f"transcript: {transcript}")
                             break
                     if transcript is None:
+                        logger.info(f"Could not get transcript for youtube link: {link} from package so trying to download and transcribe")
                         transcript = download_and_transcribe_audio(link)
-
+                        logger.info(f"Transcript after download and transcribe : {transcript}")
                     if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                         extracted_media_data[link] = transcript
                         transcript = get_document_summary(transcript)
