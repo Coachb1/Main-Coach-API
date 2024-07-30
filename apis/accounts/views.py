@@ -1004,7 +1004,7 @@ class AccountsViewSet(ApiViewSet,
                     extracted_from_youtube[link] = transcript
                 except Exception as e:
                     logger.exception(e)
-                    extracted_from_youtube[link] = {"error": "error in extracting transcript"}
+                    extracted_from_youtube[link] = {"error": "Restricted video. error in extracting transcript. Please try another."}
             
         # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
         logger.info(f"extratedz youtube: {extracted_from_youtube}")
