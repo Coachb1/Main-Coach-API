@@ -61,6 +61,7 @@ def get_youtube_transcript(url):
         transcript =  YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
         # combine all the text from the 'text' fields in the transcript into one large string
         complete_transcript = ' '.join([x['text'] for x in transcript])
+        logger.info(f"Complete Transcript: {complete_transcript}")
         return complete_transcript
     except:
         return None
