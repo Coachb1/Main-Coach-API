@@ -978,27 +978,33 @@ class AccountsViewSet(ApiViewSet,
     def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False, deleted_data = {}):
         extracted_from_youtube = {}
         extracted_media_data = {}
+        
+        if not isinstance(youtube_links, list):
+            youtube_links = [youtube_links]
 
         logger.info(f"*************** youtube_links in process_and_store : {youtube_links}")
 
         transcript = None
         for link in youtube_links:
             if link != '':
+                logger.info(f"Gettinggs transcript for youtube link: {link}")
                 try:
                     for i in range(2):
                         transcript = get_youtube_transcript(link)
                         if transcript is not None:
+                            logger.info(f"transcript: {transcript}")
                             break
                     if transcript is None:
+                        logger.info(f"Could not get transcript for youtube link: {link} from package so trying to download and transcribe")
                         transcript = download_and_transcribe_audio(link)
-
+                        logger.info(f"Transcript after download and transcribe : {transcript}")
                     if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                         extracted_media_data[link] = transcript
                         transcript = get_document_summary(transcript)
                     extracted_from_youtube[link] = transcript
                 except Exception as e:
                     logger.exception(e)
-                    extracted_from_youtube[link] = {"error": "error in extracting transcript"}
+                    extracted_from_youtube[link] = {"error": "Restricted video. error in extracting transcript. Please try another."}
             
         # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
         logger.info(f"extratedz youtube: {extracted_from_youtube}")

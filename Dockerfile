@@ -24,6 +24,7 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN pip install --upgrade pip
+RUN pip install wheel
 
 ADD requirements.txt /code/requirements.txt
 
