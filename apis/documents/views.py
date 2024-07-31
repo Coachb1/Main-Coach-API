@@ -115,9 +115,11 @@ class DocumentViewSet(ApiViewSet,
                     break
 
             if transcript is None:
+                logger.info("package failed Trying repidapi_stt")
                 transcript = repidapi_stt(youtube_link)
                 
             if transcript is None:
+                logger.info("rapidapi failed Trying download_and_transcribe_audio")
                 transcript = download_and_transcribe_audio(youtube_link)
 
             summary = get_summary(transcript,choice)

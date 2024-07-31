@@ -52,13 +52,16 @@ def get_youtube_transcript(url):
         "We're no strangers to love You know the rules and so do I..."
     """
     try:
+        logger.info(f"get_youtube_transcript before format: {url}")
         url = format_youtube_link(url)
+        logger.info(f"get_youtube_transcript after format: {url}")
         query = urlparse(url).query
         params = parse_qs(query)
         video_id = params["v"][0]
         transcript =  YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
         # combine all the text from the 'text' fields in the transcript into one large string
         complete_transcript = ' '.join([x['text'] for x in transcript])
+        logger.info(f"Complete Transcript: {complete_transcript}")
         return complete_transcript
     except:
         return None
