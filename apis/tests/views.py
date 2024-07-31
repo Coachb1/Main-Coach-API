@@ -41,6 +41,7 @@ from commons.notifications import send_error_notification
 from tests.helpers import search_keywords, replace_words
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 import logging
+from identities.models import Identity
 
 logger = logging.getLogger(__name__)
 
@@ -589,6 +590,14 @@ class TestViewSet(ApiViewSet,
         competency_skills = request.query_params.get('competency_skills',None)
         tab_category = request.query_params.get('tab_category',None)
         client_name = request.query_params.get('client_name',None)
+        creator_email = request.query_params.get('creator_email',None)
+        
+        created_by_user_id = None
+        logger.info(f"******** Creator email : {creator_email}")
+        if creator_email:
+            identity = Identity.objects.filter(value=creator_email).last()
+            created_by_user_id = identity.user_id if identity else None
+            logger.info(f"******** Creator user id : {created_by_user_id}")
 
 
         test_list = []
@@ -619,6 +628,9 @@ class TestViewSet(ApiViewSet,
 
             if client_name:
                 tests = tests.filter(client_name=client_name)
+                
+            if created_by_user_id:
+                tests = tests.filter(creator_user_id=created_by_user_id)
 
 
         cnt = 1
