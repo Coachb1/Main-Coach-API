@@ -590,6 +590,7 @@ class TestViewSet(ApiViewSet,
         competency_skills = request.query_params.get('competency_skills',None)
         tab_category = request.query_params.get('tab_category',None)
         client_name = request.query_params.get('client_name',None)
+
         creator_email = request.query_params.get('creator_email',None)
         
         created_by_user_id = None
@@ -598,6 +599,7 @@ class TestViewSet(ApiViewSet,
             identity = Identity.objects.filter(value=creator_email).last()
             created_by_user_id = identity.user_id if identity else None
             logger.info(f"******** Creator user id : {created_by_user_id}")
+
 
 
         test_list = []
@@ -628,9 +630,11 @@ class TestViewSet(ApiViewSet,
 
             if client_name:
                 tests = tests.filter(client_name=client_name)
+
                 
             if created_by_user_id:
                 tests = tests.filter(creator_user_id=created_by_user_id)
+
 
 
         cnt = 1
