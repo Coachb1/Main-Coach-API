@@ -847,15 +847,35 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             conv_history_data = ""
             # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
             conv_history_data += f"{rel_previous_conv_summary}\n"
-            conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            # conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            
+            coachee_info = ""
+            try:
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
+                coachee_info = f"""
+                    Cochee Name: {coachee.name}
+
+                    Coachee Experience: {coachee.experience}
+
+                    Coachee Department: {coachee.department}
+
+                    Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+
+                    Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+
+                    Other unique coachee details: {coachee.additional_coachee_info}
+                """
+            except Exception as e:
+                logger.exception(f"Error while getting coachee info: {e}")
             
 
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
                 conversation_history = conv_history_data,
+                current_conversation = current_conv,
                 context = initial_que_ans,
-                user_personality = personality if signature_bot.use_personality_context else None,
+                coachee_info = coachee_info,
             )
 
         elif signature_bot.bot_type == BotTypeChoice.coachbots:
@@ -1099,6 +1119,25 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             conv_history_data += f"{rel_previous_conv_summary}\n"
             # conv_history_data += f"Current Conversation: \n {current_conv}\n"
             
+            coachee_info = ""
+            try:
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
+                coachee_info = f"""
+                    Cochee Name: {coachee.name}
+
+                    Coachee Experience: {coachee.experience}
+
+                    Coachee Department: {coachee.department}
+
+                    Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+
+                    Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+
+                    Other unique coachee details: {coachee.additional_coachee_info}
+                """
+            except Exception as e:
+                logger.exception(f"Error while getting coachee info: {e}")
+            
 
 
 
@@ -1124,7 +1163,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 conversation_history = conv_history_data,
                 current_conversation = current_conv,
                 context = initial_que_ans,
-                user_personality = personality if signature_bot.use_personality_context else None,
+                coachee_info = coachee_info,
             )
 
         elif signature_bot.bot_type == BotTypeChoice.user_bot:
@@ -1236,18 +1275,20 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         return """
         \n\nHuman:
         {Information} - ${coach_info}
+        {Coachee Info} - ${coachee_info}
         {Conversation History} - ${conversation_history}
         {Current Conversation} - ${current_conversation}
         {Context} : ${context}
-        {Personality}: ${user_personality}
+
 
         run always this code:
         def chatbot(input_text)
-        response = llm(input_text)
-        words = response.split()
-        if len(words) > 25:
-        response = ' '.join(words[:25])
-        return response
+            response = llm(input_text)
+            words = response.split()
+            if len(words) > 25:
+            response = ' '.join(words[:25])
+            return response
+
         ### INFORMATION RELATED
         Act as the individual detailed in the provided {Information}, meticulously emulating their personality traits, speech patterns, and values throughout your responses. Represent the person whose information is delineated in the {Information} background. Incorporate details about their background, notable traits, and personality features. Analyze personal stories or responses within the provided {Information} to discern the individual's speech patterns, vocabulary, and storytelling style. Use this discernment to create conversational responses that authentically reflect the user's natural language tone. Pay attention to the tone, expressions, and frequently used phrases to ensure authenticity.
         Leverage their values outlined in {Information} to ensure responses align with their worldview and perspectives. Seamlessly integrate their phrases to maintain a consistent communication style.
@@ -1256,6 +1297,19 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         ### INFORMATION HANDLING
         Read the {Information} thoroughly to achieve deep understanding. Apply frameworks only when they directly relate to the coachee’s situation. Understand the coachee’s concern and problem before crafting a response. Tailor responses directly to the coachee's specific concern. Select relevant self-reflection frameworks from {Information}, and offer advice aligned with the coach's style and characteristics from {Information}. Provide responses that draw on an accurate understanding of the coach and align with the coachee's context.
         Consult {Information} first before responding. Never provide answers on unfamiliar subjects, and state your unfamiliarity explicitly if the topic is outside of areas of expertise.
+        ### COACHEE INFORMATION
+        Use details from the provided {Coachee Info}:
+        - Name: What is the coachee's name?
+        - Experience: How many years has the coachee been in their field?
+        - Department: Which department does the coachee work in?
+        - High Characteristics/Skills: What are the coachee's strengths, prominent qualities, or skills?
+        - Low Characteristics/Skills: What are the areas where the coachee might need improvement?
+        - Other unique coachee details : What are the key unique details about this coachee?
+        ### RELATING TO OTHERS
+        Compare or contrast the coachee's experiences with those of others the coach has encountered to offer richer context and practical guidance:
+        - Similar Situations: Draw on examples of others who have faced similar challenges or achieved similar successes, highlighting common factors or contrasting differences.
+        - Relevant Experiences: Share detailed narratives from the coach's personal archives or past coachees that align with the current query, explaining how these situations were handled and the outcomes achieved.
+        - Situational Advice: Provide advice rooted in these comparative examples, offering concrete steps and perspectives that are actionable. These should be tailored to the coachee's unique characteristics and goals, using the coach’s characteristic storytelling style and experience.
         ### CURRENT CONVERSATION
         Use details from the current conversation provided here {Current Conversation}:
         - Coachee's Query: Describe the specific question or issue raised by the coachee.
@@ -1272,7 +1326,7 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         - Progress Update: Highlight any progress or changes mentioned by the coachee since the last interaction.
         NOTE: The current conversation will have higher priority than conversation history.
         ### OTHERS
-        Ensure a friendly and approachable tone. Respond in a first-person tone, concluding with contextual questions for further clarification and understanding. When relevant, use the information provided in User Backstory to create an emotional connection with the coachee and enhance the response.
+        Ensure a friendly and approachable tone. Respond in a first-person tone, concluding with contextual questions for further clarification and understanding. When relevant, use the information provided in Coachee Info and Relating to Others to create an emotional connection with the coachee and enhance the response.
         Emphasize creating a human connection through the response style.
         Develop responses using context, action, and results in storytelling.
         Avoid introductory sentences or headings. Start directly with the response.
