@@ -342,7 +342,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     optional_file_data = models.JSONField(null=True, blank=True, default=None)
     problem_statement = models.TextField(null=True, blank=True, default=None)
     provide_answers_using_emojis = models.BooleanField(null=True, blank=True, default=False)
-
+    additional_coachee_info = models.TextField(null=True, blank=True, default=None)
 
     
     
