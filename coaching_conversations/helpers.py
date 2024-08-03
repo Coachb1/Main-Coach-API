@@ -852,19 +852,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             coachee_info = ""
             try:
                 coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
-                coachee_info = f"""
-                    Cochee Name: {coachee.name}
+                if coachee.use_coachee_info_in_prompt:
+                    coachee_info = f"""
+                        Cochee Name: {coachee.name}
 
-                    Coachee Experience: {coachee.experience}
+                        Coachee Experience: {coachee.experience}
 
-                    Coachee Department: {coachee.department}
+                        Coachee Department: {coachee.department}
 
-                    Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+                        Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
 
-                    Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+                        Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
 
-                    Other unique coachee details: {coachee.additional_coachee_info}
-                """
+                        Other unique coachee details: {coachee.additional_coachee_info}
+                    """
             except Exception as e:
                 logger.exception(f"Error while getting coachee info: {e}")
             
@@ -1122,19 +1123,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             coachee_info = ""
             try:
                 coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
-                coachee_info = f"""
-                    Cochee Name: {coachee.name}
+                if coachee.use_coachee_info_in_prompt:
+                    coachee_info = f"""
+                        Cochee Name: {coachee.name}
 
-                    Coachee Experience: {coachee.experience}
+                        Coachee Experience: {coachee.experience}
 
-                    Coachee Department: {coachee.department}
+                        Coachee Department: {coachee.department}
 
-                    Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+                        Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
 
-                    Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+                        Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
 
-                    Other unique coachee details: {coachee.additional_coachee_info}
-                """
+                        Other unique coachee details: {coachee.additional_coachee_info}
+                    """
             except Exception as e:
                 logger.exception(f"Error while getting coachee info: {e}")
             
