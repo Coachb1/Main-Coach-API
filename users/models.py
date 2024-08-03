@@ -343,7 +343,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     problem_statement = models.TextField(null=True, blank=True, default=None)
     provide_answers_using_emojis = models.BooleanField(null=True, blank=True, default=False)
     additional_coachee_info = models.TextField(null=True, blank=True, default=None)
-
+    use_coachee_info_in_prompt = models.BooleanField(null=True, blank=True, default=True)
     
     
 

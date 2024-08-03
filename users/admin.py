@@ -10,7 +10,7 @@ from email_sender.helpers import send_welcome_email
 
 class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','profile_type','name', 'email')
+    list_display = ('id','uid','profile_type','name', 'email','use_coachee_info_in_prompt')
     list_filter = ('profile_type','status','department','is_approved')
     search_fields = ('name', 'uid','email', 'unique_id', 'user_id', 'low_rating_characteristics','high_rating_characteristics','mentoring_preferences'
                     ,'voice_sample','coaching_level',
@@ -18,6 +18,7 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
                         'coaching_style',
                         'time_commitment',
                         )
+    list_editable = ('use_coachee_info_in_prompt',)
     ordering = ('-id',)
 
 
