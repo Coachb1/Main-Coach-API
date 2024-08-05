@@ -20,7 +20,7 @@ from users.db import get_user_display_name, get_user_by_id
 from string import Template
 from utilities.helpers import save_user_action_info, save_bot_engagement
 import json
-from utilities.models import BotQnA, UserIDP
+from utilities.models import BotQnA, UserIDP, GlobalPrompts
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute, get_default_help_text
@@ -612,7 +612,18 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
-        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
+        global_bot_prompt = None
+        try:
+            global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+            global_bot_prompt = global_prompt.prompt
+            logger.info(f"global prompt defined: {global_bot_prompt}")
+        except Exception as e:
+            logger.exception(f"global prompt not defined: {e}")
+            
+        if global_bot_prompt:
+            prompt = global_bot_prompt
+        else:
+            prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
     else:
