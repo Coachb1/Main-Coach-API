@@ -636,7 +636,7 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    if signature_bot.bot_type == 'avatar_bot' and not signature_bot.bot_scenario_case == 'icons_by_ai':
+    if signature_bot.bot_type == 'avatar_bot':
         response_style = None
         try:
             user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)

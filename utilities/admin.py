@@ -72,7 +72,7 @@ class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
     )
     search_fields = (
         'name', 'profile_type', 'bot_type', 'department', 'is_approved', 'is_visible',
-        'expertise', 'avatar_bot_id', 'custom_user_bot_id', 'client_name'
+        'expertise', 'avatar_bot_id', 'custom_user_bot_id', 
     )
     list_editable = (
         'name', 'profile_type', 'bot_type', 'skills', 'avatar_bot_id', 'avatar_bot_url',
