@@ -215,3 +215,12 @@ class LLMMappingTable(TenantAwareModel):
     class Meta:
         db_table = "llm_mapping_table"
         unique_together = ('bot_type', 'tenant_id')
+
+
+
+class GlobalPrompts(TenantAwareModel):
+    resourse_id = models.CharField(max_length=64)
+    resourse_type = models.CharField(max_length=255)
+    tag = models.CharField(max_length=255)
+    prompt = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)

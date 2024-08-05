@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP ,\
-        ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable
+        ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalPrompts
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -116,6 +116,12 @@ class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
 
 class ScenarioCreationDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','creator_id','status','input','output','reason_of_failure')
+    
+    
+class GlobalPromptsAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id','created_at', 'resourse_type', 'tag')
+    search_fields = ('prompt',)
+
 
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
 admin.site.register(DirectoryPageInfo, DirectoryAdmin)
@@ -125,6 +131,7 @@ admin.site.register(UserActionInfo)
 admin.site.register(EmailSentDetails, EmailSentDetailsAdmin)
 admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAdmin)
 admin.site.register(LLMMappingTable, LLMMappingAdmin)
+admin.site.register(GlobalPrompts, GlobalPromptsAdmin)
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
