@@ -219,8 +219,8 @@ class LLMMappingTable(TenantAwareModel):
 
 
 class GlobalPrompts(TenantAwareModel):
-    resourse_id = models.CharField(max_length=64)
+    resourse_id = models.CharField(max_length=64, null=True,blank=True)
     resourse_type = models.CharField(max_length=255)
-    tag = models.CharField(max_length=255)
+    tag = models.CharField(max_length=255, null=True,blank=True)
     prompt = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
