@@ -612,18 +612,8 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
-        global_bot_prompt = None
-        try:
-            global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
-            global_bot_prompt = global_prompt.prompt
-            logger.info(f"global prompt defined: {global_bot_prompt}")
-        except Exception as e:
-            logger.exception(f"global prompt not defined: {e}")
-            
-        if global_bot_prompt:
-            prompt = global_bot_prompt
-        else:
-            prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
+
+        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
     else:
@@ -881,6 +871,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 logger.exception(f"Error while getting coachee info: {e}")
             
 
+            try:
+                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+                global_bot_prompt = global_prompt.prompt
+                logger.info(f"global prompt defined: {global_bot_prompt}")
+                prompt = global_bot_prompt
+            except Exception as e:
+                logger.exception(f"global prompt not defined: {e}")
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
@@ -1171,6 +1168,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 personality = None
             
 
+            try:
+                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+                global_bot_prompt = global_prompt.prompt
+                logger.info(f"global prompt defined: {global_bot_prompt}")
+                prompt = global_bot_prompt
+            except Exception as e:
+                logger.exception(f"global prompt not defined: {e}")
+                
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
                 conversation_history = conv_history_data,
