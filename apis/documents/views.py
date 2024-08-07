@@ -16,6 +16,7 @@ from commons.anthropic import anthropic_completion
 from commons.cloudinary import upload_image
 import logging
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
+from commons.google_apis import gemini_completion
 
 logger = logging.getLogger("main")
 
@@ -131,7 +132,8 @@ class DocumentViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="get-prompt-response")
     def get_prompt_response(self, request, *args, **kwargs):
         prompt = request.query_params.get("prompt")
-        response_text = anthropic_completion(prompt, 500)
+        # response_text = anthropic_completion(prompt, 500)
+        response_text = gemini_completion(prompt)
         return Response({"response_text": response_text})
     
     
