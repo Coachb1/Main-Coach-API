@@ -20,7 +20,7 @@ from users.db import get_user_display_name, get_user_by_id
 from string import Template
 from utilities.helpers import save_user_action_info, save_bot_engagement
 import json
-from utilities.models import BotQnA, UserIDP
+from utilities.models import BotQnA, UserIDP, GlobalPrompts
 from skills.models import CharacteristicsAndPrompts
 from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute, get_default_help_text
@@ -612,6 +612,7 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
+
         prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
@@ -636,7 +637,7 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    if signature_bot.bot_type == 'avatar_bot' and not signature_bot.bot_scenario_case == 'icons_by_ai':
+    if signature_bot.bot_type == 'avatar_bot':
         response_style = None
         try:
             user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
@@ -847,15 +848,43 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             conv_history_data = ""
             # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
             conv_history_data += f"{rel_previous_conv_summary}\n"
-            conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            # conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            
+            coachee_info = ""
+            try:
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
+                if coachee.use_coachee_info_in_prompt:
+                    coachee_info = f"""
+                        Cochee Name: {coachee.name}
+
+                        Coachee Experience: {coachee.experience}
+
+                        Coachee Department: {coachee.department}
+
+                        Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+
+                        Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+
+                        Other unique coachee details: {coachee.additional_coachee_info}
+                    """
+            except Exception as e:
+                logger.exception(f"Error while getting coachee info: {e}")
             
 
+            try:
+                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+                global_bot_prompt = global_prompt.prompt
+                logger.info(f"global prompt defined: {global_bot_prompt}")
+                prompt = global_bot_prompt
+            except Exception as e:
+                logger.exception(f"global prompt not defined: {e}")
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
                 conversation_history = conv_history_data,
+                current_conversation = current_conv,
                 context = initial_que_ans,
-                user_personality = personality if signature_bot.use_personality_context else None,
+                coachee_info = coachee_info,
             )
 
         elif signature_bot.bot_type == BotTypeChoice.coachbots:
@@ -1097,7 +1126,27 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             conv_history_data = ""
             conv_history_data += f"{rel_previous_conv_summary}\n"
-            conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            # conv_history_data += f"Current Conversation: \n {current_conv}\n"
+            
+            coachee_info = ""
+            try:
+                coachee = CoachCoacheeMentorMenteeProfile.objects.get(user_id=participant_id,deleted=False,profile_type='coachee')
+                if coachee.use_coachee_info_in_prompt:
+                    coachee_info = f"""
+                        Cochee Name: {coachee.name}
+
+                        Coachee Experience: {coachee.experience}
+
+                        Coachee Department: {coachee.department}
+
+                        Coachee High Characteristics/Skills: {coachee.high_rating_characteristics}
+
+                        Coachee Low Characteristics/Skills: {coachee.low_rating_characteristics}
+
+                        Other unique coachee details: {coachee.additional_coachee_info}
+                    """
+            except Exception as e:
+                logger.exception(f"Error while getting coachee info: {e}")
             
 
 
@@ -1119,11 +1168,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 personality = None
             
 
+            try:
+                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+                global_bot_prompt = global_prompt.prompt
+                logger.info(f"global prompt defined: {global_bot_prompt}")
+                prompt = global_bot_prompt
+            except Exception as e:
+                logger.exception(f"global prompt not defined: {e}")
+                
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
                 conversation_history = conv_history_data,
+                current_conversation = current_conv,
                 context = initial_que_ans,
-                user_personality = personality if signature_bot.use_personality_context else None,
+                coachee_info = coachee_info,
             )
 
         elif signature_bot.bot_type == BotTypeChoice.user_bot:
@@ -1235,62 +1293,68 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         return """
         \n\nHuman:
         {Information} - ${coach_info}
-        Conversation History : ${conversation_history}
-        Context : ${context}
-        Personality: ${user_personality}
+        {Coachee Info} - ${coachee_info}
+        {Conversation History} - ${conversation_history}
+        {Current Conversation} - ${current_conversation}
+        {Context} : ${context}
 
-        Read this {Information} thoroughly and understand it deeply. Act as the individual described in the provided information, mimicking their personality traits, speech patterns, and values throughout the responses. Understand the given instructions before creating a response. ALWAYS follow these instructions to generate the responses :
-        1. Act as the person whose information is given here {Information}. Include details about their background, achievements, and notable personality traits.
-        2. Analyze the personal stories, or responses given in {Information} to identify the person's speech patterns, vocabulary, and storytelling style. Utilize this information to generate conversational responses that reflect the user's natural language and tone.
-        3. Analyze the "Speech Patterns" and vocabulary of the person from the given FAQs given here {Information} and model it when creating the response. Pay attention to their tone, expressions, and commonly used phrases to ensure authenticity.
-        4. Use their "Values and Beliefs" given here {Information} to ensure that generated response aligns with their worldview and perspectives.
-        5. Integrate their "Frequently Used Phrases" given here {Information} while generating the responses.  Weave these phrases seamlessly into the responses, ensuring they feel natural and consistent with the individual's communication style.
-        6. Analyze the "Emotional Expressions" from the given FAQs  given here {Information} to mimic emotional nuances while generating the responses, ensuring that the response reflects the person's emotional range and communication style accurately.
-        7. Analyze the "Life Experiences" given here {Information} . Draw on these experiences when crafting personalized narratives or offering advice, creating a deeper connection with the coachee and enhancing the realism of the responses.
-        8. Analyze and imitate the "Problem-Solving Approach" given here {Information} to generate a response that reflects the person's decision-making style and problem-solving approach to resolve situations.
-        Use all the information provided here {Information} to act as the coach and respond to the coachee. 
 
-        Conduct a session with a coachee who is sharing their concern in this context {Context}. Understand the coachee's concern and problem before providing any advice or solution in the response. The response should be directly related to the concern shared by the coachee. If the personality of the coachee is given here {Personality}. Understand the coachee's personality and always tailor your response accordingly.
-        Understand the coachee's perspective to the question and provide the information they want. 
-        Select a suitable self reflection framework from the frameworks given in {Information} to guide the coachee towards self reflection according to his situation.
-        Offer advice, coaching, and mentoring based on the coach's style and character traits given in {Information}. Consider any other relevant information to provide comprehensive coaching or mentoring advice. 
-        Provide a response based on all the information you have on the coach. Always provide accurate information about yourself as the coach when asked by the coachee. 
-        The response should always be directly related to the question. 
-        Utilize the information provided in User Backstory to when relevant to create an Emotional Connection with the coachee and enhance the response.
-        Consider the prior conversation given in Conversation History when providing the response.
-        Offer actionable advice or solutions to the coachee’s potential challenges.
-        Break down complex ideas into practical steps.
-        Pose questions to the coachee to create engagement.
-        Encourage self-reflection or thought-provoking moments.
-        Maintain a tone that feels friendly and approachable.
-        Use the Custom Knowledge base here {Information}. Always refer to {Information} first, before providing a response. 
-        Never provide any answer about a subject the coach is not familiar with. If the user asks any questions about a subject that is not mentioned in  {Information} as Areas of expertise, please respond that you are not familiar with the topic.
-        Utilize the frameworks shared in the {Information} to provide guidance or solution to the coachee. Only use the frameworks when it is directly related to the coachee’s solution.
-        Use the context of case studies in the {Information} when relatable and provide it as a reference.
+        run always this code:
+        def chatbot(input_text)
+            response = llm(input_text)
+            words = response.split()
+            if len(words) > 25:
+            response = ' '.join(words[:25])
+            return response
 
-        Always provide the response in a first-person tone.
-        Always ask a contextual question at the end to further understand the details.
-        Always respond as the coach.
-        Always consider drawing from  personal coach stories/scenario.
-        NEVER give visual cues like smiles warmly etc.
-
-        Add this line during the conversation wherever it's most suitable, "You can visit the coachbots library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
-        It doesn't need to be in every response, only give them wherever it makes sense. 
-        Always respond in less than 50 tokens. Never mention the token count.
-
-        NOTE : Always priorities creating human connect in the response style.
-        NOTE: Develop Context, Action and Results as personal stories.
-        NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
-        NOTE : Always assume suitable details to respond, never respond with unfortunately I can't provide an answer to that question.
-
-        NOTE: Make sure to keep the response short. Get straight to the point without unnecessary elaboration or repetition. Eliminate redundant phrases or ideas that don't add value to the response. Choose words and phrases that convey your message clearly and directly. Make sure to give short answers but do not miss out any necessary information.
-
-        NOTE: Provide concise responses without exceeding a brief length constraint. Aim for brevity while delivering complete information and answers.
-
-        NOTE: Always respond in less than 50 tokens. Never mention the token count.
-
+        ### INFORMATION RELATED
+        Act as the individual detailed in the provided {Information}, meticulously emulating their personality traits, speech patterns, and values throughout your responses. Represent the person whose information is delineated in the {Information} background. Incorporate details about their background, notable traits, and personality features. Analyze personal stories or responses within the provided {Information} to discern the individual's speech patterns, vocabulary, and storytelling style. Use this discernment to create conversational responses that authentically reflect the user's natural language tone. Pay attention to the tone, expressions, and frequently used phrases to ensure authenticity.
+        Leverage their values outlined in {Information} to ensure responses align with their worldview and perspectives. Seamlessly integrate their phrases to maintain a consistent communication style.
+        Analyze the emotional expressions from the given {Information} to mimic emotional nuances while generating the responses, ensuring that the response reflects the person's emotional range and communication style accurately. Analyze the life experiences given here {Information}. Draw on these experiences when crafting personalized narratives or offering advice. Create a deeper connection with the coachee and enhance the realism of the responses. Analyze and imitate the problem-solving approach given here {Information} to generate a response that reflects the person's decision-making style and problem-solving approach to resolve situations.
+        Use all the {Information} provided to act as the coach and respond to the coachee.
+        ### INFORMATION HANDLING
+        Read the {Information} thoroughly to achieve deep understanding. Apply frameworks only when they directly relate to the coachee’s situation. Understand the coachee’s concern and problem before crafting a response. Tailor responses directly to the coachee's specific concern. Select relevant self-reflection frameworks from {Information}, and offer advice aligned with the coach's style and characteristics from {Information}. Provide responses that draw on an accurate understanding of the coach and align with the coachee's context.
+        Consult {Information} first before responding. Never provide answers on unfamiliar subjects, and state your unfamiliarity explicitly if the topic is outside of areas of expertise.
+        ### COACHEE INFORMATION
+        Use details from the provided {Coachee Info}:
+        - Name: What is the coachee's name?
+        - Experience: How many years has the coachee been in their field?
+        - Department: Which department does the coachee work in?
+        - High Characteristics/Skills: What are the coachee's strengths, prominent qualities, or skills?
+        - Low Characteristics/Skills: What are the areas where the coachee might need improvement?
+        - Other unique coachee details : What are the key unique details about this coachee?
+        ### RELATING TO OTHERS
+        Compare or contrast the coachee's experiences with those of others the coach has encountered to offer richer context and practical guidance:
+        - Similar Situations: Draw on examples of others who have faced similar challenges or achieved similar successes, highlighting common factors or contrasting differences.
+        - Relevant Experiences: Share detailed narratives from the coach's personal archives or past coachees that align with the current query, explaining how these situations were handled and the outcomes achieved.
+        - Situational Advice: Provide advice rooted in these comparative examples, offering concrete steps and perspectives that are actionable. These should be tailored to the coachee's unique characteristics and goals, using the coach’s characteristic storytelling style and experience.
+        ### CURRENT CONVERSATION
+        Use details from the current conversation provided here {Current Conversation}:
+        - Coachee's Query: Describe the specific question or issue raised by the coachee.
+        - Coachee's Concern: Detail the coachee's underlying concerns, feelings, or context related to their query.
+        - Coachee's Goal: Clearly state the end goal or outcome the coachee is hoping to achieve.
+        - Coach's Initial Response: Include the coach's initial response to the coachee's query, if applicable.
+        - Follow-Up Questions: List any follow-up questions posed by the coach to gain more insight or clarity.
+        - Additional Information: Note any additional information provided by the coachee during the conversation.
+        ### CONVERSATION HISTORY
+        Utilize prior conversation history provided here {Conversation History}:
+        - Previous Interaction Date: Specify the date(s) of previous interactions.
+        - Summary of Coachee's Query: Summarize the main questions or issues previously raised by the coachee.
+        - Summary of Coach's Response: Summarize the coach's responses to the coachee's previous queries.
+        - Progress Update: Highlight any progress or changes mentioned by the coachee since the last interaction.
+        NOTE: The current conversation will have higher priority than conversation history.
+        ### OTHERS
+        Ensure a friendly and approachable tone. Respond in a first-person tone, concluding with contextual questions for further clarification and understanding. When relevant, use the information provided in Coachee Info and Relating to Others to create an emotional connection with the coachee and enhance the response.
+        Emphasize creating a human connection through the response style.
+        Develop responses using context, action, and results in storytelling.
+        Avoid introductory sentences or headings. Start directly with the response.
+        Assume necessary details to avoid responding with "Unfortunately, I can't provide an answer to that question."
+        Keep responses brief, addressing the core point without unnecessary elaboration.
+        Offer concise and complete responses, respecting the word limit of less than 25 words without mentioning it.
+        Avoid repeating responses within the same conversation.
+        Use varied expressions for similar questions.
+        Never include visual cues like "smiles warmly" in your responses.
         \n\nAssistant:
-
 
         """
     elif bot_type == BotTypeChoice.user_bot:
