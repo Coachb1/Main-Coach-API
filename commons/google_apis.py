@@ -215,8 +215,8 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,model="gemini-1.0-pro"):
-    logger.info(f"gemini_completion prompt: {prompt}")
+def gemini_completion(prompt,models=["gemini-1.5-pro-001","gemini-1.5-flash-001","gemini-1.0-pro"]):
+    logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     vertexai.init(project="summer-nucleus-397019", location="asia-south1")
@@ -226,33 +226,32 @@ def gemini_completion(prompt,model="gemini-1.0-pro"):
         "temperature": 0.9,
         "top_p": 1
     }
-    safety_settings={
-              }
-
-    model = GenerativeModel(
-        model,
-    )
 
     max_retry = 3
-    retry = 0
-
-    while True:
-        try:
-            logger.info(f"trying gemini_completion for {retry+1} time")
-            responses = model.generate_content(
-                [prompt],
-                generation_config=generation_config,
-            )
-            logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
-            logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
-            return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
-        except IndexError as e:
-            logger.error(f"gemini_completion failed with list index out of range error: {e}", exc_info=True)
-            raise e
-        except Exception as e:
-            logger.error(f"gemini_completion failed with {e}", exc_info=True)
-            retry += 1
-            if retry >= max_retry:
-                raise e
-
-            time.sleep(random.randint(1,3))
+    
+    for model_name in models:
+        model = GenerativeModel(model_name)
+        retry = 0
+        
+        while retry < max_retry:
+            try:
+                logger.info(f"{'='*50}")
+                logger.info(f"Trying gemini_completion with model {model_name} for {retry+1} time")
+                responses = model.generate_content(
+                    [prompt],
+                    generation_config=generation_config,
+                )
+                logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
+                logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
+                return remove_garbage_characters(responses.candidates[0].content.parts[0].text)
+            except IndexError as e:
+                logger.error(f"gemini_completion failed with list index out of range error: {e}", exc_info=True)
+                break  # Exit the loop to try the next model
+            except Exception as e:
+                logger.error(f"gemini_completion failed with {e}", exc_info=True)
+                retry += 1
+                if retry >= max_retry:
+                    break  # Exit the loop to try the next model
+                time.sleep(random.randint(1, 3))
+    
+    raise Exception("All models failed to generate a response.")
