@@ -2050,11 +2050,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         response_text = test_question_response.response_text
         go_for_feedback = True
 
-        words = word_tokenize(test_question_response.response_text)
+        # words = word_tokenize(test_question_response.response_text)
 
-        if len(words) <= 10 :
-            feedback_text = "No feedback can be generated because of too low response length"
-            go_for_feedback = False
+        # if len(words) <= 10 :
+        #     feedback_text = "No feedback can be generated because of too low response length"
+        #     go_for_feedback = False
 
         if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
             feedback_text = "No feedback..."
@@ -2136,7 +2136,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                 
                 else:
                     try:
-                        feedback_text = gemini_completion(prompt)
+                        feedback_text = gemini_completion(prompt=prompt,instruction="Please always respond within 150 tokens in a summary format.")
                     except Exception as e:
                         logger.exception(e)
                         anthropic_feedback = anthropic_completion(prompt, 1200) 
@@ -2637,7 +2637,12 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         articles=test.articles,
                                         scenario_summary=test.scenario_summary,)
         
-        feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+        feedback_text = generic_completion(prompt=prompt,
+                                           tokens=1200, 
+                                           fallback_text="Feedback could not be generated",
+                                           is_free=test.is_free,
+                                           instruction="Please always respond within 150 tokens in a summary format."
+                                           )
             
         test_question_response.feedback_text = feedback_text
         update_fields.append("feedback_text")
@@ -2835,7 +2840,13 @@ def get_feedback(question, test_question_response, question_text, test):
                                     articles=test.articles,
                                     scenario_summary=test.scenario_summary,)
         
-    test_question_response.feedback_text = generic_completion(prompt,1200, "Feedback could not be generated",test.is_free)
+    test_question_response.feedback_text = generic_completion(
+                                            prompt=prompt,
+                                            tokens=1200, 
+                                            fallback_text="Feedback could not be generated",
+                                            is_free=test.is_free,
+                                            instruction="Please always respond within 150 tokens in a summary format."
+                                            )
     logger.info(f"************dynamic discussion feedback : {test_question_response.feedback_text}")
     test_question_response.save(update_fields=["feedback_text"])
 
@@ -5112,35 +5123,22 @@ def get_feedback_output_format_prompt(prompt_type,test_type):
     else: 
         if test_type == "interview":
             return"""
-            "Feedback for the candidate's responses : "
+            The feedback should be structured in the following format:
 
-            - Key insights to improve the response - 10 words maximum
-
-            - What went well ? - 10 words maximum
-
-            - What did not work ? - 10 words maximum
-
-            - A sample candidate answer - 60 words maximum
-
-            - Pro Interview Insights  - 10 words maximum
-        
-
-            NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.
+            Key Insights: "Output text"
+            What went well: Output text"
+            What did not work: Output text"
+            Sample Candidate Answer : "Output text"
+            Pro Interview Insights :  "Output text"            
             """
         else:
             return """
-               Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-                - Key insights to improve the response - 10 words maximum
-
-                - What went well ? - 10 words maximum
-
-                - What did not work ? - 10 words maximum
-
-                - A sample candidate answer - 60 words maximum
-
-                - A counter intuitive insight - 10 words maximum
-
-                NOTE: The total number of words should be at the maximum 100 words. Provide the feedback exactly in the format and sections above.          
+                The feedback should be structured in the following format:
+                    Key Insights: "Output text"
+                    What went well: Output text"
+                    What did not work: Output text"
+                    Sample Candidate Answer : "Output text"
+                    Counter Intuitive Insight :  "Output text"
                 """
 
 
@@ -5150,7 +5148,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
     """
     to get interview feedback prompt
     """
-    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='interview')
+    format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='interview')
     prompt = Template("""
             \n\nHuman:
 
@@ -5164,29 +5162,14 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             Candidate Comment : ${candidate_comment}
 
-            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. The feedback should be structured in the following format:
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. 
 
             ${format_prompt}
-                      
-            NOTE : Always consider the information provided in the "background" when generating the feedback
 
-            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
+            NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-            NOTE: Only provide feedback on the "Candidate Comment" not on the "Test Description."
-
-            NOTE : A sample candidate answer is a sample Candidate comment based on the context provided.
-
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the candidate’s answer in "Key insights to improve the response."
-
-            NOTE : In cases where the "Candidate Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-            NOTE: Before providing any feedback, check if the candidate's response is even slightly related to the question asked and described situation. Assign a response alignment score from 0-10. If the score is 0, ONLY print this warning message: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE."
-
-            NOTE : NEVER give any kind of explanation, suggestions or summary in the output.
-
-            NOTE : NEVER print the response alignment score in the output.
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
+   
             \n\nAssistant
                 """).substitute(
                     title=title,
@@ -5225,7 +5208,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
         articles = None
             
 
-    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+    format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
 
     if question_context:
         if articles:
@@ -5239,13 +5222,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Article: ${article_info} 
                 Candidate answer:  ${candidate_reply}
         
-                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder.
                 ${format_prompt}
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-                NOTE: Never give any feedback on the Question or anybody asking the question.
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-                
 
+                NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                 ${user_feedback_prompt}
                 \n\nAssistant:
                 """
@@ -5269,13 +5250,10 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Expert Suggestions:  ${question_context} 
                 Candidate answer:  ${candidate_reply}
         
-                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. 
                 ${format_prompt}
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-                NOTE: Never give any feedback on the Question or anybody asking the question.
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-                
-
+                NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                 ${user_feedback_prompt}
                 \n\nAssistant:
                 """
@@ -5298,11 +5276,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Candidate answer:  ${candidate_reply}
                 Article: ${article_info} 
                 
-                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder.
                 ${format_prompt}
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-                NOTE: Never give any feedback on the Question or anybody asking the question.
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+                NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                 
                 ${user_feedback_prompt}
                 \n\nAssistant:
@@ -5327,11 +5305,11 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Customer question:  ${question} 
                 Candidate answer:  ${candidate_reply}
                 
-                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
                 ${format_prompt}
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-                NOTE: Never give any feedback on the Question or anybody asking the question.
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
+                
+                NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                 
                 ${user_feedback_prompt}
                 \n\nAssistant:
@@ -5373,7 +5351,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
     # Returns the generated discussion prompt for providing feedback on a sales rep's comment.
     """
 
-    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+    format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
 
     match scenareo:
         case 'manager-team':
@@ -5387,30 +5365,13 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Manager Comment: ${manager_context}
 
-                    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager. The feedback should be structured in the following format:
+                    Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the manager.  :
 
                     ${format_prompt}
-                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                    NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                    NOTE: Only provide feedback on the "Manager Comment" not on the "Test Description."
-
                     NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
-
-                    NOTE : A sample candidate answer is a sample Manager comment based on the context provided.
-
-                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
-
-                    NOTE : Never start with any kind of introductory sentence.
-
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
-                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                     \n\nAssistant:
                 """
                         )
@@ -5429,30 +5390,16 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             Manager Comment : ${manager_context}
 
-            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format:
+            Please provide communication and subject matter feedback for a manager who has provided a "Manager Comment". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.  :
 
             ${format_prompt}
-            NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-            NOTE: Only provide feedback on the "Manager Comment". 
-
-            NOTE : NEVER give any feedback on the "Bot response"
-
             NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
-
-            NOTE : A sample candidate answer is a sample Manager Comment based on the context provided.
-
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
 
             NOTE : If the "Manager Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-            NOTE : Check if the response provided by the Manager is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
-
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
+            
             NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
-            NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
             \n\nAssistant:
             ''')
 
@@ -5472,30 +5419,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Team Member Comment: ${team_comment}
 
-                    Please provide communication and subject matter feedback for a team member who has provided a "Team Member Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+                    Please provide communication and subject matter feedback for a team member who has provided a "Team Member Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member.  :
 
                     ${format_prompt}
-                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                    NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                    NOTE: Only provide feedback on the "Team Member Comment" not on the "Test Description."
 
                     NOTE : If the Team Member Comment is a question provide feedback on how the team member can ask better questions.
 
-                    NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
-
-                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team members answer in "Key insights to improve the response."
-
                     NOTE : In cases where the "Team Member Comment" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
-
-                    NOTE : Never start with any kind of introductory sentence.
-
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
+                    
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
-                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                     \n\nAssistant:
 
                 """
@@ -5514,29 +5448,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Team Member Comment : ${team_comment}
 
-                Please provide communication and subject matter feedback for a team member who has provided a "Team Member". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member. The feedback should be structured in the following format:
+                Please provide communication and subject matter feedback for a team member who has provided a "Team Member". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the team member.  :
                 ${format_prompt}
-                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                NOTE: Only provide feedback on the "Team Member". 
-
-                NOTE : NEVER give any feedback on the "Bot response"
 
                 NOTE : If the Team Member Comment is a question, provide feedback on how the team member can ask better questions.
 
-                NOTE : A sample candidate answer is a sample Team Member Comment based on the context provided.
-
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the team member's response in "Key insights to improve the response."
-
                 NOTE : If the "Team Member Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                NOTE : Check if the response provided by the team member is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
-                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                 \n\nAssistant:
 
             ''')
@@ -5556,30 +5478,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Sales rep Comment: ${sales_comment}
 
-                    Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+                    Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep.  :
 
                     ${format_prompt}
-                    NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                    NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                    NOTE: Only provide feedback on the "Sales rep Comment" not on the "Test Description."
-
                     NOTE : If the Sales rep Comment is a question provide feedback on how the Sales rep can ask better questions.
-
-                    NOTE : A sample candidate answer is a sample Sales rep comment based on the context provided.
-
-                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep’s answer in "Key insights to improve the response."
 
                     NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
                     NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
 
-                    NOTE : Never start with any kind of introductory sentence.
-
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
-                    NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
+                    
                     \n\nAssistant:
 
                 """
@@ -5598,30 +5507,14 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Sales rep Comment : ${sales_comment}
 
-                Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep. The feedback should be structured in the following format:
+                Please provide communication and subject matter feedback for a Sales rep who has provided a "Sales rep". Feedback must be based on test description and conversation so far. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the Sales rep.  :
 
                 ${format_prompt}
-                NOTE : Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                NOTE: Only provide feedback on the "Sales rep".
-
-                NOTE : NEVER give any feedback on the "Bot response"
-
                 NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
-
-                NOTE : A sample candidate answer is a sample Sales rep Comment based on the context provided.
-
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the Sales rep's response in "Key insights to improve the response."
-
                 NOTE : If the "Sales rep Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                NOTE : Check if the response provided by the Sales rep is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
-
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
-                NOTE : NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                 \n\nAssistant:
 
             ''')
@@ -5641,30 +5534,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     Customer Comment: ${sales_comment}
 
-                    Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+                    Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment" as specified for the "Test Description". The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer.  :
 
                     ${format_prompt}
-                    NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                    NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                    NOTE: Only provide feedback on the "Customer Comment" not on the "Test Description."
-
                     NOTE: If the Customer Comment is a question provide feedback on how the customer can ask better questions.
-
-                    NOTE: A sample candidate answer is a sample customer comment based on the context provided.
-
-                    NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s answer in "Key insights to improve the response."
 
                     NOTE: In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                    NOTE: Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
-
-                    NOTE: Never start with any kind of introductory sentence.
+                    NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
 
                     NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
-                    NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                     \n\nAssistant:
 
                 """
@@ -5683,30 +5563,17 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 Customer Comment: ${sales_comment}
 
-                Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer. The feedback should be structured in the following format:
+                Please provide communication and subject matter feedback for a customer who has provided a "Customer Comment". Feedback must be based on the test description and conversation so far. The feedback should include whether the right questions are asked for engagement. Please provide feedback which specifically helps enhance people skills of the customer.  :
 
                 ${format_prompt}
-                NOTE: Provide the feedback in bullet points under each section except A sample candidate answer.
-
-                NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-                NOTE: Only provide feedback on the "Customer Comment".
-
-                NOTE: NEVER give any feedback on the "Bot response".
-
                 NOTE: If the Customer Comment is a question, provide feedback on how the customer can ask better questions.
-
-                NOTE: A sample candidate answer is a sample Customer Comment based on the context provided.
-
-                NOTE: Please suggest any industry standard framework or derived methods that can strengthen the customer’s response in "Key insights to improve the response."
 
                 NOTE: If the "Customer Comment" consists of less than 15 words, always add the following statement at the end of the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-                NOTE: Check if the response provided by the customer is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "FEEDBACK GENERATED IF ANY, SHOULD BE IGNORED BECAUSE OF POOR RELEVANCE. PLEASE RESPOND WITH RELEVANCE". No additional text should be added. DO NOT give any other feedback.
+                NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
 
-                NOTE: NEVER include sentences like (Here is the feedback for the candidate's response:) in the output.
                 \n\nAssistant:
 
             ''')
@@ -6330,18 +6197,16 @@ def get_email_type_prompt(test_title,
 
         Please provide feedback on this email. Please do not add any introductory sentence and come to the point directly. Do not include any response to the email. The feedback should be directed to the writer of the email. Please add a sample re-written email.
 
-        Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
-        - What went well ? - 10 words maximum
-        - What could be improved ? - 10 words maximum
-        - Some new ideas to reframe the context - 10 words maximum
-        - A sample re-written email. - 20 words maximum
-        - A counter intuitive insight - 10 words maximum
+        Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. 
+        The feedback should be structured in the following format: 
+        - What went well ? : "output text"
+        - What could be improved ? : "output text"
+        - Some new ideas to reframe the context : "output text"
+        - A sample re-written email : "output text"
+        - A counter intuitive insight : "output text"
 
-        NOTE: The total number of words should be at the maximum 60 words. Provide the feedback exactly in the format and sections above.
-        NOTE: Do not include any mentions of word count requirements or limits in your response.
-        NOTE: Never give any feedback on the Question or anybody asking the question.
-        NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-        
+        NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+        NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
 
         ${user_feedback_prompt}
         \n\nAssistant:
@@ -6362,7 +6227,7 @@ def get_overridden_prompt(prompt_template: str,
                           question_context: str,
                           candidate_reply: str,
                           user_feedback_prompt:str):
-    format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+    format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
 
     if question_context:
         template = Template(
@@ -6376,14 +6241,14 @@ def get_overridden_prompt(prompt_template: str,
             Candidate answer:  ${candidate_reply}
     
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
-            The feedback should be structured in the following format: 
             ${format_prompt}
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
             
+            NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
-            \n\nAssistant:
+            \n\nAssistant:            
+
             """
         )
         return template.substitute(test_title=test_title,
@@ -6405,12 +6270,12 @@ def get_overridden_prompt(prompt_template: str,
             Evaluation Criteria: ${prompt_template}
             Candidate answer:  ${candidate_reply}
     
-            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. The feedback should be structured in the following format: 
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             ${format_prompt}
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-            NOTE: Please suggest any industry standard framework or derived methods that can strengthen the managers answer in "Key insights to improve the response."
-            
+            NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
+
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
+
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -6431,7 +6296,7 @@ def get_english_support_feedback_prompt(prompt_template: str,
                         question: str,
                         candidate_reply: str,
                         user_feedback_prompt:str):
-        format_prompt = get_feedback_output_format_prompt(prompt_type='code',test_type='normal')
+        format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
 
         template = Template(
             """
@@ -6446,21 +6311,12 @@ def get_english_support_feedback_prompt(prompt_template: str,
 
             Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. 
 
-            Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate. The feedback should be structured in the following format:
+            Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate.
 
             ${format_prompt}
-            NOTE: Always give the feedback with these different sections under the headings - Use of formal language, Clarity and conciseness, Specificity, Sentence Structure, Use of polite language, etc.
+            NOTE : In case our response is less than 15 words always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
 
-            NOTE: Only provide feedback on the English proficiency of the candidate.
-
-            NOTE: Do not include any mentions of word count requirements or limits in your response.
-
-            NOTE: Never give any feedback on the Question or anybody asking the question.
-
-            NOTE : In cases where the "Candidate answer" consists of less than 15 words, always add the following statement after the feedback: "Warning: Very short responses are unrealistic and may lead to poor quality feedback."
-
-            NOTE : Minimum response length is 300 words. Always adhere to the same.
-
+            NOTE : Check if the response provided is somewhat relevant to the question or completely irrelevant. If the response is completely irrelevant, start the feedback with the sentence: "Feedback generated, if any, should be ignored due to poor relevance. Please respond with relevant feedback.". No additional text should be added. DO NOT give any other feedback.
             ${user_feedback_prompt}
             \n\nAssistant:
             """
@@ -7162,11 +7018,11 @@ def submit_feedback(
     response_text = test_question_response.response_text
     go_for_feedback = True
 
-    words = word_tokenize(test_question_response.response_text)
+    # words = word_tokenize(test_question_response.response_text)
 
-    if len(words) <= 10 :
-        feedback_text = "No feedback can be generated because of too low response length"
-        go_for_feedback = False
+    # if len(words) <= 10 :
+    #     feedback_text = "No feedback can be generated because of too low response length"
+    #     go_for_feedback = False
     
     if go_for_feedback:
         start = time.time()
@@ -7235,7 +7091,7 @@ def submit_feedback(
                 
             else:
                 try:
-                    feedback_text = gemini_completion(prompt)
+                    feedback_text = gemini_completion(prompt=prompt,instruction="Please always respond within 150 tokens in a summary format.")
                 except Exception as e:
                     logger.exception(e)
                     anthropic_feedback = anthropic_completion(prompt, 1200) 

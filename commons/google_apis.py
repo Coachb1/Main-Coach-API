@@ -215,7 +215,7 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,models=["gemini-1.5-pro-001","gemini-1.5-flash-001","gemini-1.0-pro"]):
+def gemini_completion(prompt,models=["gemini-1.5-pro-001","gemini-1.5-flash-001","gemini-1.0-pro"],instruction=None):
     logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
@@ -230,7 +230,7 @@ def gemini_completion(prompt,models=["gemini-1.5-pro-001","gemini-1.5-flash-001"
     max_retry = 3
     
     for model_name in models:
-        model = GenerativeModel(model_name)
+        model = GenerativeModel(model_name=model_name,system_instruction=instruction)
         retry = 0
         
         while retry < max_retry:
