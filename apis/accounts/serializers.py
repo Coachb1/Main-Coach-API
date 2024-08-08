@@ -3,7 +3,7 @@ from rest_framework import serializers
 from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo
 from commons.cloudinary import upload_image
-from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable
+from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
 from users.db import get_user_by_id, get_user_display_name
 from commons.recommendation import recommend_coach_tfidf, recommend_coach_keyword
@@ -184,6 +184,16 @@ class SignatureBotSerializer(serializers.ModelSerializer):
         llms = LLMMappingTable.objects.filter(deleted=False,tenant_id=instance.tenant_id,bot_type=instance.bot_type).first()
         if llms:
             res['selected_llms'] = LLMMappingSerializer(llms).data
+            
+        try:
+            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=instance.tenant_id, resourse_type="avatar_bot").first()
+            logger.info(f"system_instruction: {system_instruction.instruction if system_instruction else None}")
+            res['system_instructions'] = system_instruction.instruction
+        except Exception as e:
+            logger.error(f"Error fetching system_instruction: {e}")
+            system_instruction = None
+        # if system_instruction:
+            
         return res
 
 class UserIDPSerializers(serializers.ModelSerializer):
