@@ -9173,7 +9173,7 @@ def test_model(model_name, num_tests=50):
         scenario = ''
         start_time = time.time()
         try:
-            scenario = gemini_completion(prompt,model_name)
+            scenario = gemini_completion(prompt,[model_name])
             print(scenario)
             title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
             print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
