@@ -12,7 +12,7 @@ import string
 logger = logging.getLogger(__name__)
 
 @timeit
-def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False, llm_order=None):
+def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False, llm_order=None, instruction=None):
     """
     Generates text completions based on a given prompt.
 
@@ -42,7 +42,7 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False, l
         if llm == 'anthropic':
             return anthropic_completion(prompt, tokens)
         elif llm == 'gemini':
-            return gemini_completion(prompt)
+            return gemini_completion(prompt=prompt,instruction=instruction)
         elif llm == 'gpt':
             return gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
         return None
