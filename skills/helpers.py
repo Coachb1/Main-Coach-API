@@ -611,6 +611,24 @@ def get_competency_prompt_or_output_via_db(skills,is_prompt_only=False):
     else:
         return outputs_dict
 
+def validate_skills(skills):
+    for skill, values in skills.items():
+        try:
+            level = int(values.get("level"))
+            rating = int(values.get("rating"))
+        except Exception as e:
+            raise e
+
+        # Check if level is between 1 and 3
+        if not (0 <= level <= 3):
+            raise ValueError(f"Invalid level {level} for {skill}. Level must be between 1 and 3.")
+        
+        # # Check if rating is between 1 and 10
+        # if not (1 <= rating <= 10):
+        #     raise ValueError(f"Invalid rating {rating} for {skill}. Rating must be between 1 and 10.")
+    
+    return True
+
 @timeit
 def evaluate_competency_data(description, conversation,test_attempt_session,skills,is_free=False):
     """
@@ -684,6 +702,8 @@ Raises:
                 logger.info({"****evaluate_competency_data ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
                 response = json_extraction_for_competency(response)
                 response = parse_json5(response)
+
+                validate_skills(response)
                 
 
                 break
@@ -719,7 +739,7 @@ Raises:
                 response = json_extraction_for_competency(response)
                 response = parse_json5(response)
                 
-                
+                validate_skills(response)
 
                 break
 
@@ -756,7 +776,7 @@ Raises:
                 response = json_extraction_for_competency(response)
                 response = parse_json5(response)
                 
-
+                validate_skills(response)
                 break
             except Exception as e:
                 logger.error({"****evaluate_competency_data ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
@@ -788,7 +808,7 @@ Raises:
                 response = json_extraction_for_competency(response)
                 response = parse_json5(response)
                 
-                
+                validate_skills(response)
 
                 break
 
