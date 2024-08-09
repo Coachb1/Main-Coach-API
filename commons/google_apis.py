@@ -215,22 +215,21 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,models=["gemini-1.5-pro-001","gemini-1.5-flash-001","gemini-1.0-pro"],instruction=None):
-    logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models}")
+def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],instruction=None):
+    logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models} adn \n instruction: {instruction}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     
     generation_config={
-        "max_output_tokens": 8192,
-        "temperature": 0.9,
-        "top_p": 1
+        "max_output_tokens": max_output_tokens,
+        "temperature": temperature,
+        "top_p": top_p
     }
 
     max_retry = 3
-    
     for model_name in models:
-        model = GenerativeModel(model_name=model_name,system_instruction=instruction)
+        model = GenerativeModel(model_name=model_name,system_instruction=[instruction] if instruction else None)
         retry = 0
         
         while retry < max_retry:
