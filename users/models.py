@@ -189,6 +189,7 @@ class SignatureBot(TenantAwareModel):
     page_informations = models.JSONField(null=True, blank=True, default=get_default_signature_bot_page_information)
     is_private = models.BooleanField(null=True,default=False)
     system_instructions = models.TextField(null=True, blank=True, default=None)
+    allow_public_access = models.BooleanField(null=True,default=False)
     
 
     class Meta:
