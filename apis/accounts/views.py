@@ -398,6 +398,7 @@ class AccountsViewSet(ApiViewSet,
         data['tag'] = signature_bot.tag
         data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
         data['is_private'] = signature_bot.is_private
+        data['allow_public_access'] = signature_bot.allow_public_access
         
         if signature_bot.system_instructions:
             data['system_instructions'] = signature_bot.system_instructions
