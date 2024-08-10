@@ -403,9 +403,9 @@ class AccountsViewSet(ApiViewSet,
         if signature_bot.system_instructions:
             data['system_instructions'] = signature_bot.system_instructions
         else:
-            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=signature_bot.tenant_id, resourse_type="avatar_bot").first()
+            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=signature_bot.tenant_id, resourse_type=signature_bot.bot_type).first()
             logger.info(f"system_instruction: {system_instruction.instruction if system_instruction else None}")
-            data['system_instructions'] = system_instruction.instruction
+            data['system_instructions'] = system_instruction.instruction if system_instruction else None
 
         
         
