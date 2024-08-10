@@ -871,13 +871,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 logger.exception(f"Error while getting coachee info: {e}")
             
 
-            try:
-                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
-                global_bot_prompt = global_prompt.prompt
-                logger.info(f"global prompt defined: {global_bot_prompt}")
-                prompt = global_bot_prompt
-            except Exception as e:
-                logger.exception(f"global prompt not defined: {e}")
+            # try:
+            #     global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+            #     global_bot_prompt = global_prompt.prompt
+            #     logger.info(f"global prompt defined: {global_bot_prompt}")
+            #     prompt = global_bot_prompt
+            # except Exception as e:
+            #     logger.exception(f"global prompt not defined: {e}")
 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
@@ -1053,6 +1053,18 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         logger.info(f"custom Prompt: {prompt}")
         
     else:
+        prompt = signature_bot_default_prompt(bot_type=bot_type)
+        try:
+            global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type=bot_type)
+            global_bot_prompt = global_prompt.prompt
+            logger.info(f"global prompt defined: {global_bot_prompt}")
+            prompt = global_bot_prompt
+        except Exception as e:
+            logger.exception(f"global prompt not defined: {e}")
+            prompt = signature_bot_default_prompt(bot_type=bot_type)
+
+
+
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
                                                         uid=test_attempt_session_id,
                                                         deleted=0
@@ -1083,7 +1095,6 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
             
         if bot_type == 'avatar_bot':
-            prompt = signature_bot_default_prompt()
             qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
@@ -1168,13 +1179,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 personality = None
             
 
-            try:
-                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
-                global_bot_prompt = global_prompt.prompt
-                logger.info(f"global prompt defined: {global_bot_prompt}")
-                prompt = global_bot_prompt
-            except Exception as e:
-                logger.exception(f"global prompt not defined: {e}")
+            # try:
+            #     global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type="avatar_bot")
+            #     global_bot_prompt = global_prompt.prompt
+            #     logger.info(f"global prompt defined: {global_bot_prompt}")
+            #     prompt = global_bot_prompt
+            # except Exception as e:
+            #     logger.exception(f"global prompt not defined: {e}")
                 
             prompt = Template(prompt).substitute(
                 coach_info = coach_info,
@@ -1195,7 +1206,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 for que, ans in faq.items():
                     coach_info += f"Question: {que}, Answer: {ans}\n"
 
-            prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.user_bot)).safe_substitute(
+            prompt = Template(prompt).safe_substitute(
                 user_info = coach_info,
                 user_context = current_conv
             )
@@ -1206,7 +1217,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 bot_objective = signature_bot.data.get('bot_context')
                 logger.info(f"============deepDive: title: {bot_title}, obj: {bot_objective}")
 
-                prompt = Template(signature_bot_default_prompt(bot_type=BotTypeChoice.deep_dive)).substitute(
+                prompt = Template(prompt).substitute(
                     title = bot_title,
                     objective = bot_objective
                 )
@@ -1367,8 +1378,6 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         Provide an informative response to the candidate based on their concern. 
         Break down and clearly explain complex concepts in the given field.
         If the FAQs are provided use the answers given to address the commonly asked questions. 
-        Always respond in less than 50 tokens. Never mention the token count.
-        NOTE: Always respond in less than 50 tokens. Never mention the token count.
         Assistant:\n\n
         """
 
