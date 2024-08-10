@@ -49,7 +49,7 @@ from utilities.helpers import extract_fields
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
-from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable
+from utilities.models import UserActionInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import extract_file_and_text, get_list_from_string
                     
 from itertools import groupby
@@ -398,6 +398,16 @@ class AccountsViewSet(ApiViewSet,
         data['tag'] = signature_bot.tag
         data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
         data['is_private'] = signature_bot.is_private
+        data['allow_public_access'] = signature_bot.allow_public_access
+        
+        if signature_bot.system_instructions:
+            data['system_instructions'] = signature_bot.system_instructions
+        else:
+            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=signature_bot.tenant_id, resourse_type=signature_bot.bot_type).first()
+            logger.info(f"system_instruction: {system_instruction.instruction if system_instruction else None}")
+            data['system_instructions'] = system_instruction.instruction if system_instruction else None
+
+        
         
         client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
 
