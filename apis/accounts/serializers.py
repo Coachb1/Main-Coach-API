@@ -186,12 +186,12 @@ class SignatureBotSerializer(serializers.ModelSerializer):
             res['selected_llms'] = LLMMappingSerializer(llms).data
             
         try:
-            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=instance.tenant_id, resourse_type="avatar_bot").first()
+            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=instance.tenant_id, resourse_type=instance.bot_type).first()
             logger.info(f"system_instruction: {system_instruction.instruction if system_instruction else None}")
             res['system_instructions'] = system_instruction.instruction
         except Exception as e:
             logger.error(f"Error fetching system_instruction: {e}")
-            system_instruction = None
+            res['system_instructions'] = None
         # if system_instruction:
             
         return res
