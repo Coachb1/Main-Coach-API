@@ -170,13 +170,16 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     break
 
             if data != "":
-                level_name = level_dict[str(value['level'])]
+                try:
+                    level_name = level_dict[str(value['level'])]
 
-                level_desc = data[level_name.strip().lower()].get('description',None)
-                if level_desc:
-                    value['level_desc'] = level_desc
+                    level_desc = data[level_name.strip().lower()].get('description',None)
+                    if level_desc:
+                        value['level_desc'] = level_desc
 
-                competency_data[key] = value
+                    competency_data[key] = value
+                except Exception as e:
+                    logger.exception(f"failed to get competency : {e}")
         
         competency_report_data = competency_data
 
