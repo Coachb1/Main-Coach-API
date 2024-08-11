@@ -1,7 +1,8 @@
 from django.contrib import admin
 
 from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP ,\
-        ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalPrompts, GlobalSystemInstructions
+        ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalPrompts, GlobalSystemInstructions, \
+            Widgets
 from import_export.admin import ExportActionMixin
 
 from django.db.models.signals import post_save
@@ -127,6 +128,12 @@ class GlobalSystemInstructionsAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ('id','created_at', 'resourse_type', 'tag', 'instruction')
     search_fields = ('instruction',)
     list_editable = ('resourse_type', 'tag')
+    
+    
+class WidgetsAdmin(ExportActionMixin, admin.ModelAdmin):
+    list_display = ('id', 'bot_id', 'client_id', 'is_demo', 'allow_audio_interaction', 'snippet')
+    search_fields = ('bot_id',)
+    list_editable = ('is_demo', 'allow_audio_interaction')
 
 
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
@@ -139,6 +146,28 @@ admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAd
 admin.site.register(LLMMappingTable, LLMMappingAdmin)
 admin.site.register(GlobalPrompts, GlobalPromptsAdmin)
 admin.site.register(GlobalSystemInstructions, GlobalSystemInstructionsAdmin)
+admin.site.register(Widgets, WidgetsAdmin)
+
+
+# @receiver(post_save, sender=Widgets)
+# def generate_widget_snippet(sender, instance, **kwargs):
+#     try:
+#         widget = f"""
+#             <script src="https://playground.coachbots.com/widget/coachbots-stt-widget.js"></script>
+#             <div
+#             data-client-id="{instance.client_id}"
+#             data-allow-audio-interaction="{instance.allow_audio_interaction}"
+#             data-is-demo="{instance.is_demo}"
+#             data-bot-id="{instance.bot_id}"
+#             ></div>
+#         """
+        
+#         instance.snippet = widget
+#         instance.save(update_fields=["snippet"])
+#     except Exception as e:
+#         logger.error(f"Failed to generate widget snippet: {e}")
+#         return
+    
 
 @receiver(post_save, sender=DirectoryPageInfo)
 def save_and_send_approval_email_post_save(sender, instance, **kwargs):
@@ -267,3 +296,4 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
     
 
 post_save.connect(save_and_send_approval_email_post_save, sender=DirectoryPageInfo)
+# post_save.connect(generate_widget_snippet, sender=Widgets)
