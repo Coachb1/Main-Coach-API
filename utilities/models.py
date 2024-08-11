@@ -233,3 +233,30 @@ class GlobalSystemInstructions(TenantAwareModel):
     instruction = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)
+    
+    
+
+class Widgets(models.Model):
+    bot_id = models.CharField(max_length=255)
+    client_id=models.CharField(max_length=255,blank=True,null=True)
+    allow_audio_interaction=models.BooleanField(default=False)
+    is_demo=models.BooleanField(default=False)
+    snippet=models.TextField(blank=True,null=True)
+
+    class Meta:
+        db_table = "widgets"
+        
+    def save(self, *args, **kwargs):
+        widget = f"""
+            <script src="https://playground.coachbots.com/widget/coachbots-stt-widget.js"></script>
+            <div
+            data-client-id="{self.client_id if self.client_id else ''}"
+            data-allow-audio-interaction="{"true" if self.allow_audio_interaction else "false"}"
+            data-is-demo="{ "true" if self.is_demo else "false"}"
+            class="coachbots-coachscribe"
+            data-bot-id="{self.bot_id}"
+            ></div>
+        """
+        
+        self.snippet = widget
+        super().save(*args, **kwargs)
