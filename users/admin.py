@@ -24,7 +24,7 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
 
 class SignatureBotAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access')
+    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private','allow_public_access')
     search_fields = ('bot_id','bot_type','uid')
     list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
