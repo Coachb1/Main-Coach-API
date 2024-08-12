@@ -3113,13 +3113,14 @@ class AccountsViewSet(ApiViewSet,
 
                 ## sending email
                 try:
+                    liked_user_email = UserAttribute.objects.get(deleted=False,user_id=profile.user_id).attributes.get('email')
                     user_email = UserAttribute.objects.get(deleted=False,user_id=user_id).attributes.get('email')
                     user_name = get_user_display_name(get_user_by_id(user_id))
                     subject = "Profile Notification"
                     html_content = f"""
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{user_name} - {user_email} liked your profile!</p>
                             """
-                    for email in ['coachbots@googlegroups.com', user_email]:
+                    for email in ['coachbots@googlegroups.com', liked_user_email]:
                         try:
                             send_email_with_html_template(subject,html_content,email)
                         except Exception as e:
