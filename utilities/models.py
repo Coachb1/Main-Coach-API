@@ -242,6 +242,7 @@ class Widgets(models.Model):
     allow_audio_interaction=models.BooleanField(default=False)
     is_demo=models.BooleanField(default=False)
     snippet=models.TextField(blank=True,null=True)
+    title = models.TextField(blank=True,null=True,default=None)
 
     class Meta:
         db_table = "widgets"
