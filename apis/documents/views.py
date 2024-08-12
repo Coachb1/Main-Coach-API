@@ -123,9 +123,11 @@ class DocumentViewSet(ApiViewSet,
                 logger.info("rapidapi failed Trying download_and_transcribe_audio")
                 transcript = download_and_transcribe_audio(youtube_link)
 
+            if transcript is None:
+                return Response({"msg": "Unable to generate summary."}, status=status.HTTP_400_BAD_REQUEST)
             summary = get_summary(transcript,choice)
 
-            set_cache(cache_key, summary)
+            # set_cache(cache_key, summary)
         return Response({"summary": summary})
 
 
