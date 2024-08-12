@@ -816,7 +816,8 @@ class AccountsViewSet(ApiViewSet,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
                         visual_tag = directory.visual_tag,
-                        ai_email = directory.ai_email
+                        ai_email = directory.ai_email,
+                        integratable_snippet = directory.integratable_snippet,
                     )
 
 
@@ -1208,7 +1209,25 @@ class AccountsViewSet(ApiViewSet,
 
                     logger.info(f"*************** attached_pdfs files in request: {request.data}, $$$$$$$$ {'attatched_pdfs' in request.data}")
 
-                    
+                    client = None
+                    try:
+                        user_identity = Identity.objects.get(user_id=participant_id)
+                        user_email = user_identity.value
+                        client = ClientUserInfo.objects.get(deleted=0,tenant_id=request.tenant.uid,member_emails__icontains=user_email)
+                    except Exception as e:
+                        logger.exception(f"Client not found for user: {e}")
+                        
+
+                    widget_snippet = f"""
+                        <script src="https://playground.coachbots.com/widget/coachbots-stt-widget.js"></script>
+                        <div
+                        data-client-id="{client.client_name if client else ''}"
+                        data-allow-audio-interaction="true"
+                        data-is-demo=""false"
+                        class="coachbots-coachscribe"
+                        data-bot-id="{bot_id}"
+                        ></div>
+                    """
                     signature_bot = SignatureBot.objects.create(
                         bot_id=bot_id,
                         tenant_id=self.request.tenant.uid,
@@ -1220,7 +1239,8 @@ class AccountsViewSet(ApiViewSet,
 
                             }
                         },
-                        is_approved= True if bot_type == BotTypeChoice.deep_dive else bot_approved 
+                        is_approved= True if bot_type == BotTypeChoice.deep_dive else bot_approved ,
+                        integratable_widget_snippet = widget_snippet,
                     )
 
                     bot_att = BotAttribute.objects.create(tenant_id=self.request.tenant.uid,
