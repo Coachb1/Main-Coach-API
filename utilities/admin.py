@@ -131,9 +131,9 @@ class GlobalSystemInstructionsAdmin(ExportActionMixin, admin.ModelAdmin):
     
     
 class WidgetsAdmin(ExportActionMixin, admin.ModelAdmin):
-    list_display = ('id', 'bot_id', 'client_id', 'is_demo', 'allow_audio_interaction', 'snippet')
+    list_display = ('id', 'title','bot_id', 'client_id', 'is_demo', 'allow_audio_interaction', 'snippet')
     search_fields = ('bot_id',)
-    list_editable = ('is_demo', 'allow_audio_interaction')
+    list_editable = ('is_demo', 'allow_audio_interaction','client_id','snippet', 'title')
 
 
 admin.site.register(SessionNotesRecommendations, SessionNotesRecommendationsAdmin)
