@@ -51,20 +51,26 @@ def get_youtube_transcript(url):
         >>> print(get_youtube_transcript(url))
         "We're no strangers to love You know the rules and so do I..."
     """
-    try:
-        logger.info(f"get_youtube_transcript before format: {url}")
-        url = format_youtube_link(url)
-        logger.info(f"get_youtube_transcript after format: {url}")
-        query = urlparse(url).query
-        params = parse_qs(query)
-        video_id = params["v"][0]
-        transcript =  YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-        # combine all the text from the 'text' fields in the transcript into one large string
-        complete_transcript = ' '.join([x['text'] for x in transcript])
-        logger.info(f"Complete Transcript: {complete_transcript}")
-        return complete_transcript
-    except:
-        return None
+    retry = 3
+    while True:
+        try:
+            logger.info(f"get_youtube_transcript before format: {url}")
+            url = format_youtube_link(url)
+            logger.info(f"get_youtube_transcript after format: {url}")
+            query = urlparse(url).query
+            params = parse_qs(query)
+            video_id = params["v"][0]
+            transcript =  YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            # combine all the text from the 'text' fields in the transcript into one large string
+            complete_transcript = ' '.join([x['text'] for x in transcript])
+            logger.info(f"Complete Transcript: {complete_transcript}")
+            return complete_transcript
+        except Exception as e:
+            logger.exception(f"failed get_youtube-transcript: {e}, {e.args}")
+            if retry <=1 :
+                return None
+            
+            retry -= 1
     
 @timeit
 def repidapi_stt(url):
@@ -82,8 +88,11 @@ def repidapi_stt(url):
     try:
         response = requests.get(url2, headers=headers)
         result = response.json()
+        print(f"result: {result}")
         for resp in result[0].get('transcription'):
-            transcript += resp['subtitle'] + " "
+            print(resp)
+            if resp.get('subtitle'):
+                transcript += resp['subtitle'] + " "
         logger.info(f"repidapi_stt: {transcript}")
         return  transcript
     except Exception as error:
