@@ -15,6 +15,9 @@ from google.cloud import texttospeech
 from vertexai.generative_models import GenerativeModel
 from vertexai import generative_models
 
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests 
+from commons.notifications import send_error_notification
+
 logger = logging.getLogger(__name__)
 
 
@@ -243,6 +246,11 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
                 logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
                 logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
                 return responses.candidates[0].content.parts[0].text
+            
+            except (ResourceExhausted, TooManyRequests) as e:
+                logger.exception(f"Resource exchausted or 429 error occured. :{e}")
+                send_error_notification(f"gemini-completion-{model_name}","Qouta Exceeded", e.args)
+                break
             except IndexError as e:
                 logger.error(f"gemini_completion failed with list index out of range error: {e}", exc_info=True)
                 break  # Exit the loop to try the next model
