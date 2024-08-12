@@ -267,50 +267,47 @@ def download_and_transcribe_audio(url: str):
     """
     # Extract the video_id from the url
 
-    try:
-        url = convert_youtube_link(url)
-        query = urlparse(url).query
-        params = parse_qs(query)
-        video_id = params["v"][0]
+    url = convert_youtube_link(url)
+    query = urlparse(url).query
+    params = parse_qs(query)
+    video_id = params["v"][0]
 
-        # The path of the audio file
-        audio_path = f"tmp/{video_id}.mp3"
+    # The path of the audio file
+    audio_path = f"tmp/{video_id}.mp3"
 
-        # The path of the transcript
-        transcript_filepath = f"tmp/{video_id}.txt"
+    # The path of the transcript
+    transcript_filepath = f"tmp/{video_id}.txt"
 
-        # Check if the transcript file already exist
-        if os.path.exists(transcript_filepath):
-            
-            loader = TextLoader(transcript_filepath, encoding='utf8')
-            documents = loader.load()
+    # Check if the transcript file already exist
+    if os.path.exists(transcript_filepath):
+        
+        loader = TextLoader(transcript_filepath, encoding='utf8')
+        documents = loader.load()
 
-            time.sleep(5)
+        time.sleep(5)
 
-            print("*"*50, "DOCUMENTS: \n", documents, "*"*50)
+        print("*"*50, "DOCUMENTS: \n", documents, "*"*50)
 
-            # return the text of the document
-            return documents[0].page_content
+        # return the text of the document
+        return documents[0].page_content
 
-        else: 
-            print("downloading audio...")
-            download_audio(url)
-            print("audio downloaded...")
-            # audio_path = "tmp/9JUAPgtkKpI.mp3"
+    else: 
+        print("downloading audio...")
+        download_audio(url)
+        print("audio downloaded...")
+        # audio_path = "tmp/9JUAPgtkKpI.mp3"
 
-            # Transcribe the mp3 audio to text
-            transcribe_audio(audio_path, video_id)
+        # Transcribe the mp3 audio to text
+        transcribe_audio(audio_path, video_id)
 
-            # Generating summary of the text file
-            with open(transcript_filepath) as f:
-                transcript_file = f.read()
+        # Generating summary of the text file
+        with open(transcript_filepath) as f:
+            transcript_file = f.read()
 
-            # return the text of the transcript file
-            print("*"*50, "TRANSCRIPT: \n", transcript_file, "*"*50)
-            return transcript_file
-    except Exception as e:
-        print(f" failed to run download and get transcript reason: {e}")
-        return None
+        # return the text of the transcript file
+        print("*"*50, "TRANSCRIPT: \n", transcript_file, "*"*50)
+        return transcript_file
+
 
 # Generate Answer
 def generate_answer(api_key: str, url: str, question: str) -> str:
