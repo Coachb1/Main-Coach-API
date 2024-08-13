@@ -1010,22 +1010,18 @@ def get_session_notes_html_body(mentor_name,mentor_email,mentee_name,mentee_emai
                         <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hey!</p>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;"><b>{mentor_name}({mentor_email})</b> submitted a session note for <b>{mentee_name} ({mentee_email})</b> </p>
-                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" class=" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
-                            <tbody>
-                                <tr>
-                                <td align="left" style="font-family: sans-serif; font-size: 14px; vertical-align: top; padding-bottom: 15px;" valign="top">
-                                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: auto;">
-                                    <tbody>
-                                        <tr>
-                                        <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: center; background-color: #3498db;" valign="top" align="center" bgcolor="#3498db"> <a href="#"  style="border: solid 1px #3498db; border-radius: 5px; box-sizing: border-box; cursor: none; pointer-events: none; display: inline-block; font-size: 14px; font-weight: bold; margin: 0; padding: 12px 25px; text-decoration: none; text-transform: capitalize; background-color: #3498db; border-color: #3498db; color: #ffffff;">Session Note: {session_note}</a> </td>
-                                        </tr>
-                                    </tbody>
-                                    </table>
-                                </td>
-                                </tr>
-                            </tbody>
-                            </table>
-            
+                            <div
+                                style="font-family: Arial, sans-serif; font-size: 14px; margin-bottom: 15px;">
+                                <div style="text-align: left;">
+                                    <div
+                                        style="display: inline-block; padding: 12px 25px; border-radius: 5px; font-weight: bold; text-transform: capitalize;">
+                                        Session Note: 
+                                    </div>
+                                    <div
+                                    style="display: inline-block; padding: 12px 25px; border-radius: 5px; text-transform: capitalize;">
+                                    {session_note}</div>
+                                </div>
+                            </div>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
                         </td>
                         </tr>

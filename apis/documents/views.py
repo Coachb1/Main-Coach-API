@@ -110,11 +110,7 @@ class DocumentViewSet(ApiViewSet,
         summary = get_cache(cache_key)
 
         if summary is None:
-            for i in range(2):
-                transcript = get_youtube_transcript(youtube_link)
-                if transcript is not None:
-                    break
-
+            transcript = get_youtube_transcript(youtube_link)
             if transcript is None:
                 logger.info("package failed Trying repidapi_stt")
                 transcript = repidapi_stt(youtube_link)

@@ -13,6 +13,7 @@ from commons.timeit import timeit
 import requests
 import tempfile
 import random
+from commons.notifications import send_error_notification
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ def gpt3_completion(prompt,
     max_retry = 3
     retry = 0
     prompt = prompt.encode(encoding='ASCII', errors='ignore').decode()
+    is_error_noti_sent = False
     while True:
         try:
             logger.info({"**** gpt3_completion":f"trying gpt for {retry} time"})
@@ -94,6 +96,21 @@ def gpt3_completion(prompt,
 
             logger.info(f"text: {text}")
             return GPTResponse(raw=response.to_json(), text=text)
+        
+        except openai.RateLimitError as e:
+            logger.error({"****gpt3_completion ":f"failed gpt for {retry} time reason 429"})
+            logger.exception('Error communicating with OpenAI err: %s', e)
+
+            if not is_error_noti_sent:
+                send_error_notification("gpt completion", "429 error occured", e.args)
+                is_error_noti_sent = True
+
+            retry += 1
+            if retry >= max_retry:
+                raise e
+
+            time.sleep(random.randint(1,3))
+            
         except Exception as e:
             logger.error({"****gpt3_completion ":f"failed gpt for {retry} time"})
             logger.exception('Error communicating with OpenAI err: %s', e)
