@@ -266,6 +266,7 @@ def download_and_transcribe_audio(url: str):
     str: The transcribed text of the audio.
     """
     # Extract the video_id from the url
+
     url = convert_youtube_link(url)
     query = urlparse(url).query
     params = parse_qs(query)
@@ -306,6 +307,8 @@ def download_and_transcribe_audio(url: str):
         # return the text of the transcript file
         print("*"*50, "TRANSCRIPT: \n", transcript_file, "*"*50)
         return transcript_file
+
+
 # Generate Answer
 def generate_answer(api_key: str, url: str, question: str) -> str:
     """

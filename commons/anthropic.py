@@ -6,6 +6,7 @@ import time
 import random
 from commons.timeit import timeit
 import json
+from commons.notifications import send_error_notification
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ def anthropic_completion(prompt, max_tokens):
     client = anthropic.Client(api_key=ANTHROPIC_KEY)
 
     max_retries = 10
+    error_notification_sent = False
 
     while True:
         try:
@@ -56,6 +58,23 @@ def anthropic_completion(prompt, max_tokens):
             logger.info("anthropic_completion response %s", response)
             
             return response.content[0].text
+        
+        except anthropic.APIError as e:
+            logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
+            if max_retries <= 0:
+                logger.error("anthropic_completion error %s", e)
+                raise e
+            else:
+                max_retries -= 1
+
+            if e.status_code == 429:  # Handling quota exceeded or rate limit error
+                logger.error("Quota exceeded or too many requests, retrying after delay...")
+                if not error_notification_sent:
+                    send_error_notification('anthropic_completion', "429 error", e.args)
+                    error_notification_sent = True
+                time.sleep(2 ** (10 - max_retries + 1))  # Exponential backoff
+            else:
+                time.sleep(random.randint(1,3))
 
         except Exception as e:
             logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})

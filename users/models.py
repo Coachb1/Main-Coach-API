@@ -190,6 +190,7 @@ class SignatureBot(TenantAwareModel):
     is_private = models.BooleanField(null=True,default=False)
     system_instructions = models.TextField(null=True, blank=True, default=None)
     allow_public_access = models.BooleanField(null=True,default=False)
+    integratable_widget_snippet = models.TextField(null=True, blank=True, default=None)
     
 
     class Meta:
