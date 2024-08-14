@@ -4703,7 +4703,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate:
+    if test.email_candidate and participant_email:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
@@ -4782,7 +4782,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate:
+    if test.email_candidate and participant_email:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:

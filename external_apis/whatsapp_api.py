@@ -31,7 +31,7 @@ class WhatsappApi(object):
 
         data = {
             "apiKey": api_key,
-            "campaignName": "titledwhatsappreport",
+            "campaignName": "newtemplateforreport",
             "destination": phone_number,
             "userName": "Samarth",
             "templateParams": [
