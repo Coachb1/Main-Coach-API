@@ -21,7 +21,7 @@ from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
 from coaching_conversations.helpers import generate_team_connect_response
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
-
+from utilities.models import BotQnA
 import logging
 
 logger = logging.getLogger(__name__)
@@ -893,3 +893,40 @@ class CoachingConversationViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Got error in get_or_save_coach_recommendations: {e}")
             return Response({"error": f"Got error in get_or_save_coach_recommendations: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['GET'], detail=False, url_path='get-attempted-bots')
+    def get_attempted_bots(self,request, *args, **kwargs):
+        """Get attempted bots for a user"""
+        try:
+            if request.method == 'GET':
+                data = []
+                user_id = request.query_params.get('user_id')
+                only_feedback_bots = request.query_params.get('only_feedback',False)
+                only_feedback_bots = True if only_feedback_bots in ['True','true',True,0] else False
+                if not user_id:
+                    return Response({'error': 'User ID is missing'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if only_feedback_bots:
+                    qnas = BotQnA.objects.filter(tenant_id=self.request.tenant.uid,deleted=False,participant_id=user_id,qna_type='feedback')
+                    for qna in qnas:
+                        try:
+                            participant_name = get_user_display_name(
+                                get_user_by_id(user_id))
+                        except: 
+                            continue
+
+                        data.append({
+                                "participant_name": participant_name,
+                                "date": qna.created,
+                                "msg": qna.participant_qna,
+                                "participant_id": qna.participant_id,
+                                "is_anonymous": qna.is_anonymous
+                            })
+
+
+
+
+                return Response(data,status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'msg': f'failed with error {e}'}, status=status.HTTP_400_BAD_REQUEST)
