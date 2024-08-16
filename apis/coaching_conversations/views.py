@@ -897,7 +897,39 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path='get-attempted-bots')
     def get_attempted_bots(self,request, *args, **kwargs):
-        """Get attempted bots for a user"""
+        """
+        Retrieves a list of bots that a user has attempted, along with the participant's message, name, and date of the attempt.
+
+        Args:
+            request (Request): The request object containing the GET data.
+            user_id (str): The ID of the user for whom to retrieve the attempted bots.
+            only_feedback (bool, optional): A flag indicating whether to return only feedback bots. Defaults to False.
+
+        Returns:
+            Response: A response object containing a list of attempted bots.
+
+        Example:
+            GET /coaching-conversations/get-attempted-bots?user_id=12345
+
+        Response Body:
+        [
+            {
+                "participant_name": "John Doe",
+                "date": "2022-01-01T00:00:00Z",
+                "msg": "Hello, how can I help you?",
+                "participant_id": "12345",
+                "is_anonymous": false
+            },
+            {
+                "participant_name": "Jane Doe",
+                "date": "2022-01-02T00:00:00Z",
+                "msg": "I have a question.",
+                "participant_id": "56789",
+                "is_anonymous": true
+            }
+        ]
+        """
+
         try:
             if request.method == 'GET':
                 data = []
