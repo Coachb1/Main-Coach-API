@@ -3196,7 +3196,8 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
 
     for i in range(3):
         if is_whatsapp:
-            bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+            # bot_llm_response_text = gpt3_completion(prompt=prompt,stop=['user',"CoachBot"],max_tokens=1000).text
+            bot_llm_response_text = gemini_completion(prompt)
         else:
             # bot_llm_response_text = generic_completion(prompt, 300, 'question could not be generated')
             if test.is_free:
@@ -3253,7 +3254,7 @@ def process_orchestrated_test_response_by_bot_llm(test_question_response: TestQu
         # delete this response
         test_question_response.deleted = test_question_response.deleted + 1
         test_question_response.save()
-        raise ValueError("unable to get feedback for %s",
+        raise ValueError("unable to get response from ai for %s",
                          test_question_response.uid)
 
     test_question_response.metadata = {
