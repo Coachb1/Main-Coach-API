@@ -1499,6 +1499,170 @@ def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
         logger.exception(f"Got Error while fetching qna block from coach or mentor : {e}")
         return None
 
+def fetch_user_profile_and_bot(tenant,filters):
+    profile_header = {
+            "name": "name",
+            "email": "email",
+            "about": "about",
+            "experience": "experience",
+            "area_domain": "area_domain",
+            "department": "department",
+            "profile_type": "profile_type",
+            "client_name": "Client Name",
+            "mentoring_preferences": "Which way do you want to help the program participants the most?",
+            "mentoring_frameworks": "Please mention any coaching & mentoring frameworks or tools that you use in your approach.",
+            "high_rating_characteristics": "Please rate the characteristics/skills on which you will rate yourself highly.",
+            "low_rating_characteristics": "Please rate the characteristics/skills on which you will rate yourself near the lows.",
+            "common_phrases_and_expressions": "Are there any phrases or expressions you find yourself using often in conversations? These could be catchphrases, favorite quotes, or unique sayings that reflect your personality.",
+            "significant_challenges_and_solutions": "What were the 3 most significant challenges you encountered in your journey, and how did you successfully navigate and overcome them?",
+            "coaching_for_fitment": "coaching_for_fitment",
+            "profile_image_url": "Profile Image URL",
+            "admired_leaders": "Please add names of 1-2 well-known leaders that you admire.",
+            "problem_solving_approach": "What is your general approach towards problem solving?",
+            "dominant_point_of_view": "Please articulate your dominant point of view which you want to discuss with the program participants as a general starting point.",
+            "youtube_links": "Please enter 1-2 YouTube links that reflect your worldview on personal & professional development.",
+            "article_links": "Please enter 1-2 article links that reflect what you wished everyone would follow in their growth journey.",
+            "coaching_level": "What level of participant you want to interact with?",
+            "supported_outcome": "What kind of outcome can you support in these sessions the most?",
+            "allow_coachee_to_create_session": "Allow coaches and mentors to create their own action plans?",
+            "coach_same_department": "I want to coach & mentor someone in the same department.",
+            "discuss_how_you_helped_others_in_coachMentoring": "Please discuss how you have helped others as a coach/mentor or in other professional capacity. Please mention these personal transformation stories in CAR format - Context, Action and Result achieved.",
+            "provide_answers_using_emojis": "Would you like your AI Avatar to provide expressive answers using emojis?",
+            "journey_and_background": "Backstory",
+            "discussion_topic": "Discussion Topic"
+        }
+    # if filters:
+    #     filters = json.loads(filters)
+    client_names = filters.get('client_names')
+    client_ids = None
+    if client_names:
+        client_ids = [i.strip() for i in client_names.split(',')]
+
+    signature_bot_ids = []
+    if client_ids:
+        for client_id in client_ids:
+            client_profile = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_id).last()
+            if client_profile:
+                signature_bot_ids.extend([i.strip() for i in client_profile.accessed_bot_ids.split(',') if client_profile.accessed_bot_ids])
+            
+    by_bot_ids = filters.get('by_bot_ids')
+    if by_bot_ids:
+        signature_bot_ids.extend([i.strip() for i in by_bot_ids.split(',')])
+
+    bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant.uid)
+
+    signature_bot_ids = list(set(signature_bot_ids))
+    logger.info(f"signature_bot_ids: {signature_bot_ids}")
+    if signature_bot_ids:
+        bots = bots.filter(bot_id__in=signature_bot_ids)
+
+    bot_data = {"avatar_bot": [], 'user_bot': []}
+    for bot in bots:
+        if bot.bot_type == BotTypeChoice.avatar_bot:
+            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=bot.user_id).last()
+            profile_type = "coach-mentor" if profile.profile_type=='coach' and profile.is_mentor else profile.profile_type
+            temp = {
+            profile_header.get("name"): profile.name,
+            profile_header.get("email"): profile.email,
+            profile_header.get("about"): profile.about,
+            profile_header.get("experience"): profile.experience,
+            profile_header.get("area_domain"): profile.area_domain,
+            profile_header.get("department"): profile.department,
+            profile_header.get("profile_type"): profile_type,
+            profile_header.get("mentoring_preferences"): profile.mentoring_preferences,
+            profile_header.get("mentoring_frameworks"): profile.mentoring_frameworks,
+            profile_header.get("high_rating_characteristics"): profile.high_rating_characteristics,
+            profile_header.get("low_rating_characteristics"): profile.low_rating_characteristics,
+            profile_header.get("common_phrases_and_expressions"): profile.common_phrases_and_expressions,
+            profile_header.get("significant_challenges_and_solutions"): profile.significant_challenges_and_solutions,
+            profile_header.get("coaching_for_fitment"): profile.coaching_for_fitment,
+            profile_header.get("profile_image_url"): profile.profile_image_url,
+            profile_header.get("admired_leaders"): profile.admired_leaders,
+            profile_header.get("problem_solving_approach"): profile.problem_solving_approach,
+            profile_header.get("dominant_point_of_view"): profile.dominant_point_of_view,
+            profile_header.get("youtube_links"): ",".join(bot.data.get('media_data').get('extracted_from_youtube').keys() if bot.data.get('media_data').get('extracted_from_youtube') else ""),
+            profile_header.get("article_links"): ",".join(bot.data.get('media_data').get('extracted_from_article').keys() if bot.data.get('media_data').get('extracted_from_article') else ""),
+            profile_header.get("coaching_level"): profile.coaching_level,
+            profile_header.get("supported_outcome"): profile.supported_outcome,
+            profile_header.get("allow_coachee_to_create_session"): profile.allow_coachee_to_create_session,
+            profile_header.get("coach_same_department"): profile.coach_same_department,
+            profile_header.get("discuss_how_you_helped_others_in_coachMentoring"): profile.mentorship_contribution,
+            profile_header.get("provide_answers_using_emojis"): profile.provide_answers_using_emojis,
+            profile_header.get("journey_and_background"): profile.journey_and_background,
+            profile_header.get("discussion_topic"): profile.discussion_topic,
+        }
+            
+            if profile_type == ProfileTypeChoice.icons_by_ai:
+                temp['tag'] = bot.tag
+            qna_for_coach_mentor = profile.qna_for_coach_mentor
+            coach_qna = qna_for_coach_mentor.get('coach',{})
+            mentor_qna = qna_for_coach_mentor.get('mentor',{})
+            coach_questions = [
+                "As a coach, what foundational values do you believe individuals should prioritize and strive for in their personal and professional development journey?",
+                "In your role as a coach, what kind of developmental framework do you employ, and why do you consider it to be the optimal framework for facilitating personal growth ?",
+                "Can you provide an overview of your coaching process and what I can expect from our sessions?",
+                "How do you handle situations where I feel stuck or unsure about my next steps?",
+                "How can I integrate the lessons from these sessions into my daily life?",
+                "Can you provide guidance on how to effectively balance personal and professional goals during our coaching process?"
+                    
+                ]
+            
+            mentor_questions = [
+                "As a mentor, what do you think are the different career paths available in this field? What are the core skills and understanding required to continuously grow in this field?",
+                "What is the problem solving approach in your domain and why do you think that is the right construct for growing in this field?",
+                "Can you provide an overview of your mentoring approach and what I can expect from our sessions?",
+                "What opportunities for growth or advancement do you see in this field, and how can I position myself to capitalize on them?",
+                "What are some common challenges or obstacles that individuals face when pursuing success in this field, and what strategies do you suggest for overcoming them?",
+                "In your opinion, what are the key qualities or skills that contribute to success in the field I'm aiming to excel in, and how can I develop or enhance them?"
+            ]
+
+            if coach_qna:
+                for que in coach_questions:
+                    temp[que] = coach_qna.get(que,'')
+
+            if mentor_qna:
+                for que in mentor_questions:
+                    temp[que] = mentor_qna.get(que,'')
+
+
+            # bot_qna = BotQnA.objects.filter(deleted=False,tenant_id=tenant.uid,bot_id=bot.uid,qna_type='fitment').last()
+
+            # if bot_qna and bot_qna.participant_qna:
+            #     for que, ans in bot_qna.participant_qna.items():
+            #         temp[que] = ans
+
+            bot_data["avatar_bot"].append(temp)
+
+        elif bot.bot_type == BotTypeChoice.user_bot:
+            faqs = [
+                "What is the primary purpose of the bot?",
+                "What tasks or functions should the bot perform?",
+                "Provide the information the bot should have access to generate responses?",
+                "Provide a few common FAQs the bot should use for commonly asked questions?",
+            ]
+            bot_att = BotAttribute.objects.get(bot_id=bot.uid)
+            bot_faqs = bot.faqs
+            user_name = ""
+            try:
+                user_name = get_user_display_name(get_user_by_id)
+            except Exception as e:
+                pass
+            temp = {
+                "Bot name": bot_att.bot_name,
+                "user id": bot.user_id,
+                "name": user_name,
+                "bot_type": bot.bot_type
+            }
+            for que in faqs:
+                temp[que] = bot_faqs.get(que,'')
+
+            bot_data["user_bot"].append(temp)
+
+
+    return bot_data
+            
+
+
 
 def create_user_profile_and_bot(data,auth,tenant):
     from settings import BACKEND
