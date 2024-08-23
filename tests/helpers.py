@@ -911,6 +911,7 @@ def create_test_question_answer_session(tenant: Tenant,
         is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
         is_idp_discussion_opted=is_idp_discussion_opted,
         intake_id=intake_id,
+        is_signature_bot=is_signature_bot
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
