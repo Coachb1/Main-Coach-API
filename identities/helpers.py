@@ -55,12 +55,19 @@ def get_user_via_identity(tenant: Tenant,
     """
     user = None
     try:
-        identity = Identity.objects.get(
+        identity = Identity.objects.filter(
             tenant_id=tenant.uid,
             identity_type=identity_type,
             value=identity_value,
             deleted=0
-        )
+        ).last()
+        if not identity:
+            identity = Identity.objects.get(
+                tenant_id=tenant.uid,
+                # identity_type=identity_type,
+                value=identity_value,
+                deleted=0
+                )
 
         user = User.objects.get(
             tenant_id=tenant.uid,

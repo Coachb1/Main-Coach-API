@@ -490,12 +490,13 @@ class CoachingConversationViewSet(ApiViewSet,
             data = request.data.get('data')
             auth = request.headers.get('Authorization')
             logger.info(f"================data: {data}")
+            tenant = request.tenant
             
             details = []
             for d in data:
                 formatted_dict = {key.strip().lower(): value for key, value in d.items()}
                 logger.info(f"===================== formatted_dict: {formatted_dict}")
-                is_created, user_data = create_user_profile_and_bot(formatted_dict,auth)
+                is_created, user_data = create_user_profile_and_bot(formatted_dict,auth,tenant)
                 temp = {
                     "is_created": is_created,
                     "user_email": user_data.get('email'),
