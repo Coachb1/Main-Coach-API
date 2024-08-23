@@ -755,9 +755,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes['email']
-        bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes['email']
+        
+        user_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=test_attempt_session.participant_id).attributes
+        user_email = user_email.get('email') if 'email' in user_email else user_email.get('profile').get('email')
+        bot_owner_email = UserAttribute.objects.get(tenant_id=self.request.tenant.uid, user_id=signature_bot.user_id).attributes
+        bot_owner_email = bot_owner_email.get('email') if 'email' in bot_owner_email else bot_owner_email.get('profile').get('email')
         logger.info(f"************** user_email: {user_email}, bot_owner_email: {bot_owner_email}")
 
         try:
@@ -793,10 +795,26 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('bot_id',flat=True)))
         # sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
-        # conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
-        # conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conv]
-        
-        conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
+        if not session_qna_data:
+            sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,uid=test_attempt_session_id)
+            conv = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
+            temp = []
+            for index, c in enumerate(conv):
+                if index == 0:
+                    temp.append({
+                        "user": c.get('participant_message_text'),
+                    })
+                else:
+                    if c.get('coach_message_text'):
+                        temp[-1]['coach'] = c.get('coach_message_text')
+                    if c.get('participant_message_text'):
+                        temp.append({
+                            "user": c.get('participant_message_text')
+                        })
+                # {"user":i['participant_message_text'],"coach": i['coach_message_text']
+            conv = temp
+        else:
+            conv = [{"user":t["user"],"coach":t["coach"]} for t in session_qna_data]
         
         conversation_summary = get_conversation_summary(conv)
         
@@ -813,7 +831,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
-        recepients = [submitted_email]
+        recepients = [submitted_email if submitted_email else user_email]
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
@@ -831,7 +849,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         logger.info(f"************** session_qna_data conv: {conv}")
         try:
             candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
-            if candidate_name.lower().strip() != "anonymous user":
+            if candidate_name.lower().strip() != "anonymous user" and submitted_email:
                 candidate_name = f"{candidate_name} ({submitted_email})"
             send_bot_conversation_email( 
                 candidate_name=candidate_name, 
@@ -845,6 +863,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 allow_reply=True if signature_bot.bot_type != 'deep_dive' else False, 
                 no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False
                 )
+            test_attempt_session.status = 'completed'
+            test_attempt_session.save(update_fields=['status'])
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             send_error_notification("send_bot_transcript_email",f"Error in sending bot transcript email: {e}",{"participant_id":participant_id,"session_id":test_attempt_session_id,"submitted_email":submitted_email})

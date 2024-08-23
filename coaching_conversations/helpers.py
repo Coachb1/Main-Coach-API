@@ -41,6 +41,7 @@ from string import Template
 import re
 from email_sender.helpers import send_email_with_html_template
 import random
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -559,6 +560,14 @@ def continue_coaching_conversation(tenant: Tenant,
 
             reply_to_conversation.save(
                 update_fields=["participant_message_text", "updated"])
+
+    else:
+        if participant_message_url:
+            reply_to_conversation.participant_message_text = gpt_wishper_api(
+                participant_message_url
+            )
+            reply_to_conversation.save(
+            update_fields=["participant_message_text", "updated"])
 
     #
     # test = Test.objects.get(
@@ -1491,8 +1500,9 @@ def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
         return None
 
 
-def create_user_profile_and_bot(data,auth):
-    from settings import BACKEND
+def create_user_profile_and_bot(data,auth,tenant):
+    # from settings import BACKEND
+    BACKEND = "http://localhost:8001"
     import traceback
 
     
@@ -1597,6 +1607,18 @@ def create_user_profile_and_bot(data,auth):
 
     # creating user
 
+    tag_type = ""
+    identity_type = ""
+    print(f"tenant: {tenant.name}")
+
+    if tenant.name == "deepchat":
+        tag_type = "deepchat_profile"
+        identity_type = "deepchat_unique_id"
+    else:
+        tag_type = "profile"
+        identity_type = "email"
+
+
     url = f"{BACKEND}/api/v1/accounts/"
     tenant_id = ""
     payload = json.dumps({
@@ -1605,7 +1627,7 @@ def create_user_profile_and_bot(data,auth):
         "role": "member",
         "password": "Demo#123",
         "user_attributes": {
-        "tag": "deepchat_profile",
+        "tag": tag_type,
         "attributes": {
             "name": name,
             "email": user_email
@@ -1613,7 +1635,7 @@ def create_user_profile_and_bot(data,auth):
         }
     },
     "identity_context": {
-        "identity_type": "deepchat_unique_id",
+        "identity_type": identity_type,
         "value": email
     }
     })
@@ -1624,6 +1646,7 @@ def create_user_profile_and_bot(data,auth):
 
     try:
         response = requests.request("POST", url, headers=headers, data=payload)
+        logger.info(f"user create: {response}")
         response.raise_for_status()
         user = response.json()
         tenant_id = get_user_by_id(user.get('uid')).tenant_id
@@ -1631,7 +1654,10 @@ def create_user_profile_and_bot(data,auth):
 
     except Exception as e:
         logger.exception(f"user creation failed with error: {e}")
-        return False, {"email": data.get('email'),'error': f"{e}: {traceback.format_exception()}"}
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        formatted_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+
+        return False, {"email": data.get('email'),'error': f"{e}: {formatted_traceback}"}
 
     user_id = user.get('uid')
 
@@ -1691,7 +1717,10 @@ def create_user_profile_and_bot(data,auth):
 
     except Exception as e:
         logger.exception(f"profile creation failed with {e}")
-        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}: {traceback.format_exception()}"}
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        formatted_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+
+        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}: {formatted_traceback}"}
 
     if (coaching_level != None and coach_same_department != None and supported_outcome != None):
         qna_data = {
