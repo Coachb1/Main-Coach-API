@@ -1501,8 +1501,7 @@ def get_qna_block_for_coach_mentor(coach_user_id,participant_id,tenant_id):
 
 
 def create_user_profile_and_bot(data,auth,tenant):
-    # from settings import BACKEND
-    BACKEND = "http://localhost:8001"
+    from settings import BACKEND
     import traceback
 
     
