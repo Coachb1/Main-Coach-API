@@ -470,6 +470,20 @@ def format_test_orchestrated_conversation(raw_data):
 
         print('*'*100, output_dict)
 
+        if EMAIL_CANDIDATE in input_dict:
+            if input_dict[EMAIL_CANDIDATE] and len(input_dict[EMAIL_CANDIDATE].strip()) > 0:
+                email_candidate = input_dict[EMAIL_CANDIDATE].strip().lower()
+
+                if email_candidate == "true":
+                    output_dict['email_candidate'] = True
+                elif email_candidate == "false":
+                    output_dict['email_candidate'] = False
+                else:
+                    output_dict['email_candidate'] = True
+
+        if output_dict.get('scenario_case') == 'assessment':
+            output_dict['email_candidate'] = False
+
 
         check_pass = True
 
@@ -1088,6 +1102,9 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['email_candidate'] = False
                 else:
                     output_dict['email_candidate'] = True
+
+        if output_dict.get('scenario_case') == 'assessment':
+            output_dict['email_candidate'] = False
 
         if CANDIDATE_TYPE in input_dict:
             if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
