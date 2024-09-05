@@ -22,7 +22,6 @@ class MailBoxViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixi
         queryset = super().get_queryset()
         uid = self.request.query_params.get('uid')
         email = self.request.query_params.get('email')
-        print(email)
         if uid:
             queryset = queryset.filter(uid=uid)
         elif email:
