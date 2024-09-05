@@ -5,6 +5,8 @@ from commons.db.model import MyModel
 class MailBox(MyModel):
     email = models.CharField(max_length=255)
     prompt = models.TextField(null=True, blank=True, default=None)
+    followup_prompt = models.TextField(null=True, blank=True, default=None)
+    document_data = models.JSONField(null=True, blank=True, default=dict)
 
     class Meta:
         db_table = 'mail_box'
@@ -17,6 +19,8 @@ class AuthorizedEmails(MyModel):
     email = models.CharField(max_length=255)
     user_id = models.CharField(max_length=255, null=True, blank=True, default=None)
     is_black_list = models.BooleanField(null=True, default=False)
+    is_whitelist = models.BooleanField(null=True, default=False)
+
 
     class Meta:
         db_table = 'authorized_emails'
