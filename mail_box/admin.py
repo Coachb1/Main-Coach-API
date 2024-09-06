@@ -17,6 +17,6 @@ class AuthorizedEmailsAdmin(admin.ModelAdmin):
 
 @admin.register(EmailConversation)
 class EmailConversationAdmin(admin.ModelAdmin):
-    list_display = ('uid', 'mailbox_id', 'sender', 'subject', 'sent_at','responder' ,'created', 'updated', 'deleted')
+    list_display = ('uid', 'mailbox_id', 'sender', 'subject','body','sent_at','responder' ,'created', 'updated', 'deleted')
     search_fields = ('mailbox_id', 'sender', 'subject')
     list_filter = ('sent_at', 'created', 'updated', 'deleted')

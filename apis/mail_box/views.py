@@ -66,12 +66,20 @@ class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retriev
         queryset = super().get_queryset()
         uid = self.request.query_params.get('uid')
         mailbox_id = self.request.query_params.get('mailbox_id')
+        subject = self.request.query_params.get('subject')
         
+        filters = {}
         if uid:
-            queryset = queryset.filter(uid=uid)
+            filters['uid'] = uid
         elif mailbox_id:
-            queryset = queryset.filter(mailbox_id=mailbox_id)
+            filters['mailbox_id'] = mailbox_id
+        if subject:
+            filters['subject'] = subject
 
+        if not filters:
+            return queryset
+
+        queryset = queryset.filter(**filters)
         return queryset
 
     def perform_create(self, serializer):
