@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from mail_box.models import MailBox, AuthorizedEmails, EmailConversation
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 
 logger = logging.getLogger('main')
@@ -8,7 +8,7 @@ logger = logging.getLogger('main')
 class MailBoxViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = MailBox
-        fields = ['uid', 'email', 'prompt', 'followup_prompt','document_data','created', 'updated']
+        fields = ['uid', 'email', 'prompt','grant_id' ,'followup_prompt','document_data','followup_prompt2', 'reward_prompt1', 'reward_prompt2','created', 'updated']
         read_only_fields = ['uid', 'created', 'updated']
 
     def create(self, validated_data):
@@ -20,15 +20,19 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         email_conversations = EmailConversation.objects.filter(mailbox_id=instance.uid)
         sender_last_bot_response = {}
-        # list_of_sender = set(list(email_conversations.values_list('sender','responder')))
-        # print(list_of_sender)
+        now_aware = datetime.now(timezone.utc)
+        one_week_ago = now_aware - timedelta(days=7)
+
         for conv in email_conversations:
             sender = conv.sender
             if conv.responder == 'bot':
                 # Record the bot's last response time
                 sender_last_bot_response[sender] = {
                     'last_bot_response': conv.sent_at,
-                    'user_responded': False  # Initially set as False until a user response is found
+                    'user_responded': False,  # Initially set as False until a user response is found
+                    'authorized_email': AuthorizedEmailsSerializer(
+                        AuthorizedEmails.objects.filter(deleted=False, mailbox_id=conv.mailbox_id, email=conv.sender).last(), 
+                    ).data
                 }
             elif conv.responder == 'user':
                 # If a user response is found after a bot response, update the user_responded flag
@@ -40,7 +44,6 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
         for sender, info in sender_last_bot_response.items():
             if not info['user_responded']:
                 try:
-                    now_aware = datetime.now(timezone.utc)
                     last_bot_response_aware = info['last_bot_response'].astimezone(timezone.utc)
 
                     days_since_last_bot_response = (now_aware - last_bot_response_aware).days
@@ -48,17 +51,25 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
                 except Exception as e:
                     logger.exception(f'failed to calc last bot response time: {e}')
                     days_since_last_bot_response = (datetime.now() - info['last_bot_response']).days
-                    
+                
+                weekly_interactions = EmailConversation.objects.filter(
+                    mailbox_id=instance.uid,
+                    sender=sender,
+                    sent_at__range=[one_week_ago, now_aware],
+                    responder='user'
+                ).count()
                 data['all_recipients'].append({
-                    'email': sender,
+                    **info,
                     'last_responded': f"{days_since_last_bot_response} days since bot response, no user response",
-                    'last_responded_in_number' : days_since_last_bot_response
+                    'last_responded_in_days' : days_since_last_bot_response,
+                    'weekly_interaction': weekly_interactions
                 })
             else:
                 data['all_recipients'].append({
-                    'email': sender,
+                    **info,
                     'last_responded': "User has responded after the bot's response",
-                    'last_responded_in_number': 0
+                    'last_responded_in_days': 0,
+                    "weekly_interaction": weekly_interactions
                 })
 
         return data
@@ -66,12 +77,15 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
 class AuthorizedEmailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuthorizedEmails
-        fields = ['uid', 'email', 'user_id', 'is_black_list','is_whitelist', 'created', 'updated']
+        fields = ['uid', 'mailbox_id' ,'email', 'user_id', 'is_black_list',
+                  'is_whitelist', 'name','age','goal','situation','followup_fequency',
+                  'followup_escalation_email','reward_emails', 'created', 'updated']
 
 class EmailConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailConversation
-        fields = ['uid', 'mailbox_id', 'sender', 'subject', 'body', 'sent_at', 'responder', 'created', 'updated']
+        fields = ['uid', 'mailbox_id', 'sender', 'subject', 
+                  'body', 'sent_at','responder','created', 'updated']
         read_only_fields = ['uid', 'created', 'updated']
     def create(self, validated_data):
         email_conversation = EmailConversation.objects.create(**validated_data)
