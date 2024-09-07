@@ -1,7 +1,8 @@
 from commons.viewset import ApiViewSet
-from rest_framework import mixins
-from mail_box.models import MailBox, AuthorizedEmails, EmailConversation
-from apis.mail_box.serializers import MailBoxViewSerializer, AuthorizedEmailsSerializer, EmailConversationSerializer
+from rest_framework import mixins, status
+from rest_framework.response import Response
+from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
+from apis.mail_box.serializers import MailBoxViewSerializer, AuthorizedEmailsSerializer, EmailConversationSerializer, AccountabilityIntakeSerializer
 from clients.permissions import IsAuthenticatedClient
 import logging
 
@@ -89,4 +90,41 @@ class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retriev
             logger.info("Email conversation created successfully")
         except Exception as e:
             logger.error(f"Error creating email conversation: {str(e)}")
+            raise e
+
+
+class AccountabilityIntakeViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
+    queryset = AccountabilityIntake.objects.filter(deleted=0)
+    serializer_class = AccountabilityIntakeSerializer
+    permission_classes = (IsAuthenticatedClient,)
+    lookup_field = "uid"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        uid = self.request.query_params.get('uid')
+        form_id = self.request.query_params.get('form_id')
+        email_address = self.request.query_params.get('email_address')
+        
+        filters = {}
+        if uid:
+            filters['uid'] = uid
+        elif form_id:
+            filters['form_id'] = form_id
+        if email_address:
+            filters['email_address'] = email_address
+
+        if not filters:
+            return queryset
+
+        queryset = queryset.filter(**filters)
+        return queryset
+
+    def perform_create(self, serializer):
+        logger.info(f"Creating a new accountability intake with data: {serializer.validated_data}")
+        try:
+            serializer.save()
+            logger.info("Accountability intake created successfully")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Error creating accountability intake: {str(e)}")
             raise e
