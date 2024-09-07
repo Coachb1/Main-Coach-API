@@ -53,3 +53,23 @@ class EmailConversation(MyModel):
     class Meta:
         db_table = 'email_conversation'
 
+
+class AccountabilityIntake(MyModel):
+    form_id = models.CharField(max_length=50, null=True, blank=True, default=None)
+    event_type = models.CharField(max_length=50, null=True, blank=True, default=None)
+    submission_number = models.IntegerField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True, default=None)
+    submission_id = models.CharField(max_length=50, null=True, blank=True, default=None)
+    form_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+
+    name = models.CharField(max_length=255)
+    email_address = models.EmailField()
+    competency_level = models.CharField(max_length=50)
+    follow_up_frequency = models.CharField(max_length=255,choices=FollowupFreqType,default=FollowupFreqType.nan)
+    followup_escalation_email = models.CharField(max_length=255,null=True,blank=True,default=None)
+    wants_rewards = models.BooleanField()
+    overall_goals = models.TextField()
+    situational_context = models.TextField()
+
+    def __str__(self):
+        return f"{self.name} - {self.email_address}"
