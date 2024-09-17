@@ -22,7 +22,6 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
         sender_last_bot_response = {}
         now_aware = datetime.now(timezone.utc)
         one_week_ago = now_aware - timedelta(days=7)
-        
 
         for conv in email_conversations:
             sender = conv.sender
