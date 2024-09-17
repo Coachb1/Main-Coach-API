@@ -22,6 +22,12 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
         sender_last_bot_response = {}
         now_aware = datetime.now(timezone.utc)
         one_week_ago = now_aware - timedelta(days=7)
+        weekly_interactions = EmailConversation.objects.filter(
+                    mailbox_id=instance.uid,
+                    sender=sender,
+                    sent_at__range=[one_week_ago, now_aware],
+                    responder='user'
+                ).count()
 
         for conv in email_conversations:
             sender = conv.sender
@@ -52,12 +58,7 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
                     logger.exception(f'failed to calc last bot response time: {e}')
                     days_since_last_bot_response = (datetime.now() - info['last_bot_response']).days
                 
-                weekly_interactions = EmailConversation.objects.filter(
-                    mailbox_id=instance.uid,
-                    sender=sender,
-                    sent_at__range=[one_week_ago, now_aware],
-                    responder='user'
-                ).count()
+                
                 data['all_recipients'].append({
                     **info,
                     'last_responded': f"{days_since_last_bot_response} days since bot response, no user response",
