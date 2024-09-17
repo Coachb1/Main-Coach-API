@@ -1,5 +1,5 @@
 from django.contrib import admin
-from mail_box.models import MailBox, AuthorizedEmails, EmailConversation
+from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
 
 @admin.register(MailBox)
 class MailBoxAdmin(admin.ModelAdmin):
@@ -25,3 +25,8 @@ class EmailConversationAdmin(admin.ModelAdmin):
     list_display = ('uid', 'mailbox_id', 'sender', 'subject','body','sent_at','responder' ,'created', 'updated', 'deleted')
     search_fields = ('mailbox_id', 'sender', 'subject')
     list_filter = ('sent_at', 'created', 'updated', 'deleted')
+
+
+@admin.register(AccountabilityIntake)
+class AccountabilityIntakeAdmin(admin.ModelAdmin):
+    list_display = ['uid', 'name', 'email_address']
