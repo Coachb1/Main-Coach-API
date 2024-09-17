@@ -6,6 +6,8 @@ class FollowupFreqType(DjangoChoices):
     daily = ChoiceItem("daily")
     monthly = ChoiceItem('monthly')
     nan = ChoiceItem('nan')
+    never = ChoiceItem('never')
+    alternate = ChoiceItem('alternate')
 
 
     
