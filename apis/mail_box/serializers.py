@@ -80,6 +80,11 @@ class AuthorizedEmailsSerializer(serializers.ModelSerializer):
         fields = ['uid', 'mailbox_id' ,'email', 'user_id', 'is_black_list',
                   'is_whitelist', 'name','age','goal','situation','followup_fequency',
                   'followup_escalation_email','reward_emails', 'created', 'updated']
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['is_intake_filled'] =  True if instance.name else False
+        return data
 
 class EmailConversationSerializer(serializers.ModelSerializer):
     class Meta:

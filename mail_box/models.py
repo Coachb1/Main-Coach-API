@@ -31,14 +31,14 @@ class AuthorizedEmails(MyModel):
     age = models.CharField(max_length=255, null=True, blank=True, default=None)
     goal = models.CharField(max_length=255, null=True, blank=True, default=None)
     situation = models.TextField(null=True, blank=True, default=None)
-    followup_fequency = models.CharField(max_length=255,choices=FollowupFreqType,null=True,blank=True,default=FollowupFreqType.nan)
+    followup_fequency = models.CharField(max_length=255,choices=FollowupFreqType,null=True,blank=True,default=FollowupFreqType.never)
     followup_escalation_email = models.CharField(max_length=255,null=True,blank=True,default=None)
     reward_emails = models.BooleanField(null=True, default=True)
 
     class Meta:
         db_table = 'authorized_emails'
         unique_together = (
-            ('email', 'deleted'),
+            ('mailbox_id','email', 'deleted'),
         )
 
 

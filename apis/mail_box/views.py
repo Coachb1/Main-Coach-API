@@ -3,6 +3,10 @@ from rest_framework import mixins
 from mail_box.models import MailBox, AuthorizedEmails, EmailConversation
 from apis.mail_box.serializers import MailBoxViewSerializer, AuthorizedEmailsSerializer, EmailConversationSerializer
 from clients.permissions import IsAuthenticatedClient
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import action
+from mail_box.choices import FollowupFreqType
 import logging
 
 logger = logging.getLogger("main")
@@ -55,6 +59,45 @@ class AuthorizedEmailsViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retrieve
             queryset = queryset.filter(email=email)
         
         return queryset
+    
+    @action(methods=['GET','POST','PATCH'], detail=False, url_path='user-intake')
+    def user_intake(self,request,*args,**kwargs):
+        try:
+            if request.method == 'GET':
+                user_email = request.query_params.get('email')
+                mailbox_id = request.query_params.get('mailbox_id')
+                user = AuthorizedEmails.objects.filter(email=user_email,mailbox_id=mailbox_id).exclude(name=None).last()
+                return Response(AuthorizedEmailsSerializer(user).data , status=status.HTTP_200_OK)
+            
+            elif request.method == 'POST':
+                logger.info(f" creating intake : {request.data}")
+                user_email = request.data.get('email')
+                mailbox_id = request.data.get('mailbox_id')
+                name = request.data.get('name')
+                age = request.data.get('age')
+                situation = request.data.get('situation')
+                goal = request.data.get('goal')
+                is_reward_email = request.data.get('is_reward_email', True)
+                followup_freq = request.data.get('followup_freq', FollowupFreqType.never)
+                followup_esc_email = request.data.get('followup_esc_email')
+
+                user = AuthorizedEmails.objects.filter(email=user_email,mailbox_id=mailbox_id).last()
+                if user:
+                    user.name = name
+                    user.age = age
+                    user.situation = situation
+                    user.goal = goal 
+                    user.followup_escalation_email = followup_esc_email
+                    user.followup_fequency = FollowupFreqType.get_choice(followup_freq)
+                    user.reward_emails = is_reward_email
+
+                    user.save()
+
+                return Response({'msg': "successfully created"}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.exception(f"Got Error in user intake: {e}")
+            return Response({'error': f"failed to perform user intake : {e}"}, status= status.HTTP_400_BAD_REQUEST)
 
 class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset = EmailConversation.objects.filter(deleted=0)
