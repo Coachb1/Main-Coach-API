@@ -14,7 +14,7 @@ class AuthorizedEmailsAdmin(admin.ModelAdmin):
                     'name','age','goal','situation','followup_fequency',
                   'followup_escalation_email','reward_emails',
                   'created', 'updated', 'deleted')
-    search_fields = ('email', 'user_id','mailbox_iid')
+    search_fields = ('email', 'user_id','mailbox_id')
     list_filter = ('is_black_list','is_whitelist', 'created', 'updated', 'deleted')
     list_editable = ('email', 'user_id', 'is_black_list','is_whitelist', 
                      'name','age','goal','situation','followup_fequency',
