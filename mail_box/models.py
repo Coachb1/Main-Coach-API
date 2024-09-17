@@ -9,6 +9,7 @@ class MailBox(MyModel):
     followup_prompt = models.TextField(null=True, blank=True, default=None)
     document_data = models.JSONField(null=True, blank=True, default=dict)
     followup_prompt2 = models.TextField(null=True, blank=True, default=None)
+    followup_prompt3 = models.TextField(null=True, blank=True, default=None)
     reward_prompt1 = models.TextField(null=True, blank=True, default=None)
     reward_prompt2 = models.TextField(null=True, blank=True, default=None)
     grant_id = models.CharField(max_length=255,null=True,blank=True,default=None)
