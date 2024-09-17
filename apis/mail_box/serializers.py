@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from mail_box.models import MailBox, AuthorizedEmails, EmailConversation
+from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
 from datetime import datetime, timezone, timedelta
 import logging
 
@@ -95,3 +95,13 @@ class EmailConversationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email_conversation = EmailConversation.objects.create(**validated_data)
         return email_conversation
+    
+    
+class AccountabilityIntakeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountabilityIntake
+        fields = '__all__'
+        read_only_fields = ['uid']
+    def create(self, validated_data):
+        accountability_intake = AccountabilityIntake.objects.create(**validated_data)
+        return accountability_intake
