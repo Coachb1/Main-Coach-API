@@ -12,6 +12,11 @@ class MailBox(MyModel):
     followup_prompt3 = models.TextField(null=True, blank=True, default=None)
     reward_prompt1 = models.TextField(null=True, blank=True, default=None)
     reward_prompt2 = models.TextField(null=True, blank=True, default=None)
+    welcome_email_template = models.TextField(null=True, blank=True, default=None)
+    intake_reminder_email_template = models.TextField(null=True, blank=True, default=None)
+    intake_required = models.BooleanField(blank=True,default=False)
+    bot_name = models.CharField(max_length=255,null=True,blank=True,default=None)
+    intake_url = models.CharField(max_length=255,null=True,blank=True,default='https://chat.coachbots.com/66dc18ab01ef84e231427f7b')
     grant_id = models.CharField(max_length=255,null=True,blank=True,default=None)
 
 
@@ -35,6 +40,8 @@ class AuthorizedEmails(MyModel):
     followup_fequency = models.CharField(max_length=255,choices=FollowupFreqType,null=True,blank=True,default=FollowupFreqType.never)
     followup_escalation_email = models.CharField(max_length=255,null=True,blank=True,default=None)
     reward_emails = models.BooleanField(null=True, default=True)
+    is_intake_filled = models.BooleanField(blank=True,default=False)
+
 
     class Meta:
         db_table = 'authorized_emails'
