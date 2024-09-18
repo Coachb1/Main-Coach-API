@@ -8,7 +8,12 @@ logger = logging.getLogger('main')
 class MailBoxViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = MailBox
-        fields = ['uid', 'email', 'prompt','grant_id' ,'followup_prompt','document_data','followup_prompt2', 'reward_prompt1', 'reward_prompt2','created', 'updated']
+        fields = ['uid', 'email', 'prompt','grant_id' ,'followup_prompt','document_data','followup_prompt2',
+                   'reward_prompt1', 'reward_prompt2',
+                   'welcome_email_template', 'intake_reminder_email_template',
+                    'intake_required', 'bot_name',
+                    'intake_url','created', 'updated']
+        
         read_only_fields = ['uid', 'created', 'updated']
 
     def create(self, validated_data):
@@ -81,11 +86,21 @@ class AuthorizedEmailsSerializer(serializers.ModelSerializer):
         model = AuthorizedEmails
         fields = ['uid', 'mailbox_id' ,'email', 'user_id', 'is_black_list',
                   'is_whitelist', 'name','age','goal','situation','followup_fequency',
-                  'followup_escalation_email','reward_emails', 'created', 'updated']
+                  'followup_escalation_email','reward_emails','is_intake_filled', 'created', 'updated']
+        read_only_fields = ['uid','created','updated','uid']
+
+    def create(self, validated_data):
+        auth_email_user = AuthorizedEmails.objects.create(**validated_data)
+        return auth_email_user
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['is_intake_filled'] =  True if instance.name else False
+        intake = AccountabilityIntake.objects.filter(email_address=instance.email).last()
+        if intake:
+            data['intake'] = AccountabilityIntakeSerializer(intake).data
+        else:
+            data['intake'] = {}
+
         return data
 
 class EmailConversationSerializer(serializers.ModelSerializer):

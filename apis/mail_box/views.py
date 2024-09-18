@@ -53,11 +53,15 @@ class AuthorizedEmailsViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retrieve
         queryset = super().get_queryset()
         uid = self.request.query_params.get('uid')
         email = self.request.query_params.get('email')
+        mailbox_id = self.request.query_params.get('mailbox_id')
         
         if uid:
             queryset = queryset.filter(uid=uid)
         elif email:
             queryset = queryset.filter(email=email)
+
+        if mailbox_id:
+            queryset = queryset.filter(mailbox_id=mailbox_id)
         
         return queryset
     

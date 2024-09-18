@@ -1,12 +1,24 @@
 from django.contrib import admin
 from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+
 
 @admin.register(MailBox)
 class MailBoxAdmin(admin.ModelAdmin):
-    list_display = ('uid', 'grant_id' ,'email', 'prompt','followup_prompt','followup_prompt2', 'reward_prompt1', 'reward_prompt2','document_data' ,'created', 'updated', 'deleted')
+    list_display = ('uid', 'grant_id' ,'email', 'bot_name','prompt','followup_prompt',
+                    'followup_prompt2', 'reward_prompt1', 'reward_prompt2',
+                    'document_data' ,
+                    'welcome_email_template', 'intake_reminder_email_template',
+                    'intake_required',
+                    'intake_url',
+                    'created', 'updated', 'deleted')
     search_fields = ('email', 'prompt', 'grant_id')
     list_filter = ('created', 'updated', 'deleted', 'email')
-    list_editable = ('email', 'prompt','followup_prompt','followup_prompt2', 'reward_prompt1', 'reward_prompt2', 'deleted')
+    list_editable = ('email', 'prompt','followup_prompt','followup_prompt2', 'reward_prompt1', 'reward_prompt2', 
+                     'welcome_email_template', 'intake_reminder_email_template',
+                    'intake_required', 'bot_name',
+                    'intake_url','deleted')
 
 @admin.register(AuthorizedEmails)
 class AuthorizedEmailsAdmin(admin.ModelAdmin):
@@ -30,3 +42,13 @@ class EmailConversationAdmin(admin.ModelAdmin):
 @admin.register(AccountabilityIntake)
 class AccountabilityIntakeAdmin(admin.ModelAdmin):
     list_display = ['uid', 'name', 'email_address']
+
+
+@receiver(post_save, sender=AccountabilityIntake)
+def update_status_after_intake_filled(sender, instance, created, **kwargs):
+    if created:
+        users =  AuthorizedEmails.objects.filter(email=instance.email_address) 
+
+        for user in users:
+            user.is_intake_filled = True
+            user.save()
