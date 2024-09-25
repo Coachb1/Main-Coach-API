@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'storages',
-    'mail_box.apps.MailBoxConfig'
+    'mail_box.apps.MailBoxConfig',
+    'legacybot.apps.LegacybotConfig'
     
 ]
 
