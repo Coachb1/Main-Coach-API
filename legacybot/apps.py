@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class SinglebotConfig(AppConfig):
+class LegacybotConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'singlebot'
+    name = 'legacybot'
