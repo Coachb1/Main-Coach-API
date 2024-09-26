@@ -96,6 +96,7 @@ CALCULATE_CULTURE = "Calculate Culture"
 TEST_SNIPPET_LINK = "Test Snippet Link"
 QUE_SNIPPET_LINK = "Que Snippet Link"
 TEST_CODE = "Test Code"
+SECTIONS = "Sections"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -909,6 +910,13 @@ def format_test_data_slack(raw_data,tenant):
                     available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
                     logger.info(f"###########################Available Client info: {available_clients}")
                     return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
+
+        if SECTIONS in input_dict:
+            logger.info(f"###########################Sections: {input_dict[SECTIONS]}")
+            if input_dict[SECTIONS] and len(input_dict[SECTIONS].strip()) > 0:
+                sections = input_dict[SECTIONS]
+                sections = extract_sections(sections)
+                output_dict['pshycometric_sections'] = json.dumps(sections)
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -1920,3 +1928,26 @@ def create_coaches_and_bots_from_data(file, email, password, subdomain_prefix):
     except Exception as e:
         logger.exception(f"{e}")
         return {'errors':["Error occurred; Could not create coaches and bots"], "exception": True}
+
+
+
+s = "Section A: left-right, Up-down; Anything B: Top-Down,Here-There;"
+
+
+def extract_sections(s):
+    # Regular expression to match any section name and their corresponding parameters
+    pattern = r"([^:]+):\s*([^;]+);"
+
+    # Find all matches
+    matches = re.findall(pattern, s)
+
+    # Process and print the results
+    sections = {}
+    for match in matches:
+        section_name = match[0].strip()  # Extract section name
+        parameters = [param.strip() for param in match[1].split(',')]  # Extract and clean parameters
+        sections[section_name] = parameters
+
+    logger.info(f"Sections extracted: {sections}")
+    return sections
+    
