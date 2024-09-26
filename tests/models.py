@@ -187,7 +187,8 @@ class TestAttemptSession(TenantAwareModel):
     intake_id = models.CharField(max_length=255, null=True, blank=True, default=None)
     conversation_summary = models.TextField(null=True, blank=True, default=None)
     related_previous_conversation_summary = models.TextField(null=True, blank=True, default=None)
-
+    is_signature_bot = models.BooleanField(
+            null=True, blank=True, default=False)
 
     
 

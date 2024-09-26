@@ -14,4 +14,6 @@ urlpatterns = [
     path("", include("apis.skills.urls")),
     path("", include("apis.frontend_api.urls")),
     path("", include("apis.test_bulk_upload.urls")),
+    path("", include("apis.mail_box.urls")),
+    path("", include("apis.legacybot.urls")),
 ]

@@ -3372,7 +3372,11 @@ class AccountsViewSet(ApiViewSet,
                 for email in emails_to_delete.split(","):
                     logger.info(f"deleting user with email : {email}")
                     try:
-                        user_uid = Identity.objects.get(identity_type="deepchat_unique_id",value=email).user_id
+                        user_uid = get_user_via_identity(
+                                tenant=self.request.tenant,
+                                identity_type= 'deepchat_unique_id',
+                                identity_value=email
+                            ).uid
                         delete_user_resources(user_uid,remove_from_client=True)
                         if is_delete_user:
                             delete_user(user_uid)
@@ -3479,7 +3483,11 @@ class AccountsViewSet(ApiViewSet,
                         user_email=user_email
                     )
                     try:
-                        user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
+                        user_identity = get_user_via_identity(
+                                    tenant=tenant,
+                                    identity_type= 'deepchat_unique_id',
+                                    identity_value=user_email
+                                )
                         delete_user_resources(user_identity.user_id)
                         logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.user_id}===============")
                     except Exception as e:
