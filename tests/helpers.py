@@ -3598,6 +3598,15 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
+    try:
+        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+                                                    user_uid=test_attempt_session.participant_id
+                                                    )
+        client_name = client.client_name if client else None
+        client_id = client.id if client else None
+    except:
+        client_name = None
+        client_id = None
 
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
@@ -3721,7 +3730,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "skill_summary" : test_attempt_session.culture_and_skill_summary,
         "start_with_user": False if start_with_user_message is None else True,
         "speech_metrics_avg" : speech_metrics_avg,
-        "response_relevance" : response_relevance
+        "response_relevance" : response_relevance,
+        "client_name":client_name,
+        "client_id": client_id,
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
