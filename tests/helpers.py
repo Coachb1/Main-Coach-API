@@ -232,7 +232,8 @@ def create_test(tenant: Tenant,
                 web_page_url:str,
                 sub_tab_category:str,
                 calculate_culture: bool,
-                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
+                snippet_url: str,
+                pshycometric_sections: dict) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -420,7 +421,8 @@ def create_test(tenant: Tenant,
             web_page_url=web_page_url,
             sub_tab_category=sub_tab_category,
             calculate_culture=calculate_culture,
-            snippet_url=snippet_url
+            snippet_url=snippet_url,
+            pshycometric_sections=pshycometric_sections,
         )
 
         test_questions = []
