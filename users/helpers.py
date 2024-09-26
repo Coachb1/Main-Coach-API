@@ -120,7 +120,7 @@ def get_user_attribute(user: User,
         deleted=False,
         tenant_id=user.tenant_id,
         user_id=user.uid,
-        tag=tag
+        # tag=tag
     ).last()
 
 

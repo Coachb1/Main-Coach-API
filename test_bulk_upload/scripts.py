@@ -1872,13 +1872,24 @@ def create_coaches_and_bots_from_data(file, email, password, subdomain_prefix):
     #         data.append(dict(row))
     # print(data)
 
+    try:
+        access_token = login_slack(email, password, subdomain_prefix)
+
+    except Exception as e:
+        logger.exception(f"failed to login : {e}")
+        return {
+                "errors": [f"Invalid Credential"],
+                "exception": True,
+            }
+
+
     headers = {
-                "Authorization": f"Bearer {login_slack(email, password, subdomain_prefix)}",
+                "Authorization": f"Bearer {access_token}",
                 'Content-Type': "application/json"
             }
     try:
         response = requests.post(url,data=json.dumps({'data': data}),headers=headers)
-        print(response.json())
+        print(f"resp: {response.json()}")
         data = response.json()['data']
         csv_file_path = 'coaches-bots-data.csv'
         field_names = list(data[0].keys())
@@ -1907,5 +1918,5 @@ def create_coaches_and_bots_from_data(file, email, password, subdomain_prefix):
                     'file_response': file_response,
                 }
     except Exception as e:
-        logger.exception(e)
+        logger.exception(f"{e}")
         return {'errors':["Error occurred; Could not create coaches and bots"], "exception": True}
