@@ -89,6 +89,7 @@ class Test(TenantAwareModel):
     sub_tab_category = models.CharField(max_length=255, null=True, blank=True, default=None)
     calculate_culture = models.BooleanField(default=True, null=True)
     snippet_url = models.CharField(max_length=500, null=True, blank=True, default=None)
+    pshycometric_sections = models.JSONField(null=True, blank=True, default=None)
 
 
 
@@ -189,6 +190,7 @@ class TestAttemptSession(TenantAwareModel):
     related_previous_conversation_summary = models.TextField(null=True, blank=True, default=None)
     is_signature_bot = models.BooleanField(
             null=True, blank=True, default=False)
+    pshycometric_data = models.JSONField(null=True, blank=True, default=None)
 
     
 

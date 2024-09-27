@@ -40,6 +40,7 @@ class ScenarioCaseChoices(DjangoChoices):
     english_support = ChoiceItem('english_support')
     pitch = ChoiceItem('pitch')
     assessment = ChoiceItem('assessment')
+    psychometric = ChoiceItem('psychometric')
 
 
 class InteractionModeChoices(DjangoChoices):
