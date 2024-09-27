@@ -45,7 +45,7 @@ from commons.notifications import send_error_notification
 from commons.webhook_utils import invoke_webhook
 from users.helpers import get_client_info_from_user_detail
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
-
+from tests.helpers import generate_psychometric_report_data
 
 
 logger = logging.getLogger(__name__)
@@ -477,6 +477,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 
 
                 #####################* explanation end #################
+
+
+
+            # if test.scenario_case == ScenarioCaseChoices.psychometric:
+            #     generate_psychometric_report_data(test=test,test_attempt_session=test_attempt_session)
+                
 
             test_attempt_session.save(update_fields=updated_fields)
                 
