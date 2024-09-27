@@ -916,7 +916,7 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[SECTIONS] and len(input_dict[SECTIONS].strip()) > 0:
                 sections = input_dict[SECTIONS]
                 sections = extract_sections(sections)
-                output_dict['pshycometric_sections'] = json.dumps(sections)
+                output_dict['pshycometric_sections'] = sections
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
