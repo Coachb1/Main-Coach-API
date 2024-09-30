@@ -118,7 +118,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 "discussion_topic",
                 "optional_file_data",
                 "problem_statement",
-                "provide_answers_using_emojis"
+                "provide_answers_using_emojis",
+                "meeting_availability",
                 ]
 
         extra_kwargs = {
