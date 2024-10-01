@@ -29,7 +29,7 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
     queryset = LegacyBotUser.objects.filter(deleted=False)
     serializer_class = LegacyBotUserSerializer
     permission_classes = (IsAuthenticatedClient,)
-
+    lookup_field = "uid"
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -44,12 +44,38 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(bot_id=bot_id)
 
         return queryset
+    
+    def create(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        bot_id = request.data.get('bot_id')
+
+        if not email or not bot_id:
+            return Response({"detail": "Both 'email' and 'bot_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if the record already exists
+        existing_user = LegacyBotUser.objects.filter(email=email, bot_id=bot_id,deleted=False).first()
+
+        if existing_user:
+            logger.info(f"User with email {email} and bot_id {bot_id} already exists.")  # If existing_user is found
+            # If it exists, return the existing record
+            serializer = self.get_serializer(existing_user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        logger.info(f"Creating a new user with email {email} and bot_id {bot_id}.")  # If creating a new user
+        try:
+            LegacyBot.objects.get(uid=bot_id)
+        except Exception as e:
+            logger.exception(f"no bot found : {e}")
+            return Response({'detail': f"No bot found with the {bot_id}"}, status=status.HTTP_400_BAD_REQUEST)
+        # If it doesn't exist, proceed with creation
+        return super().create(request, *args, **kwargs)
+
 
 
 class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.filter(deleted=False)
     serializer_class = ThreadSerializer
     permission_classes = (IsAuthenticatedClient,)
+    lookup_field = "uid"
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -62,12 +88,24 @@ class ThreadViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(bot_id = bot_id)
 
         return queryset
+    
+    def create(self, request, *args, **kwargs):
+        bot_id = request.data.get('bot_id')
+        try:
+            LegacyBot.objects.get(uid=bot_id)
+        except Exception as e:
+            logger.exception(f"no bot found : {e}")
+            return Response({'detail': f"No bot found with the {bot_id}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return super().create(request, *args, **kwargs)
 
 
 class ChatConversationViewSet(viewsets.ModelViewSet):
     queryset = ChatConversation.objects.filter(deleted=False)
     serializer_class = ChatConversationSerializer
     permission_classes = (IsAuthenticatedClient,)
+    lookup_field = "uid"
+
 
     def list(self, request):
         queryset = self.queryset
@@ -76,15 +114,19 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
 
         if user_id:
             # Filter chat conversations by user_id
-            threads = Thread.objects.filter(user_id=user_id)
-            thread_ids = list(threads.values_list('uid',flat=True))
-            conversations = queryset.filter(thread_id__in=thread_ids)
+            threads = Thread.objects.filter(user_id=user_id,deleted=False)
             
-
             # Format the response
             response_data = defaultdict(list)
-            for conversation in conversations:
-                response_data[conversation.thread_id].append(ChatConversationSerializer(conversation).data)
+            for thread in threads:
+                
+                conversations = ChatConversation.objects.filter(deleted=False,thread_id=thread.uid)
+                response_data[thread.uid].append(
+                    {
+                        "thread_info": ThreadSerializer(thread).data,
+                        "conversations": ChatConversationSerializer(conversations,many=True).data
+                    }
+                    )
 
             return Response({user_id:response_data}, status=status.HTTP_200_OK)
         
@@ -95,7 +137,7 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
             # Format the response
             response_data = defaultdict(list)
             for conversation in conversations:
-                response_data[conversation.thread_id].append(ChatConversationSerializer(conversation).data)
+                response_data[conversation.thread_id].append(ChatConversationSerializer(conversation,many=True).data)
 
             return Response({thread.user_id:response_data}, status=status.HTTP_200_OK)
 
