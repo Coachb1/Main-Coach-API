@@ -244,6 +244,7 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             data['email'] = profile.email if profile else user_att.attributes.get('email')
             data['user_id'] = user.uid
             data['created'] = profile.created if profile else user.created
+            data['meeting_availability'] = profile.meeting_availability if profile else None
 
             if profile and profile.admirer_user_ids:
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
