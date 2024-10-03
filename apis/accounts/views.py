@@ -3674,16 +3674,23 @@ class AccountsViewSet(ApiViewSet,
                     return Response(cached_data, status=status.HTTP_200_OK)
                 
                 client = None
-                if client_id:
-                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
-                elif client_name:
-                    client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
+                
 
-                if client:
-                    response_data = {'data': clientUserInfoSerializer(client).data}
-                    # Set data in cache
-                    set_cache(cache_key, response_data)
-                    return Response(response_data, status=status.HTTP_200_OK)
+                if client_id or client_name:
+                    if client_id:
+                        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,uid=client_id).first()
+                    elif client_name:
+                        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,client_name=client_name).first()
+
+                    if client:
+                        response_data = {'data': clientUserInfoSerializer(client).data}
+                        # Set data in cache
+                        set_cache(cache_key, response_data)
+                        return Response(response_data, status=status.HTTP_200_OK)
+                    else:
+                        response_data = {'msg': f"No client Found with {client_id or client_name}"}
+                        set_cache(cache_key, response_data)
+                        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
 
                 else:
 
