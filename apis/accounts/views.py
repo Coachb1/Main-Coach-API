@@ -922,6 +922,52 @@ class AccountsViewSet(ApiViewSet,
                 # send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
                 send_error_notification("coach_coachee_mentor_mentee_profile",error_msg,{"data":data})
                 return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
+            
+    @action(methods=['GET','POST'], detail=False, url_path="update-coach-mentor-meeting-availability")
+    def update_coach_mentor_meeting_availability(self,request,*args, **kwargs):
+        if request.method == 'GET':
+            user_id = request.query_params.get('user_id',None)
+            profile_id = request.query_params.get('profile_id',None)
+            if not user_id and not profile_id:
+                return Response({"error": "user_id or profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                if user_id:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,user_id=user_id)
+                elif profile_id:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=profile_id)
+                return Response({"data": profile.meeting_availability },status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.exception(e)
+                return Response({"error": f"{e.args}"},status=status.HTTP_404_NOT_FOUND)
+            
+        elif request.method == 'POST':
+            user_id = request.data.get('user_id',None)
+            profile_id = request.data.get('profile_id',None)
+            availability = request.data.get('availability',None)
+            
+            logger.info(f"*************** user_id: {user_id}, profile_id: {profile_id}, availability: {availability} ***************")
+            
+            if not user_id and not profile_id:
+                return Response({"error": "user_id or profile_id is required"},status=status.HTTP_400_BAD_REQUEST)
+            
+            if not availability:
+                return Response({"error": "availability is required"},status=status.HTTP_400_BAD_REQUEST)
+            try:
+                if user_id:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,user_id=user_id)
+                elif profile_id:
+                    profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=profile_id)
+                
+                if profile is None:
+                    return Response({"error": "profile not found"},status=status.HTTP_404_NOT_FOUND)
+                profile.meeting_availability = availability
+                profile.save(update_fields=["meeting_availability"])
+                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.exception(e)
+                return Response({"error": f"{e.args}"},status=status.HTTP_404_NOT_FOUND)
+                    
 
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
@@ -3372,7 +3418,11 @@ class AccountsViewSet(ApiViewSet,
                 for email in emails_to_delete.split(","):
                     logger.info(f"deleting user with email : {email}")
                     try:
-                        user_uid = Identity.objects.get(identity_type="deepchat_unique_id",value=email).user_id
+                        user_uid = get_user_via_identity(
+                                tenant=self.request.tenant,
+                                identity_type= 'deepchat_unique_id',
+                                identity_value=email
+                            ).uid
                         delete_user_resources(user_uid,remove_from_client=True)
                         if is_delete_user:
                             delete_user(user_uid)
@@ -3479,7 +3529,11 @@ class AccountsViewSet(ApiViewSet,
                         user_email=user_email
                     )
                     try:
-                        user_identity = Identity.objects.get(identity_type="deepchat_unique_id",value=user_email)
+                        user_identity = get_user_via_identity(
+                                    tenant=tenant,
+                                    identity_type= 'deepchat_unique_id',
+                                    identity_value=user_email
+                                )
                         delete_user_resources(user_identity.user_id)
                         logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.user_id}===============")
                     except Exception as e:
