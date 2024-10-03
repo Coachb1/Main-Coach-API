@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -333,11 +333,24 @@ class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
         model = CoachCoacheeJoiningPreviledge
         fields = '__all__'
 
+class ReportConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReportConfig
+        fields = '__all__'
 
 class clientUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientUserInfo
         fields = '__all__'
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            data['report_config'] = ReportConfigSerializer(instance.report_config).data
+        except:
+            data['report_config'] = None
+        return data
 
 
 
