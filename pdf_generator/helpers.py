@@ -136,6 +136,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     user_att = UserAttribute.objects.get(deleted=False,user_id=test_attempt_session.participant_id)
     user_email = user_att.attributes.get('email')
+    try:
+        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+                                                    user_uid=test_attempt_session.participant_id
+                                                    )
+        client_name = client.client_name if client else None
+        client_id = client.id if client else None
+    except:
+        client_name = None
+        client_id = None
     
     # log tnant id, test_id, test_attempt_session_id, participant_id, participant_name, test_started_at
     logger.info(f"tenant_id: {tenant.uid}, test_id: {test_id}, test_attempt_session_id: {test_attempt_session.uid}, participant_id: {participant_id}, participant_name: {participant_name}, test_started_at: {test_started_at}")
@@ -246,7 +255,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 qa.append(data)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data, 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 'speech_metrics_avg': None, "response_relevance": True,"feedback_summary":test_attempt_session.feedback_summary,"skill_summary":test_attempt_session.culture_and_skill_summary}
+        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data, 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 'speech_metrics_avg': None, "response_relevance": True,"feedback_summary":test_attempt_session.feedback_summary,"skill_summary":test_attempt_session.culture_and_skill_summary,'pshycometric_data': test_attempt_session.pshycometric_data}
 
 
 
@@ -365,8 +374,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 })
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
-        
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name,'competency_data':competency_report_data}
+
+        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name,'competency_data':competency_report_data,'pshycometric_data': test_attempt_session.pshycometric_data}
 
 
     logger.info(f"test_type : {test.test_type}, only_data: {only_data}")
@@ -407,7 +416,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
         focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else []
         
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'competency_data':competency_report_data,"ui_information":test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,'focus_area': focus_area}
+        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'competency_data':competency_report_data,"ui_information":test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,'focus_area': focus_area,'pshycometric_data': test_attempt_session.pshycometric_data}
 
 
     qa = []
@@ -533,8 +542,6 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             ted_talk_and_hbr = test.tedtalk_and_hbr_case
             test_codes = get_test_code_lowest_skill(
                 skills_graph_data["skills_rating"], test_attempt_session)
-            
-        
 
         return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'skills_explanation':skill_exp,
                 'competency_data':competency_report_data,"ui_information": test.ui_information,
@@ -548,7 +555,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "feedback_summary":feedback_summary,"skill_summary":skill_summary,
                 "is_pitch": test.scenario_case == ScenarioCaseChoices.pitch,
                 "language_skills": test_attempt_session.language_skills,
-                "is_recommended": test.is_recommended
+                "is_recommended": test.is_recommended,
+                'pshycometric_data': test_attempt_session.pshycometric_data
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)

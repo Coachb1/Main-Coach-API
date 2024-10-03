@@ -379,8 +379,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     provide_answers_using_emojis = models.BooleanField(null=True, blank=True, default=False)
     additional_coachee_info = models.TextField(null=True, blank=True, default=None)
     use_coachee_info_in_prompt = models.BooleanField(null=True, blank=True, default=True)
-    
-    
+    meeting_availability = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "coach_coachee_mentor_mentee_profile"
