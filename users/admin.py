@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute, CoachRecommendationsForUser)
+                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
@@ -61,6 +61,23 @@ class ClientUserInfoAdmin(admin.ModelAdmin):
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
+
+@admin.register(ReportConfig)
+class ReportConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        'id','client', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation'
+    )
+    list_filter = ('client', 'culture_rating',)  
+    search_fields = ('client__client_name',)
+    list_editable =  (
+        'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation'
+    )
+    ordering = ('-id',)
+
 
 
 # class UserAdmin(admin.ModelAdmin):
