@@ -1,5 +1,8 @@
 from django.contrib import admin
 from .models import LegacyBot, LegacyBotUser, Thread, ChatConversation
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
 
 @admin.register(LegacyBot)
 class LegacyBotAdmin(admin.ModelAdmin):
@@ -26,3 +29,12 @@ class ChatConversationAdmin(admin.ModelAdmin):
     search_fields = ('thread_id', 'role', 'content')
     list_editable = ('thread_id', 'role', 'content')
 
+
+
+@receiver(post_save, sender=ChatConversation)
+def update_thread_on_conversation_save(sender, instance:ChatConversation, **kwargs):
+    if kwargs['created']:
+        thread = Thread.objects.filter(uid=instance.thread_id).first()
+        if thread:
+            thread.updated = instance.created
+            thread.save(update_fields=['updated'])
