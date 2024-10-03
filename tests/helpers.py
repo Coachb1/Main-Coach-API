@@ -80,6 +80,8 @@ from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
+from apis.accounts.serializers import clientUserInfoSerializer
+
 
 logger = logging.getLogger(__name__)
 
@@ -3611,6 +3613,20 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         client_name = None
         client_id = None
 
+    try:
+        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+                                                    user_uid=test_attempt_session.participant_id
+                                                    )
+        client_name = client.client_name if client else None
+        client_id = client.id if client else None
+        client_info = clientUserInfoSerializer(client).data
+
+    except:
+        client_name = None
+        client_id = None
+        client_info = None
+
+
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
         start = time.time()
@@ -3734,6 +3750,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "start_with_user": False if start_with_user_message is None else True,
         "speech_metrics_avg" : speech_metrics_avg,
         "response_relevance" : response_relevance,
+        "client_info": client_info,
         "client_name":client_name,
         "client_id": client_id,
         'pshycometric_data': test_attempt_session.pshycometric_data,
