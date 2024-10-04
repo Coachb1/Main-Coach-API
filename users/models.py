@@ -317,11 +317,9 @@ class ReportConfig(MyModel):
         return f"Report Config for {self.client.client_name}"
 
     def save(self, *args, **kwargs):
-        if not self.skill_rating:
-            self.skill_explanation = False
-            self.rating_summary = False
-        if not self.culture_rating:
-            self.culture_explanation = False
+        self.skill_explanation = self.skill_rating
+        self.culture_explanation = self.culture_rating
+        if not self.skill_rating or not self.culture_rating:
             self.rating_summary = False
 
         super(ReportConfig, self).save(*args, **kwargs)
