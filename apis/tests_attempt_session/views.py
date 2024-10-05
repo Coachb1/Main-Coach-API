@@ -256,8 +256,10 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         test_codes = set()
         for test_attempt_session in test_attempt_sessions:
-
-            test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
+            try:
+                test_codes.add(Test.objects.get(uid=test_attempt_session.test_id).test_code)
+            except:
+                logger.info(f"Test not found for test_id: {test_attempt_session.test_id}")
 
         data = {"codes": list(test_codes),"checkin_type_test_count": checkin_type_sessions_count, "total_session":test_attempt_sessions.count()}
         set_cache(cache_key, data)
