@@ -1989,7 +1989,7 @@ class AccountsViewSet(ApiViewSet,
                             bot_media_data['extracted_from_doc'] = extracted_from_doc
                         else:
                             prev_extracted_from_doc = bot_media_data.get('extracted_from_doc',{})
-                            if "doc_files" in deleted_data:
+                            if deleted_data is not None and "doc_files" in deleted_data:
                                 for link in deleted_data["doc_files"].strip().split(","):
                                     prev_extracted_from_doc.pop(link.strip(),None)
                             bot_media_data['extracted_from_doc'] = {**prev_extracted_from_doc,**extracted_from_doc}
