@@ -654,9 +654,12 @@ def get_participant_report(user, only_data=False):
         cnt = 1
 
         for test_attempt_session in test_attempt_sessions:
-            test = Test.objects.get(uid=test_attempt_session.test_id)
-            print(test.is_self_created)
-            
+            try:
+                test = Test.objects.get(uid=test_attempt_session.test_id)
+                print(test.is_self_created)
+            except:
+                logger.exception(f"Test not found for test_attempt_session_test_id: {test_attempt_session.test_id}")
+                continue
             
             try:
                 session_info = {
