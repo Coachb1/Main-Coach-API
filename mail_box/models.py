@@ -15,9 +15,9 @@ class MailBox(MyModel):
     welcome_email_template = models.TextField(null=True, blank=True, default=None)
     intake_reminder_email_template = models.TextField(null=True, blank=True, default=None)
     intake_required = models.BooleanField(blank=True,default=False)
-    bot_name = models.CharField(max_length=255,null=True,blank=True,default=None)
+    bot_name = models.CharField(max_length=255,default=None)
     intake_url = models.CharField(max_length=255,null=True,blank=True,default='https://chat.coachbots.com/66dc18ab01ef84e231427f7b')
-    grant_id = models.CharField(max_length=255,null=True,blank=True,default=None)
+    grant_id = models.CharField(max_length=255,default=None)
 
 
     class Meta:
