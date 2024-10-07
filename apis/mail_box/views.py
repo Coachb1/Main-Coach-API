@@ -27,10 +27,14 @@ class MailBoxViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixi
         queryset = super().get_queryset()
         uid = self.request.query_params.get('uid')
         email = self.request.query_params.get('email')
+        form_id = self.request.query_params.get('form_id')
+
         if uid:
             queryset = queryset.filter(uid=uid)
         elif email:
             queryset = queryset.filter(email=email)
+        elif form_id:
+            queryset = queryset.filter(intake_url__contains=form_id)
         
         return queryset
     
