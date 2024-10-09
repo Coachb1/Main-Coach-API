@@ -119,6 +119,8 @@ class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retriev
         uid = self.request.query_params.get('uid')
         mailbox_id = self.request.query_params.get('mailbox_id')
         subject = self.request.query_params.get('subject')
+        sender = self.request.query_params.get('email')
+
         
         filters = {}
         if uid:
@@ -127,6 +129,8 @@ class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retriev
             filters['mailbox_id'] = mailbox_id
         if subject:
             filters['subject'] = subject
+        if sender:
+            filters['sender'] = sender
 
         if not filters:
             return queryset
@@ -169,6 +173,45 @@ class AccountabilityIntakeViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retr
 
         queryset = queryset.filter(**filters)
         return queryset
+
+
+    def create(self, request, *args, **kwargs):
+        logger.info(f"Received data: {request.data}")
+
+        # Validate the incoming data using the serializer
+
+        try:
+            # Check if an entry with the same email_address, form_id, and deleted status exists
+            existing_intake = AccountabilityIntake.objects.filter(
+                email_address=request.data['email_address'],
+                form_id=request.data['form_id'],
+                deleted=False
+            ).first()
+
+            if existing_intake:
+                updated_intake = self.serializer_class(existing_intake, data=request.data)
+                updated_intake.is_valid(raise_exception=True)
+                updated_intake.save()
+                logger.info(f"Updated accountability intake for email: {request.data['email_address']}")
+                return Response(updated_intake.data, status=status.HTTP_200_OK)
+
+            else:
+                # Create a new entry if no existing entry found
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+
+                self.perform_create(serializer)
+                logger.info("Created a new accountability intake")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            logger.error(f"Error creating or updating accountability intake: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, serializer, instance):
+        # This method is responsible for updating the instance with new data
+        serializer.update(instance, serializer.validated_data)
+        logger.info(f"Accountability intake updated with new data: {serializer.validated_data}")
 
     def perform_create(self, serializer):
         logger.info(f"Creating a new accountability intake with data: {serializer.validated_data}")
