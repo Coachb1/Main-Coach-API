@@ -45,10 +45,11 @@ class AccountabilityIntakeAdmin(admin.ModelAdmin):
 
 
 @receiver(post_save, sender=AccountabilityIntake)
-def update_status_after_intake_filled(sender, instance, created, **kwargs):
+def update_status_after_intake_filled(sender, instance:AccountabilityIntake, created, **kwargs):
     if created:
-        users =  AuthorizedEmails.objects.filter(email=instance.email_address) 
-
-        for user in users:
-            user.is_intake_filled = True
-            user.save()
+        mailbox = MailBox.objects.filter(deleted=False,intake_url__contains=instance.form_id).first()
+        if mailbox:
+            users =  AuthorizedEmails.objects.filter(deleted=False,email=instance.email_address,mailbox_id=mailbox.uid) 
+            for user in users:
+                user.is_intake_filled = True
+                user.save()
