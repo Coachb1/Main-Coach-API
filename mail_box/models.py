@@ -79,5 +79,8 @@ class AccountabilityIntake(MyModel):
     overall_goals = models.TextField()
     situational_context = models.TextField()
 
+    class Meta:
+        unique_together = (('form_id','email_address','deleted'))
+
     def __str__(self):
         return f"{self.name} - {self.email_address}"
