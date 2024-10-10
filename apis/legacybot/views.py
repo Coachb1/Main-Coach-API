@@ -5,6 +5,7 @@ from clients.permissions import IsAuthenticatedClient
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from collections import defaultdict
+from legacybot.helpers import get_or_generate_action_data
 import logging
 
 logger = logging.getLogger("main")
@@ -81,11 +82,14 @@ class ThreadViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         thread_id = self.request.query_params.get('thread_id', None)
         bot_id = self.request.query_params.get('bot_id', None)
+        user_id = self.request.query_params.get('user_id',None)
 
         if thread_id:
             queryset = queryset.filter(thread_id=thread_id)
         if bot_id:
             queryset = queryset.filter(bot_id = bot_id)
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
 
         return queryset
     
@@ -98,6 +102,23 @@ class ThreadViewSet(viewsets.ModelViewSet):
             return Response({'detail': f"No bot found with the {bot_id}"}, status=status.HTTP_400_BAD_REQUEST)
 
         return super().create(request, *args, **kwargs)
+
+    @action(methods=['POST'],detail=False,url_path="action-report-data")
+    def action_report_data(self, request, *args, **kwargs):
+        try:
+            data = []
+            if request.method == 'POST':
+                thread_id = request.data.get('thread_id')
+                try:
+                    data = get_or_generate_action_data(thread_id=thread_id)
+                except Exception as e:
+                    logger.exception(f"Failed to get action data: {e}")
+                    return Response({'error': f"Failed to get action data: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'data': data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Failed to process action_report_data: {e}")
+            return Response({'error': f"Failed to process action_report_data: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ChatConversationViewSet(viewsets.ModelViewSet):
