@@ -38,6 +38,7 @@ class Thread(MyModel):
     thread_id = models.CharField(max_length=100)
     user_id = models.CharField(max_length=100)
     chat_topic = models.TextField()
+    action_data = models.JSONField(null=True,blank=True,default=None)
 
     class Meta:
         db_table = 'legacybot_thread'
