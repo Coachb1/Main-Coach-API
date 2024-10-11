@@ -7,8 +7,9 @@ import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
 from email_sender.helpers import send_welcome_email
+from tenants.admin import TenantAwareModelAdmin
 
-class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
+class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','profile_type','name', 'email','use_coachee_info_in_prompt')
     list_filter = ('profile_type','status','department','is_approved')
@@ -22,7 +23,7 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     ordering = ('-id',)
 
 
-class SignatureBotAdmin(admin.ModelAdmin):
+class SignatureBotAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private','allow_public_access')
@@ -30,14 +31,14 @@ class SignatureBotAdmin(admin.ModelAdmin):
     list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
     ordering = ('-id',)
 
-class BotUserMappingAdmin(admin.ModelAdmin):
+class BotUserMappingAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number','user_mob_number','user_name','user_email')
     list_filter = ('bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number')
     search_fields = ('bot_owner_name','bot_id')
     ordering = ('-id',)
 
-class CoachRecommendationsAdmin(admin.ModelAdmin):
+class CoachRecommendationsAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','get_user_profile_name','get_user_profile_email','coach_recommendations')
     search_fields = ('user_profile__name','user_profile__email')
@@ -54,7 +55,7 @@ class CoachRecommendationsAdmin(admin.ModelAdmin):
     get_user_profile_email.admin_order_field = 'user_profile__email'
     get_user_profile_email.short_description = 'User Profile Email'
 
-class ClientUserInfoAdmin(admin.ModelAdmin):
+class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','client_name','domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer','send_profile_for_reapproval')
     list_filter = ('client_name',)
@@ -63,7 +64,7 @@ class ClientUserInfoAdmin(admin.ModelAdmin):
     ordering = ('-id',)
 
 @admin.register(ReportConfig)
-class ReportConfigAdmin(admin.ModelAdmin):
+class ReportConfigAdmin(TenantAwareModelAdmin):
     list_display = (
         'id','client', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
@@ -80,14 +81,14 @@ class ReportConfigAdmin(admin.ModelAdmin):
 
 
 
-# class UserAdmin(admin.ModelAdmin):
+# class UserAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','name','role','is_root','is_excluded','deleted')
 #     list_filter = ('tenant_id','role','is_root','is_excluded')
 #     search_fields = ('name',)
 #     list_editable = ('name','role','is_root','is_excluded','deleted')
 #     ordering = ('-id',)
-# class UserAttributesAdmin(admin.ModelAdmin):
+# class UserAttributesAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','user_id','attributes','tag','deleted')
 #     list_filter = ('tenant_id',)

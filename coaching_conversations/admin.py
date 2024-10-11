@@ -5,10 +5,11 @@ from tests.models import TestAttemptSession
 from identities.models import Identity
 import logging
 from users.models import ClientUserInfo, SignatureBot
+from tenants.admin import TenantAwareModelAdmin
 
 logger = logging.getLogger(__name__)
 
-class CoachingConversationAdmin(ExportActionMixin, admin.ModelAdmin):
+class CoachingConversationAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','user_email','client_id','bot_id','bot_type','coach_message_text','participant_message_text','created')
     search_fields = ['id']

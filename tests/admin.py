@@ -2,6 +2,8 @@ from django.contrib import admin
 from import_export.admin import ExportActionMixin
 from tests.models import Test, TestQuestion
 from django.utils.translation import gettext_lazy as _
+from tenants.admin import TenantAwareModelAdmin
+
 
 
 class StartWithUserFilter(admin.SimpleListFilter):
@@ -45,7 +47,7 @@ class OnlyCompetencyFilter(admin.SimpleListFilter):
             return queryset.exclude(competency_group = None).exclude(competency_group__exact='')
         return queryset
 
-class TestAdmin(ExportActionMixin, admin.ModelAdmin):
+class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('uid','test_code','title','test_type','scenario_case','interaction_mode','page_name','client_name','competency_group','area_domain','tab_category','deleted','calculate_culture', 'start_with_user')
     search_fields = ('test_code','title','uid','tab_category','competency_group','area_domain')
@@ -57,7 +59,7 @@ class TestAdmin(ExportActionMixin, admin.ModelAdmin):
         start_with_user = False if start_with_user_message is None else True
         return start_with_user
 
-class TestQuestionAdmin(ExportActionMixin, admin.ModelAdmin):
+class TestQuestionAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('uid','test_id','question_number','question','question_for','deleted')
     search_fields = ('test_id','uid')
