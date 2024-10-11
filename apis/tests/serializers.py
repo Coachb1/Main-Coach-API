@@ -134,6 +134,7 @@ class CreateTestSerializer(serializers.Serializer):
     calculate_culture = serializers.BooleanField(
         required=False, default=True)
     snippet_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    pshycometric_sections = serializers.JSONField(default=None, required=False, allow_null=True)
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):

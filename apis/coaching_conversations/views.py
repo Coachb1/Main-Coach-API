@@ -15,7 +15,7 @@ from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
 from users.models import User, SignatureBot, BotAttribute, ClientUserInfo, UserAttribute, CoachCoacheeMentorMenteeProfile
 from users.db import get_user_display_name, get_user_by_id
-from coaching_conversations.helpers import create_user_profile_and_bot, save_coach_recommendation
+from coaching_conversations.helpers import create_user_profile_and_bot, save_coach_recommendation, fetch_user_profile_and_bot
 import csv
 from commons.notifications import send_error_notification
 from identities.helpers import get_user_via_identity
@@ -428,7 +428,7 @@ class CoachingConversationViewSet(ApiViewSet,
         
         return Response({"Success: AI response saved"}, status=status.HTTP_200_OK)
     
-    @action(methods=["POST"], detail=False, url_path="create-user-profile-and-bot")
+    @action(methods=["POST",'GET'], detail=False, url_path="create-user-profile-and-bot")
     def create_user_profile_and_bot(self, request, *args, **kwargs):
         """
     Creates user profiles and bots based on the provided data in the request. This method processes multiple user and bot creation requests, formats the input data, and calls an external function to handle the creation process.
@@ -487,29 +487,36 @@ class CoachingConversationViewSet(ApiViewSet,
         }
     """
         try:
-            data = request.data.get('data')
-            auth = request.headers.get('Authorization')
-            logger.info(f"================data: {data}")
-            
-            details = []
-            for d in data:
-                formatted_dict = {key.strip().lower(): value for key, value in d.items()}
-                logger.info(f"===================== formatted_dict: {formatted_dict}")
-                is_created, user_data = create_user_profile_and_bot(formatted_dict,auth)
-                temp = {
-                    "is_created": is_created,
-                    "user_email": user_data.get('email'),
-                    'bot_id' : user_data.get('bot_id'),
-                    "user_id": user_data.get('user_id'),
-                    "profile_id": user_data.get('profile_id'),
-                    "Error": user_data.get('error')
-
-                }
+            data = ""
+            if request.method == 'POST':
+                data = request.data.get('data')
+                auth = request.headers.get('Authorization')
+                logger.info(f"================data: {data}")
+                tenant = request.tenant
                 
-                details.append(temp)
+                details = []
+                for d in data:
+                    formatted_dict = {key.strip().lower(): value for key, value in d.items()}
+                    logger.info(f"===================== formatted_dict: {formatted_dict}")
+                    is_created, user_data = create_user_profile_and_bot(formatted_dict,auth,tenant)
+                    temp = {
+                        "is_created": is_created,
+                        "user_email": user_data.get('email'),
+                        'bot_id' : user_data.get('bot_id'),
+                        "user_id": user_data.get('user_id'),
+                        "profile_id": user_data.get('profile_id'),
+                        "Error": user_data.get('error')
 
-            print(details)
-            return Response({'data': details},status=status.HTTP_200_OK)
+                    }
+                    
+                    details.append(temp)
+
+                return Response({'data': details},status=status.HTTP_200_OK)
+            
+            elif request.method == 'GET':
+                filters = request.data.get('filters')
+                details = fetch_user_profile_and_bot(self.request.tenant,filters)
+                return Response({'data': details},status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f" Failed create_user_profile_and_bot with {e}")
             send_error_notification("apis.coaching_conversations.views.create_user_profile_and_bot", "Failed create_user_profile_and_bot", {"data": data})

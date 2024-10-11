@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo
+from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -118,7 +118,8 @@ class CoachCoacheeMentorMenteeProfileSerializer(serializers.ModelSerializer):
                 "discussion_topic",
                 "optional_file_data",
                 "problem_statement",
-                "provide_answers_using_emojis"
+                "provide_answers_using_emojis",
+                "meeting_availability",
                 ]
 
         extra_kwargs = {
@@ -243,6 +244,7 @@ class DirectoryInfoSErializer(serializers.ModelSerializer):
             data['email'] = profile.email if profile else user_att.attributes.get('email')
             data['user_id'] = user.uid
             data['created'] = profile.created if profile else user.created
+            data['meeting_availability'] = profile.meeting_availability if profile else None
 
             if profile and profile.admirer_user_ids:
                 data['admirer_ids'] = profile.admirer_user_ids.split(',')
@@ -333,11 +335,24 @@ class CoachCoacheeJoiningPreviledgeSerializer(serializers.ModelSerializer):
         model = CoachCoacheeJoiningPreviledge
         fields = '__all__'
 
+class ReportConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReportConfig
+        fields = '__all__'
 
 class clientUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientUserInfo
         fields = '__all__'
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            data['report_config'] = ReportConfigSerializer(instance.report_config).data
+        except:
+            data['report_config'] = None
+        return data
 
 
 

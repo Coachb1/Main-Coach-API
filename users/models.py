@@ -3,6 +3,7 @@ from django.db import models
 from tenants.models import TenantAwareModel
 from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
 from coaching_conversations.choices import BotScenarioCaseChoice
+from commons.db.model import MyModel
 
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
@@ -293,6 +294,35 @@ class ClientUserInfo(TenantAwareModel):
 
         unique_together = (("tenant_id", "client_name"),)
 
+    def __str__(self):
+        return self.client_name
+
+
+class ReportConfig(MyModel):
+    client = models.OneToOneField(ClientUserInfo, on_delete=models.CASCADE, related_name="report_config")
+    # Booleans for different sections
+    skill_rating = models.BooleanField(default=True)
+    culture_rating = models.BooleanField(default=True)
+    competency_metrix = models.BooleanField(default=True)
+    feedback_summary = models.BooleanField(default=True)
+    rating_summary = models.BooleanField(default=True)
+    flash_card = models.BooleanField(default=True)
+    mindmap = models.BooleanField(default=True)
+    speech_metrix = models.BooleanField(default=True)
+    powerfiller_words = models.BooleanField(default=True)
+    skill_explanation = models.BooleanField(default=True)
+    culture_explanation = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Report Config for {self.client.client_name}"
+
+    def save(self, *args, **kwargs):
+        self.skill_explanation = self.skill_rating
+        self.culture_explanation = self.culture_rating
+        if not self.skill_rating or not self.culture_rating:
+            self.rating_summary = False
+
+        super(ReportConfig, self).save(*args, **kwargs)
 
 
 class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
@@ -347,8 +377,7 @@ class CoachCoacheeMentorMenteeProfile(TenantAwareModel):
     provide_answers_using_emojis = models.BooleanField(null=True, blank=True, default=False)
     additional_coachee_info = models.TextField(null=True, blank=True, default=None)
     use_coachee_info_in_prompt = models.BooleanField(null=True, blank=True, default=True)
-    
-    
+    meeting_availability = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "coach_coachee_mentor_mentee_profile"
