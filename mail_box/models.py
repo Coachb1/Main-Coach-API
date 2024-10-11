@@ -1,6 +1,7 @@
 from django.db import models
 from commons.db.model import MyModel
 from mail_box.choices import FollowupFreqType
+from commons.cache_utils import get_cache, set_cache
 
 # Create your models here.
 class MailBox(MyModel):
@@ -19,7 +20,14 @@ class MailBox(MyModel):
     intake_url = models.CharField(max_length=255,null=True,blank=True,default='https://chat.coachbots.com/66dc18ab01ef84e231427f7b')
     grant_id = models.CharField(max_length=255,default=None)
 
-
+    @staticmethod
+    def get_mailbox_choices():
+        choices = get_cache('mailbox_choices')
+        if not choices:
+            choices = [(mailbox.uid, mailbox.bot_name) for mailbox in MailBox.objects.all()]
+            set_cache('mailbox_choices', choices, timeout=3600)  # Cache for 1 hour
+        return choices
+    
     class Meta:
         db_table = 'mail_box'
         unique_together = (
