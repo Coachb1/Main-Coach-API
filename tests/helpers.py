@@ -80,6 +80,8 @@ from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
+from apis.accounts.serializers import clientUserInfoSerializer
+
 
 logger = logging.getLogger(__name__)
 
@@ -232,7 +234,8 @@ def create_test(tenant: Tenant,
                 web_page_url:str,
                 sub_tab_category:str,
                 calculate_culture: bool,
-                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
+                snippet_url: str,
+                pshycometric_sections: dict) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -420,7 +423,8 @@ def create_test(tenant: Tenant,
             web_page_url=web_page_url,
             sub_tab_category=sub_tab_category,
             calculate_culture=calculate_culture,
-            snippet_url=snippet_url
+            snippet_url=snippet_url,
+            pshycometric_sections=pshycometric_sections,
         )
 
         test_questions = []
@@ -911,6 +915,7 @@ def create_test_question_answer_session(tenant: Tenant,
         is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
         is_idp_discussion_opted=is_idp_discussion_opted,
         intake_id=intake_id,
+        is_signature_bot=is_signature_bot
     )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
@@ -3598,6 +3603,29 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
+    try:
+        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+                                                    user_uid=test_attempt_session.participant_id
+                                                    )
+        client_name = client.client_name if client else None
+        client_id = client.id if client else None
+    except:
+        client_name = None
+        client_id = None
+
+    try:
+        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+                                                    user_uid=test_attempt_session.participant_id
+                                                    )
+        client_name = client.client_name if client else None
+        client_id = client.id if client else None
+        client_info = clientUserInfoSerializer(client).data
+
+    except:
+        client_name = None
+        client_id = None
+        client_info = None
+
 
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
@@ -3721,7 +3749,11 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "skill_summary" : test_attempt_session.culture_and_skill_summary,
         "start_with_user": False if start_with_user_message is None else True,
         "speech_metrics_avg" : speech_metrics_avg,
-        "response_relevance" : response_relevance
+        "response_relevance" : response_relevance,
+        "client_info": client_info,
+        "client_name":client_name,
+        "client_id": client_id,
+        'pshycometric_data': test_attempt_session.pshycometric_data,
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -4055,6 +4087,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # for skill in skills:
     #     skill_.append(skill['name'])
 
+    # saving psychometric data
+    if test.scenario_case == ScenarioCaseChoices.psychometric:
+        generate_psychometric_report_data(test=test,test_attempt_session=test_attempt_session)
+
     if speech_count != int(responses.count()):
         has_speech_metric = False
 
@@ -4346,6 +4382,8 @@ def generate_session_report_link(test_attempt_session: TestAttemptSession, test:
         report_type = ReportType.DecisionAnalysisReport
     elif test.scenario_case == ScenarioCaseChoices.process_training:
         report_type = ReportType.ProcessTrainingReport
+    elif test.scenario_case == ScenarioCaseChoices.psychometric:
+        report_type = ReportType.PERSONALITY_PSYCHOMATRIC_REPORT
 
     report_url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/?session_id={test_attempt_session_id}&interaction_id={test_id}&backend={BACKEND}"
 
@@ -9633,3 +9671,127 @@ def replace_words(text):
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     
     return text
+
+
+@timeit
+def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttemptSession):
+
+    prompt = """
+    ### SCENARIO
+    Use this scenario: 
+    ${title}
+    ${description}
+
+    ${qna}
+
+    ### PERSONALITY EVALUATION
+    Act as an ideal personality analyst, providing an in-depth analysis based on the given scenario. Use the personality dimensions and scores provided to deliver a score report. Include the following sections in your response for each dimension:
+
+    1. Dimension Overview: Analyze the specific dimension, do not mention.
+    2. Dimension Scale: Reference the scale from 1 to 9, defining the polar traits (e.g., "1 = Practical to 9 = Conceptual"), do not mention.
+    3. Your Score: Reflect the user's score for the specific dimension.
+
+    Always comply with giving the response in this format.  Each line shall not be more than 10 words.
+
+    Additionally, always print the response only in the format below, with no other visual cue or heading title or end summary. No place shall go blank; assume and provide results for every scenario. Always write something in each section.
+
+    ### PERSONALITY DIMENSIONS FORMAT
+    ${personality_dims}
+
+    """
+    responses = TestQuestionResponse.objects.filter(
+        deleted=False,
+        test_attempt_session_id=test_attempt_session.uid
+    ).order_by('created')
+
+    # Create a dictionary mapping question IDs to question texts
+    question_ids = [response.question_id for response in responses if response.question_id]
+    questions = {question.uid: question.question for question in TestQuestion.objects.filter(uid__in=question_ids)}
+
+    # Build the Q&A string
+    qna = ""
+    for response in responses:
+        question_text = questions.get(response.question_id, "Question not found")
+        qna += f"Q: {question_text}\nAns: {response.response_text}\n\n"
+
+    
+    per_dims = ""
+    for key, value in test.pshycometric_sections.items():
+        params = ",".join(f"{param} - Score [Score]" for param in value)
+        per_dims += f"{key}: {params}\n"
+
+    print(per_dims)
+
+    prompt = Template(prompt).substitute(
+        title=test.title,
+        description=test.description,
+        qna=qna,
+        personality_dims = per_dims
+    )
+
+    result = {}
+    for i in range(1,4):
+        try:
+            logger.info(f"genereating psychometric report data for the {i} time.")
+            response = generic_completion(
+                prompt=prompt,
+                is_free=test.is_free
+            )
+            result = parse_personality_dimensions(response,len(test.pshycometric_sections))
+
+            break
+
+        except Exception as e:
+            logger.exception(f" Failed to generate section for the {i} time, reason: {e}")
+            continue
+
+    logger.info(f"psychometric json: {result}")
+
+    test_attempt_session.pshycometric_data = result
+
+    test_attempt_session.save(update_fields=['pshycometric_data'])
+
+    return result
+
+
+def parse_personality_dimensions(text_response, expected_sections):
+    # Initialize the dictionary to hold the results
+    results = {}
+
+    # Check if the input string is empty
+    if not text_response.strip():
+        raise ValueError("The input text_response is empty.")
+
+    # Split the text into lines and iterate through them
+    for line in text_response.strip().split('\n'):
+        if "PERSONALITY DIMENSIONS FORMAT" in line:
+            continue
+        # Use regex to extract the dimension and its details
+        match = re.match(r'^\s*(.+?):\s*(.+)$', line)
+        if match:
+            dimension = match.group(1).strip()
+            details = match.group(2).strip()
+
+            # Split details into individual scores
+            scores = {}
+            for detail in details.split(','):
+                detail = detail.strip()
+                # Extract the name and score
+                score_match = re.match(r'^(.*?)-\s*Score\s*(\d+)', detail)
+                if score_match:
+                    name = score_match.group(1).strip()
+                    score = float(score_match.group(2))
+                    scores[name] = score
+                else:
+                    raise ValueError(f"Invalid score format in detail: '{detail}'")
+
+            # Add the dimension and its scores to the results dictionary
+            results[dimension] = scores
+        else:
+            raise ValueError(f"Invalid line format: '{line}'")
+
+    # Check if the number of extracted sections matches the expected count
+    if expected_sections != len(results):
+        raise ValueError(f"Expected {expected_sections} sections, but found {len(results)}: {results}")
+
+    return results

@@ -116,12 +116,20 @@ def get_user_skills_report_attribute(user: User) -> UserAttribute:
 
 def get_user_attribute(user: User,
                        tag: str) -> UserAttribute:
-    return UserAttribute.objects.filter(
-        deleted=False,
-        tenant_id=user.tenant_id,
-        user_id=user.uid,
-        tag=tag
-    ).last()
+    if tag in ['whatsapp_profile','slack_profile']:
+
+        return UserAttribute.objects.filter(
+            deleted=False,
+            tenant_id=user.tenant_id,
+            user_id=user.uid,
+            tag=tag
+        ).last()
+    else:
+        return UserAttribute.objects.filter(
+            deleted=False,
+            tenant_id=user.tenant_id,
+            user_id=user.uid
+        ).last()
 
 
 
