@@ -2,7 +2,22 @@ from django.contrib import admin
 from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from mail_box.forms import AuthorizedEmailsAdminForm
 
+class MailBoxAwareAdmin(admin.ModelAdmin):
+
+    def get_form(self, request, obj=None, **kwargs):
+        # Check if the model has the 'mailbox_id' field
+        if 'mailbox_id' in [f.name for f in self.model._meta.fields]:
+            # Dynamically create the form class with the correct Meta model
+            class DynamicMailboxAwareAdmin(AuthorizedEmailsAdminForm):
+                class Meta(AuthorizedEmailsAdminForm.Meta):
+                    model = self.model
+
+            # Return the dynamically created form
+            kwargs['form'] = DynamicMailboxAwareAdmin
+        
+        return super().get_form(request, obj, **kwargs)
 
 @admin.register(MailBox)
 class MailBoxAdmin(admin.ModelAdmin):
@@ -21,7 +36,8 @@ class MailBoxAdmin(admin.ModelAdmin):
                     'intake_url','deleted')
 
 @admin.register(AuthorizedEmails)
-class AuthorizedEmailsAdmin(admin.ModelAdmin):
+class AuthorizedEmailsAdmin(MailBoxAwareAdmin):
+
     list_display = ('uid', 'mailbox_id', 'email', 'user_id', 'is_black_list', 'is_whitelist', 
                     'name','age','goal','situation','followup_fequency',
                   'followup_escalation_email','reward_emails',
@@ -33,14 +49,14 @@ class AuthorizedEmailsAdmin(admin.ModelAdmin):
                   'followup_escalation_email','reward_emails','deleted')
 
 @admin.register(EmailConversation)
-class EmailConversationAdmin(admin.ModelAdmin):
+class EmailConversationAdmin(MailBoxAwareAdmin):
     list_display = ('uid', 'mailbox_id', 'sender', 'subject','body','sent_at','responder' ,'created', 'updated', 'deleted')
     search_fields = ('mailbox_id', 'sender', 'subject')
     list_filter = ('sent_at', 'created', 'updated', 'deleted')
 
 
 @admin.register(AccountabilityIntake)
-class AccountabilityIntakeAdmin(admin.ModelAdmin):
+class AccountabilityIntakeAdmin(MailBoxAwareAdmin):
     list_display = ['uid', 'name', 'email_address']
 
 

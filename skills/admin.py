@@ -3,12 +3,13 @@ from django.contrib import admin
 from .models import CharacteristicsAndPrompts, CompetencySkillAndClientMapping
 from import_export.admin import ExportActionMixin
 from users.models import ClientUserInfo
+from tenants.admin import TenantAwareModelAdmin
 
-class CharacteristicsAndPromptsAdmin(admin.ModelAdmin):
+class CharacteristicsAndPromptsAdmin(TenantAwareModelAdmin):
     list_display = ('id','tenant_id','name', 'positive_prompt','negitive_prompt')
     search_fields = ('id','name')
 
-class CompetencySkillAndClientMappingAdmin(admin.ModelAdmin):
+class CompetencySkillAndClientMappingAdmin(TenantAwareModelAdmin):
     list_display = ('id','tenant_id','client_id','client_name', 'competency_skill','prompts','output')
     search_fields = ('client_id','competency_skill','client_name')
     list_filter = ('tenant_id','client_id','competency_skill')
