@@ -9,50 +9,53 @@ import json5
 logger = logging.getLogger(__name__)
 
 @timeit
-def get_or_generate_action_data(thread_id: str):
+def get_or_generate_action_data(threads: Thread):
     session_per_conversation_step = 10
+    logger.info(f"Processing [get_or_generate_action_data] for threads: [{threads.count()}: {threads.values_list('uid',flat=True)}]")
+    action_data = []
 
-    try:
-        # Fetch thread
-        thread = Thread.objects.get(deleted=False, uid=thread_id)
+    for thread in threads:
+        try:
+            # Fetch conversations for the thread
+            conversations = ChatConversation.objects.filter(thread_id=thread.uid)
+            conversation_count = conversations.count()
 
-        # Fetch conversations for the thread
-        conversations = ChatConversation.objects.filter(thread_id=thread.uid)
-        conversation_count = conversations.count()
+            # Skip processing if there are no conversations
+            if conversation_count == 0:
+                logger.warning(f"No conversation found in the thread: {thread.uid}")
+                action_data.append({thread.uid: "No conversation found."})
+                continue
 
-        if conversation_count > 0:
             last_conversation = conversations.last()
 
-            # Check if the action data is already up-to-date
+            # Check if action data is already up-to-date
             if thread.action_data and thread.action_data.get('last_conversation_id') == last_conversation.uid:
-                logger.info(f"Getting existing action data: {thread.action_data}")
-                return thread.action_data
-            else:
-                # Generate new action data
-                data = generate_action_report_data(conversations=conversations)
-                data.update({
-                    "last_conversation_id": last_conversation.uid,
-                    "conversationTitle": thread.chat_topic,
-                    "lastDate": str(last_conversation.created.date()),
-                    "sessionCount": conversation_count // (session_per_conversation_step * 2),
-                    "conversation_steps": conversation_count / 2
-                })
+                logger.info(f"Using existing action data for thread {thread.uid}")
+                action_data.append({thread.uid: thread.action_data})
+                continue
 
-                # Save the new action data to the thread
-                thread.action_data = data
-                thread.save(update_fields=['action_data'])
+            # Generate new action data
+            data = generate_action_report_data(conversations=conversations)
+            data.update({
+                "last_conversation_id": last_conversation.uid,
+                "conversationTitle": thread.chat_topic,
+                "lastDate": str(last_conversation.created.date()),
+                "sessionCount": conversation_count // (session_per_conversation_step * 2),
+                "conversation_steps": conversation_count / 2
+            })
 
-                return data
+            # Save the new action data to the thread
+            thread.action_data = data
+            thread.save(update_fields=['action_data'])
 
-        else:
-            logger.info(f"No conversation found in the thread: {thread.uid}")
-            raise ChatConversation.DoesNotExist
+            action_data.append({thread.uid: data})
 
-    except Thread.DoesNotExist as e:
-        logger.error(f"No thread found for {thread_id}", exc_info=True)
-        raise e
+        except ChatConversation.DoesNotExist:
+            logger.error(f"No conversations found for thread {thread.uid}")
+        except Exception as e:
+            logger.exception(f"Failed to process thread {thread.uid}: {e}", exc_info=True)
 
-    
+    return action_data
 
     
 @timeit
