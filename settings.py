@@ -75,6 +75,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOWED_ORIGINS = [
     "https://platform.coachbots.com",
     "https://playground.coachbots.com",
+    "https://talk.coachbots.com"
 ]
 
 ROOT_URLCONF = 'urls'
