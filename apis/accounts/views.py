@@ -554,7 +554,7 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
-    @action(methods=['GET'], detail=False, url_path="get-user-feedback-data")
+    @action(methods=['GET','POST'], detail=False, url_path="get-user-feedback-data")
     def get_user_feedback_data(self,request,*args, **kwargs):
         """
         Retrieves or creates user feedback data for a specific bot.
@@ -576,13 +576,27 @@ class AccountsViewSet(ApiViewSet,
                 A dictionary with a "message" key indicating the success of the creation.
         """
         try:
-            method = request.query_params.get('method',None)
-            bot_id = request.query_params.get('bot_id',None)
-            feedback_type = request.query_params.get("feedback_type",None)
-            participant_id = request.query_params.get('user_id',None)
-            qna_type = request.query_params.get('qna_type',None)
-            cache_key = ''
+            if request.method == 'GET':
+                method = request.query_params.get('method',None)
+                bot_id = request.query_params.get('bot_id',None)
+                feedback_type = request.query_params.get("feedback_type",None)
+                participant_id = request.query_params.get('user_id',None)
+                qna_type = request.query_params.get('qna_type',None)
+                qna = request.query_params.get('qna',None)
+                is_positive = request.query_params.get('is_positive',"False")
+                is_anonymous = request.query_params.get('is_anonymous',"False")
+                
+            elif request.method == 'POST':
+                method = request.data.get('method',None)
+                bot_id = request.data.get('bot_id',None)
+                feedback_type = request.data.get("feedback_type",None)
+                participant_id = request.data.get('user_id',None)
+                qna_type = request.data.get('qna_type',None)
+                qna = request.data.get('qna',None)
+                is_positive = request.data.get('is_positive',"False")
+                is_anonymous = request.data.get('is_anonymous',"False")
 
+            cache_key = ''
 
             data = {}
             signature_bot = None
@@ -607,8 +621,6 @@ class AccountsViewSet(ApiViewSet,
                 if cached_data:
                     return Response(cached_data, status=status.HTTP_200_OK)
                 
-                qna_type = request.query_params.get("qna_type",None)
-
                 # to get latest botqna for a user using participant_id
                 if participant_id:
                     recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
@@ -666,9 +678,7 @@ class AccountsViewSet(ApiViewSet,
                     data['message'] = msg_data
 
             elif method.lower() == 'post':
-                qna = request.query_params.get('qna',None)
-                is_positive = request.query_params.get('is_positive',"False")
-                is_anonymous = request.query_params.get('is_anonymous',"False")
+                
                 logger.info(f"qna : {qna}, ispositive: {is_positive} , is_anonymous: {is_anonymous}")
 
                 intake_summary_prompt = get_intake_summary_prompt(qna)
