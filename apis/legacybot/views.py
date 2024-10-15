@@ -103,22 +103,56 @@ class ThreadViewSet(viewsets.ModelViewSet):
 
         return super().create(request, *args, **kwargs)
 
-    @action(methods=['POST'],detail=False,url_path="action-report-data")
+    @action(methods=['POST'], detail=False, url_path="action-report-data")
     def action_report_data(self, request, *args, **kwargs):
+        if request.method != 'POST':
+            return Response({'error': 'Invalid request method.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        
         try:
-            data = []
-            if request.method == 'POST':
-                thread_id = request.data.get('thread_id')
-                try:
-                    data = get_or_generate_action_data(thread_id=thread_id)
-                except Exception as e:
-                    logger.exception(f"Failed to get action data: {e}")
-                    return Response({'error': f"Failed to get action data: {e}"}, status=status.HTTP_400_BAD_REQUEST)
-            return Response({'data': data}, status=status.HTTP_200_OK)
+            thread_id = request.data.get('thread_id')
+            thread_ids = request.data.get('threads')
+            user_id = request.data.get('user_id')
+
+            if thread_id:
+                return self._get_action_data_by_thread_id(thread_id)
+            elif thread_ids:
+                return self._get_action_data_by_thread_ids(thread_ids)
+            elif user_id:
+                return self._get_action_data_by_user_id(user_id)
+            else:
+                return Response({'error': 'Invalid or missing parameters.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             logger.exception(f"Failed to process action_report_data: {e}")
-            return Response({'error': f"Failed to process action_report_data: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': f"Failed to process action_report_data: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _get_action_data_by_thread_id(self, thread_id):
+        try:
+            threads = Thread.objects.filter(deleted=False, uid=thread_id)
+            data = get_or_generate_action_data(threads=threads)
+            return Response({'data': data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to get action data by thread_id: {e}")
+            return Response({'error': f"Failed to get action data by thread_id: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_action_data_by_thread_ids(self, thread_ids):
+        try:
+            thread_ids_list = [th.strip() for th in thread_ids.split(',') if th.strip()]
+            threads = Thread.objects.filter(deleted=False, uid__in=thread_ids_list)
+            data = get_or_generate_action_data(threads=threads)
+            return Response({'data': data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to get action data by thread_ids: {e}")
+            return Response({'error': f"Failed to get action data by thread_ids: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_action_data_by_user_id(self, user_id):
+        try:
+            threads = Thread.objects.filter(deleted=False, user_id=user_id)
+            data = get_or_generate_action_data(threads=threads)
+            return Response({'data': data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to get action data by user_id: {e}")
+            return Response({'error': f"Failed to get action data by user_id: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ChatConversationViewSet(viewsets.ModelViewSet):
