@@ -3,13 +3,32 @@ from .models import LegacyBot, LegacyBotUser, Thread, ChatConversation
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from commons.cloudinary import upload_image
+from django import forms
+
+class LegacyBotImageUploadForm(forms.ModelForm):
+    image = forms.ImageField(required=False, help_text="This Field is only for create image_url")
+
+    class Meta:
+        model = LegacyBot
+        fields = '__all__'
+
 
 @admin.register(LegacyBot)
 class LegacyBotAdmin(admin.ModelAdmin):
+    form = LegacyBotImageUploadForm
+    
     list_display = ('id','uid','domain', 'assistant_id', 'assitant_type', 'name', 'description')
     search_fields = ('domain', 'assistant_id', 'name')
     list_filter = ('assitant_type','name')
     list_editable = ('domain','assitant_type','name', 'description')
+
+    def save_model(self, request, obj, form, change):
+        # Check if an image file is in the form data
+        image = request.FILES.get('image')
+        if image:
+            obj.image_url = upload_image(image).get('secure_url')
+        super().save_model(request, obj, form, change)
 
 @admin.register(LegacyBotUser)
 class LegacyBotUserAdmin(admin.ModelAdmin):
