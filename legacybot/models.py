@@ -9,7 +9,9 @@ class LegacyBot(MyModel):
     assitant_type = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True, default=None)
+    image_url = models.CharField(max_length=255,null=True, blank=True, default=None)
     prompt = models.TextField(null=True, blank=True, default=None)
+    att = models.JSONField(null=True,blank=True,default=None)
 
     class Meta:
         db_table = 'single_bot'
@@ -26,6 +28,7 @@ class LegacyBotUser(MyModel):
     last_name = models.CharField(max_length=100, null=True,blank=True, default=None)
     att = models.JSONField(null=True,blank=True, default=None)
     is_whitelist = models.BooleanField(null=True, default=False)
+    preferences = models.CharField(max_length=255,null=True, blank=True, default=None)
 
     class Meta:
         db_table = 'single_bot_user'
@@ -39,6 +42,8 @@ class Thread(MyModel):
     user_id = models.CharField(max_length=100)
     chat_topic = models.TextField()
     action_data = models.JSONField(null=True,blank=True,default=None)
+    preferences = models.CharField(max_length=255,null=True, blank=True, default=None)
+
 
     class Meta:
         db_table = 'legacybot_thread'
