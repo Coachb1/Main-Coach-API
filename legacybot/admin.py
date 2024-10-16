@@ -7,7 +7,7 @@ from commons.cloudinary import upload_image
 from django import forms
 
 class LegacyBotImageUploadForm(forms.ModelForm):
-    image = forms.ImageField(required=False, help_text="This Field is only for create image_url")
+    image = forms.ImageField(required=False, help_text="This Field is only to create image_url")
 
     class Meta:
         model = LegacyBot
@@ -17,7 +17,7 @@ class LegacyBotImageUploadForm(forms.ModelForm):
 @admin.register(LegacyBot)
 class LegacyBotAdmin(admin.ModelAdmin):
     form = LegacyBotImageUploadForm
-    
+
     list_display = ('id','uid','domain', 'assistant_id', 'assitant_type', 'name', 'description')
     search_fields = ('domain', 'assistant_id', 'name')
     list_filter = ('assitant_type','name')
