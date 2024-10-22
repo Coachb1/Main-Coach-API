@@ -157,7 +157,7 @@ class DirectoryPageInfo(models.Model):
     ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
     _previous_is_approved = models.BooleanField(null=True,default=False)
     subject_specific_bot_url = models.CharField(max_length=255,null=True,blank=True,default=None)
-    subject_specific_bot_id = models.CharField(max_length=255,blank=True,default=None)
+    subject_specific_bot_id = models.CharField(max_length=255,null=True,blank=True,default=None)
     subject_specific_bot_snippit = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
