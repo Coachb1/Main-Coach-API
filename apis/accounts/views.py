@@ -84,6 +84,7 @@ import os
 from openpyxl.styles import Font
 from collections.abc import MutableMapping
 from django.http import HttpResponse
+from users.helpers import generate_bot_id
 
 logger = logging.getLogger(__name__)
 
@@ -820,8 +821,9 @@ class AccountsViewSet(ApiViewSet,
                         avatar_bot_url = directory.avatar_bot_url,
                         custom_user_bot_url = directory.custom_user_bot_url,
                         custom_user_bot_id = directory.custom_user_bot_id,
-                        deep_dive_bot_url = directory.deep_dive_bot_url,
-                        deep_dive_bot_id = directory.deep_dive_bot_id,
+                        subject_specific_bot_url = directory.subject_specific_bot_url,
+                        subject_specific_bot_id = directory.subject_specific_bot_id,
+                        subject_specific_bot_snippit= directory.subject_specific_bot_snippit,
                         timer_enabled = directory.timer_enabled,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
@@ -1065,7 +1067,7 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"Could not get transcript for youtube link: {link} from package so trying to download and transcribe")
                         transcript = download_and_transcribe_audio(link)
                         logger.info(f"Transcript after download and transcribe : {transcript}")
-                    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                         extracted_media_data[link] = transcript
                         transcript = get_document_summary(transcript)
                     extracted_from_youtube[link] = transcript
@@ -1186,10 +1188,11 @@ class AccountsViewSet(ApiViewSet,
                     if bot_name is None or bot_name == '':
                         return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
-                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
-                    if bot_type == BotTypeChoice.deep_dive:
-                        bot_id = "-".join(["engagement-survey" ,"".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
-
+                    bot_id = generate_bot_id(
+                        bot_type=bot_type,
+                        participant_id=participant_id,
+                        bot_name=bot_name
+                        )
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
                         return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
@@ -1363,8 +1366,8 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.faqs = new_faqs
                         updated_fields.append("faqs")
 
-                    if bot_type == BotTypeChoice.avatar_bot:
-                        signature_bot.custom_prompt = signature_bot_default_prompt()
+                    if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
+                        signature_bot.custom_prompt = signature_bot_default_prompt(bot_type=bot_type)
                         updated_fields.append("custom_prompt")
 
                     if bot_type == BotTypeChoice.deep_dive:
@@ -1437,7 +1440,7 @@ class AccountsViewSet(ApiViewSet,
                     # SAVING BOTURL AND bot_snippets
                     try: 
                         bot_url =''
-                        if bot_type == BotTypeChoice.avatar_bot:
+                        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             bot_url = f"{bot_base_url}/coach/{bot_id}"
                         elif bot_type == BotTypeChoice.feedback_bot:
                             bot_url = f"{bot_base_url}/feedback/{bot_id}"
@@ -1471,12 +1474,20 @@ class AccountsViewSet(ApiViewSet,
                             coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
 
                         directory = DirectoryPageInfo.objects.filter(profile_id = profile_id).first()
-                        if bot_type == BotTypeChoice.avatar_bot:
+                        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             if directory:
-                                directory.avatar_bot_id = bot_id
-                                directory.avatar_snippit = bot_snippet
-                                directory.avatar_bot_url = bot_url
-                                directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+                                if bot_type == BotTypeChoice.avatar_bot:
+                                    directory.avatar_bot_id = bot_id
+                                    directory.avatar_snippit = bot_snippet
+                                    directory.avatar_bot_url = bot_url
+                                    directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+
+                                elif bot_type == BotTypeChoice.subject_specific_bot:
+                                    directory.subject_specific_bot_id = bot_id
+                                    directory.subject_specific_bot_url = bot_url
+                                    directory.subject_specific_bot_snippit = bot_snippet
+                                    directory.save(update_fields=["subject_specific_bot_id","subject_specific_bot_url","subject_specific_bot_snippit"])
+
 
                                 try:
                                     subject = "Your Coachbots AI Frame is in the Pipeline"
@@ -1570,7 +1581,7 @@ class AccountsViewSet(ApiViewSet,
                 except Exception as e:
                     logger.exception("Got error while creating bot: {e}")
                     bot_type = data.get('bot_type')
-                    if bot_type == BotTypeChoice.avatar_bot:
+                    if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                         try:
                             coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
                             coach_profile.deleted = True
@@ -1716,8 +1727,9 @@ class AccountsViewSet(ApiViewSet,
                                 avatar_bot_url = directory.avatar_bot_url,
                                 custom_user_bot_url = directory.custom_user_bot_url,
                                 custom_user_bot_id = directory.custom_user_bot_id,
-                                deep_dive_bot_url = directory.deep_dive_bot_url,
-                                deep_dive_bot_id = directory.deep_dive_bot_id,
+                                subject_specific_bot_url = directory.subject_specific_bot_url,
+                                subject_specific_bot_id = directory.subject_specific_bot_id,
+                                subject_specific_bot_snippit= directory.subject_specific_bot_snippit,
                                 timer_enabled = directory.timer_enabled,
                                 time_value_in_days = directory.time_value_in_days,
                                 timer_reset = directory.timer_reset,
@@ -1873,7 +1885,7 @@ class AccountsViewSet(ApiViewSet,
                             
                             if link != '':
                                 transcript_data = scrape_article_data(link).get('article_content',None)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_articles[link] = transcript_data
                                     transcript_data = get_document_summary(transcript_data)
                                 extracted_from_article[link] = transcript_data
@@ -1913,7 +1925,7 @@ class AccountsViewSet(ApiViewSet,
                         if len(pdf_data) > 0:
                             for index, pdf in enumerate(pdf_data):
                                 file_name, text = extract_file_and_text(pdf)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_pdf[file_name] = text
                                     text = get_document_summary(text)
                                 extracted_from_pdf[file_name] = text
@@ -1987,7 +1999,7 @@ class AccountsViewSet(ApiViewSet,
                         if len(doc_data) > 0:
                             for index, doc in enumerate(doc_data):
                                 file_name, text = extract_file_and_text(doc)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_doc[file_name] = text
                                     text = get_document_summary(text)
                                 extracted_from_doc[file_name] = text
@@ -2026,7 +2038,7 @@ class AccountsViewSet(ApiViewSet,
                             path = default_storage.save(file.name, ContentFile(file.read()))
                             doc_content = extract_text_from_doc(path)
                             default_storage.delete(path)
-                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                            if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_doc[file.name] = doc_content
                                     doc_content = get_document_summary(doc_content)
                             extracted_from_doc[file.name] = doc_content
@@ -2068,7 +2080,7 @@ class AccountsViewSet(ApiViewSet,
                             pdf_content = extract_text_from_pdf(path)
 
                             default_storage.delete(path)
-                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                            if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_pdf[file.name] = pdf_content
                                     
                                     pdf_content = get_document_summary(pdf_content)
@@ -2431,14 +2443,16 @@ class AccountsViewSet(ApiViewSet,
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
                     avatar_bot_count = len(get_list_from_string(user_action.avatar_ids))
+                    subject_specific_bot_count = len(get_list_from_string(user_action.avatar_ids))
                     subject_matter_count = len(get_list_from_string(user_action.subject_matter_bot_ids))
                     knowledge_bot_count = len(get_list_from_string(user_action.knowledge_bot_ids))
                     deep_dive_bot_count = len(get_list_from_string(user_action.deep_dive_bot_ids))
-                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count
+                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count + subject_specific_bot_count
                     temp = {
                         "name": get_user_display_name(user),
                         "user_id": user.uid,
                         "avatar_bot_count": avatar_bot_count,
+                        "subject_specific_bot_count": subject_specific_bot_count,
                         "subject_matter_count": subject_matter_count,
                         "knowledge_bot_count": knowledge_bot_count,
                         "deep_dive_bot_count": deep_dive_bot_count,
@@ -2468,6 +2482,7 @@ class AccountsViewSet(ApiViewSet,
                             "name": get_user_display_name(user),
                             "user_id": user.uid,
                             "avatar_bot_count": 0, 
+                            "subject_specific_bot_count": 0,
                             "subject_matter_count": 0,
                             "total_bots": 0,
                             "total_simulations": 0,
@@ -2729,11 +2744,11 @@ class AccountsViewSet(ApiViewSet,
                     avatar_bot_id = None
                     for bot_id in bot_ids:
                         bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
-                        if bot.bot_type == BotTypeChoice.avatar_bot:
+                        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             avatar_bot_id = bot.bot_id
 
-                    if avatar_bot_id is None:
-                        return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
+                    # if avatar_bot_id is None:
+                    #     return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
 
 
                 except Exception as e:
