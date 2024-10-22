@@ -790,9 +790,15 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
-            if val:
-                coach_info += f"{key}: {val}\n"
+        if signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+            coach_info += f"""
+            bot_descripton: {signature_bot.data.get('bot_description')}\n
+            bot_area_of_coaching: {signature_bot.data.get('bot_area_of_coaching')}
+            """
+        else:
+            for key,val in signature_bot.data.items():
+                if val:
+                    coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
@@ -1110,9 +1116,15 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
-            if val:
-                coach_info += f"{key}: {val}\n"
+        if signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+            coach_info += f"""
+            bot_descripton: {signature_bot.data.get('bot_description')}\n
+            bot_area_of_coaching: {signature_bot.data.get('bot_area_of_coaching')}
+            """
+        else:
+            for key,val in signature_bot.data.items():
+                if val:
+                    coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
@@ -2382,18 +2394,18 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                             <div style="margin: 15px;">
                                 <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                                <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                 <p>To get started, please take a moment to:</p>
                                 <div style="margin-bottom: 10px;">
                                     <strong>Step 1: [Join the Network]</strong>
                                     <ul>
-                                        <li>Join as Coach/Mentor</li>
-                                        <li>Join as Coachee/Mentee</li>
+                                        <li>Join as Coach</li>
+                                        <li>Join as Coachee</li>
                                         <li>Join Feedback Network</li>
                                     </ul>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                    <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
                                 </div>
                                 <div style="margin-bottom: 10px;">
                                     <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
@@ -2438,18 +2450,18 @@ def disable_or_enable_client(email,is_disable,tenant):
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                 <div style="margin: 15px;">
                                     <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                                    <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                    <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                     <p>To get started, please take a moment to:</p>
                                     <div style="margin-bottom: 10px;">
                                         <strong>Step 1: [Join the Network]</strong>
                                         <ul>
-                                            <li>Join as Coach/Mentor</li>
-                                            <li>Join as Coachee/Mentee</li>
+                                            <li>Join as Coach</li>
+                                            <li>Join as Coachee</li>
                                             <li>Join Feedback Network</li>
                                         </ul>
                                     </div>
                                     <div style="margin-bottom: 10px;">
-                                        <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                        <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
                                     </div>
                                     <div style="margin-bottom: 10px;">
                                         <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
