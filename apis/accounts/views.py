@@ -1425,9 +1425,14 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.coach_email = email
                         updated_fields.append("coach_email")
                     
-                    if additional_data and additional_data.get("profile_description",None):
-                        bot_att.about = additional_data.get("profile_description",None)
-                        updated_fields.append('about')
+                    if additional_data:
+                        if bot_type == BotTypeChoice.subject_specific_bot and additional_data.get("bot_description",None):
+                            bot_att.about = additional_data.get("bot_description",None)
+                            updated_fields.append('about')
+
+                        else:
+                            bot_att.about = additional_data.get("profile_description",None)
+                            updated_fields.append('about')
 
                     if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         bot_att.initial_qnas = initial_qna
@@ -1490,17 +1495,33 @@ class AccountsViewSet(ApiViewSet,
 
 
                                 try:
-                                    subject = "Your Coachbots AI Frame is in the Pipeline"
-                                    html = f"""
-                                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-                                            <div style="margin: 15px;">
-                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
-                                                <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
-                                                <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
-                                                <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
-                                            </div>
-                                        </p>
-                                        """
+                                    subject = ""
+                                    html = ""
+                                    if bot_type == BotTypeChoice.avatar_bot:
+                                        subject = "Your Coachbots AI Frame is in the Pipeline"
+                                        html = f"""
+                                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                                <div style="margin: 15px;">
+                                                    <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
+                                                    <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                                    <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
+                                                    <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+                                                </div>
+                                            </p>
+                                            """
+                                    elif bot_type == BotTypeChoice.subject_specific_bot:
+                                        subject = "Your Coachbot Co-pilot is in the Pipeline"
+                                        html = f"""
+                                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                                <div style="margin: 15px;">
+                                                    <p>Thank you for joining the Coachbot network. Your Copilot is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
+                                                    <p>Once your Copilot is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                                    <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
+                                                    <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+                                                </div>
+                                            </p>
+                                            """
+
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
                                     html = f"""
