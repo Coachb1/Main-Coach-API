@@ -213,7 +213,7 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
     bots = SignatureBot.objects.filter(deleted=False,tenant_id=instance.tenant_id,user_id=instance.user_id)
 
     for bot in bots:
-        if bot.bot_type == 'avatar_bot':
+        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
             try:
                 additional_data =  {
                     "profile_type": instance.profile_type,
