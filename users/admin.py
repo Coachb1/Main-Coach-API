@@ -8,6 +8,7 @@ from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
 from email_sender.helpers import send_welcome_email
 from tenants.admin import TenantAwareModelAdmin
+from users.choices import BotTypeChoice
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
