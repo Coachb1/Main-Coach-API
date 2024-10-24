@@ -790,15 +790,15 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
-            if val:
-                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
-                    coach_info += f"""
+        bot_add_data = signature_bot.data
+        if bot_type == BotTypeChoice.subject_specific_bot:
+            bot_add_data['additional_data'] = f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
                     bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
                     """
-                else:
-                    coach_info += f"{key}: {val}\n"
+        for key,val in bot_add_data.items():
+            if val:
+                coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
@@ -1116,15 +1116,15 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
-            if val:
-                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
-                    coach_info += f"""
+        bot_add_data = signature_bot.data
+        if bot_type == BotTypeChoice.subject_specific_bot:
+            bot_add_data['additional_data'] = f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
                     bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
                     """
-                else:
-                    coach_info += f"{key}: {val}\n"
+        for key,val in bot_add_data.items():
+            if val:
+                coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
