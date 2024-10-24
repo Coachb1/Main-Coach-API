@@ -790,14 +790,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
-        if signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
-            coach_info += f"""
-            bot_descripton: {signature_bot.data.get('bot_description')}\n
-            bot_area_of_coaching: {signature_bot.data.get('bot_area_of_coaching')}
-            """
-        else:
-            for key,val in signature_bot.data.items():
-                if val:
+        for key,val in signature_bot.data.items():
+            if val:
+                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                    coach_info += f"""
+                    bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
+                    bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
+                    """
+                else:
                     coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
@@ -1116,14 +1116,14 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
         coach_info = ""
-        if signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
-            coach_info += f"""
-            bot_descripton: {signature_bot.data.get('bot_description')}\n
-            bot_area_of_coaching: {signature_bot.data.get('bot_area_of_coaching')}
-            """
-        else:
-            for key,val in signature_bot.data.items():
-                if val:
+        for key,val in signature_bot.data.items():
+            if val:
+                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                    coach_info += f"""
+                    bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
+                    bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
+                    """
+                else:
                     coach_info += f"{key}: {val}\n"
 
         current_conv_data = get_bot_conversation_data_user(session,tenant,participant_id,only_converation=True)
