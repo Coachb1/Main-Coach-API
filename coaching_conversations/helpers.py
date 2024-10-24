@@ -795,7 +795,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                 if val == 'additional_data':
                     coach_info += f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
-                    bot_area_of_coaching: {signature_bot.data.get('additional_data').get('bot_area_of_coaching')}
+                    bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
                     """
                 else:
                     coach_info += f"{key}: {val}\n"
