@@ -782,8 +782,8 @@ class AccountsViewSet(ApiViewSet,
 
                 # saving bot_data if any before profile sync
                 if data.get('bot_data'):
-                    bot_data = data.get('bot_data')
-                    bot_area_of_coaching = bot_data.get('bot_area_of_coaching')
+
+                    bot_data = json.loads(data.get('bot_data')) if isinstance(data.get('bot_data'),str) else data.get('bot_data')
                     bot_description = bot_data.get('bot_description')
                     bot_name = bot_data.get('bot_name')
 
@@ -887,7 +887,7 @@ class AccountsViewSet(ApiViewSet,
             except Exception as e:
                 logger.exception(e)
                 send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
-                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error":"got error"},status=status.HTTP_400_BAD_REQUEST)
 
         if request.method == 'POST':
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
@@ -961,7 +961,7 @@ class AccountsViewSet(ApiViewSet,
                 error_msg += traceback.format_exc()
                 # send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
                 send_error_notification("coach_coachee_mentor_mentee_profile",error_msg,{"data":data})
-                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error":"got error"},status=status.HTTP_400_BAD_REQUEST)
             
     @action(methods=['GET','POST'], detail=False, url_path="update-coach-mentor-meeting-availability")
     def update_coach_mentor_meeting_availability(self,request,*args, **kwargs):
@@ -979,7 +979,7 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"data": profile.meeting_availability },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
-                return Response({"error": f"{e.args}"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"{e.args}"},status=status.HTTP_400_BAD_REQUEST)
             
         elif request.method == 'POST':
             user_id = request.data.get('user_id',None)
@@ -1000,7 +1000,7 @@ class AccountsViewSet(ApiViewSet,
                     profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=profile_id)
                 
                 if profile is None:
-                    return Response({"error": "profile not found"},status=status.HTTP_404_NOT_FOUND)
+                    return Response({"error": "profile not found"},status=status.HTTP_400_BAD_REQUEST)
                 profile.meeting_availability = availability
                 profile.save(update_fields=["meeting_availability"])
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
