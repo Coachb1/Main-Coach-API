@@ -792,7 +792,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         coach_info = ""
         for key,val in signature_bot.data.items():
             if val:
-                if val == 'additional_data':
+                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
                     coach_info += f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
                     bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
@@ -1118,7 +1118,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         coach_info = ""
         for key,val in signature_bot.data.items():
             if val:
-                if val == 'additional_data':
+                if val == 'additional_data' and signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
                     coach_info += f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
                     bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
