@@ -779,6 +779,34 @@ class AccountsViewSet(ApiViewSet,
                 profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
                 serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
                 serializer.is_valid(raise_exception=True)
+
+                # saving bot_data if any before profile sync
+                if data.get('bot_data'):
+                    bot_data = data.get('bot_data')
+                    bot_area_of_coaching = bot_data.get('bot_area_of_coaching')
+                    bot_description = bot_data.get('bot_description')
+                    bot_name = bot_data.get('bot_name')
+
+                    bot_id = bot_data.get('bot_id')
+                    bot = SignatureBot.objects.filter(deleted=False,uid=bot_id).last()
+                    if bot:
+                        bot_att = BotAttribute.objects.get(bot_id=bot.uid)
+                        bot_att.bot_name = bot_name
+                        bot_att.about = bot_description
+                        bot_att.save(update_fields=['bot_name','about'])
+
+                        add_data = bot.data['additional_data']
+                        additional_data = {
+                            "bot_area_of_coaching": bot_data.get('bot_area_of_coaching'),
+                            "bot_description": bot_data.get('bot_description')
+                        }
+                        if add_data:
+                            for key, value in additional_data.items():
+                                add_data[key] = value
+                            bot.data['additional_data'] = add_data
+                            bot.save(update_fields=['data'])
+
+                            
                 serializer.save()
 
                 for_reapproval = request.query_params.get('for_reapproval',None).lower().strip() == 'true' if request.query_params.get('for_reapproval',None) else False
