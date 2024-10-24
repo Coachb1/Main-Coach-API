@@ -227,8 +227,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                     "admired_leaders": instance.admired_leaders,
                     "profile_description": instance.about,
                     "department": instance.department,
-                    "youtube_links": provided_links.get("youtube_links"),
-                    "article_links": provided_links.get("article_links"),
+                    "youtube_links": provided_links.get("youtube_links") if provided_links else None,
+                    "article_links": provided_links.get("article_links") if provided_links else None,
                     "voice_sample": instance.voice_sample,
                     "discuss_how_you_helped_others_in_coachMentoring": instance.mentorship_contribution,
                     "allow_coachee_to_create_session": instance.allow_coachee_to_create_session,
@@ -240,8 +240,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                         instance.coach_same_department,
                         instance.supported_outcome,
                     ],
-                    "coach_qna": qna_for_coach_mentor.get('coach'),
-                    "mentor_qna": qna_for_coach_mentor.get('mentor'),
+                    "coach_qna": qna_for_coach_mentor.get('coach') if qna_for_coach_mentor else None,
+                    "mentor_qna": qna_for_coach_mentor.get('mentor') if qna_for_coach_mentor else None,
                     "discussion_topic": instance.discussion_topic,
                     "provide_answers_using_emojis": instance.provide_answers_using_emojis
                 }
