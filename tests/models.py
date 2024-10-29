@@ -8,6 +8,40 @@ from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
 from tests.choices import ScenarioCaseChoices
+from commons.db.model import MyModel
+
+
+## psychometric section
+class PsychometricItem(MyModel):    
+    # Fields for Section and Subsection
+    section = models.CharField(max_length=255)
+    subsection = models.CharField(max_length=255, blank=True, null=True)
+
+    parameters = models.JSONField(blank=True, null=True, default=dict)
+
+    # Fields for Ranges
+    range_values = models.JSONField(blank=True, null=True, default=dict)
+
+    def __str__(self):
+        return f"{self.section} - {self.subsection}"
+    
+    class Meta:
+        db_table = "psychometric_item"
+
+class Psychometric(TenantAwareModel):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics')  # Many-to-many relationship
+
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        db_table = "psychometric"
+        unique_together = (
+            ("name", "tenant_id", "deleted"),)
+
 
 
 class Test(TenantAwareModel):
@@ -90,9 +124,15 @@ class Test(TenantAwareModel):
     calculate_culture = models.BooleanField(default=True, null=True)
     snippet_url = models.CharField(max_length=500, null=True, blank=True, default=None)
     pshycometric_sections = models.JSONField(null=True, blank=True, default=None)
-
-
-
+    psychometric= models.ForeignKey(
+        Psychometric,
+        related_name='tests',
+        on_delete=models.SET_NULL,
+        to_field='uid',  # Reference the UID field
+        blank=True,
+        null=True,  # Allow null if a test can exist without a psychometric set
+        default=None
+    )
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -231,3 +271,4 @@ class TestQuestionResponse(TenantAwareModel):
             ("test_attempt_session_id", "question_id", "deleted"),)
 
         ordering = ("id",)
+
