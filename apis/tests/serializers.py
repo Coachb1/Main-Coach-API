@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestQuestion
+from tests.models import Test, TestQuestion, Psychometric
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -135,6 +135,37 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=True)
     snippet_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     pshycometric_sections = serializers.JSONField(default=None, required=False, allow_null=True)
+
+    psychometric_identifier = serializers.CharField(required=False, allow_blank=True)  # Either UID or name
+
+    def create(self, validated_data):
+        """
+        Create and return a new `Test` instance, given the validated data.
+        """
+        # Remove `psychometric_identifier` and create the Test instance
+        psychometric_identifier = validated_data.pop('psychometric_identifier', None)
+
+        # Create the Test instance
+        test_instance = Test.objects.create(**validated_data)
+
+        # If a psychometric_identifier is provided, associate it with the Test instance
+        if psychometric_identifier:
+            try:
+                # Try to get by UID first
+                try:
+                    psychometric = Psychometric.objects.get(uid=psychometric_identifier)
+                except Psychometric.DoesNotExist:
+                    # If not found by UID, try to get by name
+                    psychometric = Psychometric.objects.get(name=psychometric_identifier)
+
+                test_instance.psychometric = psychometric
+                test_instance.save()
+            except Psychometric.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"psychometric_identifier": "The provided Psychometric identifier (UID or name) does not exist."}
+                )
+
+        return test_instance
 
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):

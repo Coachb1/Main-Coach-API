@@ -1,6 +1,6 @@
 from django.contrib import admin 
 from import_export.admin import ExportActionMixin
-from tests.models import Test, TestQuestion
+from tests.models import Test, TestQuestion, Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
 
@@ -69,3 +69,38 @@ class TestQuestionAdmin(ExportActionMixin, TenantAwareModelAdmin):
 
 admin.site.register(Test, TestAdmin)
 admin.site.register(TestQuestion, TestQuestionAdmin)
+
+# class PsychometricItemInline(admin.TabularInline):
+#     model = PsychometricItem
+#     extra = 1  # Number of empty forms to display
+
+# class PsychometricSetAdmin(TenantAwareModelAdmin):
+#     list_display = ('name', 'description')
+#     search_fields = ('name',)
+#     inlines = [PsychometricItemInline]
+#     ordering = ('name',)
+
+#     def get_queryset(self, request):
+#         qs = super().get_queryset(request)
+#         return qs.prefetch_related('items')  # Optimize for related items
+
+# admin.site.register(Psychometric, PsychometricSetAdmin)
+# admin.site.register(PsychometricItem)
+
+class PsychometricItemAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ('id','section', 'subsection')
+    search_fields = ('section', 'subsection')  # Optional: Add search capabilities
+    ordering = ('-id',)
+
+admin.site.register(PsychometricItem, PsychometricItemAdmin)
+
+class PsychometricAdmin(TenantAwareModelAdmin):
+    list_per_page = 10
+    filter_horizontal = ('items',)
+
+    # Optionally add fields to display in the list view
+    list_display = ('name', 'description')
+    search_fields = ('name',)  # Enable searching by name
+
+admin.site.register(Psychometric, PsychometricAdmin)
