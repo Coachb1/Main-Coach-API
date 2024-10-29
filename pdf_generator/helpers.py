@@ -209,10 +209,12 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         client_info = None
 
     psychometric_data = None
+    psychometric_info = None
 
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data
-        psychometric_data['info'] = format_psychometric_items(test.psychometric)
+        # psychometric_data['info'] = format_psychometric_items(test.psychometric)
+        psychometric_info = format_psychometric_items(test.psychometric)
 
     questions = TestQuestion.objects.filter(test_id=test_id)
     participant_responses = TestQuestionResponse.objects.filter(
@@ -607,7 +609,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "is_pitch": test.scenario_case == ScenarioCaseChoices.pitch,
                 "language_skills": test_attempt_session.language_skills,
                 "is_recommended": test.is_recommended,
-                'pshycometric_data': psychometric_data
+                'pshycometric_data': psychometric_data,
+                'psychometric_info': psychometric_info,
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
