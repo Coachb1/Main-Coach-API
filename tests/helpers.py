@@ -235,7 +235,8 @@ def create_test(tenant: Tenant,
                 sub_tab_category:str,
                 calculate_culture: bool,
                 snippet_url: str,
-                pshycometric_sections: dict) -> tuple[Test, list[TestQuestion]]:
+                pshycometric_sections: dict,
+                psychometric:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -361,6 +362,9 @@ def create_test(tenant: Tenant,
             "failed to create test, creator with id %s does not exist", creator_id)
         raise serializers.ValidationError("invalid creator id")
 
+    if psychometric:
+        psychometric = Psychometric.objects.get(uid=psychometric)
+        
     with transaction.atomic():
         test = Test.objects.create(
             tenant_id=tenant.uid,
@@ -425,6 +429,7 @@ def create_test(tenant: Tenant,
             calculate_culture=calculate_culture,
             snippet_url=snippet_url,
             pshycometric_sections=pshycometric_sections,
+            psychometric=psychometric
         )
 
         test_questions = []
