@@ -7,7 +7,7 @@ import datetime
 import os
 from dotenv import load_dotenv
 from .models import SessionNotesRecommendations, MentorDetails, UserActionInfo, UserIDP
-from tests.helpers import create_scenario_from_site_context
+from tests.helpers import create_scenario_from_site_context, generate_idp_report_link
 import json
 import logging
 from users.models import UserAttribute
@@ -554,7 +554,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                 user_idp.book_recommendations = book_recomm
                 user_idp.recommended_hbr = hbr_recomm
                 user_idp.recommended_ted_talk = tedtalk_recomm
-                user_idp.report=f"{FRONTEND_BASE_URL}/idpReport?uid={user_idp.uid}"
+                user_idp.report=generate_idp_report_link(idp=user_idp)
                 user_idp.learning_communities = learning_communities
 
                 user_idp.course_recommendations = course_recomm

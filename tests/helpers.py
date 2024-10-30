@@ -4366,7 +4366,25 @@ def increment_avg_score_in_percentages(skills_rating, avg_score, participant_id,
     avg_score = min(10.0, avg_score)
 
     return skills_rating, avg_score
+@timeit
+def generate_idp_report_link(idp):
+    """
+    This method generate idp report link.
+    """
 
+    if idp.report:
+        return idp.report
+
+    participant_id = idp.user_id
+    tokens = create_new_tokens('user-report', 'uid', participant_id)
+    refresh_token = tokens["refresh"]
+
+    logger.info("[Refresh Token Generation] generated refresh token %s for participant %s",
+                refresh_token[:6], participant_id)
+
+    report_url = f"{FRONTEND_BASE_URL}/{ReportType.IDP_REPORT}/{refresh_token}/?uid={idp.uid}&backend={BACKEND}"
+
+    return report_url
 
 @timeit
 def generate_session_report_link(test_attempt_session: TestAttemptSession, test: Test):
