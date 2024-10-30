@@ -100,7 +100,7 @@ class PsychometricAdmin(TenantAwareModelAdmin):
     filter_horizontal = ('items',)
 
     # Optionally add fields to display in the list view
-    list_display = ('name', 'description')
+    list_display = ('id', 'uid', 'name', 'description')
     search_fields = ('name',)  # Enable searching by name
 
 admin.site.register(Psychometric, PsychometricAdmin)
