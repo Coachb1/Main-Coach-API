@@ -18,6 +18,7 @@ from .serializers import FrontendCoachingSessionReportSerializer
 from .serializers import FrontendMeetingAnalysisReportSerializer
 from .serializers import FrontendAskingGreatQuestionsReportSerializer
 from .serializers import FrontendSkillsTrackerReportSerializer
+from .serializers import IDPSerializer, AdminReportSerializer
 from .serializers import FrontendSkillsDiscoveryReportSerializer, DynamicDiscussionReportSerializer
 from web_auth.helpers import create_new_tokens, get_new_access_token
 from settings import FRONTEND_BASE_URL
@@ -249,8 +250,24 @@ class FrontendAuthViewSet(ApiViewSet):
             interaction_id = session_serializer.validated_data["interaction_id"]
 
             url = f"{url}?session_id={session_id}&interaction_id={interaction_id}&backend={BACKEND}"
-       
 
+        elif report_type == ReportType.IDP_REPORT:
+            serializer = IDPSerializer(
+                data=request.data)
+
+            serializer.is_valid(raise_exception=True)
+
+            url = f"{url}?uid={serializer.validated_data['idp_id']}&backend={BACKEND}"
+
+        elif report_type in [ReportType.KUDOS_BOARD_REPROT, ReportType.PARTICIPANT_LEADERBOARD_REPORT,
+                             ReportType.PARTICIPANT_MAPPING_REPORT, ReportType.CRITICAL_FEEDBACK_REPORT]:
+            serializer = AdminReportSerializer(
+                data=request.data)
+
+            serializer.is_valid(raise_exception=True)
+
+            url = f"{url}?email={serializer.validated_data['email']}&backend={BACKEND}"
+            
         # TODO: Logic to shortify the URL is temporarily disabled
         if False:
             # compute the hash of the url
