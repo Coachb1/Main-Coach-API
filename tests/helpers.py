@@ -81,7 +81,8 @@ from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
-
+from django.core.exceptions import ValidationError
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -10684,7 +10685,6 @@ def add_section():
     print(data)
 
 
-import json
 
 def format_psychometric_items(psychometric:Psychometric):
     # Use a set to keep track of unique sections for the dimension
@@ -10730,3 +10730,82 @@ def format_psychometric_items(psychometric:Psychometric):
 
     return sections.values()
 
+
+
+def parse_psychometric_csv(csv_file):
+    """
+    Parses and validates a CSV file for PsychometricItems, creating a structured 
+    JSON for each item that matches the PsychometricItem model fields.
+    """
+    items = []
+    decoded_file = csv_file.read().decode('utf-8').splitlines()
+    reader = csv.DictReader(decoded_file)
+
+    # Regex patterns for detecting range-related columns
+    range_pattern = re.compile(r'^Range (\d+)$')
+    strengths_pattern = re.compile(r'^Strengths (\d+)$')
+    improvement_pattern = re.compile(r'^Areas Improvement (\d+)$')
+
+    for row in reader:
+        # Extract required fields and validate they are present
+        section = row.get('Section')
+        subsection = row.get('Sub-section')
+        parameter_names = row.get('Parameter Names')
+        parameter_description = row.get('Parameter Description')
+
+        if not section or not subsection or not parameter_names or not parameter_description:
+            raise ValidationError("All fields are required: 'Section', 'Sub-section', 'Parameter Names', and 'Parameter Description'.")
+
+        # Prepare the parameters field
+        parameters = {
+            "parameters": [p.strip() for p in parameter_names.split(',')],
+            "description": parameter_description,
+            "parameterName": f"{parameter_names.replace(', ', ' - ')}"
+        }
+
+        # Dynamically parse range values using regex
+        range_values = {}
+        ranges_found = {}
+
+        for key, value in row.items():
+            # Match Range, Strengths, and Areas for Improvement fields by number
+            range_match = range_pattern.match(key)
+            strengths_match = strengths_pattern.match(key)
+            improvement_match = improvement_pattern.match(key)
+
+            if range_match:
+                range_num = range_match.group(1)
+                ranges_found[range_num] = {"range": value}
+            elif strengths_match:
+                range_num = strengths_match.group(1)
+                strengths = re.findall(r'([A-Za-z_-]+:\s*.*?)(?=[A-Za-z_-]+:|$)', value, re.DOTALL)
+                ranges_found.setdefault(range_num, {})["strengths"] = [s.strip() for s in strengths if s.strip()]
+            elif improvement_match:
+                range_num = improvement_match.group(1)
+                areas = re.findall(r'([A-Za-z_-]+:\s*.*?)(?=[A-Za-z_-]+:|$)', value, re.DOTALL)
+
+                ranges_found.setdefault(range_num, {})["areas_for_improvement"] = [a.strip() for a in areas if a.strip()]
+
+        # Validate and organize range data into range_values structure
+        for range_num, range_data in ranges_found.items():
+            if "range" not in range_data or "strengths" not in range_data or "areas_for_improvement" not in range_data:
+                raise ValidationError(f"Missing data for range {range_num}: Ensure Range, Strengths, and Areas for Improvement are provided.")
+            
+            range_values[range_data["range"]] = {
+                "strengths": range_data["strengths"],
+                "areas_for_improvement": range_data["areas_for_improvement"]
+            }
+
+        # Collect item data for creation
+        item_data = {
+            "section": section,
+            "subsection": subsection,
+            "parameters": parameters,
+            "range_values": range_values
+        }
+        items.append(item_data)
+
+    logger.info(f"items: {items}")
+    if len(items) == 0:
+        raise ValidationError("Should be at least one row in csv.")
+    return items
