@@ -23,15 +23,16 @@ class PsychometricItem(MyModel):
     range_values = models.JSONField(blank=True, null=True, default=dict)
 
     def __str__(self):
-        return f"{self.section} - {self.subsection}"
+        return f"{self.section} : {self.subsection}"
     
     class Meta:
         db_table = "psychometric_item"
 
-class Psychometric(TenantAwareModel):
+class Psychometric(MyModel):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)
-    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics')  # Many-to-many relationship
+    description = models.TextField(blank=True, null=True, default=None)
+    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics', blank=True)  # Many-to-many relationship
+    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
 
 
     def __str__(self):
