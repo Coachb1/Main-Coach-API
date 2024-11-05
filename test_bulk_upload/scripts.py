@@ -921,9 +921,27 @@ def format_test_data_slack(raw_data,tenant):
 
         if PSYCHOMETRIC in input_dict and len(input_dict[PSYCHOMETRIC].strip()) >0:
             psy_uid_or_name = input_dict[PSYCHOMETRIC].strip()
-            psycho = Psychometric.objects.filter(uid=psy_uid_or_name).first()
+            psycho = (
+                Psychometric.objects.filter(tenant_id=tenant.uid)
+                .filter(uid=psy_uid_or_name)
+                .first()
+                or
+                Psychometric.objects.filter(tenant_id=tenant.uid)
+                .filter(name=psy_uid_or_name)
+                .first()
+            )
+
+            # If not found, try to find without tenant_id
             if not psycho:
-                psycho = Psychometric.objects.filter(name=psy_uid_or_name).first()
+                psycho = (
+                    Psychometric.objects.filter(tenant_id=None)
+                    .filter(uid=psy_uid_or_name)
+                    .first()
+                    or
+                    Psychometric.objects.filter(tenant_id=None)
+                    .filter(name=psy_uid_or_name)
+                    .first()
+                )
 
             if not psycho:
                 return {"error": f"Psychometric set does not exist: {psy_uid_or_name}. If you are using name its case sansitive. (you can use uid or name)"}, False
