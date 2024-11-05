@@ -3,8 +3,13 @@ from import_export.admin import ExportActionMixin
 from tests.models import Test, TestQuestion, Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
-
-
+import csv
+from django import forms
+from django.core.exceptions import ValidationError
+from tests.helpers import parse_psychometric_csv
+from django.contrib import messages
+from django.db import transaction
+from tenants.models import Tenant
 
 class StartWithUserFilter(admin.SimpleListFilter):
     title = 'Start with User'
@@ -70,37 +75,84 @@ class TestQuestionAdmin(ExportActionMixin, TenantAwareModelAdmin):
 admin.site.register(Test, TestAdmin)
 admin.site.register(TestQuestion, TestQuestionAdmin)
 
-# class PsychometricItemInline(admin.TabularInline):
-#     model = PsychometricItem
-#     extra = 1  # Number of empty forms to display
 
-# class PsychometricSetAdmin(TenantAwareModelAdmin):
-#     list_display = ('name', 'description')
-#     search_fields = ('name',)
-#     inlines = [PsychometricItemInline]
-#     ordering = ('name',)
+class PsychometricAdminForm(forms.ModelForm):
+    csv_file = forms.FileField(
+        required=False,
+        help_text=_("Upload a CSV file to create Psychometric Items automatically.")
+    )
+    tenant_id = forms.ChoiceField(
+        choices=[(None, _("Select a tenant - (None)"))] + Tenant.get_tenant_choices(),  # Fetch all tenants from the database
+        required=False,  # Set this to True or False depending on your requirements
+        help_text=_("Select the tenant associated with this Psychometric item."),
+        initial=None
+    )
 
-#     def get_queryset(self, request):
-#         qs = super().get_queryset(request)
-#         return qs.prefetch_related('items')  # Optimize for related items
 
-# admin.site.register(Psychometric, PsychometricSetAdmin)
-# admin.site.register(PsychometricItem)
+    class Meta:
+        model = Psychometric
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        csv_file = cleaned_data.get('csv_file')
+        print(f"cleanded data: {cleaned_data}" )
+
+        tenant_id = cleaned_data.get('tenant_id')
+
+        # Handle saving None if tenant_id is not selected
+        if tenant_id == '':
+            cleaned_data['tenant_id'] = None 
+
+        if not self.instance.pk:  # Check if this is a new instance (not saved yet)
+            if not csv_file:
+                raise ValidationError(_("A CSV file is required during creation."))
+            # Ensure it's a CSV file by checking the file type
+            if not csv_file.name.endswith('.csv'):
+                raise ValidationError(_("File must be a CSV."))
+            
+        if csv_file:
+            try:
+                items_data = parse_psychometric_csv(csv_file=csv_file)
+                created_items = []
+                for item_data in items_data:
+                    item = PsychometricItem.objects.create(**item_data)
+                    created_items.append(item.uid)
+
+                # Associate created items with the Psychometric instance
+                # existing_items = []
+                # if self.instance.pk:
+                #     existing_items = list(self.instance.items.all().values_list('uid',flat=True))
+                # else:
+                existing_items = [item.uid for item in cleaned_data.get('items')] if cleaned_data.get('items') else []
+                    
+                psyitems = existing_items + created_items  # Combine existing and newly created items
+                cleaned_data['items'] = PsychometricItem.objects.filter(uid__in=psyitems)
+
+
+            except ValidationError as e:
+                raise ValidationError(_(str(e)))
+                
+        return cleaned_data
+
+
+class PsychometricAdmin(admin.ModelAdmin):
+    form = PsychometricAdminForm
+    list_per_page = 10
+    filter_horizontal = ('items',)
+    list_display = ('id', 'uid', 'tenant_id','name', 'description')
+    search_fields = ('name',)
+
+
+admin.site.register(Psychometric, PsychometricAdmin)
+
 
 class PsychometricItemAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id','section', 'subsection')
-    search_fields = ('section', 'subsection')  # Optional: Add search capabilities
+    list_display = ('id', 'section', 'subsection')
+    search_fields = ('section', 'subsection')
     ordering = ('-id',)
 
 admin.site.register(PsychometricItem, PsychometricItemAdmin)
 
-class PsychometricAdmin(TenantAwareModelAdmin):
-    list_per_page = 10
-    filter_horizontal = ('items',)
 
-    # Optionally add fields to display in the list view
-    list_display = ('id', 'uid', 'name', 'description')
-    search_fields = ('name',)  # Enable searching by name
-
-admin.site.register(Psychometric, PsychometricAdmin)
