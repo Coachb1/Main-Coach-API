@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LegacyBot, LegacyBotUser, Thread, ChatConversation
+from .models import LegacyBot, LegacyBotUser, Thread, ChatConversation, LegacyBotRoleAndPermissions
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -18,10 +18,10 @@ class LegacyBotImageUploadForm(forms.ModelForm):
 class LegacyBotAdmin(admin.ModelAdmin):
     form = LegacyBotImageUploadForm
 
-    list_display = ('id','uid','domain', 'assistant_id', 'assitant_type', 'name', 'description')
+    list_display = ('id','uid','domain', 'bot_identifier','assistant_id', 'assitant_type', 'name', 'description')
     search_fields = ('domain', 'assistant_id', 'name')
     list_filter = ('assitant_type','name')
-    list_editable = ('domain','assitant_type','name', 'description')
+    list_editable = ('domain','bot_identifier','assitant_type','name', 'description')
 
     def save_model(self, request, obj, form, change):
         # Check if an image file is in the form data
@@ -35,6 +35,13 @@ class LegacyBotUserAdmin(admin.ModelAdmin):
     list_display = ('id','uid','bot_id', 'email', 'name','first_name', 'last_name', 'att')
     search_fields = ('email', 'name', 'bot_id')
     list_editable = ('bot_id', 'email', 'name', 'first_name', 'last_name', 'att')
+
+
+# @admin.register(LegacyBotRoleAndPermissions)
+# class LegacyRoleAndPermissionAdmin(admin.ModelAdmin):
+#     list_display = ('id','role', 'max_session', 'created' ,'deleted')
+#     search_fields = ('role',)
+#     list_editable = ('max_session','deleted')
 
 @admin.register(Thread)
 class ThreadAdmin(admin.ModelAdmin):
