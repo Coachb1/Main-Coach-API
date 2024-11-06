@@ -20,8 +20,13 @@ class LegacyBotViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         domain = self.request.query_params.get('domain', None)
+        bot_identifier = self.request.query_params.get('bot_identifier',None)
+        
         if domain is not None:
             queryset = queryset.filter(domain=domain)
+        if bot_identifier is not None:
+            queryset = queryset.filter(bot_identifier=bot_identifier)
+
         return queryset
 
     
@@ -36,13 +41,18 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         email = self.request.query_params.get('email', None)
         bot_id = self.request.query_params.get('bot_id', None)
+        user_id = self.request.query_params.get('user_id', None)
 
-        if email is not None and bot_id is not None:
-            queryset = queryset.filter(email=email,bot_id=bot_id)
-        elif email is not None:
-            queryset = queryset.filter(email=email)
-        elif bot_id is not None:
-            queryset = queryset.filter(bot_id=bot_id)
+        if user_id:
+            queryset = queryset.filter(uid=user_id)
+
+        else:
+            if email is not None and bot_id is not None:
+                queryset = queryset.filter(email=email,bot_id=bot_id)
+            elif email is not None:
+                queryset = queryset.filter(email=email)
+            elif bot_id is not None:
+                queryset = queryset.filter(bot_id=bot_id)
 
         return queryset
     
@@ -81,11 +91,14 @@ class ThreadViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         thread_id = self.request.query_params.get('thread_id', None)
+        asst_thread_id = self.request.query_params.get('asst_thread_id', None)
         bot_id = self.request.query_params.get('bot_id', None)
         user_id = self.request.query_params.get('user_id',None)
 
         if thread_id:
-            queryset = queryset.filter(thread_id=thread_id)
+            queryset = queryset.filter(uid=thread_id)
+        if asst_thread_id:
+            queryset = queryset.filter(thread_id=asst_thread_id)
         if bot_id:
             queryset = queryset.filter(bot_id = bot_id)
         if user_id:
