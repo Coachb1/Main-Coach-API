@@ -10758,19 +10758,22 @@ def parse_psychometric_csv(csv_file):
     for row in reader:
         # Extract required fields and validate they are present
         section = row.get('Section')
-        subsection = row.get('Sub-section')
         parameter_names = row.get('Parameter Names')
         parameter_description = row.get('Parameter Description')
 
-        if not section or not subsection or not parameter_names or not parameter_description:
-            raise ValidationError("All fields are required: 'Section', 'Sub-section', 'Parameter Names', and 'Parameter Description'.")
+        if not section  or not parameter_names or not parameter_description:
+            raise ValidationError("All fields are required: 'Section', 'Parameter Names', and 'Parameter Description'.")
 
         # Prepare the parameters field
+        parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip()>0)]
+        parameter_name = " - ".join(parameter_list)
         parameters = {
-            "parameters": [p.strip() for p in parameter_names.split(',')],
+            "parameters": parameter_list,
             "description": parameter_description,
-            "parameterName": f"{parameter_names.replace(', ', ' - ')}"
+            "parameterName": parameter_name
         }
+
+        subsection = parameter_name
 
         # Dynamically parse range values using regex
         range_values = {}
