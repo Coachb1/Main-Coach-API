@@ -9727,6 +9727,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
 
     
     per_dims = ""
+    num_of_sections = 0
 
     if test.psychometric:
         section_dict = {}
@@ -9738,17 +9739,22 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
                 section_dict[item.section] = []  # Create a new list for this section
             section_dict[item.section].append(item.subsection)  # Add the subsection
 
+        logger.info(f"sections: {section_dict}")
         # Build the output string from the section dictionary
         for section, subsections in section_dict.items():
-            params = ",".join(f"{param} - Score [Score]" for param in subsections)
+            params = ", ".join(f"{subsection} - Score []" for subsection in subsections)
             per_dims += f"{section}: {params}\n"
+
+        num_of_sections = int(test.psychometric.items.count() / 2)
 
     else:
         for key, value in test.pshycometric_sections.items():
-            params = ",".join(f"{param} - Score [Score]" for param in value)
+            params = ", ".join(f"{param} - Score [Score]" for param in value)
             per_dims += f"{key}: {params}\n"
 
-    print(per_dims)
+        num_of_sections = len(test.pshycometric_sections)
+
+    logger.info(f" parameters:  {per_dims}")
 
     prompt = Template(prompt).substitute(
         title=test.title,
@@ -9765,7 +9771,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
                 prompt=prompt,
                 is_free=test.is_free
             )
-            result = parse_personality_dimensions(response,len(test.pshycometric_sections))
+            result = parse_personality_dimensions(response, num_of_sections)
 
             break
 
@@ -9774,6 +9780,9 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
             continue
 
     logger.info(f"psychometric json: {result}")
+
+    if not result:
+        raise ValidationError(f"Failed to generate psychometric report data. ")
 
     test_attempt_session.pshycometric_data = result
 
