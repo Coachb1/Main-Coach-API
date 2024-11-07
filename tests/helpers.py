@@ -10765,7 +10765,7 @@ def parse_psychometric_csv(csv_file):
             raise ValidationError("All fields are required: 'Section', 'Parameter Names', and 'Parameter Description'.")
 
         # Prepare the parameters field
-        parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip()>0)]
+        parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip())>0]
         parameter_name = " - ".join(parameter_list)
         parameters = {
             "parameters": parameter_list,
