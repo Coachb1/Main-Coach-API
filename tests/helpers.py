@@ -9742,7 +9742,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
         logger.info(f"sections: {section_dict}")
         # Build the output string from the section dictionary
         for section, subsections in section_dict.items():
-            params = ", ".join(f"{subsection} - Score []" for subsection in subsections)
+            params = ", ".join(f"{subsection} - Score [Score]" for subsection in subsections)
             per_dims += f"{section}: {params}\n"
 
         num_of_sections = int(test.psychometric.items.count() / 2)
