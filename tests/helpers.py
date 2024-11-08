@@ -2070,6 +2070,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
             feedback_text = "No feedback..."
             go_for_feedback = False
+
+        if test.scenario_case in [ScenarioCaseChoices.psychometric]:
+            feedback_text = None
+            go_for_feedback = False
         
         if go_for_feedback:
             start = time.time()
@@ -9788,8 +9792,35 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
 
     test_attempt_session.save(update_fields=['pshycometric_data'])
 
+
+    generate_culture_rating(test=test,test_attempt_session=test_attempt_session)
+
     return result
 
+def generate_culture_rating(test:Test,test_attempt_session:TestAttemptSession):
+    responses = TestQuestionResponse.objects.filter(
+                        test_attempt_session_id=test_attempt_session.uid,
+                        deleted=0
+                    )
+    
+    if test.calculate_culture:
+        culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
+
+        logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
+
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+        updated_fields = []
+
+        if culture_skills_rating is not None:
+            culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+            culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+            test_attempt_session.culture_skills_rating = culture_skills_rating
+            updated_fields.append("culture_skills_rating")
+
+
+    if len(updated_fields) >0:
+        test_attempt_session.save(update_fields=updated_fields)
 
 def parse_personality_dimensions(text_response, expected_sections):
     # Initialize the dictionary to hold the results
@@ -10790,11 +10821,11 @@ def parse_psychometric_csv(csv_file):
                 ranges_found[range_num] = {"range": value}
             elif strengths_match:
                 range_num = strengths_match.group(1)
-                strengths = re.findall(r'([A-Za-z_-]+:\s*.*?)(?=[A-Za-z_-]+:|$)', value, re.DOTALL)
+                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
                 ranges_found.setdefault(range_num, {})["strengths"] = [s.strip() for s in strengths if s.strip()]
             elif improvement_match:
                 range_num = improvement_match.group(1)
-                areas = re.findall(r'([A-Za-z_-]+:\s*.*?)(?=[A-Za-z_-]+:|$)', value, re.DOTALL)
+                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
 
                 ranges_found.setdefault(range_num, {})["areas_for_improvement"] = [a.strip() for a in areas if a.strip()]
 
