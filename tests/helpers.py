@@ -2072,7 +2072,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             go_for_feedback = False
 
         if test.scenario_case in [ScenarioCaseChoices.psychometric]:
-            feedback_text = None
+            feedback_text = " "
             go_for_feedback = False
         
         if go_for_feedback:
@@ -2198,10 +2198,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             }
         }
 
-        feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
-        test_question_response.feedback_text = feedback_text
-        updated_fields.append("feedback_text")
-        updated_fields.append("metadata")
+        if feedback_text:
+            feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+            test_question_response.feedback_text = feedback_text
+            updated_fields.append("feedback_text")
+            updated_fields.append("metadata")
 
 
     if test.scenario_case == ScenarioCaseChoices.pitch:
