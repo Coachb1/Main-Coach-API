@@ -56,13 +56,19 @@ class LegacyBotUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance:LegacyBotUser):
         data = super().to_representation(instance)
 
-        threads = list(Thread.objects.filter(user_id=instance.uid).values_list('uid', flat=True))
-        conversation_count = ChatConversation.objects.filter(thread_id__in=threads).count()
+        threads = Thread.objects.filter(user_id=instance.uid)
+        conversations = ChatConversation.objects.filter(thread_id__in=list(threads.values_list('uid', flat=True)))
+        conversation_count = conversations.count()
         unlimited_session = True if instance.max_session < 0 else False
         data['qouta_exceeded'] = unlimited_session
 
         data["TotalSessionCount"] = conversation_count // (instance.session_per_conversation_step * 2)
         data["total_conversation_steps"]= conversation_count / 2
+
+        if threads.count() >0:
+            data['last_conversation_date'] = threads.order_by('-updated').first().updated.date()
+        else:
+            data['last_conversation_date'] = None
 
 
         return data
