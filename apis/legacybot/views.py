@@ -28,8 +28,63 @@ class LegacyBotViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(bot_identifier=bot_identifier)
 
         return queryset
-
     
+
+    @action(methods=['GET'], detail=False, url_path="threads-and-conversations")
+    def get_threads_and_conversations(self, request, *args, **kwargs):
+        bot_id = self.request.query_params.get('bot_id')
+        admin_user_id = self.request.query_params.get('admin_user_id')
+
+        if not bot_id or not admin_user_id:
+            return Response({'detail': "Parameters 'bot_id' and 'admin_user_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Validate the bot exists
+            bot = LegacyBot.objects.get(uid=bot_id, deleted=False)
+            
+            response_data = self.get_thread_conversation_for_thread(bot_id=bot_id)
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except LegacyBot.DoesNotExist:
+            return Response({'detail': f"No bot found with the id {bot_id}"}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            logger.exception(f"Error in fetching threads and conversations: {e}")
+            return Response({'error': f"Failed to fetch threads and conversations: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    def get_thread_conversation_for_thread(self,bot_id):
+        # Fetch threads associated with the bot
+        threads = Thread.objects.filter(bot_id=bot_id, deleted=False)
+        
+        # Fetch all users for the threads and map them by user_id
+        user_ids = {thread.user_id for thread in threads}
+        users = LegacyBotUser.objects.filter(uid__in=user_ids, deleted=False)
+        # user_data_map = {user.uid: LegacyBotUserSerializer(user).data for user in users}
+        
+        # Fetch conversations in bulk and group by thread_id
+        conversations = ChatConversation.objects.filter(
+            deleted=False, thread_id__in=[thread.uid for thread in threads]
+        ).order_by('created')
+        conversations_by_thread = defaultdict(list)
+        for conversation in conversations:
+            conversations_by_thread[conversation.thread_id].append(conversation)
+        
+        logger.info(f"conversations: {conversations_by_thread}")
+        # Prepare the response data
+        response_data = {user.uid: {'user_info': LegacyBotUserSerializer(user).data, 'threads': []} for user in users}
+        for thread in threads:
+            temp_info = {
+                "thread_info": ThreadSerializer(thread).data,
+                "conversations": ChatConversationSerializer(conversations_by_thread[thread.uid], many=True).data
+            }
+
+            logger.info(f"user-thread_info: {temp_info}")
+            response_data[thread.user_id]['threads'].append({thread.uid : temp_info})
+
+        return response_data
+
 
 class LegacyBotUserViewSet(viewsets.ModelViewSet):
     queryset = LegacyBotUser.objects.filter(deleted=False)
@@ -79,6 +134,21 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
             return Response({'detail': f"No bot found with the {bot_id}"}, status=status.HTTP_400_BAD_REQUEST)
         # If it doesn't exist, proceed with creation
         return super().create(request, *args, **kwargs)
+    
+    @action(methods=['GET'], detail=False, url_path="get-bot-by-user")
+    def get_bot_by_user(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id', None)
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = LegacyBotUser.objects.get(uid=user_id)
+            bots = LegacyBot.objects.filter(creator=user, deleted=False)
+            serializer = LegacyBotSerializer(bots, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Error getting bot by user : {e}")
+            return Response({'detail': f"Error getting bot by user"}, status=status.HTTP_400_BAD)
+            
 
 
 
