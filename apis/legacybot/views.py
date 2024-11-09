@@ -73,7 +73,7 @@ class LegacyBotViewSet(viewsets.ModelViewSet):
         
         logger.info(f"conversations: {conversations_by_thread}")
         # Prepare the response data
-        response_data = {user.uid: {'user_info': LegacyBotUserSerializer(user).data, 'threads': []} for user in users}
+        response_data = {user.uid: {'user_info': LegacyBotUserSerializer(user).data, 'threads': {}} for user in users}
         for thread in threads:
             temp_info = {
                 "thread_info": ThreadSerializer(thread).data,
@@ -81,7 +81,7 @@ class LegacyBotViewSet(viewsets.ModelViewSet):
             }
 
             logger.info(f"user-thread_info: {temp_info}")
-            response_data[thread.user_id]['threads'].append({thread.uid : temp_info})
+            response_data[thread.user_id]['threads'][thread.uid] = temp_info
 
         return response_data
 
