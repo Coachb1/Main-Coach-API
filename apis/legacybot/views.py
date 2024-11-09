@@ -33,10 +33,8 @@ class LegacyBotViewSet(viewsets.ModelViewSet):
     @action(methods=['GET'], detail=False, url_path="threads-and-conversations")
     def get_threads_and_conversations(self, request, *args, **kwargs):
         bot_id = self.request.query_params.get('bot_id')
-        admin_user_id = self.request.query_params.get('admin_user_id')
-
-        if not bot_id or not admin_user_id:
-            return Response({'detail': "Parameters 'bot_id' and 'admin_user_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not bot_id:
+            return Response({'detail': "Parameters 'bot_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             # Validate the bot exists
