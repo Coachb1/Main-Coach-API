@@ -2072,7 +2072,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             go_for_feedback = False
 
         if test.scenario_case in [ScenarioCaseChoices.psychometric]:
-            feedback_text = None
+            feedback_text = " "
             go_for_feedback = False
         
         if go_for_feedback:
