@@ -111,26 +111,19 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
-        bot_id = request.data.get('bot_id')
 
-        if not email or not bot_id:
-            return Response({"detail": "Both 'email' and 'bot_id' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not email:
+            return Response({"detail": "'email' is required."}, status=status.HTTP_400_BAD_REQUEST)
         # Check if the record already exists
-        existing_user = LegacyBotUser.objects.filter(email=email, bot_id=bot_id,deleted=False).first()
+        existing_user = LegacyBotUser.objects.filter(email=email,deleted=False).first()
 
         if existing_user:
-            logger.info(f"User with email {email} and bot_id {bot_id} already exists.")  # If existing_user is found
+            logger.info(f"User with email {email} already exists.")  # If existing_user is found
             # If it exists, return the existing record
             serializer = self.get_serializer(existing_user)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        logger.info(f"Creating a new user with email {email} and bot_id {bot_id}.")  # If creating a new user
-        try:
-            LegacyBot.objects.get(uid=bot_id)
-        except Exception as e:
-            logger.exception(f"no bot found : {e}")
-            return Response({'detail': f"No bot found with the {bot_id}"}, status=status.HTTP_400_BAD_REQUEST)
-        # If it doesn't exist, proceed with creation
+        logger.info(f"Creating a new user with email {email}.")  # If creating a new user
         return super().create(request, *args, **kwargs)
     
     @action(methods=['GET'], detail=False, url_path="get-bot-by-user")
