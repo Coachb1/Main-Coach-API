@@ -22,7 +22,7 @@ class PsychometricItem(MyModel):
     # Fields for Ranges
     range_values = models.JSONField(blank=True, null=True, default=dict)
 
-    average_value = models.TextField(blank=True, null=True, default="0")
+    average_value = models.TextField(blank=True, null=True, default=None)
 
     def __str__(self):
         return f"{self.id} -{self.section} : {self.subsection}"
