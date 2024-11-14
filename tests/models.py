@@ -25,7 +25,7 @@ class PsychometricItem(MyModel):
     average_value = models.TextField(blank=True, null=True, default=None)
 
     def __str__(self):
-        return f"{self.section} : {self.subsection}"
+        return f"{self.id} -{self.section} : {self.subsection}"
     
     class Meta:
         db_table = "psychometric_item"
