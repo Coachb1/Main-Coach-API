@@ -83,6 +83,7 @@ from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
 from django.core.exceptions import ValidationError
 import csv
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -3642,10 +3643,14 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         client_info = None
 
     psychometric_data = None
+    psychometric_info = None
+    other_psychometric_infos = {}
 
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data
-        psychometric_data['info'] = format_psychometric_items(test.psychometric)
+        psychometric_info = format_psychometric_items(test.psychometric)
+        other_psychometric_infos['max_ranges'] = find_highest_count_range(psychometric_data)
+
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
         start = time.time()
@@ -3773,6 +3778,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "client_name":client_name,
         "client_id": client_id,
         'pshycometric_data': psychometric_data,
+        'psychometric_info': psychometric_info,
+        "other_psychometric_infos": other_psychometric_infos
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -10771,6 +10778,33 @@ def format_psychometric_items(psychometric:Psychometric):
         sections[f"{item.section}"] = section
 
     return sections.values()
+
+def find_highest_count_range(data):
+    # Define ranges as tuples of (min, max)
+    if not data:
+        return []
+    ranges = [(0, 3), (4, 7), (8, 10)]
+    
+    # Dictionary to store counts for each range
+    range_counts = defaultdict(int)
+    
+    # Iterate through nested dictionary and count values in each range
+    for category, subcategory_values in data.items():
+        for subcategory, value in subcategory_values.items():
+            for r in ranges:
+                if r[0] <= value <= r[1]:
+                    range_counts[r] += 1
+                    break  # Stop after finding the correct range
+    
+    # Find the maximum count
+    print(range_counts)
+    max_count = max(range_counts.values())
+    
+    # Get all ranges with the maximum count
+    most_common_ranges = [f"{r[0]}-{r[1]}" for r, count in range_counts.items() if count == max_count]
+    
+    return most_common_ranges
+
 
 
 
