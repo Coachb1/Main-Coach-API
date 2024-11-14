@@ -10827,9 +10827,10 @@ def parse_psychometric_csv(csv_file):
         section = row.get('Section')
         parameter_names = row.get('Parameter Names')
         parameter_description = row.get('Parameter Description')
+        avg_value = row.get('Average Score')
 
-        if not section  or not parameter_names or not parameter_description:
-            raise ValidationError("All fields are required: 'Section', 'Parameter Names', and 'Parameter Description'.")
+        if not section  or not parameter_names or not parameter_description or not avg_value:
+            raise ValidationError("All fields are required: 'Section', 'Parameter Names', 'Average Score' and 'Parameter Description'.")
 
         # Prepare the parameters field
         parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip())>0]
@@ -10880,7 +10881,8 @@ def parse_psychometric_csv(csv_file):
             "section": section,
             "subsection": subsection,
             "parameters": parameters,
-            "range_values": range_values
+            "range_values": range_values,
+            'average_value': avg_value
         }
         items.append(item_data)
 
