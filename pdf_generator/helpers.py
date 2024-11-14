@@ -146,7 +146,8 @@ def format_psychometric_items(psychometric:Psychometric):
         parameters = item.parameters
         section["generate_note"].append({
                 "parameter": " vs ".join(parameters.get('parameters')),
-                "description": parameters.get('description')
+                "description": parameters.get('description'),
+                'average_value': item.average_value
             })
 
         parameter_data = {
