@@ -15,7 +15,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios)
-from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion
+from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -1587,3 +1587,28 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Failed to fetch tests by filter : {e}")
             return Response({"error": f"Failed to fetch tests by filter : {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'],detail=False, url_path="get-test-user-config")
+    def get_test_user_config(self, request, *args, **kwargs):
+        
+        try:
+
+            user_id = self.request.query_params.get('user_id')
+            test_code = self.request.query_params.get('test_code')
+
+            if not user_id and not test_code:
+                return Response({'error': f"user_id and test_code is required!"}, status=status.HTTP_400_BAD_REQUEST)
+
+            config = UserTestConfigs.objects.filter(
+                tenant_id = self.request.tenant.uid,
+                user_id= user_id.strip(),
+                test_code= test_code.strip(),
+
+            )
+            return Response( config, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Failed to fetch test_user_config : {e}")
+            return Response({"error": f"Failed to fetch test_user_config : {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
+        
