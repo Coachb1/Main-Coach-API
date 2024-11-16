@@ -9,6 +9,8 @@ from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
 from tests.choices import ScenarioCaseChoices
 from commons.db.model import MyModel
+from django.utils.crypto import get_random_string
+import string
 
 
 ## psychometric section
@@ -136,6 +138,8 @@ class Test(TenantAwareModel):
         null=True,  # Allow null if a test can exist without a psychometric set
         default=None
     )
+    report_description = models.TextField(null=True, blank=True, default=None)
+    
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -143,6 +147,9 @@ class Test(TenantAwareModel):
         unique_together = (
             ("tenant_id", "test_code", "deleted"),
         )
+
+    def __str__(self):
+        return f"{self.title} ({self.test_code})"
 
 
 class TestQuestion(TenantAwareModel):
@@ -275,3 +282,75 @@ class TestQuestionResponse(TenantAwareModel):
 
         ordering = ("id",)
 
+
+
+class UserTestConfigs(TenantAwareModel):
+    user_email = models.EmailField(
+        help_text="Enter the email address of the user. Ensure it is valid."
+    )
+    test_code = models.CharField(
+        max_length=12,
+        help_text="Enter the unique code for the test (maximum 12 characters)."
+    )
+    test_title = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter the title of the test. It will be auto-populated if left blank."
+    )
+    access_code = models.CharField(
+        max_length=12,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter or generate a unique access code for the test."
+    )
+    user_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter the user ID associated with the user email."
+    )
+    report_on = models.BooleanField(
+        default=True,
+        help_text="Toggle this to enable or disable reporting for the test."
+    )
+
+    class Meta:
+        db_table = "user_test_configs"
+        unique_together = (
+            ('user_id', 'test_code', 'deleted')
+        )
+
+    def save(self, *args, **kwargs):
+        # Auto-generate access_code if blank
+        if not self.access_code:
+            self.access_code = self.get_unique_access_code()
+
+        super().save(*args, **kwargs)
+
+    def get_unique_access_code(self) -> str:
+        USER_TEST_ACCESS_CODE = 6
+        access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+        retries = 0
+
+        while UserTestConfigs.objects.filter(access_code=access_code).exists():
+            if retries >= 4:
+                USER_TEST_ACCESS_CODE += 1
+                retries = 0
+            access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+            retries += 1
+
+        return access_code
+
+    def generate_access_code(self, user_test_accesscode) -> str:
+        """Helper to generate a prefixed random string."""
+
+        STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
+        return f"CB_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
+
+
+    def __str__(self):
+        return f"{self.test_code} ({self.user_email})"

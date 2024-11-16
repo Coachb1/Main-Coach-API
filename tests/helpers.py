@@ -84,6 +84,7 @@ from apis.accounts.serializers import clientUserInfoSerializer
 from django.core.exceptions import ValidationError
 import csv
 from collections import defaultdict
+from tests.models import UserTestConfigs
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,8 @@ def create_test(tenant: Tenant,
                 calculate_culture: bool,
                 snippet_url: str,
                 pshycometric_sections: dict,
-                psychometric:str) -> tuple[Test, list[TestQuestion]]:
+                psychometric:str,
+                report_description:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -431,7 +433,8 @@ def create_test(tenant: Tenant,
             calculate_culture=calculate_culture,
             snippet_url=snippet_url,
             pshycometric_sections=pshycometric_sections,
-            psychometric=psychometric
+            psychometric=psychometric,
+            report_description=report_description
         )
 
         test_questions = []
@@ -545,7 +548,8 @@ def update_test(tenant: Tenant,
                 web_page_url: str,
                 sub_tab_category: str,
                 calculate_culture: bool,
-                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
+                snippet_url: str,
+                report_description:str) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -677,6 +681,8 @@ def update_test(tenant: Tenant,
             test.calculate_culture = calculate_culture
         if test.snippet_url != snippet_url:
             test.snippet_url = snippet_url
+        if test.report_description != report_description:
+            test.report_description = report_description
 
         test.save()
 
@@ -3619,15 +3625,15 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
-    try:
-        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
-                                                    user_uid=test_attempt_session.participant_id
-                                                    )
-        client_name = client.client_name if client else None
-        client_id = client.id if client else None
-    except:
-        client_name = None
-        client_id = None
+    # try:
+    #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+    #                                                 user_uid=test_attempt_session.participant_id
+    #                                                 )
+    #     client_name = client.client_name if client else None
+    #     client_id = client.id if client else None
+    # except:
+    #     client_name = None
+    #     client_id = None
 
     try:
         client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
@@ -3779,7 +3785,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "client_id": client_id,
         'pshycometric_data': psychometric_data,
         'psychometric_info': psychometric_info,
-        "other_psychometric_infos": other_psychometric_infos
+        "other_psychometric_infos": other_psychometric_infos,
+        'report_description': test.report_description,
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -4765,7 +4772,17 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate and participant_email:
+    report_on = True
+
+    usertest_config = UserTestConfigs.objects.filter(
+        user_id=test_attempt_session.participant_id,
+        test_code = test.test_code
+    ).first()
+    if usertest_config:
+        report_on = usertest_config.report_on
+
+
+    if test.email_candidate and participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
@@ -4844,7 +4861,17 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate and participant_email:
+
+    report_on = True
+
+    usertest_config = UserTestConfigs.objects.filter(
+        user_id=test_attempt_session.participant_id,
+        test_code = test.test_code
+    ).first()
+    if usertest_config:
+        report_on = usertest_config.report_on
+
+    if test.email_candidate and participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
