@@ -98,6 +98,7 @@ QUE_SNIPPET_LINK = "Que Snippet Link"
 TEST_CODE = "Test Code"
 SECTIONS = "Sections"
 PSYCHOMETRIC = "Psychometric Set"
+REPORT_DESCRIPTION = "Report Description"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -332,6 +333,9 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
                 output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
+        if REPORT_DESCRIPTION in input_dict:
+            if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
+                output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
 
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
@@ -1011,6 +1015,10 @@ def format_test_data_slack(raw_data,tenant):
         if TED_TALK_AND_HBR_CASE in input_dict.keys():
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict(TED_TALK_AND_HBR_CASE).strip()) > 0:
                 output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
+
+        if REPORT_DESCRIPTION in input_dict:
+            if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
+                output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
 
         skills_list = set()
         for key in input_dict:
