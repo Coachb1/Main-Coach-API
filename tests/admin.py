@@ -1,6 +1,6 @@
 from django.contrib import admin 
 from import_export.admin import ExportActionMixin
-from tests.models import Test, TestQuestion, Psychometric, PsychometricItem
+from tests.models import Test, TestQuestion, Psychometric, PsychometricItem, UserTestConfigs
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
 import csv
@@ -10,6 +10,8 @@ from tests.helpers import parse_psychometric_csv
 from django.contrib import messages
 from django.db import transaction
 from tenants.models import Tenant
+from identities.helpers import get_user_via_identity
+from identities.models import Identity
 
 class StartWithUserFilter(admin.SimpleListFilter):
     title = 'Start with User'
@@ -156,3 +158,58 @@ class PsychometricItemAdmin(admin.ModelAdmin):
 admin.site.register(PsychometricItem, PsychometricItemAdmin)
 
 
+class UserTestConfigsAdminForm(forms.ModelForm):
+    class Meta:
+        model = UserTestConfigs
+        fields = '__all__'
+
+    tenant_id = forms.ChoiceField(
+        choices=Tenant.get_tenant_choices(),  # Fetch all tenants from the database
+        required=True,  # Set this to True or False depending on your requirements
+        help_text=_("Select the tenant."),
+        initial=None
+    )
+
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tenant_id = cleaned_data.get("tenant_id")
+        test_code = cleaned_data.get("test_code")
+        user_email = cleaned_data.get("user_email")
+
+        tenant = Tenant.objects.get(uid=tenant_id)
+        try:
+            user = get_user_via_identity(
+                tenant=tenant,
+                identity_type="deepchat_unique_id",
+                identity_value=user_email
+            )
+            if not user:
+                raise ValidationError("Invalid user email!.")
+        except:
+            raise ValidationError("Invalid user email!.")
+        
+
+        cleaned_data['user_id'] = user.uid
+
+
+        test = Test.objects.filter(tenant_id=tenant_id, test_code=test_code, deleted=False).first()
+        # Validate test_code based on tenant_id
+        if not test:
+            raise ValidationError("Invalid test code for the given tenant.")
+        
+        cleaned_data['test_title'] = test.title
+
+
+        if cleaned_data.get('access_code'):
+            if UserTestConfigs.objects.filter(tenant_id=tenant_id, access_code=self.access_code).exists():
+                raise ValidationError("The access code is already taken. Please choose a unique access code.")
+
+        return cleaned_data
+
+class UserTestConfigsAdmin(admin.ModelAdmin):
+    form = UserTestConfigsAdminForm
+    list_display = ('user_email', 'test_code', 'test_title', 'report_on', 'access_code')
+    search_fields = ('user_email', 'test_code')
+
+admin.site.register(UserTestConfigs, UserTestConfigsAdmin)
