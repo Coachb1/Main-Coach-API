@@ -2607,7 +2607,10 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "widget_access_code": client.widget_access_code,
         "allow_paste_answer": client.allow_paste_answer,
         'help_text': client.help_text or get_default_help_text(),
-        "send_profile_for_reapproval": client.send_profile_for_reapproval
+        "send_profile_for_reapproval": client.send_profile_for_reapproval,
+        "allow_access_to_platform": client.allow_access_to_platform,
+        "allow_access_to_snippet": client.allow_access_to_snippet,
+        "report_on": client.report_on
 
     }
     user_info['user_id'] = user_account.uid

@@ -84,7 +84,6 @@ from apis.accounts.serializers import clientUserInfoSerializer
 from django.core.exceptions import ValidationError
 import csv
 from collections import defaultdict
-from tests.models import UserTestConfigs
 
 logger = logging.getLogger(__name__)
 
@@ -4752,10 +4751,11 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "profile", {}).get("email") or participant_attributes.get('email',None)
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-
+    report_on = True
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
+        report_on = client.report_on
         if client.email_address_list:
             email_address_list.extend([email.strip() 
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
@@ -4771,16 +4771,6 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
             send_error_notification("send_report_link_to_email",f"failed to send email to {to_email}, err: {e}",data)
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
-
-    report_on = True
-
-    usertest_config = UserTestConfigs.objects.filter(
-        user_id=test_attempt_session.participant_id,
-        test_code = test.test_code
-    ).first()
-    if usertest_config:
-        report_on = usertest_config.report_on
-
 
     if test.email_candidate and participant_email and report_on:
         try:
@@ -4841,10 +4831,11 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         "profile", {}).get("email") or participant_attributes.get('email')
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-
+    report_on = True
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
+        report_on = client.report_on
         if client.email_address_list:
             email_address_list.extend([email.strip() 
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
@@ -4861,15 +4852,6 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-
-    report_on = True
-
-    usertest_config = UserTestConfigs.objects.filter(
-        user_id=test_attempt_session.participant_id,
-        test_code = test.test_code
-    ).first()
-    if usertest_config:
-        report_on = usertest_config.report_on
 
     if test.email_candidate and participant_email and report_on:
         try:
@@ -9768,8 +9750,8 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     per_dims = ""
     num_of_sections = 0
 
+    section_dict = {}
     if test.psychometric:
-        section_dict = {}
 
         # Iterate over each PsychometricItem associated with the Psychometric set
         for item in test.psychometric.items.all():
@@ -9793,6 +9775,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
             per_dims += f"{key}: {params}\n"
 
         num_of_sections = len(test.pshycometric_sections)
+        section_dict = test.pshycometric_sections
 
     logger.info(f" parameters:  {per_dims}")
 
@@ -9811,7 +9794,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
                 prompt=prompt,
                 is_free=test.is_free
             )
-            result = parse_personality_dimensions(response, num_of_sections)
+            result = parse_personality_dimensions(response, num_of_sections, section_dict)
 
             break
 
@@ -9858,8 +9841,12 @@ def generate_culture_rating(test:Test,test_attempt_session:TestAttemptSession):
     if len(updated_fields) >0:
         test_attempt_session.save(update_fields=updated_fields)
 
-def parse_personality_dimensions(text_response, expected_sections):
+def parse_personality_dimensions(text_response, expected_sections, psy_dict):
     # Initialize the dictionary to hold the results
+    psy_dict_cleaned = {
+        key.strip(): [value.strip() for value in values]
+        for key, values in psy_dict.items()
+    }
     results = {}
 
     # Check if the input string is empty
@@ -9891,6 +9878,9 @@ def parse_personality_dimensions(text_response, expected_sections):
 
             # Add the dimension and its scores to the results dictionary
             results[dimension] = scores
+            logger.info(f"{list(scores.keys())}  psy= {psy_dict_cleaned},{psy_dict_cleaned.get(dimension)}, {[key.strip() for key in scores.keys()] == psy_dict_cleaned.get(dimension,[])}")
+            if [key.strip() for key in scores.keys()] != psy_dict_cleaned.get(dimension,[]):
+                raise ValidationError(f"Invalid output given by LLM. response: {text_response}")
         else:
             raise ValueError(f"Invalid line format: '{line}'")
 

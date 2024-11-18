@@ -347,10 +347,24 @@ class UserTestConfigs(TenantAwareModel):
 
     def generate_access_code(self, user_test_accesscode) -> str:
         """Helper to generate a prefixed random string."""
-
+        prefix = ""
+        if len(self.client_name.split()) == 1:
+            prefix = self.client_name[:4].upper()
+        else:
+            prefix = ''.join(word[0] for word in self.client_name.split()).upper()
         STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
-        return f"CB_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
+        return f"{prefix}_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
 
 
     def __str__(self):
         return f"{self.test_code} ({self.user_email})"
+    
+
+
+# class UserTestAttempts(TenantAwareModel):
+#     """Model to store user test attempts."""
+#     session_id = models.CharField(max_length=100)
+#     user_email = models.CharField(max_length=30)
+#     test_code = models.CharField(max_length=10)
+#     test_title = models.CharField(max_length=100)
+#     test_id = models.models.CharField(max_length=100)
