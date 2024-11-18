@@ -491,8 +491,8 @@ class AccountsViewSet(ApiViewSet,
 
             cache_key = generate_cache_key("client_info",tenant.uid,mode,user_id,email,mob_number)
             cached_data = get_cache(cache_key)
-            if cached_data:
-                return Response({"data":cached_data},status=status.HTTP_200_OK)
+            # if cached_data:
+            #     return Response({"data":cached_data},status=status.HTTP_200_OK)
             
             client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
             data = {}
