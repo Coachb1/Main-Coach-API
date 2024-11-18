@@ -4751,7 +4751,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "profile", {}).get("email") or participant_attributes.get('email',None)
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-    report_on = True
+    report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
@@ -4772,7 +4772,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate and participant_email and report_on:
+    if participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
@@ -4831,7 +4831,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         "profile", {}).get("email") or participant_attributes.get('email')
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-    report_on = True
+    report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
@@ -4853,7 +4853,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
 
-    if test.email_candidate and participant_email and report_on:
+    if participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
