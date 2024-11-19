@@ -9787,6 +9787,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     )
 
     result = {}
+    errors = []
     for i in range(1,4):
         try:
             logger.info(f"genereating psychometric report data for the {i} time.")
@@ -9799,13 +9800,17 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
             break
 
         except Exception as e:
+            errors.append(str(e))
             logger.exception(f" Failed to generate section for the {i} time, reason: {e}")
             continue
 
     logger.info(f"psychometric json: {result}")
 
     if not result:
-        raise ValidationError(f"Failed to generate psychometric report data. ")
+        send_error_notification(module='generate_psychometric_report_data',
+                                msg=f"Failed to generate psychometric report data.",
+                                data=errors)
+        raise ValidationError(f"Failed to generate psychometric report data. reason: {errors} ")
 
     test_attempt_session.pshycometric_data = result
 
@@ -9868,7 +9873,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
             for detail in details.split(','):
                 detail = detail.strip()
                 # Extract the name and score
-                score_match = re.match(r'^(.*?)-\s*Score\s*(\d+)', detail)
+                score_match = re.match(r'^(.*?)\s*-?\s*Score\s*\[?([\d.]+)\]?', detail)
                 if score_match:
                     name = score_match.group(1).strip()
                     score = float(score_match.group(2))
@@ -9880,7 +9885,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
             results[dimension] = scores
             logger.info(f"{list(scores.keys())}  psy= {psy_dict_cleaned},{psy_dict_cleaned.get(dimension)}, {[key.strip() for key in scores.keys()] == psy_dict_cleaned.get(dimension,[])}")
             if [key.strip() for key in scores.keys()] != psy_dict_cleaned.get(dimension,[]):
-                raise ValidationError(f"Invalid output given by LLM. response: {text_response}")
+                raise ValidationError(f"Invalid output given by LLM in line `{line}`. response: {text_response}")
         else:
             raise ValueError(f"Invalid line format: '{line}'")
 
