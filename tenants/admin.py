@@ -18,7 +18,7 @@ admin.site.register(Tenant, TenantAdmin)
 
 # Custom form to handle tenant_id dropdown
 class TenantAwareAdminForm(forms.ModelForm):
-    tenant_id = forms.ChoiceField(choices=Tenant.get_tenant_choices())
+    tenant_id = forms.ChoiceField(choices= [(None, 'Select Tenant')]+ Tenant.get_tenant_choices())
 
     class Meta:
         model = None  # We'll set the model dynamically in the admin
