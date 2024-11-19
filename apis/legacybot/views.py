@@ -240,10 +240,18 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
         queryset = self.queryset
         user_id = self.request.query_params.get('user_id', None)
         thread_id = self.request.query_params.get('thread_id', None)
+        bot_id = self.request.query_params.get('bot_id',None)
 
         if user_id:
             # Filter chat conversations by user_id
-            threads = Thread.objects.filter(user_id=user_id,deleted=False)
+            filter_data = {
+                'user_id': user_id,
+                'deleted': False
+
+            }
+            if bot_id:
+                filter_data['bot_id'] = bot_id
+            threads = Thread.objects.filter(**filter_data)
             
             # Format the response
             response_data = defaultdict(list)
