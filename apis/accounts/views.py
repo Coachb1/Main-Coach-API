@@ -494,7 +494,7 @@ class AccountsViewSet(ApiViewSet,
             # if cached_data:
             #     return Response({"data":cached_data},status=status.HTTP_200_OK)
             
-            client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
+            client_info = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False)
             data = {}
 
             if mode == 'my_lib':
