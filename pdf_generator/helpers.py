@@ -354,7 +354,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "feedback_summary":test_attempt_session.feedback_summary,
                 "skill_summary":test_attempt_session.culture_and_skill_summary,
                 'pshycometric_data': psychometric_data,'psychometric_info': psychometric_info, 
-                "other_psychometric_infos": other_psychometric_infos
+                "other_psychometric_infos": other_psychometric_infos,
+                "category": test.category
                 }
 
 
@@ -485,7 +486,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  "skill_summary":skill_summary,'start_with_user':start_with_user,
                  'bot_name':bot_name,'competency_data':competency_report_data,
                  'pshycometric_data': psychometric_data, 'psychometric_info': psychometric_info, 
-                 'other_psychometric_infos': other_psychometric_infos
+                 'other_psychometric_infos': other_psychometric_infos,
+                 "category": test.category
                  }
 
 
@@ -538,7 +540,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,
                 'focus_area': focus_area,'pshycometric_data': psychometric_data, 
                 'psychometric_info': psychometric_info, 
-                'other_psychometric_infos': other_psychometric_infos
+                'other_psychometric_infos': other_psychometric_infos,
+                "category": test.category
                 }
 
 
@@ -683,6 +686,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'psychometric_info': psychometric_info,
                 'other_psychometric_infos': other_psychometric_infos,
                 'report_description': test.report_description,
+                'category': test.category
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)

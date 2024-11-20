@@ -99,6 +99,7 @@ TEST_CODE = "Test Code"
 SECTIONS = "Sections"
 PSYCHOMETRIC = "Psychometric Set"
 REPORT_DESCRIPTION = "Report Description"
+CATEGORY = "Category"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -489,6 +490,10 @@ def format_test_orchestrated_conversation(raw_data):
 
         if output_dict.get('scenario_case') == 'assessment':
             output_dict['email_candidate'] = False
+            
+        if CATEGORY in input_dict:
+            if input_dict[CATEGORY] and len(input_dict[CATEGORY].strip()) > 0 :
+                output_dict['category'] = input_dict[CATEGORY].strip().capitalize()
 
 
         check_pass = True
@@ -959,6 +964,10 @@ def format_test_data_slack(raw_data,tenant):
         if PAGE_NAME in input_dict:
             if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
                 output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+                
+        if CATEGORY in input_dict:
+            if input_dict[CATEGORY] and len(input_dict[CATEGORY].strip()) > 0 :
+                output_dict['category'] = input_dict[CATEGORY].strip().capitalize()
 
 
         if AREA_DOMAIN in input_dict:
