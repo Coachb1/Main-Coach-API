@@ -137,6 +137,7 @@ class CreateTestSerializer(serializers.Serializer):
     pshycometric_sections = serializers.JSONField(default=None, required=False, allow_null=True)
     psychometric = serializers.CharField(default=None,required=False, allow_blank=True)
     report_description = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -218,7 +219,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "sub_tab_category",
                   "calculate_culture",
                   "snippet_url",
-                  "report_description"
+                  "report_description",
+                  "category",
                   ]
 
     def get_questions(self, instance):
