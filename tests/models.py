@@ -139,6 +139,7 @@ class Test(TenantAwareModel):
         default=None
     )
     report_description = models.TextField(null=True, blank=True, default=None)
+    category = models.CharField(max_length=255, null=True, blank=True, default=None)
     
     class Meta:
         db_table = "test"

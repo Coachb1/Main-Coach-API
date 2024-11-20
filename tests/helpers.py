@@ -239,7 +239,8 @@ def create_test(tenant: Tenant,
                 snippet_url: str,
                 pshycometric_sections: dict,
                 psychometric:str,
-                report_description:str) -> tuple[Test, list[TestQuestion]]:
+                report_description:str,
+                category: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -433,7 +434,8 @@ def create_test(tenant: Tenant,
             snippet_url=snippet_url,
             pshycometric_sections=pshycometric_sections,
             psychometric=psychometric,
-            report_description=report_description
+            report_description=report_description,
+            category=category,
         )
 
         test_questions = []
@@ -548,7 +550,8 @@ def update_test(tenant: Tenant,
                 sub_tab_category: str,
                 calculate_culture: bool,
                 snippet_url: str,
-                report_description:str) -> tuple[Test, list[TestQuestion]]:
+                report_description:str,
+                category: str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -682,6 +685,8 @@ def update_test(tenant: Tenant,
             test.snippet_url = snippet_url
         if test.report_description != report_description:
             test.report_description = report_description
+        if test.category != category:
+            test.category = category
 
         test.save()
 
@@ -3786,6 +3791,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         'psychometric_info': psychometric_info,
         "other_psychometric_infos": other_psychometric_infos,
         'report_description': test.report_description,
+        "category": test.category,
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
