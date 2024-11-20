@@ -111,9 +111,10 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
+        name = request.data.get('name')
 
-        if not email:
-            return Response({"detail": "'email' is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not email or not name:
+            return Response({"detail": "'email' and 'name' are required."}, status=status.HTTP_400_BAD_REQUEST)
         # Check if the record already exists
         existing_user = LegacyBotUser.objects.filter(email=email,deleted=False).first()
 
