@@ -111,9 +111,9 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
-
-        if not email:
-            return Response({"detail": "'email' is required."}, status=status.HTTP_400_BAD_REQUEST)
+        name = request.data.get('name')
+        if not email or not name:
+            return Response({"detail": "'email', 'name' are required."}, status=status.HTTP_400_BAD_REQUEST)
         # Check if the record already exists
         existing_user = LegacyBotUser.objects.filter(email=email,deleted=False).first()
 
@@ -192,7 +192,8 @@ class ThreadViewSet(viewsets.ModelViewSet):
             elif thread_ids:
                 return self._get_action_data_by_thread_ids(thread_ids)
             elif user_id:
-                return self._get_action_data_by_user_id(user_id)
+                bot_id = request.data.get('bot_id',None)
+                return self._get_action_data_by_user_id(user_id,bot_id=bot_id)
             else:
                 return Response({'error': 'Invalid or missing parameters.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -219,9 +220,11 @@ class ThreadViewSet(viewsets.ModelViewSet):
             logger.exception(f"Failed to get action data by thread_ids: {e}")
             return Response({'error': f"Failed to get action data by thread_ids: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    def _get_action_data_by_user_id(self, user_id):
+    def _get_action_data_by_user_id(self, user_id,bot_id=None):
         try:
             threads = Thread.objects.filter(deleted=False, user_id=user_id)
+            if bot_id:
+                threads = threads.filter(bot_id=bot_id)
             data = get_or_generate_action_data(threads=threads)
             return Response({'data': data}, status=status.HTTP_200_OK)
         except Exception as e:
