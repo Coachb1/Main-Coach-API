@@ -531,15 +531,19 @@ class AccountsViewSet(ApiViewSet,
                 data['user_info'] = user_info
 
             elif mode == 'only_client_data':
-                client = ''
-                if user_id:
-                    client = client_info.filter(member_user_ids__contains = user_id)
-                if email:
-                    client = client_info.filter(member_emails__contains = email)
-                if mob_number:
-                    client = client_info.filter(member_mob_numbers__contains = mob_number)
+                client = None
+                client_name = self.request.query_params.get('client_name')
+                if client_name:
+                    client = client_info.filter(client_name=client_name)
+                else:
+                    if user_id:
+                        client = client_info.filter(member_user_ids__contains = user_id)
+                    if email:
+                        client = client_info.filter(member_emails__contains = email)
+                    if mob_number:
+                        client = client_info.filter(member_mob_numbers__contains = mob_number)
 
-                data['only_client_data'] = clientUserInfoSerializer(client.first()).data
+                data['only_client_data'] = clientUserInfoSerializer(client.first()).data if client else {}
                 
             set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
