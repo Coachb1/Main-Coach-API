@@ -23,7 +23,7 @@ def get_or_generate_action_data(threads: Thread):
             if user.uid != thread.user_id:
                 user = LegacyBotUser.objects.get(uid=thread.user_id)
             # Fetch conversations for the thread
-            conversations = ChatConversation.objects.filter(thread_id=thread.uid)
+            conversations = ChatConversation.objects.filter(deleted=False, thread_id=thread.uid)
             conversation_count = conversations.count()
 
             # Skip processing if there are no conversations
@@ -72,6 +72,8 @@ def generate_action_report_data(conversations:ChatConversation):
             "role": conversation.role,
             "text": conversation.content
         })
+
+    logger.info(f"[generate_action_report_data]: conversation: {conv}")
 
     prompt = """
         Analyze the following conversation between a user and an AI assistant about Python programming. Provide a structured summary with the following elements:
