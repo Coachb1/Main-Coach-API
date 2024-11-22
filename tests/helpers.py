@@ -9799,7 +9799,9 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
             logger.info(f"genereating psychometric report data for the {i} time.")
             response = generic_completion(
                 prompt=prompt,
-                is_free=test.is_free
+                is_free=test.is_free,
+                top_p=0,
+                temp=0
             )
             result = parse_personality_dimensions(response, num_of_sections, section_dict)
 
