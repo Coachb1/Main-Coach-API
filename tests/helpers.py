@@ -9794,23 +9794,54 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
 
     result = {}
     errors = []
-    for i in range(1,4):
-        try:
-            logger.info(f"genereating psychometric report data for the {i} time.")
-            response = generic_completion(
-                prompt=prompt,
-                is_free=test.is_free,
-                top_p=0,
-                temp=0
-            )
-            result = parse_personality_dimensions(response, num_of_sections, section_dict)
+    llm_order = ['gemini', 'anthropic', 'gpt']
 
-            break
+    # Outer loop for psychometric generation attempts (max 3 times)
+    for attempt in range(1, 4):
+        logger.info(f"====================Generating psychometric for {attempt} time, order: {llm_order}")
+        
+        # Inner loop for the psychometric report generation (max 3 tries per attempt)
+        for inner_attempt in range(1, 4):
+            try:
+                logger.info(f"Generating psychometric report data for attempt {inner_attempt}.")
+                
+                # Call to generic completion function with necessary parameters
+                response = generic_completion(
+                    prompt=prompt,
+                    is_free=test.is_free,
+                    top_p=0,
+                    temp=0,
+                    llm_order=llm_order
+                )
+                
+                # Parse the result and break out of the inner loop on success
+                result = parse_personality_dimensions(response, num_of_sections, section_dict)
+                
+                # If the inner loop is successful, break both loops
+                logger.info(f"==========================Successfully generated psychometric report for inner attempt {inner_attempt}.")
+                break  # Exit the inner loop
+                
+            except Exception as e:
+                errors.append(str(e))
+                logger.exception(f"Failed to generate section for inner attempt {inner_attempt}, reason: {e}")
+                
+                
+                # If we reached 3 failures, log and break out of the inner loop
+                if inner_attempt == 3:
+                    # Rotate llm_order to the right (shift elements to the right)
+                    llm_order = llm_order[-1:] + llm_order[:-1]
+                    logger.error(f"=======================Failed to generate report after {inner_attempt} attempts. Skipping to next psychometric generation.")
+                    break  # Exit the inner loop after 3 failed attempts
+                continue  # Continue to next inner attempt on failure
+        
+        # If the inner loop was successful, break the outer loop as well
+        if len(result.keys()) > 0:  # This means the inner loop broke successfully (not due to failure after 3 attempts)
+            logger.info(f"Psychometric generated successfully for {attempt} time.")
+            break  # Exit the outer loop as well
+        else:
+            logger.error(f"All attempts failed for psychometric {attempt}. Moving to the next.")
+            continue  # Continue to the next psychometric generation attempt
 
-        except Exception as e:
-            errors.append(str(e))
-            logger.exception(f" Failed to generate section for the {i} time, reason: {e}")
-            continue
 
     logger.info(f"psychometric json: {result}")
 
@@ -9881,7 +9912,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
             for detail in details.split(','):
                 detail = detail.strip()
                 # Extract the name and score
-                score_match = re.match(r'^(.*?)\s*-?\s*Score\s*\[?([\d.]+)\]?', detail)
+                score_match = re.match(r'^(.*?)\s*-?\s*Score[^\d]*(\d*\.?\d+)', detail)
                 if score_match:
                     name = score_match.group(1).strip()
                     score = float(score_match.group(2))
