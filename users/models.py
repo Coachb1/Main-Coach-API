@@ -350,6 +350,8 @@ class ReportConfig(MyModel):
     powerfiller_words = models.BooleanField(default=True)
     skill_explanation = models.BooleanField(default=True)
     culture_explanation = models.BooleanField(default=True)
+    psychometric_culture_rating = models.BooleanField(default=True)
+    psychometric_culture_explanation = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Report Config for {self.client.client_name}"
@@ -357,6 +359,7 @@ class ReportConfig(MyModel):
     def save(self, *args, **kwargs):
         self.skill_explanation = self.skill_rating
         self.culture_explanation = self.culture_rating
+        self.psychometric_culture_explanation = self.psychometric_culture_rating
         if not self.skill_rating or not self.culture_rating:
             self.rating_summary = False
 
