@@ -9726,12 +9726,12 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     Act as an ideal personality analyst, providing an in-depth analysis based on the given scenario. Use the personality dimensions and scores provided to deliver a score report. Include the following sections in your response for each dimension:
 
     1. Dimension Overview: Analyze the specific dimension, do not mention.
-    2. Dimension Scale: Reference the scale from 1 to 9, defining the polar traits (e.g., "1 = Practical to 9 = Conceptual"), do not mention.
+    2. Dimension Scale: Reference the scale from 1 to 9, defining the polar traits, do not mention the scale.
     3. Your Score: Reflect the user's score for the specific dimension.
 
-    Always comply with giving the response in this format.  Each line shall not be more than 10 words.
+    Always comply with giving the response in the PERSONALITY DIMENSIONS FORMAT.
 
-    Additionally, always print the response only in the format below, with no other visual cue or heading title or end summary. No place shall go blank; assume and provide results for every scenario. Always write something in each section.
+    Additionally, always print the response only in the PERSONALITY DIMENSIONS FORMAT below, with no other visual cue or heading title or end summary. No place shall go blank; assume and provide results for every scenario.
 
     ### PERSONALITY DIMENSIONS FORMAT
     ${personality_dims}
