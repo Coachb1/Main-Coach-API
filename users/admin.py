@@ -69,14 +69,16 @@ class ReportConfigAdmin(TenantAwareModelAdmin):
     list_display = (
         'id','client', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
-        'skill_explanation', 'culture_explanation'
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
     )
     list_filter = ('client', 'culture_rating',)  
     search_fields = ('client__client_name',)
     list_editable =  (
         'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
-        'skill_explanation', 'culture_explanation'
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
     )
     ordering = ('-id',)
 
