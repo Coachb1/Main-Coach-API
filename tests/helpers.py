@@ -9887,7 +9887,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
                     score = float(score_match.group(2))
                     scores[name] = score
                 else:
-                    raise ValueError(f"Invalid score format in detail: '{detail}'")
+                    raise ValueError(f"Invalid score format in detail: '{detail}', response: {text_response}")
 
             # Add the dimension and its scores to the results dictionary
             results[dimension] = scores
