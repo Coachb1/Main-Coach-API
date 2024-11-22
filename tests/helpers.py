@@ -1625,7 +1625,10 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
                                         )
 
     
-
+    for skill, values in competency_data.items():
+        if values["rating"] in "0":
+            values["rating"] = "1"
+            values["level"] = "1"
     test_attempt_session.competency_data = competency_data
     test_attempt_session.save(update_fields=["competency_data"])
 
