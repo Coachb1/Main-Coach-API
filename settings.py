@@ -229,7 +229,9 @@ WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
 WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
 BACKEND = os.getenv("BACKEND")
 
-CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com','https://coach-api-gke-dev.coachbots.com']
+
+CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com','https://coach-api-gke-dev.coachbots.com','https://coach-api-gke-prod.coachbots.com']
+
 
 
 # CACHE_HOST='localhost'
