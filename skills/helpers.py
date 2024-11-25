@@ -2557,7 +2557,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     skills_var = input("${skill_list}").split(',')
     skills_list = [skill.strip() for skill in skills_var]
 
-    instructions = "Based on the above criteria, please evaluate the conversation between the '{user_persona}' and the '{user_persona}' only from a scale of 0.5-10, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {skills_list} in JSON.".format(user_persona=user_persona, skills_list=skills_list)
+    instructions = "Based on the above criteria, please evaluate the conversation between the '{user_persona}' and the '{user_persona}' only from a scale of 1.5-10, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {skills_list} in JSON.".format(user_persona=user_persona, skills_list=skills_list)
 
 
     def evaluate_skills(conversation, skills):
