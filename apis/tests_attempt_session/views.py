@@ -355,7 +355,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 report_url = test_attempt_session.report_url
 
 
-            if test.test_type == TestTypeChoices.coaching or test.scenario_case == ScenarioCaseChoices.process_training or test.test_type in (TestTypeChoices.dynamic_mcq, TestTypeChoices.mcq) or test.is_transcript_only:
+            if test.test_type == TestTypeChoices.coaching or test.scenario_case in [ScenarioCaseChoices.process_training] or test.test_type in (TestTypeChoices.dynamic_mcq, TestTypeChoices.mcq) or test.is_transcript_only:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
@@ -385,13 +385,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
                 time.sleep(1)
 
-            skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
-                                                                            test_attempt_session.culture_skills_rating,
-                                                                            test_attempt_session.skills_rating,is_free)
-            logger.info({"************************skills_summary in submit email ********************":skills_summary})
-            if len(skills_summary) > 0:
-                test_attempt_session.culture_and_skill_summary = skills_summary
-                updated_fields.append("culture_and_skill_summary")
+            if test_attempt_session.culture_skills_rating and test_attempt_session.skills_rating:
+
+                skills_summary = calulate_summary_for_culture_and_normal_skill(test_attempt_session, 
+                                                                                test_attempt_session.culture_skills_rating,
+                                                                                test_attempt_session.skills_rating,is_free)
+                logger.info({"************************skills_summary in submit email ********************":skills_summary})
+                if len(skills_summary) > 0:
+                    test_attempt_session.culture_and_skill_summary = skills_summary
+                    updated_fields.append("culture_and_skill_summary")
 
             responses = TestQuestionResponse.objects.filter(
                 test_attempt_session_id=test_attempt_session.uid,
@@ -403,11 +405,12 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if response.feedback_text:
                     feedbacks += response.feedback_text + '\n'
 
-            feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
-            logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
-            if len(feedbacks_summary) > 0:
-                test_attempt_session.feedback_summary = feedbacks_summary
-                updated_fields.append("feedback_summary")
+            if len(feedbacks.strip()) >0:
+                feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
+                logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+                if len(feedbacks_summary) > 0:
+                    test_attempt_session.feedback_summary = feedbacks_summary
+                    updated_fields.append("feedback_summary")
 
 
             #####################* summary end #################
@@ -420,22 +423,22 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
                     chat_conversation = get_group_discussion_chat_conversation(
                         test_attempt_session, user_persona)
+                    
+                    if test_attempt_session.skills_rating:
+                        skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
+                        logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                        if skills_explanation:
+                            test_attempt_session.skills_explanation = skills_explanation
+                            updated_fields.append("skills_explanation")
 
-                    skills_explanation = evaluate_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.skills_rating, test_attempt_session)
-                    logger.info({"************************ skills_explanation in submit email orc********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-
-                    if test.calculate_culture:
+                    if test.calculate_culture and test_attempt_session.culture_skills_rating:
                         culture_skills_explanation = evaluate_culture_skills_explanation_conversation(objective, chat_conversation, user_persona, test_attempt_session.culture_skills_rating, test_attempt_session)
                         logger.info({"************************ culture_skills_explanation in submit email orc********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})
                         if culture_skills_explanation:
                             test_attempt_session.culture_skills_explanation = culture_skills_explanation
                             updated_fields.append("culture_skills_explanation")
 
-                    if skills_explanation:
-                        test_attempt_session.skills_explanation = skills_explanation
-                        updated_fields.append("skills_explanation")
-
-                    
+                  
 
                 else:
                 
@@ -459,14 +462,15 @@ class TestAttemptSessionViewSet(ApiViewSet,
                             conversation += f"[Answer:] {response_text}\n\n"
 
                         count += 1
+                    
+                    if test_attempt_session.skills_rating:
+                        skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
+                        logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
+                        if skills_explanation:
+                            test_attempt_session.skills_explanation = skills_explanation
+                            updated_fields.append("skills_explanation")
 
-                    skills_explanation = evaluate_skills_explanation(test.title, test.description, conversation, test_attempt_session.skills_rating, test_attempt_session)
-                    logger.info({"************************skills_explanation in submit email ********************":skills_explanation,"len": len(skills_explanation.keys()),"skill_rating_len": len(test_attempt_session.skills_rating.keys())})
-                    if skills_explanation:
-                        test_attempt_session.skills_explanation = skills_explanation
-                        updated_fields.append("skills_explanation")
-
-                    if test.calculate_culture:
+                    if test.calculate_culture and test_attempt_session.culture_skills_rating:
                         if not test.scenario_case == ScenarioCaseChoices.pitch: 
                             culture_skills_explanation = evaluate_culture_skills_explanation(test.title, test.description, conversation,test_attempt_session.culture_skills_rating , test_attempt_session)
                             logger.info({"************************culture_skills_explanation in submit email ********************":culture_skills_explanation,"len": len(culture_skills_explanation.keys()),"cul_rating_len": len(test_attempt_session.culture_skills_rating.keys())})  
@@ -893,7 +897,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 logger.info(f"Failed to invoke webhook")
         return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
-    @action(methods=['GET'],detail=False,url_path="send-feedback-transcript-email")
+    @action(methods=['GET','POST'],detail=False,url_path="send-feedback-transcript-email")
     def send_feedback_transcript_email(self,request, *args, **kwargs):
         """
         Sends a feedback transcript email for a specific test attempt session.
@@ -934,13 +938,22 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         """
         tenant = self.request.tenant
-        bot_id = request.query_params.get('bot_id')
-        conversation = request.query_params.get('conversation')
-        type_of_email = request.query_params.get('type_of_email')
-        is_positive = request.query_params.get('is_positive','False')
-        user_email = request.query_params.get('user_email')
-        user_name = request.query_params.get('user_name')
+        if request.method == 'GET':
+            bot_id = request.query_params.get('bot_id')
+            conversation = request.query_params.get('conversation')
+            type_of_email = request.query_params.get('type_of_email')
+            is_positive = request.query_params.get('is_positive','False')
+            user_email = request.query_params.get('user_email')
+            user_name = request.query_params.get('user_name')
+        elif request.method == 'POST':
+            bot_id = request.data.get('bot_id')
+            conversation = request.data.get('conversation')
+            type_of_email = request.data.get('type_of_email')
+            is_positive = request.data.get('is_positive','False')
+            user_email = request.data.get('user_email')
+            user_name = request.data.get('user_name')
 
+        is_positive = True if is_positive in [True, 1, 'True', 'true'] else False
         print(f"bot_id: {bot_id},tenant_id: {tenant.uid}, conversation: {conversation},type_of_email: {type_of_email},user_email: {user_email}",)
 
         try:
@@ -956,7 +969,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         conv = []
         if  type_of_email == 'feedback_conv':
             save_user_action_info(tenant.uid,user_id,"feedback_recieved")
-            conversation = json.loads(conversation)
+            conversation = json.loads(conversation) if isinstance(conversation, str) else conversation
             for key, value in conversation.items():
                 conv.append({
                     "question": key,
@@ -969,7 +982,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if user_email == 'Anonymous User':
                     candidate_name = "Anonymous User"
 
-                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive.lower() == 'true', candidate_email=user_email)
+                send_feedback_conversation_email(candidate_name,conv,email,type_of_email,is_positive= is_positive, candidate_email=user_email)
             except Exception as e:
                 logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
                 send_error_notification("send_feedback_conversation_email",f"Error in sending feedback transcript email: {e}",{"bot_id":bot_id,"conversation":conversation,"type_of_email":type_of_email,"user_email":user_email})

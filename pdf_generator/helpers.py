@@ -15,7 +15,7 @@ from documents.helpers import create_document, get_document_url_from_doc_id, get
 from skills.helpers import get_participant_info, top_N_leadership_board
 from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
-from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse, TestAttemptSessionStatusChoices
+from tests.models import Test, TestQuestion, TestAttemptSession, TestQuestionResponse, TestAttemptSessionStatusChoices,Psychometric
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
@@ -27,6 +27,7 @@ import logging
 from tests.choices import ScenarioCaseChoices
 from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
+from collections import defaultdict
 
 import matplotlib
 matplotlib.use('Agg')
@@ -125,6 +126,78 @@ def get_flash_cards_from_test(test: Test, only_data=False):
     return [get_document_url(doc)]
 
 
+def format_psychometric_items(psychometric:Psychometric):
+    # Use a set to keep track of unique sections for the dimension
+    sections = {}
+
+    # Loop through each PsychometricItem in the Psychometric set
+    for item in psychometric.items.all():
+        
+        # Use item.section as the dimension
+        section = sections.get(item.section)
+        if not section:
+            section= {
+                "dimension": item.section,  
+                "generate_note": [],
+                "parameters": []
+            }
+
+        print(f'seciton: {sections, section}')
+        parameters = item.parameters
+        section["generate_note"].append({
+                "parameter": " vs ".join(parameters.get('parameters')),
+                "description": parameters.get('description'),
+                'average_value': item.average_value
+            })
+
+        parameter_data = {
+                "parameterName": parameters.get('parameterName'),
+                "parameters": parameters.get('parameters'),
+                "ranges": []
+            }
+        
+        for range_key, range_value in item.range_values.items():
+                range_entry = {
+                    "range": range_key,
+                    "strengths": range_value.get("strengths", []),
+                    "areas_for_improvement": range_value.get("areas_for_improvement", []),
+                    "overall": range_value.get("overall", "")
+                }
+                parameter_data["ranges"].append(range_entry)
+
+        section['parameters'].append(parameter_data)
+
+        sections[f"{item.section}"] = section
+
+    return sections.values()
+
+
+def find_highest_count_range(data):
+    # Define ranges as tuples of (min, max)
+    if not data:
+        return []
+    ranges = [(0, 3), (4, 7), (8, 10)]
+    
+    # Dictionary to store counts for each range
+    range_counts = defaultdict(int)
+    
+    # Iterate through nested dictionary and count values in each range
+    for category, subcategory_values in data.items():
+        for subcategory, value in subcategory_values.items():
+            for r in ranges:
+                if r[0] <= value <= r[1]:
+                    range_counts[r] += 1
+                    break  # Stop after finding the correct range
+    
+    # Find the maximum count
+    print(range_counts)
+    max_count = max(range_counts.values())
+    
+    # Get all ranges with the maximum count
+    most_common_ranges = [f"{r[0]}-{r[1]}" for r, count in range_counts.items() if count == max_count]
+    
+    return most_common_ranges
+
 def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSession, only_data=False):
 
     tenant = tenant_from_tenant_id(test_attempt_session.tenant_id)
@@ -136,15 +209,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     user_att = UserAttribute.objects.get(deleted=False,user_id=test_attempt_session.participant_id)
     user_email = user_att.attributes.get('email')
-    try:
-        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
-                                                    user_uid=test_attempt_session.participant_id
-                                                    )
-        client_name = client.client_name if client else None
-        client_id = client.id if client else None
-    except:
-        client_name = None
-        client_id = None
+    # try:
+    #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+    #                                                 user_uid=test_attempt_session.participant_id
+    #                                                 )
+    #     client_name = client.client_name if client else None
+    #     client_id = client.id if client else None
+    # except:
+    #     client_name = None
+    #     client_id = None
     
     # log tnant id, test_id, test_attempt_session_id, participant_id, participant_name, test_started_at
     logger.info(f"tenant_id: {tenant.uid}, test_id: {test_id}, test_attempt_session_id: {test_attempt_session.uid}, participant_id: {participant_id}, participant_name: {participant_name}, test_started_at: {test_started_at}")
@@ -161,6 +234,16 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         client_name = None
         client_id = None
         client_info = None
+
+    psychometric_data = None
+    psychometric_info = None
+    other_psychometric_infos = {}
+
+    if test_attempt_session.pshycometric_data:
+        psychometric_data = test_attempt_session.pshycometric_data
+        # psychometric_data['info'] = format_psychometric_items(test.psychometric)
+        psychometric_info = format_psychometric_items(test.psychometric)
+        other_psychometric_infos['max_ranges'] = find_highest_count_range(psychometric_data)
 
 
     questions = TestQuestion.objects.filter(test_id=test_id)
@@ -209,7 +292,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
 
     logger.info(f"scenario_case: {test.scenario_case}, is_transcript_only: {test.is_transcript_only}, only_data: {only_data}")
-    if (test.scenario_case == "process_training" or test.is_transcript_only) and only_data:
+    if (test.scenario_case in ["process_training", ScenarioCaseChoices.psychometric] or test.is_transcript_only) and only_data:
         if CustomRating.objects.filter(tenant_id=test_attempt_session.tenant_id).exists():
             custom_rating = CustomRating.objects.get(
                 tenant_id=test_attempt_session.tenant_id).custom_rating
@@ -255,7 +338,25 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 qa.append(data)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,'competency_data':competency_report_data, 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 'speech_metrics_avg': None, "response_relevance": True,"feedback_summary":test_attempt_session.feedback_summary,"skill_summary":test_attempt_session.culture_and_skill_summary,'pshycometric_data': test_attempt_session.pshycometric_data}
+        return {"client_name":client_name,"client_id": client_id,
+                "client_info": client_info,'is_transcript_only': test.is_transcript_only,
+                'test_type':test.test_type,'skills_explanation':test_attempt_session.skills_explanation,
+                "ui_information": test.ui_information,"certificate_details":test.certificate_details,
+                'scenario_case':test.scenario_case,'culture_skills_explanation':test_attempt_session.culture_skills_explanation,
+                "title":test.title,'candidate_type': test.candidate_type, 
+                'test_description': test.description, 'report_description': test.report_description,
+                'qa': qa,'is_email_type': test.is_email_type ,'participant_name': participant_name, 
+                'test_started_at': test_started_at, 'custom_rating': custom_rating,
+                'competency_data':competency_report_data, 
+                'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },
+                'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 
+                'speech_metrics_avg': None, "response_relevance": True,
+                "feedback_summary":test_attempt_session.feedback_summary,
+                "skill_summary":test_attempt_session.culture_and_skill_summary,
+                'pshycometric_data': psychometric_data,'psychometric_info': psychometric_info, 
+                "other_psychometric_infos": other_psychometric_infos,
+                "category": test.category
+                }
 
 
 
@@ -375,7 +476,19 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
 
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,"ui_information": test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating, "feedback_summary":feedback_summary,"skill_summary":skill_summary,'start_with_user':start_with_user,'bot_name':bot_name,'competency_data':competency_report_data,'pshycometric_data': test_attempt_session.pshycometric_data}
+        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,
+                'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,
+                "ui_information": test.ui_information,"certificate_details":test.certificate_details,
+                'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 
+                'test_description': test.description,'report_description': test.report_description,
+                 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 
+                 'custom_rating': custom_rating, "feedback_summary":feedback_summary,
+                 "skill_summary":skill_summary,'start_with_user':start_with_user,
+                 'bot_name':bot_name,'competency_data':competency_report_data,
+                 'pshycometric_data': psychometric_data, 'psychometric_info': psychometric_info, 
+                 'other_psychometric_infos': other_psychometric_infos,
+                 "category": test.category
+                 }
 
 
     logger.info(f"test_type : {test.test_type}, only_data: {only_data}")
@@ -416,7 +529,20 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
         focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else []
         
-        return {"client_name":client_name,"client_id": client_id,"client_info": client_info,'is_transcript_only': test.is_transcript_only,'test_type':test.test_type,'competency_data':competency_report_data,"ui_information":test.ui_information,"certificate_details":test.certificate_details,'scenario_case':test.scenario_case,"title":test.title,'candidate_type': test.candidate_type, 'test_description': test.description, 'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,'focus_area': focus_area,'pshycometric_data': test_attempt_session.pshycometric_data}
+        return {"client_name":client_name,"client_id": client_id,
+                "client_info": client_info,'is_transcript_only': test.is_transcript_only,
+                'test_type':test.test_type,'competency_data':competency_report_data,
+                "ui_information":test.ui_information,"certificate_details":test.certificate_details,
+                'scenario_case':test.scenario_case,"title":test.title,
+                'candidate_type': test.candidate_type, 'test_description': test.description, 
+                'report_description': test.report_description,
+                'qa': qa, 'participant_name': participant_name, 'test_started_at': test_started_at, 
+                'custom_rating': custom_rating,"mcq_summary": test_attempt_session.mcq_summary,
+                'focus_area': focus_area,'pshycometric_data': psychometric_data, 
+                'psychometric_info': psychometric_info, 
+                'other_psychometric_infos': other_psychometric_infos,
+                "category": test.category
+                }
 
 
     qa = []
@@ -556,7 +682,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "is_pitch": test.scenario_case == ScenarioCaseChoices.pitch,
                 "language_skills": test_attempt_session.language_skills,
                 "is_recommended": test.is_recommended,
-                'pshycometric_data': test_attempt_session.pshycometric_data
+                'pshycometric_data': psychometric_data,
+                'psychometric_info': psychometric_info,
+                'other_psychometric_infos': other_psychometric_infos,
+                'report_description': test.report_description,
+                'category': test.category
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)

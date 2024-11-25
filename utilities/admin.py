@@ -18,16 +18,16 @@ import logging
 from commons.cache_utils import  reset_cache_with_prefix
 from users.models import ClientUserInfo
 from users.helpers import get_client_info_from_user_detail
-
+from tenants.admin import TenantAwareModelAdmin
 
 logger = logging.getLogger(__name__)
 
-class SessionNotesRecommendationsAdmin(ExportActionMixin, admin.ModelAdmin):
+class SessionNotesRecommendationsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
     search_fields = ('id','mentor_id', 'mentee_id', 'session_notes', 'recommendations')
     
 
-class EmailSentDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
+class EmailSentDetailsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','subject','status','sent_by', 'is_sent')
     search_fields = ('id', 'subject','status','sent_by', 'is_sent')
     list_filter = ('is_sent',)
@@ -60,7 +60,7 @@ class ClientNameFilter(admin.SimpleListFilter):
             return queryset.filter(profile_id__in=list(profiles.values_list('uid',flat=True)))
         return queryset
 
-class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
+class DirectoryAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
     list_display = (
         'id', 'client_name','name','description','profile_type', 'bot_type', 'skills', 'avatar_bot_id', 'avatar_bot_url',
@@ -95,19 +95,19 @@ class DirectoryAdmin(ExportActionMixin, admin.ModelAdmin):
 
     client_name.short_description = 'Client Name'
 
-class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, admin.ModelAdmin):
+class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','client_name','email',"can_join_as")
     list_filter = ('client_name','email',"can_join_as")
     search_fields = ('client_name','email',"can_join_as")
     list_editable = ('client_name','email',"can_join_as")
 
-class LLMMappingAdmin(ExportActionMixin, admin.ModelAdmin):
+class LLMMappingAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','bot_type','llm1',"llm2","llm3")
     list_filter = ('bot_type',)
     search_fields = ('bot_type',)
     list_editable = ('llm1',"llm2","llm3",)
 
-class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
+class IDPAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','user_id',"user_name","strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","report","success")
     list_filter = ("uid","user_id","success")
@@ -115,22 +115,22 @@ class IDPAdmin(ExportActionMixin, admin.ModelAdmin):
     list_editable = ("strengths","weakness","opportunities","threats","key_focus_areas","goals", 'priorities','learning_histories','key_skills',"skill_gap_for_development","leadership_skill_focus_area","book_recommendations","course_recommendations","recommended_hbr","recommended_ted_talk","recommended_scenarios","success")
 
 
-class ScenarioCreationDetailsAdmin(ExportActionMixin, admin.ModelAdmin):
+class ScenarioCreationDetailsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','creator_id','status','input','output','reason_of_failure')
     
     
-class GlobalPromptsAdmin(ExportActionMixin, admin.ModelAdmin):
+class GlobalPromptsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','created_at', 'resourse_type', 'tag')
     search_fields = ('prompt',)
     list_editable = ('resourse_type', 'tag')
     
-class GlobalSystemInstructionsAdmin(ExportActionMixin, admin.ModelAdmin):
+class GlobalSystemInstructionsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id','created_at', 'resourse_type', 'tag', 'instruction')
     search_fields = ('instruction',)
     list_editable = ('resourse_type', 'tag')
     
     
-class WidgetsAdmin(ExportActionMixin, admin.ModelAdmin):
+class WidgetsAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('id', 'title','bot_id', 'client_id', 'is_demo', 'allow_audio_interaction', 'snippet')
     search_fields = ('bot_id',)
     list_editable = ('is_demo', 'allow_audio_interaction','client_id','snippet', 'title')
@@ -170,7 +170,7 @@ admin.site.register(Widgets, WidgetsAdmin)
     
 
 @receiver(post_save, sender=DirectoryPageInfo)
-def save_and_send_approval_email_post_save(sender, instance, **kwargs):
+def save_and_send_approval_email_post_save(sender, instance:DirectoryPageInfo, **kwargs):
     if kwargs['created']:
         return  
     
@@ -179,7 +179,7 @@ def save_and_send_approval_email_post_save(sender, instance, **kwargs):
 
     # Send email when is_approved is changed to True
 
-    bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else (instance.deep_dive_bot_id if instance.profile_type == 'deep_dive' else instance.avatar_bot_id)
+    bot_id = instance.custom_user_bot_id if instance.profile_type == 'knowledge_bot' else (instance.deep_dive_bot_id if instance.profile_type == 'deep_dive' else instance.avatar_bot_id or instance.subject_specific_bot_id)
     print("#"*100)
     print('start//')
     print(kwargs)

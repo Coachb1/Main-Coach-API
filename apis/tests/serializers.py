@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestQuestion
+from tests.models import Test, TestQuestion, Psychometric
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -135,7 +135,9 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=True)
     snippet_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     pshycometric_sections = serializers.JSONField(default=None, required=False, allow_null=True)
-
+    psychometric = serializers.CharField(default=None,required=False, allow_blank=True)
+    report_description = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -216,7 +218,9 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "web_page_url",
                   "sub_tab_category",
                   "calculate_culture",
-                  "snippet_url"
+                  "snippet_url",
+                  "report_description",
+                  "category",
                   ]
 
     def get_questions(self, instance):

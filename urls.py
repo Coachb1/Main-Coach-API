@@ -8,6 +8,7 @@ ok = JsonResponse({"ok": True})
 
 urlpatterns = [
     path('ht', lambda x: ok),
+    path('', lambda x: ok),
     path('hi', lambda x : JsonResponse({'msg':'Hello'})),
     path("api/", include("apis.urls")),
     path('custom-admin/', admin.site.urls),

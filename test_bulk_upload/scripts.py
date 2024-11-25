@@ -13,7 +13,7 @@ from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
-from tests.models import Test, TestQuestion
+from tests.models import Test, TestQuestion, Psychometric
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -97,6 +97,9 @@ TEST_SNIPPET_LINK = "Test Snippet Link"
 QUE_SNIPPET_LINK = "Que Snippet Link"
 TEST_CODE = "Test Code"
 SECTIONS = "Sections"
+PSYCHOMETRIC = "Psychometric Set"
+REPORT_DESCRIPTION = "Report Description"
+CATEGORY = "Category"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -331,6 +334,9 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
                 output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
+        if REPORT_DESCRIPTION in input_dict:
+            if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
+                output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
 
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
@@ -484,6 +490,10 @@ def format_test_orchestrated_conversation(raw_data):
 
         if output_dict.get('scenario_case') == 'assessment':
             output_dict['email_candidate'] = False
+            
+        if CATEGORY in input_dict:
+            if input_dict[CATEGORY] and len(input_dict[CATEGORY].strip()) > 0 :
+                output_dict['category'] = input_dict[CATEGORY].strip().capitalize()
 
 
         check_pass = True
@@ -918,6 +928,35 @@ def format_test_data_slack(raw_data,tenant):
                 sections = extract_sections(sections)
                 output_dict['pshycometric_sections'] = sections
 
+        if PSYCHOMETRIC in input_dict and len(input_dict[PSYCHOMETRIC].strip()) >0:
+            psy_uid_or_name = input_dict[PSYCHOMETRIC].strip()
+            psycho = (
+                Psychometric.objects.filter(tenant_id=tenant.uid)
+                .filter(uid=psy_uid_or_name)
+                .first()
+                or
+                Psychometric.objects.filter(tenant_id=tenant.uid)
+                .filter(name=psy_uid_or_name)
+                .first()
+            )
+
+            # If not found, try to find without tenant_id
+            if not psycho:
+                psycho = (
+                    Psychometric.objects.filter(tenant_id=None)
+                    .filter(uid=psy_uid_or_name)
+                    .first()
+                    or
+                    Psychometric.objects.filter(tenant_id=None)
+                    .filter(name=psy_uid_or_name)
+                    .first()
+                )
+
+            if not psycho:
+                return {"error": f"Psychometric set does not exist: {psy_uid_or_name}. If you are using name its case sansitive. (you can use uid or name)"}, False
+
+            output_dict['psychometric'] = psycho.uid
+
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
@@ -925,6 +964,10 @@ def format_test_data_slack(raw_data,tenant):
         if PAGE_NAME in input_dict:
             if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
                 output_dict['page_name'] = input_dict[PAGE_NAME].strip().lower()
+                
+        if CATEGORY in input_dict:
+            if input_dict[CATEGORY] and len(input_dict[CATEGORY].strip()) > 0 :
+                output_dict['category'] = input_dict[CATEGORY].strip().capitalize()
 
 
         if AREA_DOMAIN in input_dict:
@@ -982,6 +1025,10 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict(TED_TALK_AND_HBR_CASE).strip()) > 0:
                 output_dict["tedtalk_and_hbr_case"] = input_dict[TED_TALK_AND_HBR_CASE]
 
+        if REPORT_DESCRIPTION in input_dict:
+            if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
+                output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
+
         skills_list = set()
         for key in input_dict:
             if key.startswith(KLS):
@@ -1016,7 +1063,7 @@ def format_test_data_slack(raw_data,tenant):
 
         unique_skill_count = len(set(skills_list))
 
-        if unique_skill_count < 6:
+        if unique_skill_count < 6 and not(input_dict[SCENARIO_CASE] == 'psychometric' or is_transcript_only):
             return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
         
         if unique_skill_count > 8:
@@ -1045,7 +1092,7 @@ def format_test_data_slack(raw_data,tenant):
         skills_list = ','.join(skills_list)
 
         output_dict['skills_to_evaluate'] = skills_list
-        if input_dict[SCENARIO_CASE] == 'process_training' or is_transcript_only:
+        if input_dict[SCENARIO_CASE] in ['process_training','psychometric'] or is_transcript_only:
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
@@ -1144,7 +1191,7 @@ def format_test_data_slack(raw_data,tenant):
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
                     question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
 
-                if input_dict[SCENARIO_CASE] == 'process_training' or is_transcript_only:
+                if input_dict[SCENARIO_CASE] in ['process_training', 'psychometric'] or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
@@ -1519,6 +1566,11 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         if not row_data[key]:
                             raise Exception(
                                 f"Column '{key}' has null or empty value in row")
+                        
+                    if row_data[SCENARIO_CASE] == 'psychometric' and (PSYCHOMETRIC not in row_data or len(row_data[PSYCHOMETRIC].strip()) == 0):
+                        raise Exception(
+                                f"Column '{PSYCHOMETRIC}' has null or empty value in row")
+                        
 
                 # If row is valid, append it to list of valid rows to be sent to API
                 valid_rows.append(row_data)

@@ -78,6 +78,8 @@ class UserActionInfo(TenantAwareModel):
     deep_dive_bot_ids = models.TextField(null=True,blank=True,default=None)
     feedback_bot_ids = models.TextField(null=True,blank=True,default=None)
     avatar_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    subject_specific_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
+    subject_specific_bot_ids = models.TextField(null=True,blank=True,default=None)
     subject_matter_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
     knowledge_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
     deep_dive_chat_attempted = models.IntegerField(null=True,blank=True,default=0)
@@ -154,6 +156,9 @@ class DirectoryPageInfo(models.Model):
     visual_tag = models.CharField(max_length=255,null=True,blank=True,default=None)
     ai_email = models.CharField(max_length=255,null=True,blank=True,default=None)
     _previous_is_approved = models.BooleanField(null=True,default=False)
+    subject_specific_bot_url = models.CharField(max_length=255,null=True,blank=True,default=None)
+    subject_specific_bot_id = models.CharField(max_length=255,null=True,blank=True,default=None)
+    subject_specific_bot_snippit = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
 
