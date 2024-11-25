@@ -30,7 +30,16 @@ class FrontendInteractionSessionReportSerializer(serializers.Serializer):
     report_type = serializers.CharField()
     session_id = serializers.CharField()
     interaction_id = serializers.CharField()
-    
+
+class IDPSerializer(serializers.Serializer):
+    idp_id = serializers.CharField()
+    report_type = serializers.CharField()
+
+class AdminReportSerializer(serializers.Serializer):
+    email = serializers.CharField()
+    report_type = serializers.CharField()
+
+
 class FrontendSkillsDiscoveryReportSerializer(serializers.Serializer):
     user_id = serializers.CharField()
     report_type = serializers.CharField()

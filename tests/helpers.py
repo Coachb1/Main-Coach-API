@@ -81,7 +81,9 @@ from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
-
+from django.core.exceptions import ValidationError
+import csv
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +237,10 @@ def create_test(tenant: Tenant,
                 sub_tab_category:str,
                 calculate_culture: bool,
                 snippet_url: str,
-                pshycometric_sections: dict) -> tuple[Test, list[TestQuestion]]:
+                pshycometric_sections: dict,
+                psychometric:str,
+                report_description:str,
+                category: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -361,6 +366,9 @@ def create_test(tenant: Tenant,
             "failed to create test, creator with id %s does not exist", creator_id)
         raise serializers.ValidationError("invalid creator id")
 
+    if psychometric:
+        psychometric = Psychometric.objects.get(uid=psychometric)
+        
     with transaction.atomic():
         test = Test.objects.create(
             tenant_id=tenant.uid,
@@ -425,6 +433,9 @@ def create_test(tenant: Tenant,
             calculate_culture=calculate_culture,
             snippet_url=snippet_url,
             pshycometric_sections=pshycometric_sections,
+            psychometric=psychometric,
+            report_description=report_description,
+            category=category,
         )
 
         test_questions = []
@@ -538,7 +549,9 @@ def update_test(tenant: Tenant,
                 web_page_url: str,
                 sub_tab_category: str,
                 calculate_culture: bool,
-                snippet_url: str) -> tuple[Test, list[TestQuestion]]:
+                snippet_url: str,
+                report_description:str,
+                category: str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -670,6 +683,10 @@ def update_test(tenant: Tenant,
             test.calculate_culture = calculate_culture
         if test.snippet_url != snippet_url:
             test.snippet_url = snippet_url
+        if test.report_description != report_description:
+            test.report_description = report_description
+        if test.category != category:
+            test.category = category
 
         test.save()
 
@@ -1608,7 +1625,10 @@ def evaluate_competency_data_thread(question, test_question_response, test, test
                                         )
 
     
-
+    # for skill, values in competency_data.items():
+    #     if values["rating"] in "0":
+    #         values["rating"] = "1"
+    #         values["level"] = "1"
     test_attempt_session.competency_data = competency_data
     test_attempt_session.save(update_fields=["competency_data"])
 
@@ -2064,6 +2084,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
             feedback_text = "No feedback..."
             go_for_feedback = False
+
+        if test.scenario_case in [ScenarioCaseChoices.psychometric]:
+            feedback_text = " "
+            go_for_feedback = False
         
         if go_for_feedback:
             start = time.time()
@@ -2188,10 +2212,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             }
         }
 
-        feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
-        test_question_response.feedback_text = feedback_text
-        updated_fields.append("feedback_text")
-        updated_fields.append("metadata")
+        if feedback_text:
+            feedback_text = re.sub(r'\([^)]*\)', '', feedback_text)   # to remove any word limit in ()
+            test_question_response.feedback_text = feedback_text
+            updated_fields.append("feedback_text")
+            updated_fields.append("metadata")
 
 
     if test.scenario_case == ScenarioCaseChoices.pitch:
@@ -2322,7 +2347,11 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
         # Evaluate skills rating for the test attempt session and update skills table in that.
-        if test.scenario_case == ScenarioCaseChoices.process_training or test.is_transcript_only:
+        if test.scenario_case in [ScenarioCaseChoices.process_training, ScenarioCaseChoices.psychometric] or test.is_transcript_only:
+            # saving psychometric data
+            if test.scenario_case == ScenarioCaseChoices.psychometric:
+                generate_psychometric_report_data(test=test,test_attempt_session=test_attempt_session)
+
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.save(update_fields=['finished_at']) 
 
@@ -3603,15 +3632,15 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
-    try:
-        client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
-                                                    user_uid=test_attempt_session.participant_id
-                                                    )
-        client_name = client.client_name if client else None
-        client_id = client.id if client else None
-    except:
-        client_name = None
-        client_id = None
+    # try:
+    #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
+    #                                                 user_uid=test_attempt_session.participant_id
+    #                                                 )
+    #     client_name = client.client_name if client else None
+    #     client_id = client.id if client else None
+    # except:
+    #     client_name = None
+    #     client_id = None
 
     try:
         client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
@@ -3626,6 +3655,14 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         client_id = None
         client_info = None
 
+    psychometric_data = None
+    psychometric_info = None
+    other_psychometric_infos = {}
+
+    if test_attempt_session.pshycometric_data:
+        psychometric_data = test_attempt_session.pshycometric_data
+        psychometric_info = format_psychometric_items(test.psychometric)
+        other_psychometric_infos['max_ranges'] = find_highest_count_range(psychometric_data)
 
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
@@ -3753,7 +3790,11 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "client_info": client_info,
         "client_name":client_name,
         "client_id": client_id,
-        'pshycometric_data': test_attempt_session.pshycometric_data,
+        'pshycometric_data': psychometric_data,
+        'psychometric_info': psychometric_info,
+        "other_psychometric_infos": other_psychometric_infos,
+        'report_description': test.report_description,
+        "category": test.category,
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -4087,10 +4128,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     # for skill in skills:
     #     skill_.append(skill['name'])
 
-    # saving psychometric data
-    if test.scenario_case == ScenarioCaseChoices.psychometric:
-        generate_psychometric_report_data(test=test,test_attempt_session=test_attempt_session)
-
+    
     if speech_count != int(responses.count()):
         has_speech_metric = False
 
@@ -4722,10 +4760,11 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         "profile", {}).get("email") or participant_attributes.get('email',None)
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-
+    report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
+        report_on = client.report_on
         if client.email_address_list:
             email_address_list.extend([email.strip() 
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
@@ -4742,7 +4781,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate and participant_email:
+    if participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
@@ -4801,10 +4840,11 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         "profile", {}).get("email") or participant_attributes.get('email')
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
-
+    report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
+        report_on = client.report_on
         if client.email_address_list:
             email_address_list.extend([email.strip() 
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
@@ -4821,7 +4861,8 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
 
     logger.info("report emails sent successfully test_attempt_session: %s", test_attempt_session.uid)
 
-    if test.email_candidate and participant_email:
+
+    if participant_email and report_on:
         try:
             send_email(participant_email, email_subject, data=data)
         except Exception as e:
@@ -9688,12 +9729,12 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     Act as an ideal personality analyst, providing an in-depth analysis based on the given scenario. Use the personality dimensions and scores provided to deliver a score report. Include the following sections in your response for each dimension:
 
     1. Dimension Overview: Analyze the specific dimension, do not mention.
-    2. Dimension Scale: Reference the scale from 1 to 9, defining the polar traits (e.g., "1 = Practical to 9 = Conceptual"), do not mention.
+    2. Dimension Scale: Reference the scale from 1 to 9, defining the polar traits, do not mention the scale.
     3. Your Score: Reflect the user's score for the specific dimension.
 
-    Always comply with giving the response in this format.  Each line shall not be more than 10 words.
+    Always comply with giving the response in the PERSONALITY DIMENSIONS FORMAT.
 
-    Additionally, always print the response only in the format below, with no other visual cue or heading title or end summary. No place shall go blank; assume and provide results for every scenario. Always write something in each section.
+    Additionally, always print the response only in the PERSONALITY DIMENSIONS FORMAT below, with no other visual cue or heading title or end summary. No place shall go blank; assume and provide results for every scenario.
 
     ### PERSONALITY DIMENSIONS FORMAT
     ${personality_dims}
@@ -9716,11 +9757,36 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
 
     
     per_dims = ""
-    for key, value in test.pshycometric_sections.items():
-        params = ",".join(f"{param} - Score [Score]" for param in value)
-        per_dims += f"{key}: {params}\n"
+    num_of_sections = 0
 
-    print(per_dims)
+    section_dict = {}
+    if test.psychometric:
+
+        # Iterate over each PsychometricItem associated with the Psychometric set
+        for item in test.psychometric.items.all():
+            # Append the subsection to the list for the corresponding section
+            if item.section not in section_dict:
+                section_dict[item.section] = []  # Create a new list for this section
+            section_dict[item.section].append(item.subsection)  # Add the subsection
+
+        logger.info(f"sections: {section_dict}")
+        # Build the output string from the section dictionary
+        num_of_sections = 0
+        for section, subsections in section_dict.items():
+            params = ", ".join(f"{subsection} - Score [Score]" for subsection in subsections)
+            per_dims += f"{section}: {params}\n"
+
+        num_of_sections = int(len(section_dict))
+
+    else:
+        for key, value in test.pshycometric_sections.items():
+            params = ", ".join(f"{param} - Score [Score]" for param in value)
+            per_dims += f"{key}: {params}\n"
+
+        num_of_sections = len(test.pshycometric_sections)
+        section_dict = test.pshycometric_sections
+
+    logger.info(f" parameters:  {per_dims}")
 
     prompt = Template(prompt).substitute(
         title=test.title,
@@ -9730,32 +9796,104 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     )
 
     result = {}
-    for i in range(1,4):
-        try:
-            logger.info(f"genereating psychometric report data for the {i} time.")
-            response = generic_completion(
-                prompt=prompt,
-                is_free=test.is_free
-            )
-            result = parse_personality_dimensions(response,len(test.pshycometric_sections))
+    errors = []
+    llm_order = ['gemini', 'anthropic', 'gpt']
 
-            break
+    # Outer loop for psychometric generation attempts (max 3 times)
+    for attempt in range(1, 4):
+        logger.info(f"====================Generating psychometric for {attempt} time, order: {llm_order}")
+        
+        # Inner loop for the psychometric report generation (max 3 tries per attempt)
+        for inner_attempt in range(1, 4):
+            try:
+                logger.info(f"Generating psychometric report data for attempt {inner_attempt}.")
+                
+                # Call to generic completion function with necessary parameters
+                response = generic_completion(
+                    prompt=prompt,
+                    is_free=test.is_free,
+                    top_p=0,
+                    temp=0,
+                    llm_order=llm_order
+                )
+                
+                # Parse the result and break out of the inner loop on success
+                result = parse_personality_dimensions(response, num_of_sections, section_dict)
+                
+                # If the inner loop is successful, break both loops
+                logger.info(f"==========================Successfully generated psychometric report for inner attempt {inner_attempt}.")
+                break  # Exit the inner loop
+                
+            except Exception as e:
+                errors.append(str(e))
+                logger.exception(f"Failed to generate section for inner attempt {inner_attempt}, reason: {e}")
+                
+                
+                # If we reached 3 failures, log and break out of the inner loop
+                if inner_attempt == 3:
+                    # Rotate llm_order to the right (shift elements to the right)
+                    llm_order = llm_order[-1:] + llm_order[:-1]
+                    logger.error(f"=======================Failed to generate report after {inner_attempt} attempts. Skipping to next psychometric generation.")
+                    break  # Exit the inner loop after 3 failed attempts
+                continue  # Continue to next inner attempt on failure
+        
+        # If the inner loop was successful, break the outer loop as well
+        if len(result.keys()) > 0:  # This means the inner loop broke successfully (not due to failure after 3 attempts)
+            logger.info(f"Psychometric generated successfully for {attempt} time.")
+            break  # Exit the outer loop as well
+        else:
+            logger.error(f"All attempts failed for psychometric {attempt}. Moving to the next.")
+            continue  # Continue to the next psychometric generation attempt
 
-        except Exception as e:
-            logger.exception(f" Failed to generate section for the {i} time, reason: {e}")
-            continue
 
     logger.info(f"psychometric json: {result}")
+
+    if not result:
+        send_error_notification(module='generate_psychometric_report_data',
+                                msg=f"Failed to generate psychometric report data.",
+                                data=errors)
+        raise ValidationError(f"Failed to generate psychometric report data. reason: {errors} ")
 
     test_attempt_session.pshycometric_data = result
 
     test_attempt_session.save(update_fields=['pshycometric_data'])
 
+
+    generate_culture_rating(test=test,test_attempt_session=test_attempt_session)
+
     return result
 
+def generate_culture_rating(test:Test,test_attempt_session:TestAttemptSession):
+    responses = TestQuestionResponse.objects.filter(
+                        test_attempt_session_id=test_attempt_session.uid,
+                        deleted=0
+                    )
+    
+    if test.calculate_culture:
+        culture_skills_rating = calc_culture_skills_rating(test_attempt_session, responses, test)
 
-def parse_personality_dimensions(text_response, expected_sections):
+        logger.info({"***************************culture_skills_rating_score":culture_skills_rating})
+
+        culture_skills_rating = update_culture_skills_if_same_scores(
+            culture_skills_rating)
+        updated_fields = []
+
+        if culture_skills_rating is not None:
+            culture_skills_rating = {key.strip('"\'' ): value for key, value in culture_skills_rating.items()}  # to strip extra qoutes from key
+            culture_skills_rating = {key.capitalize() : value for key, value in culture_skills_rating.items()}
+            test_attempt_session.culture_skills_rating = culture_skills_rating
+            updated_fields.append("culture_skills_rating")
+
+
+    if len(updated_fields) >0:
+        test_attempt_session.save(update_fields=updated_fields)
+
+def parse_personality_dimensions(text_response, expected_sections, psy_dict):
     # Initialize the dictionary to hold the results
+    psy_dict_cleaned = {
+        key.strip(): [value.strip() for value in values]
+        for key, values in psy_dict.items()
+    }
     results = {}
 
     # Check if the input string is empty
@@ -9777,16 +9915,19 @@ def parse_personality_dimensions(text_response, expected_sections):
             for detail in details.split(','):
                 detail = detail.strip()
                 # Extract the name and score
-                score_match = re.match(r'^(.*?)-\s*Score\s*(\d+)', detail)
+                score_match = re.match(r'^(.*?)\s*-?\s*Score[^\d]*(\d*\.?\d+)', detail)
                 if score_match:
                     name = score_match.group(1).strip()
                     score = float(score_match.group(2))
                     scores[name] = score
                 else:
-                    raise ValueError(f"Invalid score format in detail: '{detail}'")
+                    raise ValueError(f"Invalid score format in detail: '{detail}', response: {text_response}")
 
             # Add the dimension and its scores to the results dictionary
             results[dimension] = scores
+            logger.info(f"{list(scores.keys())}  psy= {psy_dict_cleaned},{psy_dict_cleaned.get(dimension)}, {[key.strip() for key in scores.keys()] == psy_dict_cleaned.get(dimension,[])}")
+            if [key.strip() for key in scores.keys()] != psy_dict_cleaned.get(dimension,[]):
+                raise ValidationError(f"Invalid output given by LLM in line `{line}`. response: {text_response}")
         else:
             raise ValueError(f"Invalid line format: '{line}'")
 
@@ -9795,3 +9936,1021 @@ def parse_personality_dimensions(text_response, expected_sections):
         raise ValueError(f"Expected {expected_sections} sections, but found {len(results)}: {results}")
 
     return results
+
+import json
+from .models import Psychometric, PsychometricItem
+
+def extract_section_details(json_data):
+    extracted_data = []
+
+    # Assuming json_data contains a list with a single dictionary
+    for main_data in json_data:
+
+        # Loop through the parameters to extract details
+        for param in main_data.get("parameters", []):
+            # Find the description for the corresponding parameter
+            section_description = next(
+                (note["description"] for note in main_data.get("generate_note", [])
+                 if note["parameter"] == param["parameterName"].replace('-','vs')),
+                None
+            )
+            
+            # Create a result structure for each parameter
+            parameter_info = {
+                "section": main_data.get("dimension", "Unknown Dimension"),
+                "subsection": param["parameterName"],
+                "parameter": {
+                    "parameterName": param["parameterName"],
+                    "parameters": param["parameters"],
+                    "description": section_description
+                },
+                "range_values": {
+                    r["range"]: {
+                        "strengths": r["strengths"],
+                        "areas_for_improvement": r["areas_for_improvement"]
+                    }
+                    for r in param.get("ranges", [])
+                }
+            }
+
+            psychometric_item, created = PsychometricItem.objects.get_or_create(
+                section=parameter_info.get('section'),
+                subsection=parameter_info.get('subsection'),
+                defaults={
+                    'parameters': parameter_info.get('parameter'),
+                    'range_values': parameter_info.get("range_values")
+                }
+            )
+            extracted_data.append(parameter_info)
+
+    return extracted_data
+
+
+
+
+def add_section():
+    json_data = [
+      {
+        "dimension": "Subject Matter Expertise",
+        "generate_note": [
+            {
+                "parameter": "Learning Agility vs Fixed Mindset",
+                "description": "This dimension evaluates an individual's ability to swiftly adapt to new challenges and absorb novel information as opposed to exhibiting a reluctance to change. It underscores the capacity for continuous learning and intellectual flexibility."
+            },
+            {
+                "parameter": "Feedback Receptivity vs Defensiveness",
+                "description": "This gauges how open an individual is to receiving and integrating constructive criticism into their personal and professional development, as contrasted with defensive behaviour that may hinder growth."
+            }
+        ],
+        "parameters": [
+            {
+                "parameterName": "Learning Agility - Fixed Mindset",
+                "parameters": ["Learning Agility", "Fixed Mindset"],
+                "ranges": [
+                    {
+                        "range": "0-3",
+                        "strengths": [
+                            "Growth: Your growth mindset allows you to embrace challenges and see setbacks as opportunities for learning. This makes you highly adaptable and able to thrive in a dynamic environment.",
+                            "Collaboration: Your growth mindset makes you more open to different perspectives and willing to learn from others. This can lead to strong relationships and effective collaboration."
+                        ],
+                        "areas_for_improvement": [
+                            "Consistency: Your focus on growth and development can sometimes make you less consistent in your actions. It's important to find a balance between adaptability and reliability.",
+                            "Self-confidence: Your focus on growth and development can sometimes make you overly critical of yourself. It's important to cultivate self-confidence and celebrate your achievements."
+                        ],
+                        "overall": ""
+                    },
+                    {
+                        "range": "4-7",
+                        "strengths": [
+                            "Adaptability: You are able to balance your fixed mindset with a willingness to learn and grow. This makes you adaptable and able to navigate change effectively.",
+                            "Resilience: Your ability to balance your fixed mindset with a growth mindset can make you more resilient to setbacks. You are able to learn from your mistakes and bounce back from challenges."
+                        ],
+                        "areas_for_improvement": [
+                            "Growth: Your fixed mindset may still limit your growth potential in certain areas. It's important to continue to cultivate a growth mindset and challenge your beliefs about your abilities.",
+                            "Collaboration: Your fixed mindset can sometimes make it difficult to collaborate with others. It's important to be open to different perspectives and willing to learn from others."
+                        ],
+                        "overall": ""
+                    },
+                    {
+                        "range": "8-10",
+                        "strengths": [
+                            "Consistency: You are reliable and predictable, sticking to your routines and habits.",
+                            "Focus: Your fixed mindset allows you to focus on your strengths and avoid areas where you may struggle."
+                        ],
+                        "areas_for_improvement": [
+                            "Growth: Your fixed mindset can limit your growth potential. It's important to cultivate a growth mindset that embraces challenges and sees setbacks as opportunities for learning.",
+                            "Adaptability: Your fixed mindset can make it difficult to adapt to change. Developing your adaptability will help you thrive in a dynamic environment."
+                        ],
+                        "overall": ""
+                    }
+                ]
+            },
+            {
+                "parameterName": "Feedback Receptivity - Defensiveness",
+                "parameters": ["Feedback Receptivity", "Defensiveness"],
+                "ranges": [
+                    {
+                        "range": "0-3",
+                        "strengths": [
+                            "Relationships: Your receptive nature allows you to build strong relationships with others. You are open to different perspectives and willing to listen to others.",
+                            "Learning: Your receptivity makes you a lifelong learner. You are always open to new ideas and experiences."
+                        ],
+                        "areas_for_improvement": [
+                            "Independence: Your receptive nature can sometimes make you overly dependent on the opinions of others. It's important to develop your independence and learn to trust your own judgment.",
+                            "Assertiveness: Your receptive nature can sometimes make it difficult to assert yourself and stand up for your needs. It's important to develop your assertiveness skills to avoid being taken advantage of."
+                        ],
+                        "overall": ""
+                    },
+                    {
+                        "range": "4-7",
+                        "strengths": [
+                            "Adaptability: Your ability to balance receptivity and defensiveness makes you adaptable and able to navigate different social situations.",
+                            "Relationships: Your balanced approach allows you to build strong relationships while maintaining a sense of independence."
+                        ],
+                        "areas_for_improvement": [
+                            "Assertiveness: Your balanced approach can sometimes make it difficult to assert yourself and stand up for your needs. It's important to develop your assertiveness skills to avoid being taken advantage of.",
+                            "Decision-making: Your balanced approach can sometimes make it difficult to make decisions, as you may struggle to choose between being receptive to others and standing up for your beliefs."
+                        ],
+                        "overall": ""
+                    },
+                    {
+                        "range": "8-10",
+                        "strengths": [
+                            "Independence: Your defensive nature can make you independent and self-reliant. You are not easily influenced by the opinions of others.",
+                            "Focus: Your defensiveness can allow you to focus on your goals and avoid distractions."
+                        ],
+                        "areas_for_improvement": [
+                            "Relationships: Your defensiveness can make it difficult to build strong relationships with others. It's important to be open to different perspectives and avoid making assumptions.",
+                            "Learning: Your defensiveness can limit your ability to learn and grow. It's important to be open to feedback and willing to admit your mistakes."
+                        ],
+                        "overall": ""
+                    }
+                ]
+            }
+        ]
+    },
+  {
+    "dimension": "Innovation Drive",
+    "generate_note": [
+      {
+        "parameter": "Growth Orientation vs Comfort Zones",
+        "description": "Assesses an individual's propensity to seek out and embrace new opportunities for improvement and innovation. It contrasts with a preference for stability and familiarity that may lead to stagnation."
+      },
+      {
+        "parameter": "Experimentation vs Risk Aversion",
+        "description": "Reflects the willingness to try untested methods and accept uncertainty in the pursuit of advancements, as opposed to avoiding risks and maintaining the status quo to prevent failure."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Growth Orientation - Comfort Zones",
+        "parameters": ["Growth Orientation", "Comfort Zones"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Growth-focused: You are driven to learn and expand your skills consistently.",
+              "Adaptive: You readily embrace new methods and ideas, adapting quickly to changes."
+            ],
+            "areas_for_improvement": [
+              "Stability Needs: Ensure some stability in your knowledge and methods to avoid constant change causing inefficiencies.",
+              "Overextending: Be mindful of not stretching yourself too thin by taking on too many new challenges at once."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Learning: You show a balance between seeking growth and using your current expertise.",
+              "Versatility: You can smoothly transition between learning new skills and relying on well-established ones."
+            ],
+            "areas_for_improvement": [
+              "Further Challenge: Continue to seek new challenges to grow and expand your skills.",
+              "Risk-Taking: Consider taking calculated risks that push you slightly outside your comfort zone to facilitate growth."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Consistency: You prefer familiar methods that you are proficient in.",
+              "Reliability: Your adherence to proven methods makes you a reliable performer in established areas."
+            ],
+            "areas_for_improvement": [
+              "Growth: It's important to push beyond your comfort zones. Strive to learn and expand your skills continually.",
+              "Adaptability: Be open to adopting new approaches and ideas, as this can enhance your capability to tackle unforeseen challenges."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Experimentation - Risk Aversion",
+        "parameters": ["Experimentation", "Risk Aversion"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Innovative: You are highly willing to try new strategies, embracing the possibility of initial setbacks.",
+              "Adaptability: You are adaptable to changes and quick in implementing new ideas."
+            ],
+            "areas_for_improvement": [
+              "Risk Mitigation: Ensure you have risk mitigation strategies to balance out your innovative approaches.",
+              "Long-term Planning: Having a strong long-term plan can help balance innovative approaches with stability."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Approach: You use a balanced approach, occasionally trying new strategies while evaluating risks.",
+              "Versatility: You can adapt to new situations while managing potential risks effectively."
+            ],
+            "areas_for_improvement": [
+              "Increase Risk Tolerance: Be more willing to take calculated risks for growth.",
+              "Proactivity: Take a more proactive stance in seeking out new opportunities rather than just responding to changes."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Caution: You avoid potential risks, thereby mitigating the chances of failure.",
+              "Stability: Your risk-averse nature contributes to maintaining long-term stability."
+            ],
+            "areas_for_improvement": [
+              "Experimentation: Be more open to experimentation. Some calculated risks can lead to significant rewards.",
+              "Flexibility: Cultivate more flexibility to adapt when necessary, even in low-risk scenarios."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dimension": "Communication Mastery",
+    "generate_note": [
+      {
+        "parameter": "Empathy vs Self-Focus",
+        "description": "Evaluates the ability to genuinely understand and resonate with the emotions and perspectives of others, enhancing interpersonal relationships, compared to a focus predominantly on personal needs and views."
+      },
+      {
+        "parameter": "Active Listening vs Interrupting",
+        "description": "Measures the skill of engaging in meaningful dialogue through attentive listening and acknowledging others' inputs, in contrast to a tendency to interrupt, which may hinder effective communication."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Active Listening - Interrupting",
+        "parameters": ["Active Listening", "Interrupting"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Excellent Listener: You listen intently and make others feel heard.",
+              "Respectful Communication: You respect others' turns to speak and rarely interrupt."
+            ],
+            "areas_for_improvement": [
+              "Assertiveness: Ensure your viewpoints are also adequately expressed in conversations.",
+              "Engagement: Actively participate more to share your thoughts and contribute to discussions."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balance: You strike a balance between listening and asserting your viewpoints.",
+              "Adaptability: You can adjust your communication style depending on the situation."
+            ],
+            "areas_for_improvement": [
+              "Enhance Listening: Focus more on active listening to improve understanding in conversations.",
+              "Monitoring Interruptions: Be mindful of not interrupting others and let them finish their thoughts."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Assertive: You ensure that your viewpoints are heard.",
+              "Taking Initiative: You actively engage in conversations and lead discussions."
+            ],
+            "areas_for_improvement": [
+              "Listening Skills: Develop active listening skills to ensure you fully understand others' perspectives.",
+              "Patience: Practice patience and allow others to complete their thoughts without interruption."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Empathy - Self-Focus",
+        "parameters": ["Empathy", "Self-Focus"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Highly Empathetic: You are very attuned to others' emotions and perspectives.",
+              "Compassionate Listener: You excel at understanding and validating others' feelings."
+            ],
+            "areas_for_improvement": [
+              "Balance Self-Care: Ensure you do not neglect your own needs in the process of understanding and helping others.",
+              "Assertiveness: Work on being more assertive in expressing your own needs and viewpoints."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balance: You manage a balance between considering your own viewpoint and those of others.",
+              "Adaptable: You can shift perspectives depending on the situation at hand."
+            ],
+            "areas_for_improvement": [
+              "Enhance Empathy: Work on boosting your empathy to better understand and connect with others.",
+              "Self-Focus Development: Develop a stronger sense of self-focus to ensure your needs and goals are also met."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Self-Focused: You are determined and stay focused on your own goals.",
+              "Independent Thinker: You have a strong sense of self and can make decisions independently."
+            ],
+            "areas_for_improvement": [
+              "Empathy: Develop your empathy to become more attuned to others' emotions and perspectives.",
+              "Active Listening: Practice active listening to improve your connections and understanding of others."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  },
+  
+  {
+    "dimension": "People Leadership",
+    "generate_note": [
+      {
+        "parameter": "Collaboration vs Competitiveness",
+        "description": "Assesses an individual's capability to work cooperatively with others to achieve shared objectives, balancing personal ambition with teamwork as opposed to competing at the expense of collaboration."
+      },
+      {
+        "parameter": "Relationship Building vs Transactional Approach",
+        "description": "Reflects the ability to cultivate deep, trusting relationships based on mutual respect and understanding, in contrast to treating interactions as mere transactions."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Collaboration - Competitiveness",
+        "parameters": ["Collaboration", "Competitiveness"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Highly Collaborative: You prioritize shared goals and coordinate teamwork effectively.",
+              "Team-Oriented: Strong alignment with team objectives and collective success."
+            ],
+            "areas_for_improvement": [
+              "Competitive Drive: Cultivate a healthy competitive spirit to help drive personal and team growth.",
+              "Ambition: Enhance your personal drive and ambition to ensure balanced progress."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced: You maintain an effective balance between competition and collaboration.",
+              "Adaptability: You can adjust your approach based on the situation's demands."
+            ],
+            "areas_for_improvement": [
+              "Team Spirit: Work on deepening team engagement and nurturing a collaborative environment.",
+              "Competitive Edge: Strengthen your competitive drive to enhance overall performance."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Competitive Edge: You possess a strong competitive drive, constantly striving to outperform others.",
+              "Ambitious: Your ambition drives both personal and team success."
+            ],
+            "areas_for_improvement": [
+              "Collaboration: Focus on enhancing teamwork and prioritizing shared objectives.",
+              "Inclusiveness: Make efforts to include and value diverse perspectives and contributions within the team."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Relationship Building - Transactional Approach",
+        "parameters": ["Relationship Building", "Transactional Approach"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Strong Relationships: You invest significantly in building authentic and meaningful connections.",
+              "Collaborative Environment: You create a supportive and collaborative atmosphere that can lead to enhanced teamwork and morale."
+            ],
+            "areas_for_improvement": [
+              "Task Efficiency: Ensure task efficiency is not compromised while fostering relationships.",
+              "Goal Achievement: Focus more on specific goals and task completion to balance relationship-building efforts."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Approach: You maintain a good equilibrium between task orientation and relationship building.",
+              "Flexible Interaction: You adapt your approach based on the situation, fostering both task completion and relationship building."
+            ],
+            "areas_for_improvement": [
+              "Deepen Relationships: Work towards deepening your interactions and building more substantial connections.",
+              "Prioritization: Improve your ability to prioritize between tasks and relationship-building efforts as needed."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Task-focused: You prioritize task completion and efficiency, ensuring that goals are met promptly.",
+              "Objective-driven: Your approach is highly goal-oriented, making you effective in achieving targets."
+            ],
+            "areas_for_improvement": [
+              "Relationship Building: Invest in building more authentic connections to foster better long-term collaboration and trust.",
+              "Team Morale: Enhance efforts to build team morale and a collaborative environment, which can ultimately lead to greater overall success."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dimension": "Ethical Governance",
+    "generate_note": [
+      {
+        "parameter": "Emotional Regulation vs Impulsivity",
+        "description": "Evaluates the ability to maintain composure and deliberate responses in emotionally charged situations, compared to reacting impulsively, which may lead to unintended consequences."
+      },
+      {
+        "parameter": "Self-Confidence vs Self-Doubt",
+        "description": "Measures the degree of confidence in one's decisions and actions, empowering leadership and initiative, as opposed to pervasive self-doubt that can undermine effectiveness."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Emotional Regulation - Impulsivity",
+        "parameters": ["Emotional Regulation", "Impulsivity"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Control: You have excellent control over your emotions.",
+              "Thoughtfulness: You approach situations with a level-headed and calm demeanor."
+            ],
+            "areas_for_improvement": [
+              "Flexibility: Ensure your actions are timely and responsive without being overly restrained.",
+              "Balance: Aim to strike a balance between measured responses and necessary quick actions."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balance: You maintain a balance between emotional regulation and taking action.",
+              "Awareness: You are generally aware of your emotional reactions and can adjust appropriately."
+            ],
+            "areas_for_improvement": [
+              "Consistency: Work towards consistently regulating your emotions in all situations.",
+              "Reflection: Spend more time reflecting on impulsive moments to better recognize triggers."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Enthusiasm: You approach situations with energy and spontaneity.",
+              "Decisiveness: Your capacity to make quick decisions is a valuable skill in certain situations."
+            ],
+            "areas_for_improvement": [
+              "Emotional Control: Develop better emotional regulation to manage emotions constructively.",
+              "Thoughtfulness: Strive to increase your thoughtfulness to avoid impulsive actions that may lead to negative outcomes."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Self-Confidence - Self-Doubt",
+        "parameters": ["Self-Confidence", "Self-Doubt"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Highly Confident: You have a high level of self-confidence in your abilities and decisions.",
+              "Decisiveness: You are able to make quick decisions without much hesitation."
+            ],
+            "areas_for_improvement": [
+              "Overconfidence: Ensure your confidence does not border on overconfidence to avoid potential complacency.",
+              "Receptiveness: Stay open to feedback and be willing to admit when you might be wrong."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced: You maintain a balanced level of self-confidence without frequent self-doubt.",
+              "Reflective: You are capable of considering different perspectives before making decisions."
+            ],
+            "areas_for_improvement": [
+              "Increase Assurance: Work on increasing your self-assurance to trust your decisions more.",
+              "Consistency: Aim for a more consistent level of self-confidence to reduce occasional self-doubt."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Self-Improvement: You recognize the need for self-improvement and are proactive in seeking it.",
+              "Humbleness: You understand your limitations and actively work on them."
+            ],
+            "areas_for_improvement": [
+              "Confidence: Build more self-confidence to believe in your abilities and decisions.",
+              "Positive Reinforcement: Focus on acknowledging your strengths and past successes to boost self-belief."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dimension": "Strategic Thinking",
+    "generate_note": [
+      {
+        "parameter": "Strategic Thinking vs Short-Term Focus",
+        "description": "Reflects an individual's ability to align current actions with long-term goals, emphasising foresight and comprehensive planning as opposed to concentrating solely on immediate results."
+      },
+      {
+        "parameter": "Decision-Making vs Procrastination",
+        "description": "Assesses the capability to make informed and timely decisions while managing uncertainties, versus delaying necessary actions due to indecision or avoidance."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Strategic Thinking - Short-Term Focus",
+        "parameters": ["Strategic Thinking", "Short-Term Focus"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Strategy: You excel at strategic thinking and long-term goal setting.",
+              "Vision: You have a strong ability to envision the future and set meaningful long-term goals."
+            ],
+            "areas_for_improvement": [
+              "Practical Focus: Maintain daily practical focus to ensure that immediate tasks align with your strategic vision.",
+              "Execution: Enhance your ability to execute on short-term tasks to ensure tangible progress toward your long-term goals."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balance: You balance short-term and long-term planning effectively.",
+              "Flexibility: You can adapt to changing circumstances while keeping an eye on long-term objectives."
+            ],
+            "areas_for_improvement": [
+              "Vision: Enhance your strategic vision to better align actions with long-term goals.",
+              "Consistency: Increase consistency in aligning immediate tasks with long-term objectives."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Prudence: You are effective in short-term planning and task completion.",
+              "Focus: You have a strong focus on immediate tasks, ensuring timely completion."
+            ],
+            "areas_for_improvement": [
+              "Strategic Thinking: Develop long-term strategic thinking to align your actions with future goals.",
+              "Risk Management: Balance short-term focus with longer-term risk assessment to avoid potential pitfalls."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Decision-Making - Procrastination",
+        "parameters": ["Decision-Making", "Procrastination"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Decisiveness: You are highly decisive and take prompt actions.",
+              "Action-Oriented: You complete tasks efficiently without unnecessary delays."
+            ],
+            "areas_for_improvement": [
+              "Avoid Impulsiveness: Ensure your decisions are well-thought-out to avoid impulsive actions.",
+              "Reflective Thinking: Take time for reflective thinking to enhance the quality of your decisions."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balance: You balance decision-making and action effectively.",
+              "Moderate Pace: You are able to weigh options carefully without rushing or lengthy delays."
+            ],
+            "areas_for_improvement": [
+              "Avoid Procrastination: Reduce tendencies to procrastinate on important decisions.",
+              "Improve Decision Speed: Aim to slightly increase your decision-making speed to enhance productivity."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Deliberation: You make careful, deliberate decisions.",
+              "Thoughtfulness: You tend to thoroughly consider the consequences before taking action."
+            ],
+            "areas_for_improvement": [
+              "Increase Decisiveness: Work on being more decisive to take timely actions when needed.",
+              "Avoid Overthinking: Limit overthinking to prevent decision-making delays and missed opportunities."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  }
+,
+
+  {
+    "dimension": "Operational Excellence",
+    "generate_note": [
+      {
+        "parameter": "Delegation vs Micromanagement",
+        "description": "Measures trust placed in team members' capabilities and the effective distribution of responsibilities, as opposed to tendencies toward micromanagement that may stifle autonomy and creativity."
+      },
+      {
+        "parameter": "Adaptability to Change vs Resistance",
+        "description": "Evaluates the capacity to embrace and effectively navigate changing environments, showing flexibility and resilience as opposed to exhibiting resistance that may hinder progress."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Delegation - Micromanagement",
+        "parameters": ["Delegation", "Micromanagement"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Excellent Delegator: You excel at delegating tasks and empowering your team.",
+              "Trust in Team: You trust your team’s abilities and encourage their independence."
+            ],
+            "areas_for_improvement": [
+              "Maintain Oversight: Ensure you retain some level of oversight to catch potential issues early.",
+              "Provide Guidance: Make sure you still provide adequate guidance and support when necessary."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Approach: You maintain a balanced approach to delegation and control.",
+              "Flexibility: You know when to delegate and when to get involved."
+            ],
+            "areas_for_improvement": [
+              "Effective Delegation: Work on delegating more effectively to empower your team further.",
+              "Reduce Micromanagement: Try to identify areas where you can reduce unnecessary control."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Detail-oriented: You focus meticulously on details to ensure accuracy.",
+              "High Standards: Your high standards often lead to high-quality outcomes."
+            ],
+            "areas_for_improvement": [
+              "Improve Delegation: Enhance your delegation skills to better trust and empower your team.",
+              "Avoid Over-Control: Work on avoiding over-controlling tendencies to allow your team more autonomy."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Adaptability to Change - Resistance",
+        "parameters": ["Adaptability to Change", "Resistance"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Highly Adaptable: You are highly adaptable to change, effectively navigating and adjusting to shifting priorities and unexpected circumstances.",
+              "Flexibility: You can quickly pivot and respond to new situations without much disruption."
+            ],
+            "areas_for_improvement": [
+              "Over-Adapting: Ensure that you do not over-adjust or lose track of long-term goals.",
+              "Consistency: Strive to maintain a consistent approach to certain tasks to ensure stability."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Adaptability: You balance stability with the ability to adjust, providing a dependable yet flexible approach.",
+              "Moderate Flexibility: You can manage some level of change without significant disruption."
+            ],
+            "areas_for_improvement": [
+              "Increase Adaptability: Enhance your ability to handle unexpected changes and shifting priorities more efficiently.",
+              "Proactive Planning: Develop strategies to better anticipate and prepare for potential changes."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Stability: You remain steady and stable in your habits, providing consistency.",
+              "Structured Approach: Your structured method helps in maintaining clear objectives and processes."
+            ],
+            "areas_for_improvement": [
+              "Embrace Change: Work on embracing change more to navigate shifting priorities and unexpected circumstances effectively.",
+              "Flexibility: Increase your flexibility to adjust to new situations and evolving requirements."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dimension": "Financial Acumen",
+    "generate_note": [
+      {
+        "parameter": "Short-term Focus vs Forward Thinking Focus",
+        "description": "Reflects the balance between achieving immediate financial results and crafting strategic plans for future stability and growth, ensuring sustainable economic health."
+      },
+      {
+        "parameter": "Data Driven vs Process Driven",
+        "description": "Measures the prioritization of empirical data and analytics in decision-making processes versus a reliance on traditional methods and established procedures."
+      }
+    ],
+    "parameters": [
+      {
+        "parameterName": "Short term Focus - Forward Thinking Focus",
+        "parameters": ["Short term Focus", "Forward Thinking Focus"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Innovative Energy: Your youthful perspective brings fresh, creative ideas to improve ROI and explore new financial strategies.",
+              "Opportunistic: You are quick to identify tactical avenues that offer short-term spikes."
+            ],
+            "areas_for_improvement": [
+              "Short-Term Focus: It's essential to balance your excitement for ROI considerations with a sustainable growth vision.",
+              "Practical Execution: Gain more experience in translating your financial savvy into executable financial strategies that deliver consistent returns."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Balanced Vision: With more experience, you effectively balance immediate ROI goals with longer-term financial planning, creating a sustainable growth path.",
+              "Strategic Foresight: You have developed a strong sense of foresight, aligning financial decisions with upcoming market trends and organizational goals."
+            ],
+            "areas_for_improvement": [
+              "Managing Financial Risk: As you take on more responsibility, it’s important to refine your ability to manage financial risks associated with forward-thinking strategies.",
+              "Efficiency in Execution: As your experience grows, focus on improving the efficiency of turning future-oriented financial strategies into actions that capitalize on opportunities quickly."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Visionary Financial Leadership: Your extensive experience allows you to consistently focus on long-term ROI, with a clear understanding of how current decisions will impact future growth.",
+              "Proactive Financial Planning: You have a well-honed ability to align financial strategies with long-term goals, leading to consistent and substantial improvements in ROI."
+            ],
+            "areas_for_improvement": [
+              "Adapting to Change: Despite your strong forward-thinking focus, be mindful of maintaining flexibility to quickly adjust strategies in response to fast-changing market conditions.",
+              "Tactical Precision: While your vision is clear, focus on sharpening the tactical execution of forward-thinking ideas, ensuring that both immediate and long-term ROI are optimized."
+            ],
+            "overall": ""
+          }
+        ]
+      },
+      {
+        "parameterName": "Data Driven - Process Driven",
+        "parameters": ["Data Driven", "Process Driven"],
+        "ranges": [
+          {
+            "range": "0-3",
+            "strengths": [
+              "Data Awareness: At this stage, you’re beginning to understand the importance of using data in financial decisions.",
+              "Process Familiarity: You are starting to recognize the value of structured financial processes."
+            ],
+            "areas_for_improvement": [
+              "Data Utilization: Focus on learning how to effectively collect and interpret financial data to inform basic decisions.",
+              "Process Learning: Develop a stronger understanding of foundational financial processes to establish consistency."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "4-7",
+            "strengths": [
+              "Data-Driven Foundations: You actively use data to guide financial decisions, developing a more precise understanding of its impact.",
+              "Process Improvement: You can identify areas where financial processes can be optimized for better results."
+            ],
+            "areas_for_improvement": [
+              "Data Flexibility: Incorporate flexibility by combining your growing data skills with qualitative insights.",
+              "Process Innovation: Begin exploring innovative approaches to enhance existing financial processes without sacrificing efficiency."
+            ],
+            "overall": ""
+          },
+          {
+            "range": "8-10",
+            "strengths": [
+              "Strategic Data Use: You leverage data analytics to drive strategic financial decisions, ensuring accuracy and maximizing long-term ROI.",
+              "Advanced Process Optimization: You excel at fine-tuning financial processes, which substantially enhances efficiency and outcomes."
+            ],
+            "areas_for_improvement": [
+              "Holistic Decision-Making: Integrate intuitive insights with data-driven strategies to further optimize financial planning.",
+              "Continuous Innovation: Maintain a balance between steadfast processes and the introduction of novel methods to ensure dynamic financial success."
+            ],
+            "overall": ""
+          }
+        ]
+      }
+    ]
+  }
+
+
+
+
+
+
+  
+]
+
+    data = extract_section_details(json_data)
+    print(data)
+
+
+
+def format_psychometric_items(psychometric:Psychometric):
+    # Use a set to keep track of unique sections for the dimension
+    sections = {}
+
+    # Loop through each PsychometricItem in the Psychometric set
+    for item in psychometric.items.all():
+        # Use item.section as the dimension
+        section = sections.get(item.section)
+        if not section:
+            section = {
+                "dimension": item.section,  
+                "generate_note": [],
+                "parameters": []
+            }
+
+        print(f'seciton: {sections, section}')
+              
+        parameters = item.parameters
+        section["generate_note"].append({
+                "parameter": " vs ".join(parameters.get('parameters')),
+                "description": parameters.get('description')
+            })
+
+        parameter_data = {
+                "parameterName": parameters.get('parameterName'),
+                "parameters": parameters.get('parameters'),
+                "ranges": []
+            }
+        
+        for range_key, range_value in item.range_values.items():
+                range_entry = {
+                    "range": range_key,
+                    "strengths": range_value.get("strengths", []),
+                    "areas_for_improvement": range_value.get("areas_for_improvement", []),
+                    "overall": range_value.get("overall", "")
+                }
+                parameter_data["ranges"].append(range_entry)
+
+        section['parameters'].append(parameter_data)
+
+        sections[f"{item.section}"] = section
+
+    return sections.values()
+
+def find_highest_count_range(data):
+    # Define ranges as tuples of (min, max)
+    if not data:
+        return []
+    ranges = [(0, 3), (4, 7), (8, 10)]
+    
+    # Dictionary to store counts for each range
+    range_counts = defaultdict(int)
+    
+    # Iterate through nested dictionary and count values in each range
+    for category, subcategory_values in data.items():
+        for subcategory, value in subcategory_values.items():
+            for r in ranges:
+                if r[0] <= value <= r[1]:
+                    range_counts[r] += 1
+                    break  # Stop after finding the correct range
+    
+    # Find the maximum count
+    print(range_counts)
+    max_count = max(range_counts.values())
+    
+    # Get all ranges with the maximum count
+    most_common_ranges = [f"{r[0]}-{r[1]}" for r, count in range_counts.items() if count == max_count]
+    
+    return most_common_ranges
+
+
+
+
+def parse_psychometric_csv(csv_file):
+    """
+    Parses and validates a CSV file for PsychometricItems, creating a structured 
+    JSON for each item that matches the PsychometricItem model fields.
+    """
+    items = []
+    decoded_file = csv_file.read().decode('utf-8').splitlines()
+    reader = csv.DictReader(decoded_file)
+
+    # Regex patterns for detecting range-related columns
+    range_pattern = re.compile(r'^Range (\d+)$')
+    strengths_pattern = re.compile(r'^Strengths (\d+)$')
+    improvement_pattern = re.compile(r'^Areas Improvement (\d+)$')
+
+    for row in reader:
+        # Extract required fields and validate they are present
+        section = row.get('Section')
+        parameter_names = row.get('Parameter Names')
+        parameter_description = row.get('Parameter Description')
+        avg_value = row.get('Average Score')
+
+        if not section  or not parameter_names or not parameter_description or not avg_value:
+            raise ValidationError("All fields are required: 'Section', 'Parameter Names', 'Average Score' and 'Parameter Description'.")
+
+        # Prepare the parameters field
+        parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip())>0]
+        parameter_name = " - ".join(parameter_list)
+        parameters = {
+            "parameters": parameter_list,
+            "description": parameter_description,
+            "parameterName": parameter_name
+        }
+
+        subsection = parameter_name
+
+        # Dynamically parse range values using regex
+        range_values = {}
+        ranges_found = {}
+
+        for key, value in row.items():
+            # Match Range, Strengths, and Areas for Improvement fields by number
+            range_match = range_pattern.match(key)
+            strengths_match = strengths_pattern.match(key)
+            improvement_match = improvement_pattern.match(key)
+
+            if range_match:
+                range_num = range_match.group(1)
+                ranges_found[range_num] = {"range": value}
+            elif strengths_match:
+                range_num = strengths_match.group(1)
+                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+                ranges_found.setdefault(range_num, {})["strengths"] = [s.strip() for s in strengths if s.strip()]
+            elif improvement_match:
+                range_num = improvement_match.group(1)
+                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+
+                ranges_found.setdefault(range_num, {})["areas_for_improvement"] = [a.strip() for a in areas if a.strip()]
+
+        # Validate and organize range data into range_values structure
+        for range_num, range_data in ranges_found.items():
+            if "range" not in range_data or "strengths" not in range_data or "areas_for_improvement" not in range_data:
+                raise ValidationError(f"Missing data for range {range_num}: Ensure Range, Strengths, and Areas for Improvement are provided.")
+            
+            range_values[range_data["range"]] = {
+                "strengths": range_data["strengths"],
+                "areas_for_improvement": range_data["areas_for_improvement"]
+            }
+
+        # Collect item data for creation
+        item_data = {
+            "section": section,
+            "subsection": subsection,
+            "parameters": parameters,
+            "range_values": range_values,
+            'average_value': avg_value
+        }
+        items.append(item_data)
+
+    logger.info(f"items: {items}")
+    if len(items) == 0:
+        raise ValidationError("Should be at least one row in csv.")
+    return items

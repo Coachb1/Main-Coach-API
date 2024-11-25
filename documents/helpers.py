@@ -42,7 +42,7 @@ def create_document(tenant: Tenant,
     file_extension = display_name.rsplit(".", 1)[-1]
     date_str = timezone.now().date().isoformat()
     object_id = f"{tenant.uid}/{owner_type}/{owner_id}/{doc_type}/{date_str}/{str(uuid.uuid4())}.{file_extension}"
-    # bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
+    bucket_name = tenant.document_storage_bucket_name or "coachbot-documents-v1-ind"
     bucket_name = tenant.document_storage_bucket_name or "botsforslack"
     region_name = "ap-south-1"
 
@@ -55,12 +55,12 @@ def create_document(tenant: Tenant,
 
     # uploading file to gcp bucket
 
-    # gcp_upload(
-    #     bucket_name,
-    #     file,
-    #     object_id
-    # )
-    upload_to_ovh_s3(file, object_id)
+    gcp_upload(
+        bucket_name,
+        file,
+        object_id
+    )
+    # upload_to_ovh_s3(file, object_id)
 
     # creating document objects in db
 
@@ -94,8 +94,8 @@ def get_document_url_from_doc_id(doc_uid: str) -> str:
 
 
 def get_document_url(doc: Document) -> str:
-    # return get_url(doc.region_name, doc.bucket_name, doc.object_id)
-    return get_ovh_url(doc.object_id)
+    return get_url(doc.region_name, doc.bucket_name, doc.object_id)
+    # return get_ovh_url(doc.object_id)
 
 
 @timeit

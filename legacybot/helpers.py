@@ -1,58 +1,67 @@
 from commons.timeit import timeit
-from legacybot.models import Thread, ChatConversation
+from legacybot.models import Thread, ChatConversation, LegacyBotUser
 from commons.utils import generic_completion
 from string import Template
 from tests.helpers import json_extraction
 import logging
 import json5
+import uuid
+import re
 
 logger = logging.getLogger(__name__)
 
 @timeit
-def get_or_generate_action_data(thread_id: str):
+def get_or_generate_action_data(threads: Thread):
     session_per_conversation_step = 10
+    logger.info(f"Processing [get_or_generate_action_data] for threads: [{threads.count()}: {threads.values_list('uid',flat=True)}]")
+    action_data = []
+    if threads.count() == 0:
+        return action_data
+    user = LegacyBotUser.objects.get(uid=threads.first().user_id)
+    for thread in threads:
+        try:
+            if user.uid != thread.user_id:
+                user = LegacyBotUser.objects.get(uid=thread.user_id)
+            # Fetch conversations for the thread
+            conversations = ChatConversation.objects.filter(deleted=False, thread_id=thread.uid)
+            conversation_count = conversations.count()
 
-    try:
-        # Fetch thread
-        thread = Thread.objects.get(deleted=False, uid=thread_id)
+            # Skip processing if there are no conversations
+            if conversation_count == 0:
+                logger.warning(f"No conversation found in the thread: {thread.uid}")
+                action_data.append({thread.uid: "No conversation found."})
+                continue
 
-        # Fetch conversations for the thread
-        conversations = ChatConversation.objects.filter(thread_id=thread.uid)
-        conversation_count = conversations.count()
-
-        if conversation_count > 0:
             last_conversation = conversations.last()
 
-            # Check if the action data is already up-to-date
+            # Check if action data is already up-to-date
             if thread.action_data and thread.action_data.get('last_conversation_id') == last_conversation.uid:
-                logger.info(f"Getting existing action data: {thread.action_data}")
-                return thread.action_data
-            else:
-                # Generate new action data
-                data = generate_action_report_data(conversations=conversations)
-                data.update({
-                    "last_conversation_id": last_conversation.uid,
-                    "conversationTitle": thread.chat_topic,
-                    "lastDate": str(last_conversation.created.date()),
-                    "sessionCount": conversation_count // (session_per_conversation_step * 2),
-                    "conversation_steps": conversation_count / 2
-                })
+                logger.info(f"Using existing action data for thread {thread.uid}")
+                action_data.append({thread.uid: thread.action_data})
+                continue
 
-                # Save the new action data to the thread
-                thread.action_data = data
-                thread.save(update_fields=['action_data'])
+            # Generate new action data
+            data = generate_action_report_data(conversations=conversations)
+            data.update({
+                "last_conversation_id": last_conversation.uid,
+                "conversationTitle": thread.chat_topic,
+                "lastDate": str(last_conversation.created.date()),
+                "sessionCount": conversation_count // (user.session_per_conversation_step * 2),
+                "conversation_steps": conversation_count / 2
+            })
 
-                return data
+            # Save the new action data to the thread
+            thread.action_data = data
+            thread.save(update_fields=['action_data'])
 
-        else:
-            logger.info(f"No conversation found in the thread: {thread.uid}")
-            raise ChatConversation.DoesNotExist
+            action_data.append({thread.uid: data})
 
-    except Thread.DoesNotExist as e:
-        logger.error(f"No thread found for {thread_id}", exc_info=True)
-        raise e
+        except ChatConversation.DoesNotExist:
+            logger.error(f"No conversations found for thread {thread.uid}")
+        except Exception as e:
+            logger.exception(f"Failed to process thread {thread.uid}: {e}", exc_info=True)
 
-    
+    return action_data
 
     
 @timeit
@@ -63,6 +72,8 @@ def generate_action_report_data(conversations:ChatConversation):
             "role": conversation.role,
             "text": conversation.content
         })
+
+    logger.info(f"[generate_action_report_data]: conversation: {conv}")
 
     prompt = """
         Analyze the following conversation between a user and an AI assistant about Python programming. Provide a structured summary with the following elements:
@@ -92,3 +103,19 @@ def generate_action_report_data(conversations:ChatConversation):
     except Exception as e:
         logger.exception(f"failed to generate action report data : {e}")
         raise ValueError(f'Failed to generate action report data : {e}')
+    
+
+def generate_bot_identifier(bot_name,assistant_id):
+    # Normalize bot name: lowercase, replace spaces with hyphens, remove special characters, and limit to first 4 words
+    normalized_bot_name = "-".join(
+        re.sub(r"[^a-zA-Z0-9\s-]", "", bot_name).strip().lower().split()
+    )
+    
+    
+    # Combine normalized bot name and random ID
+    bot_id = f"{normalized_bot_name}-{assistant_id.replace('asst_','')[:6]}"
+    
+    # Replace underscores with hyphens (if any were generated by normalization)
+    bot_id = bot_id.replace("_", "-")
+    
+    return bot_id

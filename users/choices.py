@@ -35,6 +35,7 @@ class ProfileTypeChoice(DjangoChoices):
 
 class BotTypeChoice(DjangoChoices):
     avatar_bot = ChoiceItem("avatar_bot")
+    subject_specific_bot = ChoiceItem("subject_specific_bot")
     feedback_bot = ChoiceItem("feedback_bot")
     subject_matter_bot = ChoiceItem("subject_matter_bot")
     helper_bot = ChoiceItem("helper_bot")

@@ -14,6 +14,10 @@ class ReportType:
     DecisionAnalysisReport = "decisionAnalysisReport"
     ProcessTrainingReport = "processTrainingReport"
     IDP_REPORT = "idpReport"
+    CRITICAL_FEEDBACK_REPORT = 'criticalFeedbackReport'
+    KUDOS_BOARD_REPROT = 'kudosBoard'
+    PARTICIPANT_LEADERBOARD_REPORT = 'participantLeaderboardReport'
+    PARTICIPANT_MAPPING_REPORT = 'participantMappingReport'
     PERSONALITY_DISTRIBUTION_REPORT = "personalityDistributionReport"
     PERSONALITY_PSYCHOMATRIC_REPORT="personalityPsychomatricReport"
 

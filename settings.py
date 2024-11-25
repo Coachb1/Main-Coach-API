@@ -75,6 +75,10 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOWED_ORIGINS = [
     "https://platform.coachbots.com",
     "https://playground.coachbots.com",
+    "https://talk.coachbots.com",
+    "https://check.aadil611.live",
+    "https://myplayground.coachbots.com",
+    
 ]
 
 ROOT_URLCONF = 'urls'
@@ -225,7 +229,9 @@ WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
 WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
 BACKEND = os.getenv("BACKEND")
 
+
 CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com','https://coach-api-gke-dev.coachbots.com','https://coach-api-gke-prod.coachbots.com']
+
 
 
 # CACHE_HOST='localhost'

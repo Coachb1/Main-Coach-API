@@ -84,6 +84,7 @@ import os
 from openpyxl.styles import Font
 from collections.abc import MutableMapping
 from django.http import HttpResponse
+from users.helpers import generate_bot_id
 
 logger = logging.getLogger(__name__)
 
@@ -490,10 +491,10 @@ class AccountsViewSet(ApiViewSet,
 
             cache_key = generate_cache_key("client_info",tenant.uid,mode,user_id,email,mob_number)
             cached_data = get_cache(cache_key)
-            if cached_data:
-                return Response({"data":cached_data},status=status.HTTP_200_OK)
+            # if cached_data:
+            #     return Response({"data":cached_data},status=status.HTTP_200_OK)
             
-            client_info = ClientUserInfo.objects.filter(tenant_id = tenant.uid,deleted = 0)
+            client_info = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False)
             data = {}
 
             if mode == 'my_lib':
@@ -530,15 +531,19 @@ class AccountsViewSet(ApiViewSet,
                 data['user_info'] = user_info
 
             elif mode == 'only_client_data':
-                client = ''
-                if user_id:
-                    client = client_info.filter(member_user_ids__contains = user_id)
-                if email:
-                    client = client_info.filter(member_emails__contains = email)
-                if mob_number:
-                    client = client_info.filter(member_mob_numbers__contains = mob_number)
+                client = None
+                client_name = self.request.query_params.get('client_name')
+                if client_name:
+                    client = client_info.filter(client_name=client_name)
+                else:
+                    if user_id:
+                        client = client_info.filter(member_user_ids__contains = user_id)
+                    if email:
+                        client = client_info.filter(member_emails__contains = email)
+                    if mob_number:
+                        client = client_info.filter(member_mob_numbers__contains = mob_number)
 
-                data['only_client_data'] = clientUserInfoSerializer(client.first()).data
+                data['only_client_data'] = clientUserInfoSerializer(client.first()).data if client else {}
                 
             set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
@@ -554,7 +559,7 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
-    @action(methods=['GET'], detail=False, url_path="get-user-feedback-data")
+    @action(methods=['GET','POST'], detail=False, url_path="get-user-feedback-data")
     def get_user_feedback_data(self,request,*args, **kwargs):
         """
         Retrieves or creates user feedback data for a specific bot.
@@ -576,13 +581,27 @@ class AccountsViewSet(ApiViewSet,
                 A dictionary with a "message" key indicating the success of the creation.
         """
         try:
-            method = request.query_params.get('method',None)
-            bot_id = request.query_params.get('bot_id',None)
-            feedback_type = request.query_params.get("feedback_type",None)
-            participant_id = request.query_params.get('user_id',None)
-            qna_type = request.query_params.get('qna_type',None)
-            cache_key = ''
+            if request.method == 'GET':
+                method = request.query_params.get('method',None)
+                bot_id = request.query_params.get('bot_id',None)
+                feedback_type = request.query_params.get("feedback_type",None)
+                participant_id = request.query_params.get('user_id',None)
+                qna_type = request.query_params.get('qna_type',None)
+                qna = request.query_params.get('qna',None)
+                is_positive = request.query_params.get('is_positive',"False")
+                is_anonymous = request.query_params.get('is_anonymous',"False")
+                
+            elif request.method == 'POST':
+                method = request.data.get('method',None)
+                bot_id = request.data.get('bot_id',None)
+                feedback_type = request.data.get("feedback_type",None)
+                participant_id = request.data.get('user_id',None)
+                qna_type = request.data.get('qna_type',None)
+                qna = request.data.get('qna',None)
+                is_positive = request.data.get('is_positive',"False")
+                is_anonymous = request.data.get('is_anonymous',"False")
 
+            cache_key = ''
 
             data = {}
             signature_bot = None
@@ -607,8 +626,6 @@ class AccountsViewSet(ApiViewSet,
                 if cached_data:
                     return Response(cached_data, status=status.HTTP_200_OK)
                 
-                qna_type = request.query_params.get("qna_type",None)
-
                 # to get latest botqna for a user using participant_id
                 if participant_id:
                     recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
@@ -666,9 +683,7 @@ class AccountsViewSet(ApiViewSet,
                     data['message'] = msg_data
 
             elif method.lower() == 'post':
-                qna = request.query_params.get('qna',None)
-                is_positive = request.query_params.get('is_positive',"False")
-                is_anonymous = request.query_params.get('is_anonymous',"False")
+                
                 logger.info(f"qna : {qna}, ispositive: {is_positive} , is_anonymous: {is_anonymous}")
 
                 intake_summary_prompt = get_intake_summary_prompt(qna)
@@ -768,6 +783,34 @@ class AccountsViewSet(ApiViewSet,
                 profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
                 serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
                 serializer.is_valid(raise_exception=True)
+
+                # saving bot_data if any before profile sync
+                if data.get('bot_data'):
+
+                    bot_data = json.loads(data.get('bot_data')) if isinstance(data.get('bot_data'),str) else data.get('bot_data')
+                    bot_description = bot_data.get('bot_description')
+                    bot_name = bot_data.get('bot_name')
+
+                    bot_id = bot_data.get('bot_id')
+                    bot = SignatureBot.objects.filter(deleted=False,uid=bot_id).last()
+                    if bot:
+                        bot_att = BotAttribute.objects.get(bot_id=bot.uid)
+                        bot_att.bot_name = bot_name
+                        bot_att.about = bot_description
+                        bot_att.save(update_fields=['bot_name','about'])
+
+                        add_data = bot.data['additional_data']
+                        additional_data = {
+                            "bot_area_of_coaching": bot_data.get('bot_area_of_coaching'),
+                            "bot_description": bot_data.get('bot_description')
+                        }
+                        if add_data:
+                            for key, value in additional_data.items():
+                                add_data[key] = value
+                            bot.data['additional_data'] = add_data
+                            bot.save(update_fields=['data'])
+
+                            
                 serializer.save()
 
                 for_reapproval = request.query_params.get('for_reapproval',None).lower().strip() == 'true' if request.query_params.get('for_reapproval',None) else False
@@ -810,8 +853,9 @@ class AccountsViewSet(ApiViewSet,
                         avatar_bot_url = directory.avatar_bot_url,
                         custom_user_bot_url = directory.custom_user_bot_url,
                         custom_user_bot_id = directory.custom_user_bot_id,
-                        deep_dive_bot_url = directory.deep_dive_bot_url,
-                        deep_dive_bot_id = directory.deep_dive_bot_id,
+                        subject_specific_bot_url = directory.subject_specific_bot_url,
+                        subject_specific_bot_id = directory.subject_specific_bot_id,
+                        subject_specific_bot_snippit= directory.subject_specific_bot_snippit,
                         timer_enabled = directory.timer_enabled,
                         time_value_in_days = directory.time_value_in_days,
                         timer_reset = directory.timer_reset,
@@ -847,7 +891,7 @@ class AccountsViewSet(ApiViewSet,
             except Exception as e:
                 logger.exception(e)
                 send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
-                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error":"got error"},status=status.HTTP_400_BAD_REQUEST)
 
         if request.method == 'POST':
             logger.info(f"************************************** request files : {request}**************************************************************************** request data: {request.data}")
@@ -921,7 +965,7 @@ class AccountsViewSet(ApiViewSet,
                 error_msg += traceback.format_exc()
                 # send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
                 send_error_notification("coach_coachee_mentor_mentee_profile",error_msg,{"data":data})
-                return Response({"error":"got error"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error":"got error"},status=status.HTTP_400_BAD_REQUEST)
             
     @action(methods=['GET','POST'], detail=False, url_path="update-coach-mentor-meeting-availability")
     def update_coach_mentor_meeting_availability(self,request,*args, **kwargs):
@@ -939,7 +983,7 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"data": profile.meeting_availability },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
-                return Response({"error": f"{e.args}"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"{e.args}"},status=status.HTTP_400_BAD_REQUEST)
             
         elif request.method == 'POST':
             user_id = request.data.get('user_id',None)
@@ -960,7 +1004,7 @@ class AccountsViewSet(ApiViewSet,
                     profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=self.request.tenant.uid,uid=profile_id)
                 
                 if profile is None:
-                    return Response({"error": "profile not found"},status=status.HTTP_404_NOT_FOUND)
+                    return Response({"error": "profile not found"},status=status.HTTP_400_BAD_REQUEST)
                 profile.meeting_availability = availability
                 profile.save(update_fields=["meeting_availability"])
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
@@ -1055,7 +1099,7 @@ class AccountsViewSet(ApiViewSet,
                         logger.info(f"Could not get transcript for youtube link: {link} from package so trying to download and transcribe")
                         transcript = download_and_transcribe_audio(link)
                         logger.info(f"Transcript after download and transcribe : {transcript}")
-                    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                         extracted_media_data[link] = transcript
                         transcript = get_document_summary(transcript)
                     extracted_from_youtube[link] = transcript
@@ -1176,10 +1220,11 @@ class AccountsViewSet(ApiViewSet,
                     if bot_name is None or bot_name == '':
                         return Response({"error": "bot_name is required"},status=status.HTTP_400_BAD_REQUEST)
 
-                    bot_id = "-".join(['knowledge' if bot_type == 'user_bot' else bot_type, participant_id[:5], " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
-                    if bot_type == BotTypeChoice.deep_dive:
-                        bot_id = "-".join(["engagement-survey" ,"".join(map(str,random.sample(range(1, 9), 5))) , " ".join(bot_name.strip().lower().replace(" ","-").replace("&"," ").split()[:4])])
-
+                    bot_id = generate_bot_id(
+                        bot_type=bot_type,
+                        participant_id=participant_id,
+                        bot_name=bot_name
+                        )
                     existing_bots = SignatureBot.objects.filter(bot_id=bot_id,tenant_id=self.request.tenant.uid,deleted=False)
                     if existing_bots.count() > 0:
                         return Response({"error": "Bot already exists"},status=status.HTTP_400_BAD_REQUEST)
@@ -1353,8 +1398,8 @@ class AccountsViewSet(ApiViewSet,
                         signature_bot.faqs = new_faqs
                         updated_fields.append("faqs")
 
-                    if bot_type == BotTypeChoice.avatar_bot:
-                        signature_bot.custom_prompt = signature_bot_default_prompt()
+                    if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
+                        signature_bot.custom_prompt = signature_bot_default_prompt(bot_type=bot_type)
                         updated_fields.append("custom_prompt")
 
                     if bot_type == BotTypeChoice.deep_dive:
@@ -1412,9 +1457,14 @@ class AccountsViewSet(ApiViewSet,
                         bot_att.coach_email = email
                         updated_fields.append("coach_email")
                     
-                    if additional_data and additional_data.get("profile_description",None):
-                        bot_att.about = additional_data.get("profile_description",None)
-                        updated_fields.append('about')
+                    if additional_data:
+                        if bot_type == BotTypeChoice.subject_specific_bot and additional_data.get("bot_description",None):
+                            bot_att.about = additional_data.get("bot_description",None)
+                            updated_fields.append('about')
+
+                        else:
+                            bot_att.about = additional_data.get("profile_description",None)
+                            updated_fields.append('about')
 
                     if initial_qna and bot_type not in [BotTypeChoice.feedback_bot, BotTypeChoice.user_bot, BotTypeChoice.deep_dive]:
                         bot_att.initial_qnas = initial_qna
@@ -1427,7 +1477,7 @@ class AccountsViewSet(ApiViewSet,
                     # SAVING BOTURL AND bot_snippets
                     try: 
                         bot_url =''
-                        if bot_type == BotTypeChoice.avatar_bot:
+                        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             bot_url = f"{bot_base_url}/coach/{bot_id}"
                         elif bot_type == BotTypeChoice.feedback_bot:
                             bot_url = f"{bot_base_url}/feedback/{bot_id}"
@@ -1461,25 +1511,49 @@ class AccountsViewSet(ApiViewSet,
                             coach_profile.save(update_fields=["bot_urls","bot_ids","bot_snippets"])
 
                         directory = DirectoryPageInfo.objects.filter(profile_id = profile_id).first()
-                        if bot_type == BotTypeChoice.avatar_bot:
+                        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             if directory:
-                                directory.avatar_bot_id = bot_id
-                                directory.avatar_snippit = bot_snippet
-                                directory.avatar_bot_url = bot_url
-                                directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+                                if bot_type == BotTypeChoice.avatar_bot:
+                                    directory.avatar_bot_id = bot_id
+                                    directory.avatar_snippit = bot_snippet
+                                    directory.avatar_bot_url = bot_url
+                                    directory.save(update_fields=["avatar_bot_id","avatar_snippit","avatar_bot_url"])
+
+                                elif bot_type == BotTypeChoice.subject_specific_bot:
+                                    directory.subject_specific_bot_id = bot_id
+                                    directory.subject_specific_bot_url = bot_url
+                                    directory.subject_specific_bot_snippit = bot_snippet
+                                    directory.save(update_fields=["subject_specific_bot_id","subject_specific_bot_url","subject_specific_bot_snippit"])
+
 
                                 try:
-                                    subject = "Your Coachbots AI Frame is in the Pipeline"
+                                    # subject = ""
+                                    # html = ""
+                                    # if bot_type == BotTypeChoice.avatar_bot:
+                                    #     subject = "Your Coachbots AI Frame is in the Pipeline"
+                                    #     html = f"""
+                                    #         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                    #             <div style="margin: 15px;">
+                                    #                 <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
+                                    #                 <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                    #                 <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
+                                    #                 <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+                                    #             </div>
+                                    #         </p>
+                                    #         """
+                                    # elif bot_type == BotTypeChoice.subject_specific_bot:
+                                    subject = "Your Coachbot Co-pilot is in the Pipeline"
                                     html = f"""
                                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                             <div style="margin: 15px;">
-                                                <p>Thank you for joining the Coachbots network as a coach/mentor. Your AI Frame is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
-                                                <p>Once your AI Frame is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
+                                                <p>Thank you for joining the Coachbot network. Your Copilot is currently in the processing pipeline, and we will send you a confirmation when it's ready.</p>
+                                                <p>Once your Copilot is approved, you'll have full access to the platform and can begin leveraging its features to support your coaching engagements.</p>
                                                 <p>We're excited to have you on board and look forward to empowering you to make a meaningful impact on your coachees' journeys.</p>
                                                 <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
                                             </div>
                                         </p>
                                         """
+
 
                                     send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {coach_profile.name}!')
                                     html = f"""
@@ -1560,7 +1634,7 @@ class AccountsViewSet(ApiViewSet,
                 except Exception as e:
                     logger.exception("Got error while creating bot: {e}")
                     bot_type = data.get('bot_type')
-                    if bot_type == BotTypeChoice.avatar_bot:
+                    if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                         try:
                             coach_profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=0,uid=profile_id)
                             coach_profile.deleted = True
@@ -1706,8 +1780,9 @@ class AccountsViewSet(ApiViewSet,
                                 avatar_bot_url = directory.avatar_bot_url,
                                 custom_user_bot_url = directory.custom_user_bot_url,
                                 custom_user_bot_id = directory.custom_user_bot_id,
-                                deep_dive_bot_url = directory.deep_dive_bot_url,
-                                deep_dive_bot_id = directory.deep_dive_bot_id,
+                                subject_specific_bot_url = directory.subject_specific_bot_url,
+                                subject_specific_bot_id = directory.subject_specific_bot_id,
+                                subject_specific_bot_snippit= directory.subject_specific_bot_snippit,
                                 timer_enabled = directory.timer_enabled,
                                 time_value_in_days = directory.time_value_in_days,
                                 timer_reset = directory.timer_reset,
@@ -1863,7 +1938,7 @@ class AccountsViewSet(ApiViewSet,
                             
                             if link != '':
                                 transcript_data = scrape_article_data(link).get('article_content',None)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_articles[link] = transcript_data
                                     transcript_data = get_document_summary(transcript_data)
                                 extracted_from_article[link] = transcript_data
@@ -1903,7 +1978,7 @@ class AccountsViewSet(ApiViewSet,
                         if len(pdf_data) > 0:
                             for index, pdf in enumerate(pdf_data):
                                 file_name, text = extract_file_and_text(pdf)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_pdf[file_name] = text
                                     text = get_document_summary(text)
                                 extracted_from_pdf[file_name] = text
@@ -1977,7 +2052,7 @@ class AccountsViewSet(ApiViewSet,
                         if len(doc_data) > 0:
                             for index, doc in enumerate(doc_data):
                                 file_name, text = extract_file_and_text(doc)
-                                if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_doc[file_name] = text
                                     text = get_document_summary(text)
                                 extracted_from_doc[file_name] = text
@@ -2016,7 +2091,7 @@ class AccountsViewSet(ApiViewSet,
                             path = default_storage.save(file.name, ContentFile(file.read()))
                             doc_content = extract_text_from_doc(path)
                             default_storage.delete(path)
-                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                            if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_doc[file.name] = doc_content
                                     doc_content = get_document_summary(doc_content)
                             extracted_from_doc[file.name] = doc_content
@@ -2058,7 +2133,7 @@ class AccountsViewSet(ApiViewSet,
                             pdf_content = extract_text_from_pdf(path)
 
                             default_storage.delete(path)
-                            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                            if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                                     extracted_pdf[file.name] = pdf_content
                                     
                                     pdf_content = get_document_summary(pdf_content)
@@ -2421,14 +2496,16 @@ class AccountsViewSet(ApiViewSet,
                 for user_action in user_actions:
                     user = get_user_by_id(user_action.user_id)
                     avatar_bot_count = len(get_list_from_string(user_action.avatar_ids))
+                    subject_specific_bot_count = len(get_list_from_string(user_action.avatar_ids))
                     subject_matter_count = len(get_list_from_string(user_action.subject_matter_bot_ids))
                     knowledge_bot_count = len(get_list_from_string(user_action.knowledge_bot_ids))
                     deep_dive_bot_count = len(get_list_from_string(user_action.deep_dive_bot_ids))
-                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count
+                    total_bots = avatar_bot_count + subject_matter_count + knowledge_bot_count + deep_dive_bot_count + subject_specific_bot_count
                     temp = {
                         "name": get_user_display_name(user),
                         "user_id": user.uid,
                         "avatar_bot_count": avatar_bot_count,
+                        "subject_specific_bot_count": subject_specific_bot_count,
                         "subject_matter_count": subject_matter_count,
                         "knowledge_bot_count": knowledge_bot_count,
                         "deep_dive_bot_count": deep_dive_bot_count,
@@ -2458,6 +2535,7 @@ class AccountsViewSet(ApiViewSet,
                             "name": get_user_display_name(user),
                             "user_id": user.uid,
                             "avatar_bot_count": 0, 
+                            "subject_specific_bot_count": 0,
                             "subject_matter_count": 0,
                             "total_bots": 0,
                             "total_simulations": 0,
@@ -2719,11 +2797,11 @@ class AccountsViewSet(ApiViewSet,
                     avatar_bot_id = None
                     for bot_id in bot_ids:
                         bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
-                        if bot.bot_type == BotTypeChoice.avatar_bot:
+                        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                             avatar_bot_id = bot.bot_id
 
-                    if avatar_bot_id is None:
-                        return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
+                    # if avatar_bot_id is None:
+                    #     return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
 
 
                 except Exception as e:

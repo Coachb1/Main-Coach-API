@@ -8,6 +8,45 @@ from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
 from tests.choices import ScenarioCaseChoices
+from commons.db.model import MyModel
+from django.utils.crypto import get_random_string
+import string
+
+
+## psychometric section
+class PsychometricItem(MyModel):    
+    # Fields for Section and Subsection
+    section = models.CharField(max_length=255)
+    subsection = models.CharField(max_length=255, blank=True, null=True)
+
+    parameters = models.JSONField(blank=True, null=True, default=dict)
+
+    # Fields for Ranges
+    range_values = models.JSONField(blank=True, null=True, default=dict)
+
+    average_value = models.TextField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return f"{self.id} -{self.section} : {self.subsection}"
+    
+    class Meta:
+        db_table = "psychometric_item"
+
+class Psychometric(MyModel):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True, default=None)
+    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics', blank=True)  # Many-to-many relationship
+    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
+
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        db_table = "psychometric"
+        unique_together = (
+            ("name", "tenant_id", "deleted"),)
+
 
 
 class Test(TenantAwareModel):
@@ -90,9 +129,18 @@ class Test(TenantAwareModel):
     calculate_culture = models.BooleanField(default=True, null=True)
     snippet_url = models.CharField(max_length=500, null=True, blank=True, default=None)
     pshycometric_sections = models.JSONField(null=True, blank=True, default=None)
-
-
-
+    psychometric= models.ForeignKey(
+        Psychometric,
+        related_name='tests',
+        on_delete=models.SET_NULL,
+        to_field='uid',  # Reference the UID field
+        blank=True,
+        null=True,  # Allow null if a test can exist without a psychometric set
+        default=None
+    )
+    report_description = models.TextField(null=True, blank=True, default=None)
+    category = models.CharField(max_length=255, null=True, blank=True, default=None)
+    
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -100,6 +148,9 @@ class Test(TenantAwareModel):
         unique_together = (
             ("tenant_id", "test_code", "deleted"),
         )
+
+    def __str__(self):
+        return f"{self.title} ({self.test_code})"
 
 
 class TestQuestion(TenantAwareModel):
@@ -231,3 +282,90 @@ class TestQuestionResponse(TenantAwareModel):
             ("test_attempt_session_id", "question_id", "deleted"),)
 
         ordering = ("id",)
+
+
+
+class UserTestConfigs(TenantAwareModel):
+    user_email = models.EmailField(
+        help_text="Enter the email address of the user. Ensure it is valid."
+    )
+    test_code = models.CharField(
+        max_length=12,
+        help_text="Enter the unique code for the test (maximum 12 characters)."
+    )
+    test_title = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter the title of the test. It will be auto-populated if left blank."
+    )
+    access_code = models.CharField(
+        max_length=12,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter or generate a unique access code for the test."
+    )
+    user_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Optional: Enter the user ID associated with the user email."
+    )
+    report_on = models.BooleanField(
+        default=True,
+        help_text="Toggle this to enable or disable reporting for the test."
+    )
+
+    class Meta:
+        db_table = "user_test_configs"
+        unique_together = (
+            ('user_id', 'test_code', 'deleted')
+        )
+
+    def save(self, *args, **kwargs):
+        # Auto-generate access_code if blank
+        if not self.access_code:
+            self.access_code = self.get_unique_access_code()
+
+        super().save(*args, **kwargs)
+
+    def get_unique_access_code(self) -> str:
+        USER_TEST_ACCESS_CODE = 6
+        access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+        retries = 0
+
+        while UserTestConfigs.objects.filter(access_code=access_code).exists():
+            if retries >= 4:
+                USER_TEST_ACCESS_CODE += 1
+                retries = 0
+            access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+            retries += 1
+
+        return access_code
+
+    def generate_access_code(self, user_test_accesscode) -> str:
+        """Helper to generate a prefixed random string."""
+        prefix = ""
+        if len(self.client_name.split()) == 1:
+            prefix = self.client_name[:4].upper()
+        else:
+            prefix = ''.join(word[0] for word in self.client_name.split()).upper()
+        STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
+        return f"{prefix}_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
+
+
+    def __str__(self):
+        return f"{self.test_code} ({self.user_email})"
+    
+
+
+# class UserTestAttempts(TenantAwareModel):
+#     """Model to store user test attempts."""
+#     session_id = models.CharField(max_length=100)
+#     user_email = models.CharField(max_length=30)
+#     test_code = models.CharField(max_length=10)
+#     test_title = models.CharField(max_length=100)
+#     test_id = models.models.CharField(max_length=100)

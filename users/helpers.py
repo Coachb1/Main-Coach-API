@@ -8,6 +8,7 @@ from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile, 
 from users.models import UserAttribute
 from users.choices import BotTypeChoice
 from web_auth.helpers import create_new_tokens, logout_entity
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -254,3 +255,28 @@ def sync_user_low_high_skills(tenant_id, user_id, low_skill, high_skill):
     except Exception as e:
         logger.exception(e)
         return {"synced" : False}
+
+
+def generate_bot_id(bot_type, participant_id, bot_name):
+    # Normalize bot name: lowercase, replace spaces with hyphens, remove special characters, and limit to first 4 words
+    normalized_bot_name = "-".join(
+        bot_name.strip().lower().replace("&", "").replace(" ", "-").split()[:4]
+    )
+
+    # Generate the base bot_id based on the bot type
+    if bot_type == BotTypeChoice.user_bot:
+        base_id = "knowledge"
+    elif bot_type == BotTypeChoice.deep_dive:
+        # For 'deep_dive', generate a random 5-digit number from range 1-9
+        random_digits = "".join(map(str, random.sample(range(1, 9), 5)))
+        base_id = f"engagement-survey-{random_digits}"
+    elif bot_type == BotTypeChoice.subject_specific_bot:
+        base_id = "subject-spe"
+    else:
+        base_id = bot_type
+
+    # Create bot_id by combining the base_id, participant_id, and normalized bot_name
+    bot_id = f"{base_id}-{participant_id[:5]}-{normalized_bot_name}"
+    bot_id = bot_id.replace("_","-")
+
+    return bot_id

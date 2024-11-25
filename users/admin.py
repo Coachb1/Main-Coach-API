@@ -7,8 +7,10 @@ import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
 from email_sender.helpers import send_welcome_email
+from tenants.admin import TenantAwareModelAdmin
+from users.choices import BotTypeChoice
 
-class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
+class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','profile_type','name', 'email','use_coachee_info_in_prompt')
     list_filter = ('profile_type','status','department','is_approved')
@@ -22,7 +24,7 @@ class CoachCoacheeMentorMenteeProfileAdmin(admin.ModelAdmin):
     ordering = ('-id',)
 
 
-class SignatureBotAdmin(admin.ModelAdmin):
+class SignatureBotAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private','allow_public_access')
@@ -30,14 +32,14 @@ class SignatureBotAdmin(admin.ModelAdmin):
     list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
     ordering = ('-id',)
 
-class BotUserMappingAdmin(admin.ModelAdmin):
+class BotUserMappingAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number','user_mob_number','user_name','user_email')
     list_filter = ('bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number')
     search_fields = ('bot_owner_name','bot_id')
     ordering = ('-id',)
 
-class CoachRecommendationsAdmin(admin.ModelAdmin):
+class CoachRecommendationsAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','get_user_profile_name','get_user_profile_email','coach_recommendations')
     search_fields = ('user_profile__name','user_profile__email')
@@ -54,40 +56,42 @@ class CoachRecommendationsAdmin(admin.ModelAdmin):
     get_user_profile_email.admin_order_field = 'user_profile__email'
     get_user_profile_email.short_description = 'User Profile Email'
 
-class ClientUserInfoAdmin(admin.ModelAdmin):
+class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','client_name','domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer','send_profile_for_reapproval')
+    list_display = ('id','uid','client_name','domain_name','widget_access_code','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer','send_profile_for_reapproval')
     list_filter = ('client_name',)
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
 
 @admin.register(ReportConfig)
-class ReportConfigAdmin(admin.ModelAdmin):
+class ReportConfigAdmin(TenantAwareModelAdmin):
     list_display = (
         'id','client', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
-        'skill_explanation', 'culture_explanation'
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
     )
     list_filter = ('client', 'culture_rating',)  
     search_fields = ('client__client_name',)
     list_editable =  (
         'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
-        'skill_explanation', 'culture_explanation'
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
     )
     ordering = ('-id',)
 
 
 
-# class UserAdmin(admin.ModelAdmin):
+# class UserAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','name','role','is_root','is_excluded','deleted')
 #     list_filter = ('tenant_id','role','is_root','is_excluded')
 #     search_fields = ('name',)
 #     list_editable = ('name','role','is_root','is_excluded','deleted')
 #     ordering = ('-id',)
-# class UserAttributesAdmin(admin.ModelAdmin):
+# class UserAttributesAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','user_id','attributes','tag','deleted')
 #     list_filter = ('tenant_id',)
@@ -212,7 +216,7 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
     bots = SignatureBot.objects.filter(deleted=False,tenant_id=instance.tenant_id,user_id=instance.user_id)
 
     for bot in bots:
-        if bot.bot_type == 'avatar_bot':
+        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
             try:
                 additional_data =  {
                     "profile_type": instance.profile_type,
@@ -225,8 +229,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                     "admired_leaders": instance.admired_leaders,
                     "profile_description": instance.about,
                     "department": instance.department,
-                    "youtube_links": provided_links.get("youtube_links"),
-                    "article_links": provided_links.get("article_links"),
+                    "youtube_links": provided_links.get("youtube_links") if provided_links else None,
+                    "article_links": provided_links.get("article_links") if provided_links else None,
                     "voice_sample": instance.voice_sample,
                     "discuss_how_you_helped_others_in_coachMentoring": instance.mentorship_contribution,
                     "allow_coachee_to_create_session": instance.allow_coachee_to_create_session,
@@ -238,8 +242,8 @@ def sync_profile_and_bot_data(sender, instance, **kwargs):
                         instance.coach_same_department,
                         instance.supported_outcome,
                     ],
-                    "coach_qna": qna_for_coach_mentor.get('coach'),
-                    "mentor_qna": qna_for_coach_mentor.get('mentor'),
+                    "coach_qna": qna_for_coach_mentor.get('coach') if qna_for_coach_mentor else None,
+                    "mentor_qna": qna_for_coach_mentor.get('mentor') if qna_for_coach_mentor else None,
                     "discussion_topic": instance.discussion_topic,
                     "provide_answers_using_emojis": instance.provide_answers_using_emojis
                 }

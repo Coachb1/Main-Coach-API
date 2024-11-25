@@ -4,6 +4,8 @@ from tenants.models import TenantAwareModel
 from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
 from coaching_conversations.choices import BotScenarioCaseChoice
 from commons.db.model import MyModel
+from django.utils.crypto import get_random_string
+import string 
 
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
@@ -274,7 +276,7 @@ class ClientUserInfo(TenantAwareModel):
     sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
     tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
     ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information)
-    widget_access_code = models.CharField(max_length=255,null=True, blank=True, default="DEMO2024")
+    widget_access_code = models.CharField(max_length=255,null=True, blank=True, default=None)
     help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
     allow_paste_answer = models.BooleanField(blank=True, default=False)
     webhook_url = models.CharField(max_length=255,null=True, blank=True, default=None)
@@ -285,6 +287,9 @@ class ClientUserInfo(TenantAwareModel):
     use_skills_from_skill_bank = models.BooleanField(default=False, blank=True)
     send_profile_for_reapproval = models.BooleanField(default=False, blank=True)
     email_address_list = models.TextField(null=True, blank=True, default=None)
+    allow_access_to_platform = models.BooleanField(default=True)
+    allow_access_to_snippet = models.BooleanField(default=True)
+    report_on = models.BooleanField(default=True)
 
     
 
@@ -293,6 +298,39 @@ class ClientUserInfo(TenantAwareModel):
         db_table = "client_user_info"
 
         unique_together = (("tenant_id", "client_name"),)
+
+    def save(self, *args, **kwargs):
+        # Auto-generate access_code if blank
+        if not self.widget_access_code:
+            self.widget_access_code = self.get_unique_access_code()
+
+        super().save(*args, **kwargs)
+
+    def get_unique_access_code(self) -> str:
+        USER_TEST_ACCESS_CODE = 6
+        access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+        retries = 0
+
+        while ClientUserInfo.objects.filter(widget_access_code=access_code).exists():
+            if retries >= 4:
+                USER_TEST_ACCESS_CODE += 1
+                retries = 0
+            access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
+            retries += 1
+
+        return access_code
+
+    def generate_access_code(self, user_test_accesscode) -> str:
+        """Helper to generate a prefixed random string."""
+        prefix = ""
+        if len(self.client_name.split()) == 1:
+            prefix = self.client_name[:4].upper()
+        else:
+            prefix = ''.join(word[0] for word in self.client_name.split()).upper()
+        STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
+        return f"{prefix}_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
+
+
 
     def __str__(self):
         return self.client_name
@@ -312,6 +350,8 @@ class ReportConfig(MyModel):
     powerfiller_words = models.BooleanField(default=True)
     skill_explanation = models.BooleanField(default=True)
     culture_explanation = models.BooleanField(default=True)
+    psychometric_culture_rating = models.BooleanField(default=True)
+    psychometric_culture_explanation = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Report Config for {self.client.client_name}"
@@ -319,6 +359,7 @@ class ReportConfig(MyModel):
     def save(self, *args, **kwargs):
         self.skill_explanation = self.skill_rating
         self.culture_explanation = self.culture_rating
+        self.psychometric_culture_explanation = self.psychometric_culture_rating
         if not self.skill_rating or not self.culture_rating:
             self.rating_summary = False
 

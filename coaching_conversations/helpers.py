@@ -177,7 +177,7 @@ def initialize_coaching_conversation(tenant: Tenant,
             initial_que_ans = ""
 
             initial_qna_text = None
-            if bot_type == BotTypeChoice.avatar_bot:
+            if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                 if test_attempt_session.intake_id:
                     initial_qna_text = BotQnA.objects.filter(tenant_id = tenant.uid,bot_id=signature_bot.uid,qna_type='initial_qna',uid=test_attempt_session.intake_id).order_by('-created').first()
                 else:
@@ -236,7 +236,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                 conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
 
 
-                if signature_bot.bot_type == 'avatar_bot':
+                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                     qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
@@ -401,7 +401,7 @@ def initialize_coaching_conversation(tenant: Tenant,
                 conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
 
 
-                if signature_bot.bot_type == 'avatar_bot':
+                if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
                     qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=test_attempt_session.participant_id,tenant_id=tenant.uid)
                     if qna_block:
                         qna_block_text = ''
@@ -598,6 +598,9 @@ def continue_coaching_conversation(tenant: Tenant,
             save_user_action_info(tenant.uid,test_attempt_session.participant_id,"chat_attempted")
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_chat_attempted")
+            elif signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_specific_chat_attempted")
+
             elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_chat_attempted")
             elif signature_bot.bot_type == BotTypeChoice.user_bot:
@@ -611,6 +614,9 @@ def continue_coaching_conversation(tenant: Tenant,
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_ids",bot_id=signature_bot.bot_id)
+            elif signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"avatar_bot_count")
+                save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_specific_bot_ids",bot_id=signature_bot.bot_id)
             elif signature_bot.bot_type in [BotTypeChoice.subject_matter_bot, BotTypeChoice.helper_bot]:
                 # save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_count")
                 save_user_action_info(tenant.uid,test_attempt_session.participant_id,"subject_matter_bot_ids",bot_id=signature_bot.bot_id)
@@ -646,7 +652,7 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    if signature_bot.bot_type == 'avatar_bot':
+    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
         response_style = None
         try:
             user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
@@ -754,7 +760,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     \n\nAssistant:"""
 
 
-    prompt = new_coaching_prompt if bot_type == "avatar_bot" else generic_prompt 
+    prompt = new_coaching_prompt if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] else generic_prompt 
 
     if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
@@ -784,7 +790,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
+        bot_add_data = signature_bot.data
+        if bot_type == BotTypeChoice.subject_specific_bot:
+            bot_add_data['additional_data'] = f"""
+                    bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
+                    bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
+                    """
+        for key,val in bot_add_data.items():
             if val:
                 coach_info += f"{key}: {val}\n"
 
@@ -792,7 +804,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
             
-        if bot_type == 'avatar_bot':
+        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
             
             qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
@@ -887,14 +899,23 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             #     prompt = global_bot_prompt
             # except Exception as e:
             #     logger.exception(f"global prompt not defined: {e}")
+            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                prompt = Template(prompt).substitute(
+                    coach_info = coach_info,
+                    conversation_history = conv_history_data,
+                    current_conversation = current_conv,
+                    context = initial_que_ans,
+                    coachee_info = coachee_info,
+                )
 
-            prompt = Template(prompt).substitute(
-                coach_info = coach_info,
-                conversation_history = conv_history_data,
-                current_conversation = current_conv,
-                context = initial_que_ans,
-                coachee_info = coachee_info,
-            )
+            elif signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                prompt = Template(prompt).substitute(
+                    bot_info = coach_info, # it will contains only bot data not coach data
+                    conversation_history = conv_history_data,
+                    current_conversation = current_conv,
+                    context = initial_que_ans,
+                    coachee_info = coachee_info,
+                )
 
         elif signature_bot.bot_type == BotTypeChoice.coachbots:
             personality = None
@@ -1095,7 +1116,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
         coach_info = ""
-        for key,val in signature_bot.data.items():
+        bot_add_data = signature_bot.data
+        if bot_type == BotTypeChoice.subject_specific_bot:
+            bot_add_data['additional_data'] = f"""
+                    bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
+                    bot_area_of_coaching: {signature_bot.data.get('additional_data',{}).get('bot_area_of_coaching')}
+                    """
+        for key,val in bot_add_data.items():
             if val:
                 coach_info += f"{key}: {val}\n"
 
@@ -1103,7 +1130,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         current_conv = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in current_conv_data]
 
             
-        if bot_type == 'avatar_bot':
+        if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
             qna_block = get_qna_block_for_coach_mentor(coach_user_id=signature_bot.user_id,participant_id=participant_id,tenant_id=tenant.uid)
             if qna_block:
                 qna_block_text = ''
@@ -1196,13 +1223,22 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # except Exception as e:
             #     logger.exception(f"global prompt not defined: {e}")
                 
-            prompt = Template(prompt).substitute(
-                coach_info = coach_info,
-                conversation_history = conv_history_data,
-                current_conversation = current_conv,
-                context = initial_que_ans,
-                coachee_info = coachee_info,
-            )
+            if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+                prompt = Template(prompt).substitute(
+                    coach_info = coach_info,
+                    conversation_history = conv_history_data,
+                    current_conversation = current_conv,
+                    context = initial_que_ans,
+                    coachee_info = coachee_info,
+                )
+            elif signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                prompt = Template(prompt).substitute(
+                    bot_info = coach_info, # it will contains only bot data not coach data
+                    conversation_history = conv_history_data,
+                    current_conversation = current_conv,
+                    context = initial_que_ans,
+                    coachee_info = coachee_info,
+                )
 
         elif signature_bot.bot_type == BotTypeChoice.user_bot:
             if signature_bot.faqs:
@@ -1231,7 +1267,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     objective = bot_objective
                 )
 
-    if signature_bot.bot_type == BotTypeChoice.avatar_bot:
+    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
         provide_answers_using_emojis = signature_bot.data.get('additional_data')
         if provide_answers_using_emojis:
 
@@ -1375,7 +1411,51 @@ def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
         Use varied expressions for similar questions.
         Never include visual cues like "smiles warmly" in your responses.
         \n\nAssistant:
+        """
 
+    elif bot_type == BotTypeChoice.subject_specific_bot:
+        return"""
+        \n\nHuman:
+        {Information} - ${bot_info}
+        {Coachee Info} - ${coachee_info}
+        {Conversation History} - ${conversation_history}
+        {Current Conversation} - ${current_conversation}
+        {Context} : ${context}
+
+        ### Response Execution Protocol
+        ### Contextual Understanding and Application
+        Begin each interaction by meticulously analyzing the provided {Information}, {Coachee Info}, {Conversation History}, and {Current Conversation} to effectively identify core themes, subjects, and boundaries. Responses must stay strictly within these established parameters. Should a query exceed the provided bounds, it is necessary to communicate clearly: "I am restricted to discussing topics within the provided information," and redirect the focus to pertinent, relevant areas.
+        ### Information Integration
+        Employ insights, examples, and validated frameworks directly sourced from the {Information}. Responses must accurately represent the documented methodologies and philosophies, and focus primarily on addressing the key themes and challenges highlighted to ensure direct relevance.
+        ### Analysis of Current and Historical Conversations
+        Current Conversation:
+        - Query: Clearly state the specific question or issue that has been raised.
+        - Concern: Describe any underlying concerns, emotions, or context associated with the query.
+        - Goal: Articulate the desired outcome or objective the interlocutor seeks.
+        - Initial Response: Document the initial response to the query, if applicable.
+        - Follow-Up Questions: List any questions asked subsequently for further detail or clarity.
+        - Additional Information: Record any extra information that emerges during the conversation.
+        Conversation History:
+        - Previous Interaction Date: Specify the date(s) when previous conversations took place.
+        - Summary of Previous Query: Concisely summarize the main questions or issues that were previously raised.
+        - Summary of Previous Response: Provide a brief overview of the responses given to the previous inquiries.
+        - Progress Update: Note any progress or developments mentioned since the last interaction took place.
+        Priority Note: Emphasize that the current conversation should take precedence over previous discussions while ensuring alignment with the initial {Information}.
+        ### Utilization of Coachee Information
+        - Name: Identify the coachee’s name.
+        - Experience: Clarify the length of time the coachee has been active in their field.
+        - Department: State the department in which the coachee is employed.
+        - High Characteristics/Skills: Identify the coachee’s strengths and noteworthy qualities or skills.
+        - Low Characteristics/Skills: Highlight areas where the coachee may benefit from improvement.
+        - Other Unique Coachee Details: Record any distinctive features pertinent to the coachee.
+        ### Communication and Response Structuring
+        Employ a professional, respectful tone, ensuring the response language and style align with the established {Information}. Use precise terminology consistent with the preferences articulated within the {Information}.
+        ### Handling Off-Topic Queries
+        For inquiries beyond the scope of provided data, respond with: "I am restricted to discussing topics within the provided information," and redirect attention to related themes within the scope.
+        ### Additional Considerations for Effective Interaction
+        Ensure unwavering adherence to the {Information} throughout all communications. Reaffirm the boundaries of the {Information} to ensure relevance and coherence. Only reference documented prior interactions from the {Conversation History} to maintain continuity. Craft responses that establish a human connection through contextually relevant storytelling focused on action and results. Avoid introductory remarks or headings; begin directly with a well-structured response. Strive for concise completeness within word boundaries, avoid repetitive answers within the same conversation, and utilize varied expressions for similar questions without any visual analogies such as "smiles warmly."
+        
+        Assistant:\n\n
         """
     elif bot_type == BotTypeChoice.user_bot:
         return """
@@ -1558,7 +1638,7 @@ def fetch_user_profile_and_bot(tenant,filters):
 
     bot_data = {"avatar_bot": [], 'user_bot': []}
     for bot in bots:
-        if bot.bot_type == BotTypeChoice.avatar_bot:
+        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
             profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=bot.user_id).last()
             profile_type = "coach-mentor" if profile.profile_type=='coach' and profile.is_mentor else profile.profile_type
             temp = {
@@ -2314,18 +2394,18 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
                         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                             <div style="margin: 15px;">
                                 <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                                <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                 <p>To get started, please take a moment to:</p>
                                 <div style="margin-bottom: 10px;">
                                     <strong>Step 1: [Join the Network]</strong>
                                     <ul>
-                                        <li>Join as Coach/Mentor</li>
-                                        <li>Join as Coachee/Mentee</li>
+                                        <li>Join as Coach</li>
+                                        <li>Join as Coachee</li>
                                         <li>Join Feedback Network</li>
                                     </ul>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                    <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
                                 </div>
                                 <div style="margin-bottom: 10px;">
                                     <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
@@ -2370,18 +2450,18 @@ def disable_or_enable_client(email,is_disable,tenant):
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                 <div style="margin: 15px;">
                                     <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                                    <p>At Coachbots, our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                    <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                     <p>To get started, please take a moment to:</p>
                                     <div style="margin-bottom: 10px;">
                                         <strong>Step 1: [Join the Network]</strong>
                                         <ul>
-                                            <li>Join as Coach/Mentor</li>
-                                            <li>Join as Coachee/Mentee</li>
+                                            <li>Join as Coach</li>
+                                            <li>Join as Coachee</li>
                                             <li>Join Feedback Network</li>
                                         </ul>
                                     </div>
                                     <div style="margin-bottom: 10px;">
-                                        <strong>Step 2:</strong> As a user, you can join as a coach/mentor or coachee/mentee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                        <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
                                     </div>
                                     <div style="margin-bottom: 10px;">
                                         <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
@@ -2527,7 +2607,10 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "widget_access_code": client.widget_access_code,
         "allow_paste_answer": client.allow_paste_answer,
         'help_text': client.help_text or get_default_help_text(),
-        "send_profile_for_reapproval": client.send_profile_for_reapproval
+        "send_profile_for_reapproval": client.send_profile_for_reapproval,
+        "allow_access_to_platform": client.allow_access_to_platform,
+        "allow_access_to_snippet": client.allow_access_to_snippet,
+        "report_on": client.report_on
 
     }
     user_info['user_id'] = user_account.uid
