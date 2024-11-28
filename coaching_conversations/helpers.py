@@ -2696,12 +2696,20 @@ def update_or_create_client_id(tenant_id,client_data,is_update=False):
             if client_data.get('restricted_features') != None:
                 client.restricted_features= client_data.get('restricted_features')
                 updated_fields.append('restricted_features')
-            if client_data.get('demo_ids') != None:
-                client.demo_ids= client_data.get('demo_ids')
+                # Update demo_ids if provided in client_data
+            if client_data.get('demo_ids') is not None:
+                current_demo_ids = set(client.demo_ids.split(',')) if client.demo_ids else set()
+                new_demo_ids = set(client_data.get('demo_ids', "").split(","))
+                client.demo_ids = ",".join(current_demo_ids | new_demo_ids)  # Use set union to merge unique IDs
                 updated_fields.append('demo_ids')
-            if client_data.get('restricted_ids') != None:
-                client.restricted_ids= client_data.get('restricted_ids')
+
+            # Update restricted_ids if provided in client_data
+            if client_data.get('restricted_ids') is not None:
+                current_restricted_ids = set(client.restricted_ids.split(',')) if client.restricted_ids else set()
+                new_restricted_ids = set(client_data.get('restricted_ids', "").split(","))
+                client.restricted_ids = ",".join(current_restricted_ids | new_restricted_ids)  # Use set union to merge unique IDs
                 updated_fields.append('restricted_ids')
+                
             if client_data.get('allowed_ips') != None:
                 allowed_ips = {"feedback_deep-dive": client_data.get('allowed_ips') if client_data.get('allowed_ips') else ""}
                 client.allowed_ips= allowed_ips
