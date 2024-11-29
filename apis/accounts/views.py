@@ -2560,16 +2560,16 @@ class AccountsViewSet(ApiViewSet,
                     coach = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coach', 'mentor']]
                     coachee = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coachee', 'mentee']]
 
-                    coach = custom_sort_reverse(data=coach,first_sort_filed="total_score",second_sort_field="name")
+                    coach = custom_sort_reverse(data=coach,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(coach, start=1):
                         item['rating'] = i
 
-                    coachee = custom_sort_reverse(data=coachee,first_sort_filed="total_score",second_sort_field="name")
+                    coachee = custom_sort_reverse(data=coachee,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(coachee, start=1):
                         item['rating'] = i
 
                     
-                    data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
+                    data = custom_sort_reverse(data=data,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(data, start=1):
                         item['rating'] = i
                         
@@ -2578,7 +2578,7 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"coach_mentor": coach,'coachee_mentee': coachee, 'full_data': data},status=status.HTTP_200_OK)
 
 
-                data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
+                data = custom_sort_reverse(data=data,first_sort_field="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i
                     
@@ -2957,7 +2957,7 @@ class AccountsViewSet(ApiViewSet,
 
 
                 # formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
-                formatted_data = custom_sort_reverse(data=formatted_data,first_sort_filed="positive_feedback_count",second_sort_field="owner_name")
+                formatted_data = custom_sort_reverse(data=formatted_data,first_sort_field="positive_feedback_count",second_sort_field="owner_name")
                 for rating, item in enumerate(formatted_data,start=1):
                     item['rating'] = rating
                 set_cache(cache_key,formatted_data)
