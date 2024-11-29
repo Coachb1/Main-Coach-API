@@ -85,6 +85,7 @@ from openpyxl.styles import Font
 from collections.abc import MutableMapping
 from django.http import HttpResponse
 from users.helpers import generate_bot_id
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -2556,8 +2557,9 @@ class AccountsViewSet(ApiViewSet,
                 coach = []
                 coachee = []
                 if by_category:
-                    coach = [x for x in data if x['profile_type'] in ['coach','mentor']]
-                    coachee = [x for x in data if x['profile_type'] in ['coachee','mentee']]
+                    coach = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coach', 'mentor']]
+                    coachee = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coachee', 'mentee']]
+
                     coach = custom_sort_reverse(data=coach,first_sort_filed="total_score",second_sort_field="name")
                     for i, item in enumerate(coach, start=1):
                         item['rating'] = i
