@@ -2790,19 +2790,13 @@ class AccountsViewSet(ApiViewSet,
                 
                 try:
                     coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=coach_id)
-                    bot_ids = coach.bot_ids.split(',')
-                    if len(bot_ids) == 0:
-                        return Response({"error":"coach doesn't have any bot"},status=status.HTTP_400_BAD_REQUEST)
-                    
+
                     avatar_bot_id = None
-                    for bot_id in bot_ids:
-                        bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
-                        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
-                            avatar_bot_id = bot.bot_id
-
-                    # if avatar_bot_id is None:
-                    #     return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
-
+                    bots = SignatureBot.objects.filter(user_id=coach.user_id, 
+                                                       bot_type__in=[BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot], 
+                                                       deleted=False)
+                    if bots.count() > 0:
+                        avatar_bot_id = bots.first().uid
 
                 except Exception as e:
                     logger.exception(e)
