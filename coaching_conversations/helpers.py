@@ -42,6 +42,7 @@ import re
 from email_sender.helpers import send_email_with_html_template
 import random
 import sys
+import copy
 
 
 logger = logging.getLogger(__name__)
@@ -790,7 +791,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         # initial_que_ans = ''.join([f"Question: {que} Answer: {ans}" for que, ans in initial_qna])
 
         coach_info = ""
-        bot_add_data = signature_bot.data
+        bot_add_data = copy.deepcopy(signature_bot.data)
         if bot_type == BotTypeChoice.subject_specific_bot:
             bot_add_data['additional_data'] = f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
@@ -1116,7 +1117,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
 
         coach_info = ""
-        bot_add_data = signature_bot.data
+        bot_add_data = copy.deepcopy(signature_bot.data)
         if bot_type == BotTypeChoice.subject_specific_bot:
             bot_add_data['additional_data'] = f"""
                     bot_descripton: {signature_bot.data.get('additional_data',{}).get('bot_description')}\n
@@ -1270,9 +1271,12 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
         provide_answers_using_emojis = signature_bot.data.get('additional_data')
         if provide_answers_using_emojis:
+            
+            logger.info(f'provide_answers_using_emojis: {provide_answers_using_emojis}')
+            if isinstance(provide_answers_using_emojis,str):
+                provide_answers_using_emojis = json.loads(provide_answers_using_emojis)
 
             provide_answers_using_emojis = provide_answers_using_emojis.get('provide_answers_using_emojis')
-            print(provide_answers_using_emojis,'provide_answers_using_emojis')
         else:
             provide_answers_using_emojis = False
 
