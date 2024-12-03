@@ -85,6 +85,7 @@ from openpyxl.styles import Font
 from collections.abc import MutableMapping
 from django.http import HttpResponse
 from users.helpers import generate_bot_id
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -2556,18 +2557,19 @@ class AccountsViewSet(ApiViewSet,
                 coach = []
                 coachee = []
                 if by_category:
-                    coach = [x for x in data if x['profile_type'] in ['coach','mentor']]
-                    coachee = [x for x in data if x['profile_type'] in ['coachee','mentee']]
-                    coach = custom_sort_reverse(data=coach,first_sort_filed="total_score",second_sort_field="name")
+                    coach = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coach', 'mentor']]
+                    coachee = [copy.deepcopy(x) for x in data if x['profile_type'] in ['coachee', 'mentee']]
+
+                    coach = custom_sort_reverse(data=coach,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(coach, start=1):
                         item['rating'] = i
 
-                    coachee = custom_sort_reverse(data=coachee,first_sort_filed="total_score",second_sort_field="name")
+                    coachee = custom_sort_reverse(data=coachee,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(coachee, start=1):
                         item['rating'] = i
 
                     
-                    data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
+                    data = custom_sort_reverse(data=data,first_sort_field="total_score",second_sort_field="name")
                     for i, item in enumerate(data, start=1):
                         item['rating'] = i
                         
@@ -2576,7 +2578,7 @@ class AccountsViewSet(ApiViewSet,
                     return Response({"coach_mentor": coach,'coachee_mentee': coachee, 'full_data': data},status=status.HTTP_200_OK)
 
 
-                data = custom_sort_reverse(data=data,first_sort_filed="total_score",second_sort_field="name")
+                data = custom_sort_reverse(data=data,first_sort_field="total_score",second_sort_field="name")
                 for i, item in enumerate(data, start=1):
                     item['rating'] = i
                     
@@ -2790,19 +2792,13 @@ class AccountsViewSet(ApiViewSet,
                 
                 try:
                     coach = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=coach_id)
-                    bot_ids = coach.bot_ids.split(',')
-                    if len(bot_ids) == 0:
-                        return Response({"error":"coach doesn't have any bot"},status=status.HTTP_400_BAD_REQUEST)
-                    
+
                     avatar_bot_id = None
-                    for bot_id in bot_ids:
-                        bot = SignatureBot.objects.get(deleted=False,bot_id=bot_id.strip())
-                        if bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
-                            avatar_bot_id = bot.bot_id
-
-                    # if avatar_bot_id is None:
-                    #     return Response({"error":"coach doesn't have any avatar bot"},status=status.HTTP_400_BAD_REQUEST)
-
+                    bots = SignatureBot.objects.filter(user_id=coach.user_id, 
+                                                       bot_type__in=[BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot], 
+                                                       deleted=False)
+                    if bots.count() > 0:
+                        avatar_bot_id = bots.first().uid
 
                 except Exception as e:
                     logger.exception(e)
@@ -2961,7 +2957,7 @@ class AccountsViewSet(ApiViewSet,
 
 
                 # formatted_data = sorted(formatted_data, key=lambda x: x["positive_feedback_count"], reverse=True)
-                formatted_data = custom_sort_reverse(data=formatted_data,first_sort_filed="positive_feedback_count",second_sort_field="owner_name")
+                formatted_data = custom_sort_reverse(data=formatted_data,first_sort_field="positive_feedback_count",second_sort_field="owner_name")
                 for rating, item in enumerate(formatted_data,start=1):
                     item['rating'] = rating
                 set_cache(cache_key,formatted_data)
@@ -3598,13 +3594,16 @@ class AccountsViewSet(ApiViewSet,
             # to disable member
             is_disable = request.data.get('is_disable',None)
 
+            # to send welcome email or not
+            send_email =  request.data.get('send_email',True)
             try:
                 if new_client_id:
                     update_member_client_id(
                         tenant_id=tenant.uid,
                         old_client_id=old_client_id,
                         new_client_id=new_client_id,
-                        user_email=user_email
+                        user_email=user_email,
+                        send_email=send_email
                     )
                     try:
                         user_identity = get_user_via_identity(
@@ -3612,13 +3611,14 @@ class AccountsViewSet(ApiViewSet,
                                     identity_type= 'deepchat_unique_id',
                                     identity_value=user_email
                                 )
-                        delete_user_resources(user_identity.user_id)
-                        logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.user_id}===============")
+                        delete_user_resources(user_identity.uid)
+                        logger.info(f"============== User Resources Deleted for {user_email}: {user_identity.uid}===============")
                     except Exception as e:
                         logger.exception(f"==============Failed to delete user resources: {e}")
+                        send_error_notification("delete_user_resources",f"==============Failed to delete user resources: {e}",{} )
                 elif is_disable is not None:
                     # is_disable = str(is_disable) == 'true'
-                    disable_or_enable_client(email=user_email,is_disable=is_disable,tenant=tenant)
+                    disable_or_enable_client(email=user_email,is_disable=is_disable,tenant=tenant,send_email=send_email)
 
             except Exception as e:
                 logger.exception(f" Failed to update client : {e}")
