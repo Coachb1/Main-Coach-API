@@ -1,4 +1,4 @@
-FROM 0b742944.c1.de1.container-registry.ovh.net/library/python:3.11-buster
+FROM asia-south1-docker.pkg.dev/summer-nucleus-397019/coachbots-reg/library/python:3.11-buster
 
 RUN apt-get update
 

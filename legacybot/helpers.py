@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @timeit
 def get_or_generate_action_data(threads: Thread):
     session_per_conversation_step = 10
-    logger.info(f"Processing [get_or_generate_action_data] for threads: [{threads.count()}: {threads.values_list('uid',flat=True)}]")
+    logger.info(f"Processing  [get_or_generate_action_data] for threads: [{threads.count()}: {threads.values_list('uid',flat=True)}]")
     action_data = []
     if threads.count() == 0:
         return action_data

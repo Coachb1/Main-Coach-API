@@ -1108,7 +1108,7 @@ def extract_topics_info(text):
     return topics_info
 
 
-def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
+def custom_sort_reverse(data:list, first_sort_field:str, second_sort_field:str):
     """
     This function sorts a list of dictionaries in descending order based on two fields. 
 
@@ -1132,8 +1132,8 @@ def custom_sort_reverse(data:list, first_sort_filed:str, second_sort_field:str):
     
     for i in range(n):
         for j in range(0, n-i-1):
-            if data[j][first_sort_filed] < data[j+1][first_sort_filed] or \
-               (data[j][first_sort_filed] == data[j+1][first_sort_filed] and data[j][second_sort_field] > data[j+1][second_sort_field]):
+            if data[j][first_sort_field] < data[j+1][first_sort_field] or \
+               (data[j][first_sort_field] == data[j+1][first_sort_field] and data[j][second_sort_field] > data[j+1][second_sort_field]):
                 # Swap if first_sort_filed is smaller or if first_sort_filed is equal, but user_name is greater
                 data[j], data[j+1] = data[j+1], data[j]
                 
