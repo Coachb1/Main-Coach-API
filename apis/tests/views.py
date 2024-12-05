@@ -1544,15 +1544,22 @@ class TestViewSet(ApiViewSet,
                 return Response({"error":"both assigned_to and assigned_by fields are required"},status=status.HTTP_400_BAD_REQUEST)
             
             try:
-                for test_code in test_codes.strip().split(","):
-                    logger.info(f"<<<<< test_code : {test_code} >>>")
-                    test = Test.objects.get(tenant_id=request.tenant.uid,deleted=False,test_code=test_code.strip())
-                    test.assigned_to = assigned_to
+                test_codes = [code.strip() for code in test_codes.split(",")]  # Strip and split test codes once
+                logger.info(f"<<<<< test_codes : {test_codes} >>>")
+
+                tests = Test.objects.filter(tenant_id=request.tenant.uid, deleted=False, test_code__in=test_codes)
+
+                for test in tests:
+                    current_assigned_to = set(test.assigned_to.split(",")) if test.assigned_to else set()
+                    current_assigned_to.add(assigned_to)
+                    test.assigned_to = ",".join(current_assigned_to)  # Convert back to string
                     test.assigned_by = assigned_by
-                    test.save()
+ 
+                Test.objects.bulk_update(tests,['assigned_to','assigned_by']) # to bulk update test
+
             except Exception as e:
                 logger.exception(e)
-                return Response({"error":"simulation not found"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error":f"Failed to assign test {test_codes} to {assigned_to}: {e}"},status=status.HTTP_400_BAD_REQUEST)
             
             
             return Response({"msg":"successfully assigned"})
