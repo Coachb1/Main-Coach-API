@@ -257,6 +257,13 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     logger.info(f"questions: {questions}, participant_responses: {participant_responses}, feedback_summary: {feedback_summary}, skill_summary: {skill_summary}")
     competency_report_data = {}
     
+    response_relevance = True
+
+    for response in participant_responses:
+        if not response.relevance:
+            response_relevance = False
+            break
+
     logger.info(f"test_attempt_session.competency_data: {test_attempt_session.competency_data}")
     if test_attempt_session.competency_data:
         competency_data= test_attempt_session.competency_data
@@ -350,7 +357,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'competency_data':competency_report_data, 
                 'skills_graph_data': {'skills_rating': test_attempt_session.skills_rating },
                 'culture_graph_data':{'culture_skills_rating':test_attempt_session.culture_skills_rating }, 
-                'speech_metrics_avg': None, "response_relevance": True,
+                'speech_metrics_avg': None, "response_relevance": response_relevance,
                 "feedback_summary":test_attempt_session.feedback_summary,
                 "skill_summary":test_attempt_session.culture_and_skill_summary,
                 'pshycometric_data': psychometric_data,'psychometric_info': psychometric_info, 
@@ -487,7 +494,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  'bot_name':bot_name,'competency_data':competency_report_data,
                  'pshycometric_data': psychometric_data, 'psychometric_info': psychometric_info, 
                  'other_psychometric_infos': other_psychometric_infos,
-                 "category": test.category
+                 "category": test.category,
+                 "response_relevance":response_relevance
                  }
 
 
@@ -541,7 +549,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'focus_area': focus_area,'pshycometric_data': psychometric_data, 
                 'psychometric_info': psychometric_info, 
                 'other_psychometric_infos': other_psychometric_infos,
-                "category": test.category
+                "category": test.category,
+                "response_relevance": response_relevance
                 }
 
 
@@ -640,12 +649,6 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             else:
                 culture_skill_exp = None
 
-        response_relevance = True
-        for participant_response in participant_responses:
-            relevance = participant_response.relevance
-            if not relevance :
-                response_relevance = False
-                break
 
 
         candidate_type = test.candidate_type
