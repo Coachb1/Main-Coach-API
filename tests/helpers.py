@@ -10896,6 +10896,8 @@ def parse_psychometric_csv(csv_file):
         if not section  or not parameter_names or not parameter_description or not avg_value:
             raise ValidationError("All fields are required: 'Section', 'Parameter Names', 'Average Score' and 'Parameter Description'.")
 
+        if not isinstance(avg_value, [int, float]):
+            raise ValidationError("Please enter valid value for Average Score")
         # Prepare the parameters field
         parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip())>0]
         parameter_name = " - ".join(parameter_list)
