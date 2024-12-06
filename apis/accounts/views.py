@@ -644,6 +644,17 @@ class AccountsViewSet(ApiViewSet,
                     try:
                         participant_name = get_user_display_name(
                             get_user_by_id(feed.participant_id))
+
+                        bot = SignatureBot.objects.filter(delted=False, uid=feed.bot_id).first()
+                        coach_name = "Unknown"
+                        if bot:
+                            coach_name = get_user_display_name(
+                                get_user_by_id(feed.bot_id))
+                        else:
+                            logger.info(f"Bot not found: {feed.bot_id}")
+                            continue
+
+                        
                     except Exception as e:
                         logger.info(f"User not found: {feed.participant_id}")
                         continue
@@ -656,6 +667,9 @@ class AccountsViewSet(ApiViewSet,
                                 "msg": feed.participant_qna,
                                 "participant_id": feed.participant_id,
                                 "is_anonymous": feed.is_anonymous,
+                                "coach_name": coach_name,
+                                "bot_uid": feed.bot_id,
+                                "bot_id": bot.bot_id
 
                             })
                     elif feedback_type == 'positive':
@@ -665,7 +679,10 @@ class AccountsViewSet(ApiViewSet,
                                 "date": feed.created,
                                 "msg": feed.participant_qna,
                                 "participant_id": feed.participant_id,
-                                "is_anonymous": feed.is_anonymous
+                                "is_anonymous": feed.is_anonymous,
+                                "coach_name": coach_name,
+                                "bot_uid": feed.bot_id,
+                                "bot_id": bot.bot_id
 
                             })
                     else:
@@ -674,7 +691,10 @@ class AccountsViewSet(ApiViewSet,
                             "date": feed.created,
                             "msg": feed.participant_qna,
                             "participant_id": feed.participant_id,
-                            "is_anonymous": feed.is_anonymous
+                            "is_anonymous": feed.is_anonymous,
+                            "coach_name": coach_name,
+                            "bot_uid": feed.bot_id,
+                            "bot_id": bot.bot_id
                         })
                 if feedback_type == "negative":
                     data['critical_msgs'] = msg_data
