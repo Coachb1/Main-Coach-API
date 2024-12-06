@@ -952,7 +952,16 @@ class CoachingConversationViewSet(ApiViewSet,
                         try:
                             participant_name = get_user_display_name(
                                 get_user_by_id(user_id))
+                            bot = SignatureBot.objects.filter(uid=qna.bot_id,deleted=False).first()
+                            coach_name = "Unknown"
+                            if bot:
+                                coach_name =  get_user_display_name(
+                                    get_user_by_id(bot.user_id))
+                            else:
+                                logger.exception(f"Bot Not found: {qna.bot_id}")
+                                continue
                         except: 
+                            logger.exception(f"Error getting user name: {user_id}")
                             continue
 
                         data.append({
@@ -960,7 +969,10 @@ class CoachingConversationViewSet(ApiViewSet,
                                 "date": qna.created,
                                 "msg": qna.participant_qna,
                                 "participant_id": qna.participant_id,
-                                "is_anonymous": qna.is_anonymous
+                                "is_anonymous": qna.is_anonymous,
+                                "coach_name": coach_name,
+                                "bot_uid": qna.bot_id,
+                                "bot_id": bot.bot_id
                             })
 
 

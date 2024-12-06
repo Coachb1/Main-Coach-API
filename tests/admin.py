@@ -119,9 +119,14 @@ class PsychometricAdminForm(forms.ModelForm):
             try:
                 items_data = parse_psychometric_csv(csv_file=csv_file)
                 created_items = []
-                for item_data in items_data:
-                    item = PsychometricItem.objects.create(**item_data)
-                    created_items.append(item.uid)
+                # Prepare PsychometricItem instances
+                psychometric_items = [PsychometricItem(**item_data) for item_data in items_data]
+
+                # Bulk create the items
+                created_objects = PsychometricItem.objects.bulk_create(psychometric_items)
+
+                # Collect the UIDs of the created objects
+                created_items = [obj.uid for obj in created_objects]
 
                 # Associate created items with the Psychometric instance
                 # existing_items = []
