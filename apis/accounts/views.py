@@ -1677,6 +1677,7 @@ class AccountsViewSet(ApiViewSet,
                 profile_id = data.get("profile_id",None)
                 for_reapproval = data.get('for_reapproval',None).lower().strip() == 'true' if data.get('for_reapproval',None) else False
                 deleted_data = data.get('deleted_data',None)
+                switch_mode = data.get('switch_mode',None)
                 deleted_data = json.loads(deleted_data) if deleted_data is not None else deleted_data
                 
                 logger.info(f"{'$'*100} deleted_data : {deleted_data}")
@@ -1686,6 +1687,26 @@ class AccountsViewSet(ApiViewSet,
                     bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
                 except SignatureBot.DoesNotExist:
                     return Response({"error": "SignatureBot not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+                switch_modes = [ "subject-copilot:no-copilot", "coaching-copilot:no-copilot" ]
+                if switch_mode and switch_mode not in switch_modes:
+                    return Response({"error": "Invalid switch_mode"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                logger.info(f"{'$'*100} switch_mode : {switch_mode}")
+                if switch_mode:
+                    # if switching from coaching-copilot or subject-copilot to no-copilot, delete the  bot
+                    if switch_mode in ["coaching-copilot:no-copilot", "subject-copilot:no-copilot"]:
+                        signature_bot.deleted = True
+                        signature_bot.save(update_fields=["deleted"])
+                        bot_att.deleted = True
+                        bot_att.save(update_fields=["deleted"])
+                        coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=request.tenant.uid,deleted=False,uid=profile_id).first()
+                        if coach_profile:
+                            coach_profile.bot_ids = coach_profile.bot_ids.replace(bot_id,"").replace(",,",",") if bot_id in coach_profile.bot_ids else coach_profile.bot_ids
+                            # coach_profile.bot_urls = coach_profile.bot_urls.replace(f"{bot_id}/","").replace(",,",",") if f"{bot_id}/" in coach_profile.bot_urls else coach_profile.bot_urls
+                            coach_profile.bot_snippets.pop(bot_id,None)
+                            coach_profile.save(update_fields=["bot_ids","bot_urls","bot_snippets"])
+                        return Response({"msg": "deleted"}, status=status.HTTP_200_OK)
                 
                 
                 # delete files data specified in deleted_data
