@@ -9,11 +9,19 @@ from email_sender.helpers import send_email_with_html_template
 import logging
 import traceback
 import datetime
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
 
-def delete_user_resources(user_uid, remove_from_client=False):
+def delete_user_resources(user_uid, remove_from_client=False,
+                          delete_profile_bot=True,
+                          delete_user_connections=True,
+                          delete_session =True,
+                          delete_session_notes=True,
+                          delete_user_action = True,
+                          soft_delete=False
+                          ):
     logger.info("Deleting user resources for user %s", user_uid)
     deleted_list = []
     deleted_msg = ""
@@ -26,55 +34,91 @@ def delete_user_resources(user_uid, remove_from_client=False):
         for profile in profiles:
             profile_ids.append(profile.uid)
             
-            # delete connections if user has coachee profile
-            connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
-            for connection in connections:
-                deleted_list.append(f"connection coachee: {connection.uid}")
-                connection_uids.append(connection.uid)
-                connection.delete()
+
+            if delete_user_connections:
+                logger.info(f'====================deleting user connections=========================')
+                # delete connections if user has coachee profile
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
+                for connection in connections:
+                    deleted_list.append(f"connection coachee: {connection.uid}")
+                    connection_uids.append(connection.uid)
+                    connection.delete()
                 
-            # delete connections if user has coach profile
-            connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
-            for connection in connections:
-                deleted_list.append(f"connection coach : {connection.uid}")
-                connection_uids.append(connection.uid)
-                connection.delete()
-                
-            # delete directorypage for this profile
-            dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
-            for dir_info in dir_infos:
-                deleted_list.append(f"directorypage : {dir_info.name}")
-                dir_info.delete()
-                
-            deleted_list.append(f"profile : {profile.uid}")
-            profile.delete()
+                # delete connections if user has coach profile
+                connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
+                for connection in connections:
+                    deleted_list.append(f"connection coach : {connection.uid}")
+                    connection_uids.append(connection.uid)
+                    connection.delete()
+
+                logger.info(f'====================deleted user connections=========================')
+            
+
+            if delete_profile_bot:
+                logger.info(f'====================deleting user profile=========================')
+
+                # delete directorypage for this profile
+                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+                for dir_info in dir_infos:
+                    deleted_list.append(f"directorypage : {dir_info.name}")
+                    dir_info.delete()
+                    
+                deleted_list.append(f"profile : {profile.uid}")
+                if soft_delete:
+                    profile.deleted = True
+                    profile.save(update_fields=['deleted'])
+                else:
+                    profile.delete()
         
         # delete bots if user has any
-        bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-        for bot in bots:
-            # delete bot related resources
-            bot_attributes = BotAttribute.objects.filter(bot_id=bot.bot_id)
-            for bot_attribute in bot_attributes:
-                deleted_list.append(f"bot_attribute : {bot_attribute.uid}")
-                bot_attribute.delete()
-                
-            bot_qnas = BotQnA.objects.filter(bot_id=bot.bot_id)
-            for bot_qna in bot_qnas:
-                deleted_list.append(f"bot_qna_{bot_qna.bot_id} : {bot_qna.uid}")
-                bot_qna.delete()
-                
-            deleted_list.append(f"bot : {bot.bot_id}")
-            bot.delete()
+        if delete_profile_bot:
+            logger.info(f'====================deleting user bot=========================')
+
+            bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+            for bot in bots:
+                # delete bot related resources
+                bot_attributes = BotAttribute.objects.filter(bot_id=bot.bot_id)
+                for bot_attribute in bot_attributes:
+                    deleted_list.append(f"bot_attribute : {bot_attribute.uid}")
+                    if soft_delete:
+                        bot_attribute.deleted = True
+                        bot_attribute.save(update_fields=['deleted'])
+                    else:
+                        bot_attribute.delete()
+                    
+                bot_qnas = BotQnA.objects.filter(bot_id=bot.bot_id)
+                for bot_qna in bot_qnas:
+                    deleted_list.append(f"bot_qna_{bot_qna.bot_id} : {bot_qna.uid}")
+                    if soft_delete:
+                        bot_qna.deleted = True
+                        bot_qna.save(update_fields=['deleted'])
+                    else:
+                        bot_qna.delete()
+                    
+                deleted_list.append(f"bot : {bot.bot_id}")
+                if soft_delete:
+                    bot.deleted = True
+                    bot.save(update_fields=['deleted'])
+                else:
+                    bot.delete()
 
         if user:
             with transaction.atomic():
-                UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).delete()
-                TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted=True)
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user.uid).delete() 
-                SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user.uid).delete()  
-
+                if delete_user_action:
+                    logger.info(f'====================deleting user action=========================')
+                    UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user.uid).delete()
+                if delete_session:
+                    logger.info(f'====================deleting user sessions=========================')
+                    TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted = True)
+                if delete_session_notes:
+                    logger.info(f'====================deleting user session notes=========================')
+                    SessionNotesRecommendations.objects.filter(
+                        tenant_id=tenant_id
+                    ).filter(Q(mentee_id=user.uid) | Q(mentor_id=user.uid)).delete()
         
         if remove_from_client:
+            logger.info(f'====================removing from client=========================')
+
             try:
                 identity = Identity.objects.get(user_id=user_uid)
                 user_email = identity.value
@@ -114,3 +158,4 @@ def delete_user_resources(user_uid, remove_from_client=False):
         error = f"Got Error: {e}"
         error += "\n traceback: " + traceback.format_exc()
         send_error_notification("delete user resources after client change" if not remove_from_client else "delete user resources from collab", error,{'user_uid':user_uid,'deleted_list': deleted_list,"deleted_confirmation": deleted_msg})
+        raise e

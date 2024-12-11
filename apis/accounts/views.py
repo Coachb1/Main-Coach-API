@@ -4466,3 +4466,40 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['POST'], detail=False, url_path='delete-user-resources')
+    def delete_user_resource(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+         # Extract optional parameters with defaults
+        remove_from_client = request.data.get('remove_from_client', False)
+        delete_profile_bot = request.data.get('delete_profile_bot', False)
+        delete_session = request.data.get('delete_session', False)
+        delete_session_notes = request.data.get('delete_session_notes', False)
+        delete_user_connections = request.data.get('delete_user_connections', False)
+        delete_user_action = request.data.get('delete_user_action', False)
+        soft_delete_profile_bot = request.data.get('soft_delete_profile_bot', False)
+        try:
+            user = User.objects.filter(deleted=False, uid=user_id).first()
+            if not user:
+                return Response({"error": "User not found or already deleted"}, status=status.HTTP_404_NOT_FOUND)
+
+            # Call the resource deletion function with desired parameters
+            delete_user_resources(
+                user_uid=user.uid,
+                remove_from_client=remove_from_client,
+                delete_profile_bot=delete_profile_bot,
+                delete_session=delete_session,
+                delete_session_notes=delete_session_notes,
+                delete_user_connections=delete_user_connections,
+                delete_user_action=delete_user_action,
+                soft_delete=soft_delete_profile_bot
+            )
+
+            return Response({"message": "User resources deleted successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Error in delete_user_resources: {e}")
+            return Response({"error": f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
