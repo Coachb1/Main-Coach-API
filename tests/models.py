@@ -315,8 +315,9 @@ class UserTestConfigs(TenantAwareModel):
         help_text="Optional: Enter the user ID associated with the user email."
     )
     report_on = models.BooleanField(
-        default=True,
-        help_text="Toggle this to enable or disable reporting for the test."
+        help_text="Toggle this to enable or disable reporting for the test.",
+        null=True,
+        blank=True
     )
 
     class Meta:
