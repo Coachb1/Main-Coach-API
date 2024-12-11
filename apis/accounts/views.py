@@ -4481,7 +4481,7 @@ class AccountsViewSet(ApiViewSet,
                 profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, uid=profile_id).first()
                 if not profile:
                     return Response({"error": "Profile not found or already deleted"}, status=status.HTTP_404_NOT_FOUND)
-    
+                user_id = profile.user_id
             # Extract optional parameters with defaults
             remove_from_client = request.data.get('remove_from_client', False)
             delete_profile = request.data.get('delete_profile', False)
