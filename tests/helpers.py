@@ -4764,7 +4764,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
-        report_on = client.report_on if (client.report_on is not None and test.scenario_case in ['assessment']) else report_on
+        report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
         if client.email_address_list:
             email_address_list.extend([email.strip() 
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
@@ -4844,7 +4844,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
     if client:
         logger.info(f" << Client Name: {client.client_name}>>")
-        report_on = client.report_on if (client.report_on is not None and test.scenario_case in ['assessment']) else report_on
+        report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
 
         if client.email_address_list:
             email_address_list.extend([email.strip() 
