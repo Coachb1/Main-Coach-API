@@ -4508,6 +4508,7 @@ class AccountsViewSet(ApiViewSet,
             if not user:
                 return Response({"error": "User not found or already deleted"}, status=status.HTTP_404_NOT_FOUND)
 
+            logger.info(f"=========data: bot_ids: {bot_ids}")
             # Call the resource deletion function with desired parameters
             delete_user_resources(
                 user_uid=user.uid,
