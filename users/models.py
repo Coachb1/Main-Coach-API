@@ -289,7 +289,7 @@ class ClientUserInfo(TenantAwareModel):
     email_address_list = models.TextField(null=True, blank=True, default=None)
     allow_access_to_platform = models.BooleanField(default=True)
     allow_access_to_snippet = models.BooleanField(default=True)
-    report_on = models.BooleanField(default=True)
+    report_on = models.BooleanField(null=True,blank=True)
 
     
 
