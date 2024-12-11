@@ -4469,20 +4469,41 @@ class AccountsViewSet(ApiViewSet,
 
     @action(methods=['POST'], detail=False, url_path='delete-user-resources')
     def delete_user_resource(self, request, *args, **kwargs):
-        user_id = request.data.get('user_id')
-        
-        if not user_id:
-            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-         # Extract optional parameters with defaults
-        remove_from_client = request.data.get('remove_from_client', False)
-        delete_profile_bot = request.data.get('delete_profile_bot', False)
-        delete_session = request.data.get('delete_session', False)
-        delete_session_notes = request.data.get('delete_session_notes', False)
-        delete_user_connections = request.data.get('delete_user_connections', False)
-        delete_user_action = request.data.get('delete_user_action', False)
-        soft_delete_profile_bot = request.data.get('soft_delete_profile_bot', False)
         try:
+
+            user_id = request.data.get('user_id')
+            profile_id = request.data.get('profile_id')
+            
+            if not user_id and not profile_id:
+                return Response({"error": "user_id or profile_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if profile_id:
+                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, uid=profile_id).first()
+                if not profile:
+                    return Response({"error": "Profile not found or already deleted"}, status=status.HTTP_404_NOT_FOUND)
+    
+            # Extract optional parameters with defaults
+            remove_from_client = request.data.get('remove_from_client', False)
+            delete_profile = request.data.get('delete_profile', False)
+            delete_bot = request.data.get('delete_bot', False)
+            delete_bot_types = request.data.get('delete_bot_types')
+            bot_ids = request.data.get('bot_ids')
+
+
+            if delete_bot and (not delete_bot_types and not bot_ids):
+                return Response({"error": "Please specify bot_type or bot_ids to be deleted like bot_type: 'avatar_bot,subject_specific_bot,user_bot,feedback_bot' and bot_ids: '8a603788-b824-46a6-a1d5-ba8ff9e14930,8a603788-b824-46a6-a1d5-ba8ff9e14930'"})
+
+            if delete_bot_types:
+                delete_bot_types = [bt.strip() for bt in delete_bot_types.split(',')]
+            if bot_ids:
+                bot_ids = [b.strip() for b in bot_ids.split(',')]
+
+            
+            delete_session = request.data.get('delete_session', False)
+            delete_session_notes = request.data.get('delete_session_notes', False)
+            delete_user_connections = request.data.get('delete_user_connections', False)
+            delete_user_action = request.data.get('delete_user_action', False)
+            soft_delete_profile_bot = request.data.get('soft_delete_profile_bot', False)
             user = User.objects.filter(deleted=False, uid=user_id).first()
             if not user:
                 return Response({"error": "User not found or already deleted"}, status=status.HTTP_404_NOT_FOUND)
@@ -4491,12 +4512,15 @@ class AccountsViewSet(ApiViewSet,
             delete_user_resources(
                 user_uid=user.uid,
                 remove_from_client=remove_from_client,
-                delete_profile_bot=delete_profile_bot,
+                delete_profile=delete_profile,
+                delete_bot=delete_bot,
                 delete_session=delete_session,
                 delete_session_notes=delete_session_notes,
                 delete_user_connections=delete_user_connections,
                 delete_user_action=delete_user_action,
-                soft_delete=soft_delete_profile_bot
+                soft_delete=soft_delete_profile_bot,
+                bot_types=delete_bot_types,
+                bot_ids=bot_ids
             )
 
             return Response({"message": "User resources deleted successfully"}, status=status.HTTP_200_OK)
