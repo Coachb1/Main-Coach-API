@@ -10,17 +10,21 @@ import logging
 import traceback
 import datetime
 from django.db.models import Q
+from users.choices import BotTypeChoice
 
 logger = logging.getLogger(__name__)
 
 
 def delete_user_resources(user_uid, remove_from_client=False,
-                          delete_profile_bot=True,
+                          delete_profile=True,
+                          delete_bot =True,
                           delete_user_connections=True,
                           delete_session =True,
                           delete_session_notes=True,
                           delete_user_action = True,
-                          soft_delete=False
+                          soft_delete=False,
+                          bot_types = [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot, BotTypeChoice.user_bot, BotTypeChoice.feedback_bot],
+                          bot_ids = None
                           ):
     logger.info("Deleting user resources for user %s", user_uid)
     deleted_list = []
@@ -54,11 +58,15 @@ def delete_user_resources(user_uid, remove_from_client=False,
                 logger.info(f'====================deleted user connections=========================')
             
 
-            if delete_profile_bot:
+            if delete_profile:
                 logger.info(f'====================deleting user profile=========================')
 
                 # delete directorypage for this profile
-                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
+                dir_to_be_deleted = [profile.uid]
+                if 'user_bot' in bot_types:
+                    dir_to_be_deleted.append(user_uid)
+
+                dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=dir_to_be_deleted)
                 for dir_info in dir_infos:
                     deleted_list.append(f"directorypage : {dir_info.name}")
                     dir_info.delete()
@@ -71,10 +79,12 @@ def delete_user_resources(user_uid, remove_from_client=False,
                     profile.delete()
         
         # delete bots if user has any
-        if delete_profile_bot:
+        if delete_bot:
             logger.info(f'====================deleting user bot=========================')
-
-            bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
+            if bot_ids:
+                bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid, bot_type__in=bot_types,uid__in =bot_ids)
+            else:
+                bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid, bot_type__in=bot_types)
             for bot in bots:
                 # delete bot related resources
                 bot_attributes = BotAttribute.objects.filter(bot_id=bot.bot_id)
