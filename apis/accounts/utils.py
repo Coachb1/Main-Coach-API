@@ -81,8 +81,9 @@ def delete_user_resources(user_uid, remove_from_client=False,
         # delete bots if user has any
         if delete_bot:
             logger.info(f'====================deleting user bot=========================')
+            bots = None
             if bot_ids:
-                bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid, bot_type__in=bot_types,uid__in =bot_ids)
+                bots = SignatureBot.objects.filter(tenant_id=tenant_id,uid__in =bot_ids)
             else:
                 bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid, bot_type__in=bot_types)
             for bot in bots:
