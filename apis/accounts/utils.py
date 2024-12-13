@@ -11,6 +11,7 @@ import traceback
 import datetime
 from django.db.models import Q
 from users.choices import BotTypeChoice
+from commons.cache_utils import reset_cache_with_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def delete_user_resources(user_uid, remove_from_client=False,
             profile_ids.append(profile.uid)
             
 
-            if delete_user_connections:
+            if delete_user_connections or delete_profile:
                 logger.info(f'====================deleting user connections=========================')
                 # delete connections if user has coachee profile
                 connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
@@ -78,6 +79,12 @@ def delete_user_resources(user_uid, remove_from_client=False,
                 else:
                     profile.delete()
         
+
+        if delete_profile:
+            reset_cache_with_prefix('profiles_by_user_id')
+            reset_cache_with_prefix('profile_by_id')
+            reset_cache_with_prefix('all_profiles')
+
         # delete bots if user has any
         if delete_bot:
             logger.info(f'====================deleting user bot=========================')
@@ -112,6 +119,8 @@ def delete_user_resources(user_uid, remove_from_client=False,
                     bot.save(update_fields=['deleted'])
                 else:
                     bot.delete()
+            
+            reset_cache_with_prefix('get_bots')
 
         if user:
             with transaction.atomic():
