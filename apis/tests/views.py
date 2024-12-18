@@ -1630,6 +1630,12 @@ class TestViewSet(ApiViewSet,
             temp = request.query_params.get('temp', 0.9)
             max_tokens = request.query_params.get('max_tokens', 8192)
             
+            top_k = int(top_k)
+            top_p = int(top_p)
+            temp = float(temp)
+            max_tokens = int(max_tokens)
+            
+            
             response = gemini_chat_completion(prompt,[], top_k=top_k, top_p=top_p, temperature=temp, max_output_tokens=max_tokens)
             return Response(response, status=status.HTTP_200_OK)
         except Exception as e:
