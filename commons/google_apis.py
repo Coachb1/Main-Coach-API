@@ -12,7 +12,7 @@ import re
 
 from google.cloud import texttospeech
 
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, Content, Part, SafetySetting
 from vertexai import generative_models
 
 from google.api_core.exceptions import ResourceExhausted, TooManyRequests 
@@ -262,3 +262,81 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
                 time.sleep(random.randint(1, 3))
     
     raise Exception("All models failed to generate a response.")
+
+
+@timeit
+def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]):
+    logger.info(f"gemini_chat_completion prompt: {prompt}, and \nmodels: {models}")
+    os.chdir(f"{Path(__file__).resolve().parent}")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
+    vertexai.init(project="summer-nucleus-397019", location="asia-south1")
+    
+    generation_config={
+        "max_output_tokens": max_output_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k
+    }
+
+
+
+    # Set up the model
+    # generation_config = {
+    # "temperature": 0.9,
+    # "top_p": 1,
+    # "top_k": 1,
+    # "max_output_tokens": 2048,
+    # }
+    safety_settings = [
+        SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='BLOCK_MEDIUM_AND_ABOVE')
+    ]
+
+    # to add pdf in chat
+    # document1_1 = Part.from_data(
+    # mime_type="application/pdf",
+    # data=base64.b64decode(encode_pdf_to_base64('Influent - The psychology of Persuasion - Robert B.Cialdini.pdf'))
+    # )
+    
+    history = [ 
+    ]
+    for conv in previous_conv:
+        history.append(Content(role=conv['role'],parts=[Part.from_text(conv['text'])]))
+    
+    max_retry = 3
+    for model_name in models:
+        model = GenerativeModel(model_name=model_name,
+                                generation_config=generation_config,
+                                safety_settings=safety_settings,
+                                system_instruction=[prompt])
+        chat = model.start_chat(history=history)
+        
+        retry = 0
+        
+        while retry < max_retry:
+            try:
+                logger.info(f"{'='*50}")
+                logger.info(f"Trying gemini_chat_completion with model {model_name} for {retry+1} time")
+                responses = chat.send_message(prompt)
+
+                logger.info(f"<<<<<<<<< gemini chat completion response: {responses} >>>>>>>>>>>>>")
+                logger.info(f"gemini chat completion text: {responses.text}")
+                logger.info(f'Chat Gemini: {chat.history}')
+                return responses.candidates[0].content.parts[0].text.strip()
+                # return responses.text
+            
+            except (ResourceExhausted, TooManyRequests) as e:
+                logger.exception(f"Resource exchausted or 429 error occured. :{e}")
+                send_error_notification(f"gemini-chat-completion-{model_name}","Qouta Exceeded", e.args)
+                break
+            except IndexError as e:
+                logger.error(f"gemini_chat_completion failed with list index out of range error: {e}", exc_info=True)
+                break  # Exit the loop to try the next model
+            except Exception as e:
+                logger.error(f"gemini_chat_completion failed with {e}", exc_info=True)
+                retry += 1
+                if retry >= max_retry:
+                    break  # Exit the loop to try the next model
+                time.sleep(random.randint(1, 3))
+    
+    raise Exception("All models failed to generate a response.")
+

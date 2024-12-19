@@ -21,6 +21,7 @@ class TestQuestionResponseSerializer(serializers.ModelSerializer):
                   "feedback_text",
                   "metadata",
                   "evaluation_status",
+                  "question_text",
                   "created",
                   "updated"]
 

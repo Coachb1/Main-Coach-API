@@ -42,6 +42,7 @@ from tests.helpers import search_keywords, replace_words
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
 import logging
 from identities.models import Identity
+from commons.google_apis import gemini_chat_completion
 
 logger = logging.getLogger(__name__)
 
@@ -1619,3 +1620,25 @@ class TestViewSet(ApiViewSet,
             logger.exception(f"Failed to fetch test_user_config : {e}")
             return Response({"error": f"Failed to fetch test_user_config : {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
         
+        
+    @action(methods=['POST'],detail=False, url_path="test-vertex-response")
+    def test_vertex_response(self, request, *args, **kwargs):
+        try:
+            prompt = request.data.get('prompt')
+            top_k = request.data.get('top_k', 1)
+            top_p = request.data.get('top_p', 1)
+            temp = request.data.get('temp', 0.9)
+            max_tokens = request.data.get('max_tokens', 8192)
+            previous_responses = request.data.get('previous_responses', [])
+            
+            top_k = int(top_k)
+            top_p = int(top_p)
+            temp = float(temp)
+            max_tokens = int(max_tokens)
+            
+            logger.info(f"previous_responses : {previous_responses}")
+
+            response = gemini_chat_completion(prompt, previous_responses, top_k=top_k, top_p=top_p, temperature=temp, max_output_tokens=max_tokens)
+            return Response({'response': response}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": "failed to generate response", "detail": e.args}, status=status.HTTP_400_BAD_REQUEST)
