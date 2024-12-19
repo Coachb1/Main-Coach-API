@@ -547,7 +547,10 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+        candidate_type = None
+        if CANDIDATE_TYPE in input_dict and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
+            candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
+            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
         if SKILLS_TO_EVALUATE in input_dict:
             if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
@@ -571,8 +574,6 @@ def format_test_orchestrated_conversation(raw_data):
             output_dict["skills_to_evaluate"] = evaluation_skill_list
 
 
-        if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
-            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
         initial_messages = []
         test_main_context = input_dict['Context']
@@ -669,7 +670,7 @@ def format_test_orchestrated_conversation(raw_data):
         return output_json, check_pass
 
     except Exception as e:
-        logger.error(e)
+        logger.exception(e)
         return None
 
 
