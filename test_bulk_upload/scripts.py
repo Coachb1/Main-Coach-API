@@ -338,6 +338,8 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
                 output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
 
+        if output_dict['scenario_case'] == 'game':
+            output_dict['is_game_type'] = True
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
                 is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
@@ -545,7 +547,10 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['email_address_list'] = email_list
 
-        candidate_type = input_dict[CANDIDATE_TYPE].capitalize()
+        candidate_type = None
+        if CANDIDATE_TYPE in input_dict and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
+            candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
+            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
         if SKILLS_TO_EVALUATE in input_dict:
             if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
@@ -569,8 +574,6 @@ def format_test_orchestrated_conversation(raw_data):
             output_dict["skills_to_evaluate"] = evaluation_skill_list
 
 
-        if input_dict[CANDIDATE_TYPE] and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
-            output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
         initial_messages = []
         test_main_context = input_dict['Context']
@@ -642,22 +645,23 @@ def format_test_orchestrated_conversation(raw_data):
                 output_dict["questions"].append(question)
         
         # checking if last column is for user or not
-        last_question = output_dict['questions'][-1]
-        if last_question['question_for'] != 'user':
-            json_data = {"last_question_for_user": "Last question should be for user"}
-            return json_data, False
-        
-
-        # checking wheater two user type coming one after other
-        question_for = [q['question_for'] for q in output_dict['questions']]
-        for i in range(len(question_for) - 1):
-            if question_for[i] == "user" and question_for[i + 1] == "user":
-                json_data = {"last_question_for_user": "Questions for user should not occur continously"}
-
+        if 'questions' in output_dict and len(output_dict.get('questions')) > 0:
+            last_question = output_dict['questions'][-1]
+            if last_question['question_for'] != 'user':
+                json_data = {"last_question_for_user": "Last question should be for user"}
                 return json_data, False
+            
 
-        output_dict['is_micro'] = False if ((len(output_dict.get('questions')) + 1) / 2) > 3 else True
-        output_dict['total_question'] = len(output_dict.get('questions'))
+            # checking wheater two user type coming one after other
+            question_for = [q['question_for'] for q in output_dict['questions']]
+            for i in range(len(question_for) - 1):
+                if question_for[i] == "user" and question_for[i + 1] == "user":
+                    json_data = {"last_question_for_user": "Questions for user should not occur continously"}
+
+                    return json_data, False
+
+            output_dict['is_micro'] = False if ((len(output_dict.get('questions')) + 1) / 2) > 3 else True
+            output_dict['total_question'] = len(output_dict.get('questions'))
 
 
         print(output_dict)
@@ -666,7 +670,7 @@ def format_test_orchestrated_conversation(raw_data):
         return output_json, check_pass
 
     except Exception as e:
-        logger.error(e)
+        logger.exception(e)
         return None
 
 
@@ -1751,7 +1755,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE, AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE ]
+                     SCENARIO_CASE ]
 
     access_token = login_slack(email, password, subdomain_prefix)
     is_update = False
@@ -1770,6 +1774,14 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
             # Check for null or empty data in specified columns for each row
             for row_data in all_rows:
+                scenario_case = row_data.get(SCENARIO_CASE, '').lower()
+
+                if scenario_case == 'game':
+                    columns_check.append(TEST_CUSTUM_PROMPT)
+                elif scenario_case == 'interview':
+                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND])
+                else:
+                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE])
 
                 for col in columns_check:
                     if col not in row_data:
@@ -1777,10 +1789,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     elif not row_data[col]:
                         raise Exception(
                             f"Column '{col}' has null or empty value in row")
-                    if SCENARIO_CASE in row_data and row_data.get(SCENARIO_CASE) == 'interview' and BACKGROUND not in row_data:
-                        raise Exception(
-                            f"Column '{BACKGROUND}' has null or empty value in row"
-                        )
+                    
 
                 # If row is valid, append it to list of valid rows to be sent to API
                 valid_rows.append(row_data)

@@ -41,6 +41,8 @@ class ScenarioCaseChoices(DjangoChoices):
     pitch = ChoiceItem('pitch')
     assessment = ChoiceItem('assessment')
     psychometric = ChoiceItem('psychometric')
+    game = ChoiceItem('game')
+
 
 
 class InteractionModeChoices(DjangoChoices):

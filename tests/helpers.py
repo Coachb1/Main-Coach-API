@@ -82,6 +82,7 @@ from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
 from django.core.exceptions import ValidationError
+from commons.google_apis import gemini_chat_completion
 import csv
 from collections import defaultdict
 
@@ -937,6 +938,27 @@ def create_test_question_answer_session(tenant: Tenant,
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
 
+    if test.scenario_case == ScenarioCaseChoices.game:
+        # initializing first question
+
+        first_question_text = gemini_chat_completion(
+                                prompt=test.gpt_prompt_override,
+                                previous_conv=[{
+                                    "role": "user",
+                                    "text": "START"
+                                }],
+                                temperature=0,
+                                top_p=0,
+                                models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]
+                            )
+
+        TestQuestionResponse.objects.create(
+            tenant_id=test_attempt_session.tenant_id,
+            test_attempt_session_id=test_attempt_session.uid,
+            question_id=str(test_attempt_session.uid) + f'-1',
+            question_text = first_question_text
+        )
+
     return test_attempt_session
 
 
@@ -983,6 +1005,39 @@ def create_test_question_answer(tenant: Tenant,
                          test_attempt_session_id)
         raise serializers.ValidationError("invalid test_attempt_session_id")
 
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+    
+    if test.scenario_case == ScenarioCaseChoices.game:
+        if response_file is None and response_text is None:
+            raise serializers.ValidationError("response is required for game test")
+        
+        # here we will save response to last created question response since 
+        # it's already created while test attempt creation
+
+        test_question_response = TestQuestionResponse.objects.filter(tenant_id=tenant.uid,
+                                                                     deleted=False,
+                                                                     test_attempt_session_id=test_attempt_session_id
+                                                                     ).last()
+        if not test_question_response:
+            raise serializers.ValidationError("no question response found for this test attempt session")
+        # saving response text or response file
+
+        test_question_response.response_file = response_file
+        test_question_response.response_text = response_text
+        test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
+
+        test_question_response.save(update_fields=['response_file', 'response_text', 'evaluation_status'])
+        
+
+        test_question_response.refresh_from_db()
+
+        print(test_question_response.response_text)
+        return process_dynamic_game(
+            test=test,
+            test_question_response=test_question_response,
+            test_attempt_session=test_attempt_session
+        )
+
     try:
         question = TestQuestion.objects.get(
             tenant_id=tenant.uid, uid=question_id, deleted=0)
@@ -1011,7 +1066,6 @@ def create_test_question_answer(tenant: Tenant,
 
     logger.info("created test_question_response for tenant %s", tenant.uid)
 
-    test = Test.objects.get(uid=test_attempt_session.test_id)
 
     # handle orchestrated conversation in a different manner
     if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread:
@@ -2962,6 +3016,119 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
 
     except Exception as e:
         logger.error(f"@@@@@@@@@@@!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
+
+
+@timeit
+def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
+                         ,test_attempt_session:TestAttemptSession):
+    
+    logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic game thred $$$$$$$$$$$")
+    update_fields = []
+    if test.interaction_mode != InteractionModeChoices.text:
+        update_fields.extend(["response_text"])
+
+        if test.interaction_mode == InteractionModeChoices.audio:
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript               
+
+        elif test.interaction_mode == InteractionModeChoices.video:
+            if test_question_response.response_file:
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+
+        elif test.interaction_mode == InteractionModeChoices.any:
+            if test_question_response.response_file:
+            
+                transcript, transcript_length = get_transcript(test_question_response)
+                test_question_response.response_text = transcript
+
+        if len(update_fields)>0:
+            test_question_response.save(update_fields=update_fields)
+
+    
+    # now getting all question response pair for the test_attempt_session
+    previous_conversation = [{
+                                    "role": "user",
+                                    "text": "START"
+                                }]
+    for question_response in TestQuestionResponse.objects.filter(
+        test_attempt_session_id=test_attempt_session.uid,
+        deleted=False
+    ):
+        print(question_response.question_text)
+        print(question_response.response_text)
+        previous_conversation.append({
+            "text": question_response.question_text,
+            "role": "model"
+        })
+        previous_conversation.append({
+            "text": question_response.response_text,
+            "role": "user"
+        })
+
+
+    next_question = gemini_chat_completion(
+        prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
+        previous_conv=previous_conversation,
+        temperature=0,
+        top_p=0,
+        models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]
+
+    )
+
+    print(next_question)
+    # now checking if the next_question is last/end conversation with score
+
+    score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+    if score_match:
+        score = int(score_match.group(1))  # Extract the achieved score
+        # total_score = int(score_match.group(2))  # Extract the total score
+        test_attempt_session.test_score = score
+        test_attempt_session.finished_at = timezone.now()
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+
+        test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
+        print("Test completed")
+
+        start_time = time.time()
+        while True:
+            end_time = time.time()
+            if end_time - start_time > 92:
+                logger.error(
+                    f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
+                raise ValueError("unable to evaluate response: %s",
+                                 test_question_response.uid)
+
+            time.sleep(4)
+
+            not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
+                test_attempt_session_id=test_attempt_session.uid,
+                deleted=0
+            ).exclude(
+                uid=test_question_response.uid
+            ).exclude(
+                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
+            ).count()
+
+            if not_evaluated_test_responses_count == 0:
+                end = time.time()
+                logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
+                break
+
+
+            return test_question_response
+
+
+
+    new_test_question_response = TestQuestionResponse.objects.create(
+        tenant_id=test_attempt_session.tenant_id,
+        test_attempt_session_id=test_attempt_session.uid,
+        question_id=str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}',
+        question_text = next_question
+    )
+    
+    return new_test_question_response
 
 @timeit
 def process_dynamic_threads_response_by_user(test_question_response: TestQuestionResponse):
