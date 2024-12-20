@@ -879,6 +879,7 @@ def create_test_question_answer_session(tenant: Tenant,
         >>> create_test_question_answer_session(tenant, 'test1', 'invite1', 'participant1', False, False)
         <TestAttemptSession: TestAttemptSession object (1)>
     """
+    test = None
     try:
         if not is_signature_bot:
             test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
@@ -938,7 +939,7 @@ def create_test_question_answer_session(tenant: Tenant,
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
 
-    if test.scenario_case == ScenarioCaseChoices.game:
+    if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
 
         first_question_text = gemini_chat_completion(
