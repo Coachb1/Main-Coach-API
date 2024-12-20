@@ -140,6 +140,7 @@ class Test(TenantAwareModel):
     )
     report_description = models.TextField(null=True, blank=True, default=None)
     category = models.CharField(max_length=255, null=True, blank=True, default=None)
+    is_single_select = models.BooleanField(default=False, null=True, blank=True)
     
     class Meta:
         db_table = "test"
