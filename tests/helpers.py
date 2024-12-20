@@ -956,7 +956,6 @@ def create_test_question_answer_session(tenant: Tenant,
                                 temperature=0,
                                 top_p=0,
                                 models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
-                                instructions=["**Always Present Full Level Details**: Consistently show all levels and options exactly as scripted. Complete all levels and only give feedback as last. Every level and option must be displayed in full, without omission or partial rendering of any text."]
                             )
 
         TestQuestionResponse.objects.create(
@@ -3081,7 +3080,6 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
         temperature=0,
         top_p=0,
         models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
-        instructions=["**Always Present Full Level Details**: Consistently show all levels and options exactly as scripted. Complete all levels and only give feedback as last. Every level and option must be displayed in full, without omission or partial rendering of any text."]
     )
 
     print(next_question)

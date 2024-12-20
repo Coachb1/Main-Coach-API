@@ -301,7 +301,6 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
         # Content(role='user',parts=[Part.from_text(prompt)])
     ]
     current_user_response = previous_conv.pop()['text']
-    print(current_user_response,previous_conv)
 
     for conv in previous_conv:
         history.append(Content(role=conv['role'],parts=[Part.from_text(conv['text'])]))
@@ -310,7 +309,7 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
         model = GenerativeModel(model_name=model_name,
                                 generation_config=generation_config,
                                 safety_settings=safety_settings,
-                                system_instruction=[prompt].extend(instructions) if instructions else None
+                                system_instruction=prompt
                                 )
         chat = model.start_chat(history=history)
         
