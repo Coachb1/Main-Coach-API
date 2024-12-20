@@ -793,7 +793,9 @@ def get_participant_report(user, only_data=False):
             except:
                 logger.exception(f"Test not found for test_attempt_session_test_id: {test_attempt_session.test_id}")
                 continue
-            
+            if not test_attempt_session.report_url:
+                continue
+
             try:
                 session_info = {
                     "slno" : cnt,

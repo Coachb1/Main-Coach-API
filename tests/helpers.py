@@ -241,7 +241,8 @@ def create_test(tenant: Tenant,
                 pshycometric_sections: dict,
                 psychometric:str,
                 report_description:str,
-                category: str) -> tuple[Test, list[TestQuestion]]:
+                category: str,
+                is_single_select:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -437,6 +438,7 @@ def create_test(tenant: Tenant,
             psychometric=psychometric,
             report_description=report_description,
             category=category,
+            is_single_select=is_single_select,
         )
 
         test_questions = []
@@ -552,7 +554,8 @@ def update_test(tenant: Tenant,
                 calculate_culture: bool,
                 snippet_url: str,
                 report_description:str,
-                category: str ) -> tuple[Test, list[TestQuestion]]:
+                category: str,
+                is_single_select:bool ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -688,6 +691,8 @@ def update_test(tenant: Tenant,
             test.report_description = report_description
         if test.category != category:
             test.category = category
+        if test.is_single_select != is_single_select:
+            test.is_single_select = is_single_select
 
         test.save()
 
