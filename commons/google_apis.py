@@ -265,7 +265,7 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
 
 
 @timeit
-def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]):
+def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],instructions=None):
     logger.info(f"gemini_chat_completion prompt: {prompt}, and \nmodels: {models}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
@@ -298,16 +298,19 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
     # )
     
     history = [ 
+        # Content(role='user',parts=[Part.from_text(prompt)])
     ]
+    current_user_response = previous_conv.pop()['text']
+
     for conv in previous_conv:
         history.append(Content(role=conv['role'],parts=[Part.from_text(conv['text'])]))
-    
     max_retry = 3
     for model_name in models:
         model = GenerativeModel(model_name=model_name,
                                 generation_config=generation_config,
                                 safety_settings=safety_settings,
-                                system_instruction=[prompt])
+                                system_instruction=prompt
+                                )
         chat = model.start_chat(history=history)
         
         retry = 0
@@ -316,7 +319,7 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
             try:
                 logger.info(f"{'='*50}")
                 logger.info(f"Trying gemini_chat_completion with model {model_name} for {retry+1} time")
-                responses = chat.send_message(prompt)
+                responses = chat.send_message(current_user_response)
 
                 logger.info(f"<<<<<<<<< gemini chat completion response: {responses} >>>>>>>>>>>>>")
                 logger.info(f"gemini chat completion text: {responses.text}")
