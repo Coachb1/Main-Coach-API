@@ -241,7 +241,8 @@ def create_test(tenant: Tenant,
                 pshycometric_sections: dict,
                 psychometric:str,
                 report_description:str,
-                category: str) -> tuple[Test, list[TestQuestion]]:
+                category: str,
+                is_single_select:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -437,6 +438,7 @@ def create_test(tenant: Tenant,
             psychometric=psychometric,
             report_description=report_description,
             category=category,
+            is_single_select=is_single_select,
         )
 
         test_questions = []
@@ -552,7 +554,8 @@ def update_test(tenant: Tenant,
                 calculate_culture: bool,
                 snippet_url: str,
                 report_description:str,
-                category: str ) -> tuple[Test, list[TestQuestion]]:
+                category: str,
+                is_single_select:bool ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -688,6 +691,8 @@ def update_test(tenant: Tenant,
             test.report_description = report_description
         if test.category != category:
             test.category = category
+        if test.is_single_select != is_single_select:
+            test.is_single_select = is_single_select
 
         test.save()
 
@@ -879,6 +884,7 @@ def create_test_question_answer_session(tenant: Tenant,
         >>> create_test_question_answer_session(tenant, 'test1', 'invite1', 'participant1', False, False)
         <TestAttemptSession: TestAttemptSession object (1)>
     """
+    test = None
     try:
         if not is_signature_bot:
             test = Test.objects.get(tenant_id=tenant.uid, uid=test_id, deleted=0)
@@ -938,7 +944,7 @@ def create_test_question_answer_session(tenant: Tenant,
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
 
-    if test.scenario_case == ScenarioCaseChoices.game:
+    if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
 
         first_question_text = gemini_chat_completion(
@@ -949,7 +955,7 @@ def create_test_question_answer_session(tenant: Tenant,
                                 }],
                                 temperature=0,
                                 top_p=0,
-                                models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]
+                                models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
                             )
 
         TestQuestionResponse.objects.create(
@@ -3073,8 +3079,7 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
         previous_conv=previous_conversation,
         temperature=0,
         top_p=0,
-        models=['gemini-2.0-flash-exp',"gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"]
-
+        models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
     )
 
     print(next_question)

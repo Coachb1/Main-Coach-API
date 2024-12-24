@@ -100,6 +100,7 @@ SECTIONS = "Sections"
 PSYCHOMETRIC = "Psychometric Set"
 REPORT_DESCRIPTION = "Report Description"
 CATEGORY = "Category"
+IS_SINGLE_SELECT = "Is Single Select"
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -350,6 +351,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_SINGLE_SELECT in input_dict:
+            if input_dict[IS_SINGLE_SELECT] and len(input_dict[IS_SINGLE_SELECT].strip()) > 0:
+                is_single_select = input_dict[IS_SINGLE_SELECT].strip().lower()
+
+                if is_single_select == "true":
+                    output_dict['is_single_select'] = True
+                elif is_single_select == "false":
+                    output_dict['is_single_select'] = False
+                else:
+                    output_dict['is_single_select'] = False
 
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
@@ -1777,7 +1789,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                 scenario_case = row_data.get(SCENARIO_CASE, '').lower()
 
                 if scenario_case == 'game':
-                    columns_check.append(TEST_CUSTUM_PROMPT)
+                    columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
                 elif scenario_case == 'interview':
                     columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND])
                 else:
