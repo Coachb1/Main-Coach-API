@@ -360,9 +360,12 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
             sheet = writer.active
             sheet.title = "Test Attempt Sessions"
 
+        
+        
         # Determine the maximum number of questions across all rows
         max_questions = 0
         questions_responses = {}
+        only_game = False
         for obj in queryset:
             test = self.tests_cache.get(obj.test_id)
             test_type = test.test_type if test else None
@@ -403,7 +406,8 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
                                 question_text += question.get('end_message')
                                 if question.get('feedback'):
                                     question_text += f"\n\n Feedback: {question.get('feedback')}"
-
+                                
+                                only_game= True
 
 
                         except:
@@ -441,6 +445,14 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
             max_questions = max(max_questions, len(data))
             questions_responses[obj.id] = data
 
+        
+        # question_headers = [
+        #     f"Question{i+1}" for i in range(max_questions)
+        # ]
+        # response_headers = [
+        #     f"Response{i+1}" for i in range(max_questions)
+        # ]
+
         # Headers
         base_headers = [
             "ID", "Client Name", "Test Code", "Test Title", 
@@ -452,12 +464,11 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
         for i in range(max_questions):
             question_response_header.append(f"Question {i+1}")
             question_response_header.append(f"Response {i+1}")
-        # question_headers = [
-        #     f"Question{i+1}" for i in range(max_questions)
-        # ]
-        # response_headers = [
-        #     f"Response{i+1}" for i in range(max_questions)
-        # ]
+
+        if only_game:
+            question_response_header = question_response_header[:-2]
+            question_response_header.append(f"Final Message")
+
         headers = base_headers + question_response_header
 
         if file_type == "csv":
