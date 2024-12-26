@@ -1,6 +1,6 @@
 from django.contrib import admin 
 from import_export.admin import ExportActionMixin
-from tests.models import Test, TestQuestion, Psychometric, PsychometricItem, TestAttemptSession
+from tests.models import Test, TestQuestion, Psychometric, PsychometricItem, TestAttemptSession, TestQuestionResponse
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
 import csv
@@ -14,6 +14,10 @@ from identities.helpers import get_user_via_identity
 from identities.models import Identity
 from users.helpers import get_client_info_from_user_detail
 from users.models import UserAttribute
+import csv
+from openpyxl import Workbook
+from django.http import HttpResponse
+import json
 
 class StartWithUserFilter(admin.SimpleListFilter):
     title = 'Start with User'
@@ -218,14 +222,50 @@ admin.site.register(PsychometricItem, PsychometricItemAdmin)
 
 # admin.site.register(UserTestConfigs, UserTestConfigsAdmin)
 
+class ScenarioCaseFilter(admin.SimpleListFilter):
+    title = "Scenario Case"
+    parameter_name = "scenario_case"
+
+    def lookups(self, request, model_admin):
+        # Fetch unique scenario cases
+        scenario_cases = set(Test.objects.filter(deleted=False).values_list('scenario_case', flat=True))
+        return [(case, case) for case in scenario_cases if case]
+
+    def queryset(self, request, queryset):
+        # Filter queryset based on selected scenario case
+        scenario_case = self.value()
+        if scenario_case:
+            test_ids = Test.objects.filter(scenario_case=scenario_case, deleted=False).values_list('uid', flat=True)
+            return queryset.filter(test_id__in=test_ids)
+        return queryset
+    
+class TestTypeFilter(admin.SimpleListFilter):
+    title = "Test Type"
+    parameter_name = "test_type"
+
+    def lookups(self, request, model_admin):
+        # Fetch unique Test Types
+        test_types = set(Test.objects.filter(deleted=False).values_list('test_type', flat=True))
+        return [(testtype, testtype) for testtype in test_types if testtype]
+
+    def queryset(self, request, queryset):
+        # Filter queryset based on selected test type
+        test_type = self.value()
+        if test_type:
+            test_ids = Test.objects.filter(test_type=test_type, deleted=False).values_list('uid', flat=True)
+            return queryset.filter(test_id__in=test_ids)
+        return queryset
 
 @admin.register(TestAttemptSession)
 class TestAttemptSessionAdmin(TenantAwareModelAdmin):
     list_display = (
         "id", 
+        "tenant_id",
         "get_client_name", 
         "get_test_code", 
-        "get_title", 
+        "get_test_title", 
+        "get_test_type",
+        "get_scenario_case",  # New field
         "get_user_email", 
         "test_score", 
         "status", 
@@ -233,39 +273,239 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
         "finished_at"
     )
     search_fields = ("participant_id", "test_id", "test_invite_id")
-    list_filter = ("status", "is_report_sent_to_email", "is_report_sent_to_whatsapp")
+    list_filter = (
+        "status", 
+        "is_report_sent_to_email", 
+        "is_report_sent_to_whatsapp", 
+        TestTypeFilter,
+        ScenarioCaseFilter,  # New filter
+    )
     list_per_page = 10
     ordering = ('-id',)
+    actions = ["export_as_csv", "export_as_excel"]
 
+    def get_queryset(self, request):
+        # Fetch the original queryset
+        queryset = super().get_queryset(request)
+        
+        # Extract unique test_ids from the queryset
+        test_ids = queryset.values_list('test_id', flat=True)
+        
+        # Fetch existing Test objects
+        existing_tests = Test.objects.filter(uid__in=test_ids, deleted=False)
+        self.tests_cache = {test.uid: test for test in existing_tests}
+        
+        # Exclude rows where the Test is not found
+        queryset = queryset.filter(test_id__in=self.tests_cache.keys())
+
+        # Fetch UserAttributes for participant_ids
+        participant_ids = queryset.values_list('participant_id', flat=True)
+        self.user_attributes_cache = {
+            ua.user_id: ua for ua in UserAttribute.objects.filter(user_id__in=participant_ids, deleted=False)
+        }
+        return queryset
+    
 
     def get_client_name(self, obj):
-        # Assuming fetch_client_by_user_id(participant_id) is a function that fetches the client name
         return get_client_info_from_user_detail(
             tenant_id=obj.tenant_id,
             user_uid=obj.participant_id
-            )
+        )
     get_client_name.short_description = "Client Name"
-    
+
     def get_test_code(self, obj):
-        test = Test.objects.filter(deleted=False,uid=obj.test_id).first()
-        if test:
-            return test.test_code
-        else:
-            return None
+        test = self.tests_cache.get(obj.test_id)
+        return test.test_code if test else None
     get_test_code.short_description = "Test Code"
-    
-    def get_title(self, obj):
-        test = Test.objects.filter(deleted=False,uid=obj.test_id).first()
-        if test:
-            return test.title
-        else:
-            return None
-    get_title.short_description = "Test Title"
+
+    def get_test_title(self, obj):
+        test = self.tests_cache.get(obj.test_id)
+        return test.title if test else None
+    get_test_title.short_description = "Test Title"
+
+    def get_scenario_case(self, obj):
+        test = self.tests_cache.get(obj.test_id)
+        return test.scenario_case if test else None
+    get_scenario_case.short_description = "Scenario Case"
+
+    def get_test_type(self, obj):
+        test = self.tests_cache.get(obj.test_id)
+        return test.test_type if test else None
+    get_test_type.short_description = "Test Type"
 
     def get_user_email(self, obj):
-        user_att = UserAttribute.objects.get(deleted=False, user_id=obj.participant_id)
-        if user_att.attributes.get('email'):
+        user_att = self.user_attributes_cache.get(obj.participant_id)
+        if user_att and user_att.attributes.get('email'):
             return user_att.attributes.get('email')
-        else:
-            return None
+        return None
     get_user_email.short_description = "User Email"
+
+
+    def export_as_csv(self, request, queryset):
+        return self.export_file(request, queryset, file_type="csv")
+
+    def export_as_excel(self, request, queryset):
+        return self.export_file(request, queryset, file_type="xlsx")
+    
+
+    def export_file(self, request, queryset, file_type):
+
+        # File setup
+        response = HttpResponse(content_type="text/csv" if file_type == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response['Content-Disposition'] = f'attachment; filename="test_attempt_sessions.{file_type}"'
+
+        # Writer setup
+        writer = csv.writer(response) if file_type == "csv" else Workbook()
+        if file_type == "xlsx":
+            sheet = writer.active
+            sheet.title = "Test Attempt Sessions"
+
+        # Determine the maximum number of questions across all rows
+        max_questions = 0
+        questions_responses = {}
+        for obj in queryset:
+            test = self.tests_cache.get(obj.test_id)
+            test_type = test.test_type if test else None
+
+            if test_type == "test":
+                questions = TestQuestion.objects.filter(test_id=test.uid,deleted=False).order_by('id')
+                responses = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=obj.uid,
+                    deleted=False
+                ).order_by('id')
+                data = [(q.question, r.response_text) for q, r in zip(questions, responses)]
+            elif test_type in ["dynamic_discussion_thread", 'orchestrated_conversation']:
+                responses = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=obj.uid,
+                    deleted=False
+                )
+                if test.scenario_case == 'game':
+                    data = []
+                    for r in responses:
+                        question_text = ""
+                        try:
+                            question= json.loads(r.question_text)
+                            if question.get('level'):
+                                question_text += f"{question.get('level')}\n\n"
+                            if question.get('scenario'):
+                                question_text += f"Scenario: {question.get('scenario', '')}\n"
+                            if question.get('objective'):
+                                question_text += f"Objective: {question.get('objective', '')}\n"
+                            if question.get('decision'):
+                                question_text += f"Decision: {question.get('decision', '')}\n"
+                            if question.get('instruction'):
+                                question_text += f"Instruction: {question.get('instruction', '')}\n"
+                            
+                            if question.get('options'):
+                                question_text += F"Options: \n{question.get('options',{})}"
+
+                            if question.get('end_message'):
+                                question_text += question.get('end_message')
+                                if question.get('feedback'):
+                                    question_text += f"\n\n Feedback: {question.get('feedback')}"
+
+
+
+                        except:
+                            question_text = r.question_text
+
+                        data.append((question_text, r.response_text))
+
+                else:
+                    # For non-'game', pair bot questions with user responses
+                    bot_questions = list(responses.exclude(responder_type="user").order_by('id').values_list('response_text',flat=True))
+                    user_responses = list(responses.filter(responder_type="user").order_by('id').values_list('response_text',flat=True))
+
+                    # Pair bot questions with user responses sequentially
+                    first_question = ""
+
+                    for msg in test.orchestrated_conversation_details['initial_messages']:
+                        first_question += f"{msg}\n\n"
+
+                    final_bot_question = []
+                    if len(first_question) > 0:
+                        final_bot_question.append(first_question)
+
+                    final_bot_question.extend(bot_questions)
+                    print(len(final_bot_question), len(user_responses))
+
+                    data = []
+                    for bot, user in zip(final_bot_question, user_responses):
+                        question_text = bot or "No Question"
+                        response_text = user or "No Response"
+                        data.append((question_text, response_text))
+
+            else:
+                data = []
+
+            max_questions = max(max_questions, len(data))
+            questions_responses[obj.id] = data
+
+        # Headers
+        base_headers = [
+            "ID", "Client Name", "Test Code", "Test Title", 
+            "Scenario Case", "User Email", "Test Score", 
+            "Status", "Started At", "Finished At"
+        ]
+
+        question_response_header = []
+        for i in range(max_questions):
+            question_response_header.append(f"Question {i+1}")
+            question_response_header.append(f"Response {i+1}")
+        # question_headers = [
+        #     f"Question{i+1}" for i in range(max_questions)
+        # ]
+        # response_headers = [
+        #     f"Response{i+1}" for i in range(max_questions)
+        # ]
+        headers = base_headers + question_response_header
+
+        if file_type == "csv":
+            writer.writerow(headers)
+        else:
+            sheet.append(headers)
+
+        started_at = obj.started_at.replace(tzinfo=None) if obj.started_at else None
+        finished_at = obj.finished_at.replace(tzinfo=None) if obj.finished_at else None
+
+        # Process rows
+        for obj in queryset:
+            row = [
+                obj.id, 
+                self.get_client_name(obj), 
+                self.get_test_code(obj), 
+                self.get_test_title(obj), 
+                self.get_scenario_case(obj), 
+                self.get_user_email(obj), 
+                obj.test_score, 
+                obj.status, 
+                started_at, 
+                finished_at,
+            ]
+            question_response_data = questions_responses.get(obj.id, [])
+            questions = [q for q, r in question_response_data]
+            responses = [r for q, r in question_response_data]
+            question_respones_set = []
+            for q,r in question_response_data:
+                question_respones_set.append(q)
+                question_respones_set.append(r)
+
+            row.extend(question_respones_set)
+            # # Add questions and responses up to max_questions
+            # row.extend(questions + [""] * (max_questions - len(questions)))
+            # row.extend(responses + [""] * (max_questions - len(responses)))
+
+            if file_type == "csv":
+                writer.writerow(row)
+            else:
+                sheet.append(row)
+
+        # Save and return response
+        if file_type == "xlsx":
+            writer.save(response)
+        return response
+
+
+    export_as_csv.short_description = "Export as CSV"
+    export_as_excel.short_description = "Export as Excel"
+
