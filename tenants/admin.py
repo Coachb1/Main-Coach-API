@@ -64,9 +64,10 @@ class TenantAwareModelAdmin(admin.ModelAdmin):
 
             # Return the dynamically created form
             kwargs['form'] = DynamicTenantAwareForm
-            kwargs['list_filter'] = (TenantFilter,) + getattr(self, 'list_filter', ())
-            if 'tenant_id' not in getattr(self, 'list_display', ()):
-                kwargs['list_display'] = getattr(self, 'list_display', ()) + ('tenant_id',)
+            # if kwargs.get('list_filter'):
+            #     kwargs['list_filter'] = (TenantFilter,) + getattr(self, 'list_filter', ())
+            # if 'tenant_id' not in getattr(self, 'list_display', () and not kwargs.get('list_display')):
+            #     kwargs['list_display'] = getattr(self, 'list_display', ()) + ('tenant_id',)
 
         print(f"kwargs: {kwargs}")
         
