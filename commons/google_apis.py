@@ -156,8 +156,8 @@ def text_to_speech_google(text):
         input_text = texttospeech.SynthesisInput(text=text)
         voice = texttospeech.VoiceSelectionParams(
             language_code='en-IN',
-            name='en-IN-Neural2-A',
-            ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+            name='en-IN-Wavenet-C',
+            ssml_gender=texttospeech.SsmlVoiceGender.MALE
         )
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3
