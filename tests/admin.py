@@ -18,6 +18,10 @@ import csv
 from openpyxl import Workbook
 from django.http import HttpResponse
 import json
+from tests.helpers import format_game_json_to_string
+import logging
+
+logger = logging.getLogger('main')
 
 class StartWithUserFilter(admin.SimpleListFilter):
     title = 'Start with User'
@@ -388,19 +392,7 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
                         question_text = ""
                         try:
                             question= json.loads(r.question_text)
-                            if question.get('level'):
-                                question_text += f"{question.get('level')}\n\n"
-                            if question.get('scenario'):
-                                question_text += f"Scenario: {question.get('scenario', '')}\n"
-                            if question.get('objective'):
-                                question_text += f"Objective: {question.get('objective', '')}\n"
-                            if question.get('decision'):
-                                question_text += f"Decision: {question.get('decision', '')}\n"
-                            if question.get('instruction'):
-                                question_text += f"Instruction: {question.get('instruction', '')}\n"
-                            
-                            if question.get('options'):
-                                question_text += F"Options: \n{question.get('options',{})}"
+                            question_text += format_game_json_to_string(question)
 
                             if question.get('end_message'):
                                 question_text += question.get('end_message')
@@ -410,10 +402,11 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
                                 only_game= True
 
 
-                        except:
+                        except Exception as e:
+                            logger.exception(e)
                             question_text = r.question_text
 
-                        data.append((question_text, r.response_text))
+                        data.append(((question_text or "").strip(), r.response_text))
 
                 else:
                     # For non-'game', pair bot questions with user responses
