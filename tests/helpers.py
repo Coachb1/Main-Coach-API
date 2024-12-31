@@ -11129,3 +11129,39 @@ def parse_psychometric_csv(csv_file):
     if len(items) == 0:
         raise ValidationError("Should be at least one row in csv.")
     return items
+
+
+
+def format_game_json_to_string(data):
+    """
+    Convert the given JSON structure into a formatted string representation.
+
+    Args:
+        data (dict): The JSON data to be formatted.
+
+    Returns:
+        str: A human-readable string representation of the JSON data.
+    """
+    def format_section(section_data):
+        formatted = []
+        for key, value in section_data.items():
+            if isinstance(value, dict):
+                formatted.append(f"  {key.capitalize()}:")
+                for sub_key, sub_value in value.items():
+                    formatted.append(f"    {sub_key.capitalize()}: {sub_value}")
+            elif isinstance(value, list):
+                formatted.append(f"  {key.capitalize()}:")
+                for item in value:
+                    formatted.append(f"    - {item}")
+            else:
+                formatted.append(f"  {key.capitalize()}: {value}")
+        return "\n".join(formatted)
+
+    details = format_section(data.get("details", {}))
+    content_str = format_section(data.get('content',{}))
+    context = ""
+    for value in data.get('context', {}).values():
+        context += f"{value}\n"
+
+
+    return f"{context}{details}\n\n{content_str}"
