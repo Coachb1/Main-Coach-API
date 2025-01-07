@@ -9936,7 +9936,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     if test.psychometric:
 
         # Iterate over each PsychometricItem associated with the Psychometric set
-        for item in test.psychometric.items.all():
+        for item in test.psychometric.psy_items.filter(deleted=False):
             # Append the subsection to the list for the corresponding section
             if item.section not in section_dict:
                 section_dict[item.section] = []  # Create a new list for this section
@@ -10977,7 +10977,7 @@ def format_psychometric_items(psychometric:Psychometric):
     sections = {}
 
     # Loop through each PsychometricItem in the Psychometric set
-    for item in psychometric.items.all():
+    for item in psychometric.psy_items.filter(deleted=False):
         # Use item.section as the dimension
         section = sections.get(item.section)
         if not section:
