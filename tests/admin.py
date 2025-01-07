@@ -108,8 +108,6 @@ class PsychometricAdminForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         csv_file = cleaned_data.get('csv_file')
-        print(f"cleanded data: {cleaned_data}" )
-
         tenant_id = cleaned_data.get('tenant_id')
 
         # Handle saving None if tenant_id is not selected
@@ -125,38 +123,44 @@ class PsychometricAdminForm(forms.ModelForm):
             
         if csv_file:
             try:
+                # Parse CSV to extract PsychometricItem data
                 items_data = parse_psychometric_csv(csv_file=csv_file)
-                created_items = []
-                # Prepare PsychometricItem instances
-                psychometric_items = [PsychometricItem(**item_data) for item_data in items_data]
 
-                # Bulk create the items
-                created_objects = PsychometricItem.objects.bulk_create(psychometric_items)
+                # Create the Psychometric instance temporarily to get its pk
+                with transaction.atomic():
+                    # Save the Psychometric instance temporarily to fetch its pk
+                    psychometric_instance = self.instance
+                    psychometric_instance.save()
 
-                # Collect the UIDs of the created objects
-                created_items = [obj.uid for obj in created_objects]
+                    # Prepare a list of PsychometricItem instances to be created
+                    psychometric_items = []
+                    for item_data in items_data:
+                        # Assuming item_data is a dictionary with field names matching the model
+                        psychometric_item = PsychometricItem(
+                            **item_data,
+                            psychometric=psychometric_instance  # Associate these items with the current Psychometric instance
+                        )
+                        psychometric_items.append(psychometric_item)
 
-                # Associate created items with the Psychometric instance
-                # existing_items = []
-                # if self.instance.pk:
-                #     existing_items = list(self.instance.items.all().values_list('uid',flat=True))
-                # else:
-                existing_items = [item.uid for item in cleaned_data.get('items')] if cleaned_data.get('items') else []
-                    
-                psyitems = existing_items + created_items  # Combine existing and newly created items
-                cleaned_data['items'] = PsychometricItem.objects.filter(uid__in=psyitems)
+                    # Use bulk_create for efficient database insertions
+                    PsychometricItem.objects.bulk_create(psychometric_items)
 
+                    # Optionally, store items_data if you want to reference them later
+                    cleaned_data['items_data'] = items_data
+
+                    # After bulk_create, manually handle saving the Psychometric instance if needed
+                    # If necessary, save the Psychometric instance after items are created
 
             except ValidationError as e:
-                raise ValidationError(_(str(e)))
-                
-        return cleaned_data
+                raise ValidationError(_(f"Error parsing CSV file: {e}"))
+            
+        return cleaned_data            
 
 
 class PsychometricAdmin(admin.ModelAdmin):
     form = PsychometricAdminForm
     list_per_page = 10
-    filter_horizontal = ('items',)
+    # filter_horizontal = ('items',)
     list_display = ('id', 'uid', 'tenant_id','name', 'description')
     search_fields = ('name',)
 
@@ -166,8 +170,9 @@ admin.site.register(Psychometric, PsychometricAdmin)
 
 class PsychometricItemAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id', 'section', 'subsection')
-    search_fields = ('section', 'subsection')
+    list_display = ('id', 'psychometric','section', 'subsection')
+    search_fields = ('section', 'subsection','psychometric')
+    list_filter = ('psychometric',)
     ordering = ('-id',)
 
 admin.site.register(PsychometricItem, PsychometricItemAdmin)

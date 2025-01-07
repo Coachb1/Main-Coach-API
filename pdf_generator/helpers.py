@@ -131,7 +131,7 @@ def format_psychometric_items(psychometric:Psychometric):
     sections = {}
 
     # Loop through each PsychometricItem in the Psychometric set
-    for item in psychometric.items.all():
+    for item in psychometric.psy_items.filter(deleted=False):
         
         # Use item.section as the dimension
         section = sections.get(item.section)
@@ -241,6 +241,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data
+        psy_sections = set(test.psychometric.psy_items.filter(deleted=False).values_list('section', flat=True))
+        psy_sections = [i.strip() for i in psy_sections]
+        print(psy_sections, psychometric_data)
+        psychometric_data = {key: value for key, value in psychometric_data.items() if key in psy_sections}
         # psychometric_data['info'] = format_psychometric_items(test.psychometric)
         psychometric_info = format_psychometric_items(test.psychometric)
         other_psychometric_infos['max_ranges'] = find_highest_count_range(psychometric_data)
