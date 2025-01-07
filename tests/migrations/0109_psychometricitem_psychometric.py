@@ -3,21 +3,6 @@
 from django.db import migrations, models
 import django.db.models.deletion
 
-def migrate_items_to_foreign_key(apps, schema_editor):
-    Psychometric = apps.get_model("tests", "Psychometric")
-    PsychometricItem = apps.get_model("tests", "PsychometricItem")
-
-    # Iterate through all Psychometric instances
-    for psychometric in Psychometric.objects.all():
-        # Get all related items from the old ManyToManyField
-        if psychometric:
-            print(psychometric.id)
-            items = psychometric.items.all()
-            for item in items:
-                # Assign the foreign key for each item
-                item.psychometric = psychometric
-                item.save()
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -29,7 +14,6 @@ class Migration(migrations.Migration):
             model_name='psychometricitem',
             name='psychometric',
             field=models.ForeignKey(default=45, on_delete=django.db.models.deletion.CASCADE, related_name='psy_items', to='tests.psychometric'),
-        ),
-        migrations.RunPython(migrate_items_to_foreign_key)
+        )
 
     ]
