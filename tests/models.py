@@ -14,8 +14,49 @@ import string
 
 
 ## psychometric section
+# class PsychometricItem(MyModel):    
+#     # Fields for Section and Subsection
+#     section = models.CharField(max_length=255)
+#     subsection = models.CharField(max_length=255, blank=True, null=True)
+
+#     parameters = models.JSONField(blank=True, null=True, default=dict)
+
+#     # Fields for Ranges
+#     range_values = models.JSONField(blank=True, null=True, default=dict)
+
+#     average_value = models.TextField(blank=True, null=True, default=None)
+
+#     def __str__(self):
+#         return f"{self.id} -{self.section} : {self.subsection}"
+    
+#     class Meta:
+#         db_table = "psychometric_item"
+
+class Psychometric(MyModel):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True, default=None)
+    items = models.ManyToManyField("PsychometricItem", related_name='psychometrics', blank=True)  # Many-to-many relationship
+    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
+
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        db_table = "psychometric"
+        unique_together = (
+            ("name", "tenant_id", "deleted"),)
+
 class PsychometricItem(MyModel):    
     # Fields for Section and Subsection
+    # Link to Psychometric
+    psychometric = models.ForeignKey(
+        "Psychometric", 
+        on_delete=models.CASCADE, 
+        related_name="psy_items",
+        default=45
+    )
+
     section = models.CharField(max_length=255)
     subsection = models.CharField(max_length=255, blank=True, null=True)
 
@@ -31,23 +72,6 @@ class PsychometricItem(MyModel):
     
     class Meta:
         db_table = "psychometric_item"
-
-class Psychometric(MyModel):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True, default=None)
-    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics', blank=True)  # Many-to-many relationship
-    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
-
-
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        db_table = "psychometric"
-        unique_together = (
-            ("name", "tenant_id", "deleted"),)
-
-
 
 class Test(TenantAwareModel):
     creator_id = models.CharField(max_length=255, db_index=True)
