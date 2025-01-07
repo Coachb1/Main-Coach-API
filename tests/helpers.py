@@ -11097,11 +11097,11 @@ def parse_psychometric_csv(csv_file):
                 ranges_found[range_num] = {"range": value}
             elif strengths_match:
                 range_num = strengths_match.group(1)
-                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL) or [value]
                 ranges_found.setdefault(range_num, {})["strengths"] = [s.strip() for s in strengths if s.strip()]
             elif improvement_match:
                 range_num = improvement_match.group(1)
-                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL) or [value]
 
                 ranges_found.setdefault(range_num, {})["areas_for_improvement"] = [a.strip() for a in areas if a.strip()]
 
