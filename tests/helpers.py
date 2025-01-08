@@ -41,7 +41,7 @@ from skills.models import SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
-from tests.choices import InteractionModeChoices, QuestionForChoices, TestTypeChoices
+from tests.choices import InteractionModeChoices, QuestionForChoices, TestTypeChoices, QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.models import Test
@@ -957,11 +957,29 @@ def create_test_question_answer_session(tenant: Tenant,
                                 top_p=0,
                                 models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
                             )
+        
+        question_id = str(test_attempt_session.uid) + f'-1'
+
+        try:
+            #generating question
+            question = TestQuestion.objects.create(
+                tenant_id=tenant.uid,
+                test_id=test_id,
+                question_type=QuestionTypeChoices.mcq,
+                question=first_question_text,
+                question_number=1
+            )
+            question_id = question.uid
+            
+        except Exception as e:
+            logger.error("Error creating question for test_attempt_session %s: %s", test_attempt_session.uid, e)
+            pass
+
 
         TestQuestionResponse.objects.create(
             tenant_id=test_attempt_session.tenant_id,
             test_attempt_session_id=test_attempt_session.uid,
-            question_id=str(test_attempt_session.uid) + f'-1',
+            question_id=question_id,
             question_text = first_question_text
         )
 
@@ -3125,11 +3143,26 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
             return test_question_response
 
 
+    question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+
+    try:
+        #generating question
+        question = TestQuestion.objects.create(
+            tenant_id=test_attempt_session.tenant_id,
+            test_id=test.uid,
+            question_type=QuestionTypeChoices.mcq,
+            question=next_question,
+            question_number=len(previous_conversation)+1
+        )
+        question_id = question.uid
+        
+    except Exception as e:
+        logger.error("Error creating question for test_attempt_session %s : %s", test_attempt_session.uid, e)
 
     new_test_question_response = TestQuestionResponse.objects.create(
         tenant_id=test_attempt_session.tenant_id,
         test_attempt_session_id=test_attempt_session.uid,
-        question_id=str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}',
+        question_id=question_id,
         question_text = next_question
     )
     
