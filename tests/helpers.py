@@ -85,6 +85,7 @@ from django.core.exceptions import ValidationError
 from commons.google_apis import gemini_chat_completion
 import csv
 from collections import defaultdict
+from tests.models import PsychometricReportSection, PsychometricReportSubsection
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +243,8 @@ def create_test(tenant: Tenant,
                 psychometric:str,
                 report_description:str,
                 category: str,
-                is_single_select:bool) -> tuple[Test, list[TestQuestion]]:
+                is_single_select:bool,
+                psychometric_report_config:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -370,6 +372,8 @@ def create_test(tenant: Tenant,
 
     if psychometric:
         psychometric = Psychometric.objects.get(uid=psychometric)
+    if psychometric_report_config:
+        psychometric_report_config = PsychometricReportSection.objects.get(uid=psychometric_report_config)
         
     with transaction.atomic():
         test = Test.objects.create(
@@ -439,6 +443,7 @@ def create_test(tenant: Tenant,
             report_description=report_description,
             category=category,
             is_single_select=is_single_select,
+            psychometric_report_config=psychometric_report_config
         )
 
         test_questions = []
@@ -555,7 +560,8 @@ def update_test(tenant: Tenant,
                 snippet_url: str,
                 report_description:str,
                 category: str,
-                is_single_select:bool ) -> tuple[Test, list[TestQuestion]]:
+                is_single_select:bool,
+                psychometric_report_config:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -693,6 +699,8 @@ def update_test(tenant: Tenant,
             test.category = category
         if test.is_single_select != is_single_select:
             test.is_single_select = is_single_select
+        if test.psychometric_report_config != psychometric_report_config:
+            test.psychometric_report_config = psychometric_report_config
 
         test.save()
 
