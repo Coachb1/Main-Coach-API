@@ -256,7 +256,7 @@ class AccountsViewSet(ApiViewSet,
             test_per_month = tenant.test_per_month
             current_month = timezone.now().month
             # date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
-            sessions = TestAttemptSession.objects.filter(participant_id = participant_id,tenant_id=tenant.uid, status=TestAttemptSessionStatusChoices.completed)
+            sessions = TestAttemptSession.objects.filter(deleted=False, participant_id = participant_id,tenant_id=tenant.uid, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
             this_month_sessions = []
             for session in sessions:
                 if session.created.month == current_month:

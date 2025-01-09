@@ -14,8 +14,49 @@ import string
 
 
 ## psychometric section
+# class PsychometricItem(MyModel):    
+#     # Fields for Section and Subsection
+#     section = models.CharField(max_length=255)
+#     subsection = models.CharField(max_length=255, blank=True, null=True)
+
+#     parameters = models.JSONField(blank=True, null=True, default=dict)
+
+#     # Fields for Ranges
+#     range_values = models.JSONField(blank=True, null=True, default=dict)
+
+#     average_value = models.TextField(blank=True, null=True, default=None)
+
+#     def __str__(self):
+#         return f"{self.id} -{self.section} : {self.subsection}"
+    
+#     class Meta:
+#         db_table = "psychometric_item"
+
+class Psychometric(MyModel):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True, default=None)
+    items = models.ManyToManyField("PsychometricItem", related_name='psychometrics', blank=True)  # Many-to-many relationship
+    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
+
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        db_table = "psychometric"
+        unique_together = (
+            ("name", "tenant_id", "deleted"),)
+
 class PsychometricItem(MyModel):    
     # Fields for Section and Subsection
+    # Link to Psychometric
+    psychometric = models.ForeignKey(
+        "Psychometric", 
+        on_delete=models.CASCADE, 
+        related_name="psy_items",
+        default=45
+    )
+
     section = models.CharField(max_length=255)
     subsection = models.CharField(max_length=255, blank=True, null=True)
 
@@ -31,23 +72,6 @@ class PsychometricItem(MyModel):
     
     class Meta:
         db_table = "psychometric_item"
-
-class Psychometric(MyModel):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True, default=None)
-    items = models.ManyToManyField(PsychometricItem, related_name='psychometrics', blank=True)  # Many-to-many relationship
-    tenant_id = models.CharField(max_length=125, null=True, blank=True, default=None)
-
-
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        db_table = "psychometric"
-        unique_together = (
-            ("name", "tenant_id", "deleted"),)
-
-
 
 class Test(TenantAwareModel):
     creator_id = models.CharField(max_length=255, db_index=True)
@@ -141,6 +165,15 @@ class Test(TenantAwareModel):
     report_description = models.TextField(null=True, blank=True, default=None)
     category = models.CharField(max_length=255, null=True, blank=True, default=None)
     is_single_select = models.BooleanField(default=False, null=True, blank=True)
+    psychometric_report_config= models.ForeignKey(
+        'PsychometricReportSection',
+        related_name='tests',
+        on_delete=models.SET_NULL,
+        to_field='uid',  # Reference the UID field
+        blank=True,
+        null=True,  # Allow null if a test can exist without a psychometricreprot config
+        default=None
+    )
     
     class Meta:
         db_table = "test"
@@ -373,3 +406,37 @@ class UserTestConfigs(TenantAwareModel):
 #     test_code = models.CharField(max_length=10)
 #     test_title = models.CharField(max_length=100)
 #     test_id = models.models.CharField(max_length=100)
+
+
+
+class PsychometricReportSection(MyModel):
+    name = models.CharField(max_length=255, unique=True)
+    value = models.TextField(null=True, blank=True)
+    footer = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "psychometric_report_section"
+        unique_together = (
+            ('name','deleted')
+        )
+
+class PsychometricReportSubsection(MyModel):
+    section = models.ForeignKey(PsychometricReportSection, related_name="subsections", on_delete=models.CASCADE)
+    parent = models.ForeignKey("self", null=True, blank=True, related_name="children", on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    value = models.TextField(null=True, blank=True)
+    footer = models.TextField(null=True, blank=True)
+    range_value = models.CharField(max_length=70,null=True,blank=True,default=None)
+
+    def __str__(self):
+        parent_info = f" -> {self.parent.name}" if self.parent else ""
+        return f"{self.section.name}{parent_info} - {self.name}"
+
+    class Meta:
+        db_table = "psychometric_report_subsection"
+        unique_together = (
+            ('name','section','deleted')
+        )

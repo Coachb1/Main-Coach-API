@@ -19,6 +19,10 @@ from openpyxl import Workbook
 from django.http import HttpResponse
 import json
 from tests.helpers import format_game_json_to_string
+from .models import PsychometricReportSection, PsychometricReportSubsection
+from django.db import models
+from io import TextIOWrapper
+
 import logging
 
 logger = logging.getLogger('main')
@@ -66,9 +70,9 @@ class OnlyCompetencyFilter(admin.SimpleListFilter):
 
 class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
-    list_display = ('uid','test_code','title','test_type','scenario_case','interaction_mode','page_name','client_name','competency_group','area_domain','tab_category','deleted','calculate_culture', 'psychometric','start_with_user')
+    list_display = ('uid','test_code','title','test_type','scenario_case','interaction_mode','page_name','client_name','competency_group','area_domain','tab_category','deleted','calculate_culture', 'psychometric','psychometric_report_config','start_with_user')
     search_fields = ('test_code','title','uid','tab_category','competency_group','area_domain')
-    list_editable = ('deleted','calculate_culture','page_name','client_name','competency_group','area_domain','psychometric','tab_category')
+    list_editable = ('deleted','calculate_culture','page_name','client_name','competency_group','area_domain','psychometric','psychometric_report_config','tab_category')
     list_filter = ('tenant_id','test_type','scenario_case','calculate_culture','interaction_mode','page_name','client_name',StartWithUserFilter,OnlyCompetencyFilter)
     
     def start_with_user(self, obj):
@@ -108,8 +112,6 @@ class PsychometricAdminForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         csv_file = cleaned_data.get('csv_file')
-        print(f"cleanded data: {cleaned_data}" )
-
         tenant_id = cleaned_data.get('tenant_id')
 
         # Handle saving None if tenant_id is not selected
@@ -125,38 +127,44 @@ class PsychometricAdminForm(forms.ModelForm):
             
         if csv_file:
             try:
+                # Parse CSV to extract PsychometricItem data
                 items_data = parse_psychometric_csv(csv_file=csv_file)
-                created_items = []
-                # Prepare PsychometricItem instances
-                psychometric_items = [PsychometricItem(**item_data) for item_data in items_data]
 
-                # Bulk create the items
-                created_objects = PsychometricItem.objects.bulk_create(psychometric_items)
+                # Create the Psychometric instance temporarily to get its pk
+                with transaction.atomic():
+                    # Save the Psychometric instance temporarily to fetch its pk
+                    psychometric_instance = self.instance
+                    psychometric_instance.save()
 
-                # Collect the UIDs of the created objects
-                created_items = [obj.uid for obj in created_objects]
+                    # Prepare a list of PsychometricItem instances to be created
+                    psychometric_items = []
+                    for item_data in items_data:
+                        # Assuming item_data is a dictionary with field names matching the model
+                        psychometric_item = PsychometricItem(
+                            **item_data,
+                            psychometric=psychometric_instance  # Associate these items with the current Psychometric instance
+                        )
+                        psychometric_items.append(psychometric_item)
 
-                # Associate created items with the Psychometric instance
-                # existing_items = []
-                # if self.instance.pk:
-                #     existing_items = list(self.instance.items.all().values_list('uid',flat=True))
-                # else:
-                existing_items = [item.uid for item in cleaned_data.get('items')] if cleaned_data.get('items') else []
-                    
-                psyitems = existing_items + created_items  # Combine existing and newly created items
-                cleaned_data['items'] = PsychometricItem.objects.filter(uid__in=psyitems)
+                    # Use bulk_create for efficient database insertions
+                    PsychometricItem.objects.bulk_create(psychometric_items)
 
+                    # Optionally, store items_data if you want to reference them later
+                    cleaned_data['items_data'] = items_data
+
+                    # After bulk_create, manually handle saving the Psychometric instance if needed
+                    # If necessary, save the Psychometric instance after items are created
 
             except ValidationError as e:
-                raise ValidationError(_(str(e)))
-                
-        return cleaned_data
+                raise ValidationError(_(f"Error parsing CSV file: {e}"))
+            
+        return cleaned_data            
 
 
 class PsychometricAdmin(admin.ModelAdmin):
     form = PsychometricAdminForm
     list_per_page = 10
-    filter_horizontal = ('items',)
+    # filter_horizontal = ('items',)
     list_display = ('id', 'uid', 'tenant_id','name', 'description')
     search_fields = ('name',)
 
@@ -166,8 +174,9 @@ admin.site.register(Psychometric, PsychometricAdmin)
 
 class PsychometricItemAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ('id', 'section', 'subsection')
-    search_fields = ('section', 'subsection')
+    list_display = ('id', 'psychometric','section', 'subsection')
+    search_fields = ('section', 'subsection','psychometric')
+    list_filter = ('psychometric',)
     ordering = ('-id',)
 
 admin.site.register(PsychometricItem, PsychometricItemAdmin)
@@ -513,3 +522,141 @@ class TestAttemptSessionAdmin(TenantAwareModelAdmin):
     export_as_csv.short_description = "Export as CSV"
     export_as_excel.short_description = "Export as Excel"
 
+class PsychometricReportAdminForm(forms.ModelForm):
+    csv_file = forms.FileField(
+        required=False,
+        help_text=_("Upload a CSV file to create/update Psychometric report config")
+    )
+
+
+    class Meta:
+        model = PsychometricReportSection
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        csv_file = cleaned_data.get('csv_file')
+
+            
+        if csv_file and not csv_file.name.endswith('.csv'):
+            raise ValidationError(_("File must be a CSV."))
+        
+        if csv_file:
+            try:
+                with transaction.atomic():
+                    section = self.instance
+                    section.save()
+
+                    self.process_csv(csv_file=csv_file,section=section)
+            except ValidationError as e:
+                raise ValidationError(_(f"Error parsing CSV file: {e}"))
+            
+        return cleaned_data  
+
+
+    def process_csv(self, csv_file, section:PsychometricReportSection):
+        try:
+            # Decode and read the CSV file
+            decoded_file = TextIOWrapper(csv_file, encoding='utf-8')
+            reader = csv.DictReader(decoded_file)
+            name = section.name
+
+            # Process the CSV rows and create subsections
+            for row in reader:
+                section_name = row.get('section_name')
+                section_value = row.get('section_value')
+                section_footer = row.get('section_footer')
+                subsection_name = row.get('subsection_name')
+                subsection_value = row.get('subsection_value')
+                subsection_footer = row.get('subsection_footer')
+                subsection_parent_name = row.get('subsection_parent_name')
+                range_value = row.get('range')
+
+                # If the section_name in the CSV matches the main section, update its value and footer
+                if section_name == name:
+                    if section_value or section_footer:
+                        section.value = section_value
+                        section.footer = section_footer
+                        section.save()
+
+                #creating section as a subsection to original section[name]
+                if not subsection_name:
+                    PsychometricReportSubsection.objects.update_or_create(
+                        name=section_name,
+                        section=section,
+                        defaults={
+                            'value': section_value,
+                            'footer': section_footer
+                        }
+                    )
+
+                # Create or update Subsection under the corresponding Section
+                if subsection_name:
+                    parent = None
+                    if subsection_parent_name:
+                        parent = PsychometricReportSubsection.objects.filter(name=subsection_parent_name,section=section).first()
+
+                    # Update or create the Subsection under the correct Section
+                    PsychometricReportSubsection.objects.update_or_create(
+                        name=subsection_name,
+                        section=section,
+                        defaults={
+                            'value': subsection_value,
+                            'parent': parent,
+                            'range_value': range_value,
+                            'footer': subsection_footer
+                        }
+                    )
+
+        except Exception as e:
+            raise ValidationError(f"Error processing CSV: {str(e)}") 
+
+
+class SubsectionInline(admin.TabularInline):
+    model = PsychometricReportSubsection
+    extra = 1  # Start with 1 extra row for adding new subsections
+    fields = ['name', 'value', 'parent','range_value','footer']
+    autocomplete_fields = ['parent']  # Use autocomplete for parent field, which is a ForeignKey
+    show_change_link = True  # Allow users to edit the related subsection from this interface
+
+class SectionAdmin(admin.ModelAdmin):
+    form= PsychometricReportAdminForm
+    list_display = ('uid','name', 'value', 'footer')
+    search_fields = ('name', 'value')
+    list_filter = ('name',)
+
+    # Allow adding multiple subsections within the section form using inline editing
+    inlines = [SubsectionInline]
+
+    # Group fields and add description for non-technical users
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'value', 'footer','csv_file'),
+            'description': 'Enter the section details. Add subsections below.'
+        }),
+    )
+
+    # Customizing the admin interface for readability
+    formfield_overrides = {
+        models.TextField: {'widget': admin.widgets.AdminTextInputWidget},
+    }
+
+class SubsectionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'section', 'parent', 'value', 'footer' , 'range_value')
+    search_fields = ('name', 'value')
+    list_filter = ('section', 'parent')
+
+    # Allow easy selection for parent and section via autocomplete
+    autocomplete_fields = ['parent', 'section']
+
+    # Add help text for non-technical users
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'section', 'parent', 'value', 'footer', 'range_value'),
+            'description': 'Enter the subsection name and value. Optionally, choose a parent subsection.'
+        }),
+    )
+
+# Registering the models in the admin panel
+admin.site.register(PsychometricReportSection, SectionAdmin)
+admin.site.register(PsychometricReportSubsection, SubsectionAdmin)
