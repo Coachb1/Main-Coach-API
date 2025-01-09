@@ -13,7 +13,7 @@ from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
-from tests.models import Test, TestQuestion, Psychometric
+from tests.models import Test, TestQuestion, Psychometric, PsychometricReportSection
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -101,6 +101,7 @@ PSYCHOMETRIC = "Psychometric Set"
 REPORT_DESCRIPTION = "Report Description"
 CATEGORY = "Category"
 IS_SINGLE_SELECT = "Is Single Select"
+PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -972,6 +973,21 @@ def format_test_data_slack(raw_data,tenant):
                 return {"error": f"Psychometric set does not exist: {psy_uid_or_name}. If you are using name its case sansitive. (you can use uid or name)"}, False
 
             output_dict['psychometric'] = psycho.uid
+
+            if PSYCHOMETRIC_REPORT_CONFIG in input_dict and len(input_dict[PSYCHOMETRIC_REPORT_CONFIG].strip()) >0:
+                report_config = input_dict[PSYCHOMETRIC_REPORT_CONFIG].strip()
+                psycho_report_config = (
+                    PsychometricReportSection.objects.filter(uid=report_config).first()
+                    or
+                    PsychometricReportSection.objects.filter(name=report_config).first()
+                )
+                if not psycho_report_config:
+                    return {"error": f"Psychometric report config does not exist: {report_config}. If you are using name its case sansitive. (you can use uid or name)"}, False
+                
+                output_dict['psychometric_report_config'] = psycho_report_config.uid
+            else:
+                output_dict['psychometric_report_config'] =  "3eecb3a3-dfca-4f9c-95c6-fccc1b25d717"  if  PsychometricReportSection.objects.filter(uid='3eecb3a3-dfca-4f9c-95c6-fccc1b25d717').first() else None
+
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
