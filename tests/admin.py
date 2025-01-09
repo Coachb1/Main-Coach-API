@@ -568,6 +568,7 @@ class PsychometricReportAdminForm(forms.ModelForm):
                 section_footer = row.get('section_footer')
                 subsection_name = row.get('subsection_name')
                 subsection_value = row.get('subsection_value')
+                subsection_footer = row.get('subsection_footer')
                 subsection_parent_name = row.get('subsection_parent_name')
                 range_value = row.get('range')
 
@@ -585,6 +586,7 @@ class PsychometricReportAdminForm(forms.ModelForm):
                         section=section,
                         defaults={
                             'value': section_value,
+                            'footer': section_footer
                         }
                     )
 
@@ -601,7 +603,8 @@ class PsychometricReportAdminForm(forms.ModelForm):
                         defaults={
                             'value': subsection_value,
                             'parent': parent,
-                            'range_value': range_value
+                            'range_value': range_value,
+                            'footer': subsection_footer
                         }
                     )
 
@@ -612,7 +615,7 @@ class PsychometricReportAdminForm(forms.ModelForm):
 class SubsectionInline(admin.TabularInline):
     model = PsychometricReportSubsection
     extra = 1  # Start with 1 extra row for adding new subsections
-    fields = ['name', 'value', 'parent']
+    fields = ['name', 'value', 'parent','range_value','footer']
     autocomplete_fields = ['parent']  # Use autocomplete for parent field, which is a ForeignKey
     show_change_link = True  # Allow users to edit the related subsection from this interface
 
@@ -639,7 +642,7 @@ class SectionAdmin(admin.ModelAdmin):
     }
 
 class SubsectionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'section', 'parent', 'value')
+    list_display = ('name', 'section', 'parent', 'value', 'footer' , 'range_value')
     search_fields = ('name', 'value')
     list_filter = ('section', 'parent')
 
@@ -649,7 +652,7 @@ class SubsectionAdmin(admin.ModelAdmin):
     # Add help text for non-technical users
     fieldsets = (
         (None, {
-            'fields': ('name', 'section', 'parent', 'value'),
+            'fields': ('name', 'section', 'parent', 'value', 'footer', 'range_value'),
             'description': 'Enter the subsection name and value. Optionally, choose a parent subsection.'
         }),
     )

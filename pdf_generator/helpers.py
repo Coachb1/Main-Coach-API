@@ -1199,7 +1199,7 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
                 subsection_data = {
                             "value": subsection.value,
                             "subsection": build_subsection_hierarchy(subsections, subsection),
-                            "footer": None # Assuming no footer for subsections
+                            "footer": subsection.footer # Assuming no footer for subsections
                         }
                 if subsection.range_value:
                     subsection_data["range"] = subsection.range_value
@@ -1230,5 +1230,4 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
 
     except Exception as e:
         logger.exception(f"Failed to generate json for psy report config: {e}")
-        raise e
         return None
