@@ -250,7 +250,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
         # psychometric_data['info'] = format_psychometric_items(test.psychometric)
         psychometric_info = format_psychometric_items(test.psychometric)
         other_psychometric_infos['max_ranges'] = find_highest_count_range(psychometric_data)
-        other_psychometric_infos['psychometric_report_config'] = generate_section_json(test.psychometric_report_config)
+        other_psychometric_infos['psychometric_report_config'] = generate_section_json(test.psychometric_report_config, test)
 
 
     questions = TestQuestion.objects.filter(test_id=test_id)
@@ -1189,7 +1189,7 @@ def update_skill_name(skills_rating):
     return updated_skills_ratings
 
 
-def generate_section_json(section:PsychometricReportSection):
+def generate_section_json(section:PsychometricReportSection, test:Test):
     try:
 
         # Helper function to recursively build subsections
@@ -1203,6 +1203,9 @@ def generate_section_json(section:PsychometricReportSection):
                         }
                 if subsection.range_value:
                     subsection_data["range"] = subsection.range_value
+                if 'test_description if you want' in subsection.value:
+                    subsection_data['value'] = test.description
+
                 hierarchy[subsection.name] = subsection_data
             return hierarchy
 
