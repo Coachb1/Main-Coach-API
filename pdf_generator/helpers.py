@@ -1194,19 +1194,19 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
 
         # Helper function to recursively build subsections
         def build_subsection_hierarchy(subsections, parent=None):
-            hierarchy = {}
+            hierarchy = []
             for subsection in subsections.filter(parent=parent):
                 subsection_data = {
                             "value": subsection.value,
                             "subsection": build_subsection_hierarchy(subsections, subsection),
-                            "footer": None  # Assuming no footer for subsections
+                            "footer": None # Assuming no footer for subsections
                         }
                 if subsection.range_value:
                     subsection_data["range"] = subsection.range_value
                 if 'test_description if you want' in subsection.value:
                     subsection_data['value'] = test.description
 
-                hierarchy[subsection.name] = subsection_data
+                hierarchy.append({subsection.name :subsection_data})
             return hierarchy
 
         # Prepare the section's data in the desired format
@@ -1221,8 +1221,14 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
 
         # Return the JSON response
         logger.info(f'psycho report json: {section_data}')
-        return section_data[section.name]['subsection']
+        section_result = section_data[section.name]['subsection']
+        result = {}
+        for d in section_result:
+            result.update(d)
+
+        return result
 
     except Exception as e:
         logger.exception(f"Failed to generate json for psy report config: {e}")
+        raise e
         return None
