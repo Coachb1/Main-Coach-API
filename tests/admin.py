@@ -649,7 +649,7 @@ class SubsectionAdmin(admin.ModelAdmin):
     # Add help text for non-technical users
     fieldsets = (
         (None, {
-            'fields': ('name', 'section', 'parent', 'value', 'footer', 'range'),
+            'fields': ('name', 'section', 'parent', 'value'),
             'description': 'Enter the subsection name and value. Optionally, choose a parent subsection.'
         }),
     )
