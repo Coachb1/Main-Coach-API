@@ -428,6 +428,7 @@ class PsychometricReportSubsection(MyModel):
     parent = models.ForeignKey("self", null=True, blank=True, related_name="children", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     value = models.TextField(null=True, blank=True)
+    footer = models.TextField(null=True, blank=True)
     range_value = models.CharField(max_length=70,null=True,blank=True,default=None)
 
     def __str__(self):
