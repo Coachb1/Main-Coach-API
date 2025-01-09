@@ -615,7 +615,7 @@ class PsychometricReportAdminForm(forms.ModelForm):
 class SubsectionInline(admin.TabularInline):
     model = PsychometricReportSubsection
     extra = 1  # Start with 1 extra row for adding new subsections
-    fields = ['name', 'value', 'parent']
+    fields = ['name', 'value', 'parent','range_value','footer']
     autocomplete_fields = ['parent']  # Use autocomplete for parent field, which is a ForeignKey
     show_change_link = True  # Allow users to edit the related subsection from this interface
 

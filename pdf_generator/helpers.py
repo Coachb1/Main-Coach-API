@@ -1230,5 +1230,4 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
 
     except Exception as e:
         logger.exception(f"Failed to generate json for psy report config: {e}")
-        raise e
         return None
