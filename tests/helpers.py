@@ -85,6 +85,7 @@ from django.core.exceptions import ValidationError
 from commons.google_apis import gemini_chat_completion
 import csv
 from collections import defaultdict
+from tests.models import PsychometricReportSection, PsychometricReportSubsection
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +243,8 @@ def create_test(tenant: Tenant,
                 psychometric:str,
                 report_description:str,
                 category: str,
-                is_single_select:bool) -> tuple[Test, list[TestQuestion]]:
+                is_single_select:bool,
+                psychometric_report_config:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -370,6 +372,8 @@ def create_test(tenant: Tenant,
 
     if psychometric:
         psychometric = Psychometric.objects.get(uid=psychometric)
+    if psychometric_report_config:
+        psychometric_report_config = PsychometricReportSection.objects.get(uid=psychometric_report_config)
         
     with transaction.atomic():
         test = Test.objects.create(
@@ -439,6 +443,7 @@ def create_test(tenant: Tenant,
             report_description=report_description,
             category=category,
             is_single_select=is_single_select,
+            psychometric_report_config=psychometric_report_config
         )
 
         test_questions = []
@@ -555,7 +560,8 @@ def update_test(tenant: Tenant,
                 snippet_url: str,
                 report_description:str,
                 category: str,
-                is_single_select:bool ) -> tuple[Test, list[TestQuestion]]:
+                is_single_select:bool,
+                psychometric_report_config:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -693,6 +699,8 @@ def update_test(tenant: Tenant,
             test.category = category
         if test.is_single_select != is_single_select:
             test.is_single_select = is_single_select
+        if test.psychometric_report_config != psychometric_report_config:
+            test.psychometric_report_config = psychometric_report_config
 
         test.save()
 
@@ -9936,7 +9944,7 @@ def generate_psychometric_report_data(test:Test,test_attempt_session:TestAttempt
     if test.psychometric:
 
         # Iterate over each PsychometricItem associated with the Psychometric set
-        for item in test.psychometric.items.all():
+        for item in test.psychometric.psy_items.filter(deleted=False):
             # Append the subsection to the list for the corresponding section
             if item.section not in section_dict:
                 section_dict[item.section] = []  # Create a new list for this section
@@ -10977,7 +10985,7 @@ def format_psychometric_items(psychometric:Psychometric):
     sections = {}
 
     # Loop through each PsychometricItem in the Psychometric set
-    for item in psychometric.items.all():
+    for item in psychometric.psy_items.filter(deleted=False):
         # Use item.section as the dimension
         section = sections.get(item.section)
         if not section:
@@ -11069,8 +11077,8 @@ def parse_psychometric_csv(csv_file):
         if not section  or not parameter_names or not parameter_description or not avg_value:
             raise ValidationError("All fields are required: 'Section', 'Parameter Names', 'Average Score' and 'Parameter Description'.")
 
-        if not isinstance(avg_value, [int, float]):
-            raise ValidationError("Please enter valid value for Average Score")
+        # if not isinstance(avg_value, [int, float]):
+        #     raise ValidationError("Please enter valid value for Average Score")
         # Prepare the parameters field
         parameter_list = [p.strip() for p in parameter_names.split(',') if len(p.strip())>0]
         parameter_name = " - ".join(parameter_list)
@@ -11097,11 +11105,11 @@ def parse_psychometric_csv(csv_file):
                 ranges_found[range_num] = {"range": value}
             elif strengths_match:
                 range_num = strengths_match.group(1)
-                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+                strengths = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL) or [value]
                 ranges_found.setdefault(range_num, {})["strengths"] = [s.strip() for s in strengths if s.strip()]
             elif improvement_match:
                 range_num = improvement_match.group(1)
-                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL)
+                areas = re.findall(r'([A-Za-z\s_-]+:\s*.*?)(?=[A-Za-z\s_-]+:|$)', value, re.DOTALL) or [value]
 
                 ranges_found.setdefault(range_num, {})["areas_for_improvement"] = [a.strip() for a in areas if a.strip()]
 
