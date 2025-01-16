@@ -1,6 +1,7 @@
 from django.test import TestCase
-from .models import Test, TestAttemptSessionStatusChoices, TestAttemptSession
+from .models import Test, TestAttemptSessionStatusChoices, TestAttemptSession, Psychometric, PsychometricItem
 from .choices import InteractionModeChoices, TestTypeChoices, ScenarioCaseChoices, TestAttemptSessionStatusChoices
+from django.db.utils import IntegrityError
 
 class TestModelTest(TestCase):
     @classmethod
@@ -179,3 +180,202 @@ class TestAttemptSessionModelTest(TestCase):
         self.assertEqual(test_attempt_session.conversation_summary, "Conversation summary")
         self.assertEqual(test_attempt_session.related_previous_conversation_summary, "Related previous conversation summary")
 
+
+
+# psychometric test 
+
+
+class TestPsychometricItem(TestCase):
+    def setUp(self):
+        self.item = PsychometricItem.objects.create(
+            section="Personality",
+            subsection="Openness",
+            parameters={"scale": "1-5", "questions": 10},
+            range_values={"min": 1, "max": 5},
+            average_value="3.5"
+        )
+
+    def test_create_psychometric_item(self):
+        """Test creating a basic psychometric item"""
+        self.assertEqual(self.item.section, "Personality")
+        self.assertEqual(self.item.subsection, "Openness")
+        self.assertEqual(self.item.parameters["scale"], "1-5")
+        self.assertEqual(self.item.range_values["min"], 1)
+        self.assertEqual(self.item.average_value, "3.5")
+
+    def test_string_representation(self):
+        """Test the string representation of PsychometricItem"""
+        expected_string = f"{self.item.id} -Personality : Openness"
+        self.assertEqual(str(self.item), expected_string)
+
+    def test_blank_subsection(self):
+        """Test that subsection can be blank"""
+        item = PsychometricItem.objects.create(section="Personality")
+        self.assertIsNone(item.subsection)
+
+class TestPsychometric(TestCase):
+    def setUp(self):
+        self.psychometric = Psychometric.objects.create(
+            name="Big Five Personality Test",
+            description="Measures five personality dimensions",
+            tenant_id="tenant1"
+        )
+        self.item1 = PsychometricItem.objects.create(
+            section="Personality",
+            subsection="Conscientiousness"
+        )
+        self.item2 = PsychometricItem.objects.create(
+            section="Personality",
+            subsection="Extraversion"
+        )
+
+    def test_create_psychometric(self):
+        """Test creating a basic psychometric"""
+        self.assertEqual(self.psychometric.name, "Big Five Personality Test")
+        self.assertEqual(
+            self.psychometric.description, 
+            "Measures five personality dimensions"
+        )
+
+    def test_add_items(self):
+        """Test adding items to psychometric"""
+        self.psychometric.items.add(self.item1, self.item2)
+        self.assertEqual(self.psychometric.items.count(), 2)
+        self.assertIn(self.item1, self.psychometric.items.all())
+        self.assertIn(self.item2, self.psychometric.items.all())
+
+    def test_unique_together_constraint(self):
+        """Test that name and tenant_id combination must be unique"""
+        with self.assertRaises(IntegrityError):
+            Psychometric.objects.create(
+                name="Big Five Personality Test",
+                tenant_id="tenant1"
+            )
+
+class TestTest(TestCase):
+    def setUp(self):
+        self.psychometric = Psychometric.objects.create(
+            name="Career Assessment",
+            tenant_id="tenant1"
+        )
+        self.test = Test.objects.create(
+            creator_id="user123",
+            title="Career Aptitude Test",
+            test_code="CAT001",
+            tenant_id="tenant1",
+            interaction_mode="async",
+            test_type="trainer",
+            psychometric=self.psychometric
+        )
+
+    def test_create_test(self):
+        """Test creating a basic test"""
+        self.assertEqual(self.test.title, "Career Aptitude Test")
+        self.assertEqual(self.test.test_code, "CAT001")
+        self.assertEqual(self.test.creator_id, "user123")
+        self.assertEqual(self.test.psychometric, self.psychometric)
+
+    def test_test_code_uniqueness(self):
+        """Test that test_code must be unique per tenant"""
+        with self.assertRaises(IntegrityError):
+            Test.objects.create(
+                creator_id="user456",
+                title="Another Test",
+                test_code="CAT001",  # Same test_code
+                tenant_id="tenant1",  # Same tenant
+                interaction_mode="async",
+                test_type="trainer"
+            )
+
+    def test_boolean_fields_default_values(self):
+        """Test default values of boolean fields"""
+        self.assertFalse(self.test.is_single_bot)
+        self.assertFalse(self.test.is_self_created)
+        self.assertTrue(self.test.is_repeat)
+        self.assertFalse(self.test.is_game_type)
+
+class TestIntegration(TestCase):
+    def setUp(self):
+        # Create base test data
+        self.psychometric = Psychometric.objects.create(
+            name="Comprehensive Assessment",
+            tenant_id="tenant1"
+        )
+        
+        self.items = []
+        sections = ["Cognitive", "Emotional", "Social"]
+        for section in sections:
+            item = PsychometricItem.objects.create(
+                section=section,
+                parameters={"questions": 5},
+                range_values={"min": 0, "max": 100}
+            )
+            self.items.append(item)
+            self.psychometric.items.add(item)
+
+        self.test = Test.objects.create(
+            creator_id="user123",
+            title="Full Assessment Test",
+            test_code="FAT001",
+            tenant_id="tenant1",
+            interaction_mode="async",
+            test_type="trainer",
+            psychometric=self.psychometric
+        )
+
+    def test_complete_assessment_flow(self):
+        """Test the complete relationship between all models"""
+        # Verify psychometric has correct items
+        self.assertEqual(self.psychometric.items.count(), 3)
+        
+        # Verify test links to psychometric
+        self.assertEqual(self.test.psychometric, self.psychometric)
+        
+        # Verify we can access items through test->psychometric
+        test_items = self.test.psychometric.items.all()
+        self.assertEqual(len(test_items), 3)
+        
+        # Verify sections are correct
+        sections = [item.section for item in test_items]
+        self.assertIn("Cognitive", sections)
+        self.assertIn("Emotional", sections)
+        self.assertIn("Social", sections)
+
+    def test_cascade_relationships(self):
+        """Test that relationships are maintained properly"""
+        # Add psychometric sections to test
+        self.test.pshycometric_sections = {
+            "selected_sections": ["Cognitive", "Emotional"]
+        }
+        self.test.save()
+
+        # Verify we can still access all relationships
+        self.assertEqual(
+            self.test.psychometric.items.filter(
+                section__in=["Cognitive", "Emotional"]
+            ).count(),
+            2
+        )
+
+    def test_multi_tenant_isolation(self):
+        """Test that tenant isolation works across all models"""
+        # Create a different tenant's psychometric
+        other_psychometric = Psychometric.objects.create(
+            name="Comprehensive Assessment",  # Same name
+            tenant_id="tenant2"  # Different tenant
+        )
+        
+        # This should work because it's a different tenant
+        other_test = Test.objects.create(
+            creator_id="user456",
+            title="Full Assessment Test",
+            test_code="FAT001",  # Same code as previous test
+            tenant_id="tenant2",
+            interaction_mode="async",
+            test_type="trainer",
+            psychometric=other_psychometric
+        )
+
+        # Verify both tests exist
+        self.assertNotEqual(self.test.tenant_id, other_test.tenant_id)
+        self.assertEqual(Test.objects.count(), 2)
