@@ -18,6 +18,10 @@ from vertexai import generative_models
 from google.api_core.exceptions import ResourceExhausted, TooManyRequests 
 from commons.notifications import send_error_notification
 
+
+import json
+import requests
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,8 +179,7 @@ def text_to_speech_google(text):
     
 
 def gemini_competions(prompt):
-    import requests
-    import json
+
     max_retry = 3
     retry = 0
 
@@ -266,7 +269,7 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
 
 @timeit
 def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],instructions=None,json_ouput=True):
-    logger.info(f"gemini_chat_completion prompt: {prompt}, and \nmodels: {models}")
+    logger.info(f"gemini_chat_completion prompt: {prompt}, json_output: {json_ouput}and \nmodels: {models}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     vertexai.init(project="summer-nucleus-397019", location="asia-south1")
@@ -302,11 +305,11 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
                                 safety_settings=safety_settings,
                                 system_instruction=prompt
                                 )
-        chat = model.start_chat(history=history)
         
         retry = 0
         
         while retry < max_retry:
+            chat = model.start_chat(history=history)
             try:
                 logger.info(f"{'='*50}")
                 logger.info(f"Trying gemini_chat_completion with model {model_name} for {retry+1} time")
@@ -317,7 +320,10 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
                 logger.info(f"<<<<<<<<< gemini chat completion response: {responses} >>>>>>>>>>>>>")
                 logger.info(f"gemini chat completion text: {responses.text}")
                 logger.info(f'Chat Gemini: {chat.history}')
-                return responses.candidates[0].content.parts[0].text.strip()
+                response = responses.candidates[0].content.parts[0].text.strip()
+                if json_ouput:
+                    json.loads(response) # checking if response is a valid json.
+                return response
                 # return responses.text
             
             except (ResourceExhausted, TooManyRequests) as e:
