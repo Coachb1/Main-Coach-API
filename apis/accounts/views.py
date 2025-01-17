@@ -32,10 +32,10 @@ from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, C
 from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
-from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating
+from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating, SnippetAccessCode, AccessCodeLog
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
 from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
-
+from users.helpers import validate_access_code
 
 from identities.models import Identity
 from skills.models import SkillsRating
@@ -4528,3 +4528,56 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Error in delete_user_resources: {e}")
             return Response({"error": f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(methods=['POST'], detail=False, url_path='validate-snippet-access-code')
+    def validate_snippet_access_code(self, request, *args, **kwargs):
+        try:
+            access_code = request.data.get('access_code')
+            user_id = request.data.get('user_id')
+            client_name = request.data.get('client_name')
+            tenant_id = request.tenant.uid
+
+            if not access_code:
+                return Response({'error': 'Access code is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user_id:
+                return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not client_name:
+                return Response({'error': 'Client Name is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f'data: request.data: {request.data}')
+            msg, passed = validate_access_code(access_code=access_code, user_id=user_id, client_name=client_name, tenant_id=tenant_id)
+            if passed:
+                return Response(msg, status=status.HTTP_200_OK)
+            else:
+                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception(f'Error in validate_snippet_access_code: {e}')
+            return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=['POST'], detail=False, url_path='increase_test_attempts_in_accesscode')
+    def increase_test_attempts_in_accesscode(self, request, *args, **kwargs):
+        try:
+            access_code = request.data.get('access_code')
+            user_id = request.data.get('user_id')
+
+            if not access_code:
+                return Response({'error': 'Access code is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user_id:
+                return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.filter(deleted=False, uid=user_id).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            access_code = SnippetAccessCode.objects.filter(deleted=False, access_code=access_code).first()
+            if access_code:
+                log = AccessCodeLog.objects.filter(deleted=False,user=user,access_code=access_code).first()
+                if not log:
+                    return Response({'error': "No log found"}, status=status.HTTP_400_BAD_REQUEST)
+                log.session_attempted += 1
+                log.save(update_fields=['session_attempted'])
+                return Response({'message': 'Test attempts increased successfully'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': f"No access code object found"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            logger.exception(f'Error in increase_test_attempts_in_accesscode: {e}')
+            return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
