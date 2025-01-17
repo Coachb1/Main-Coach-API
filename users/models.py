@@ -7,6 +7,30 @@ from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string 
 
+
+
+def get_unique_access_code(model, field_name, prefix, length=6):
+    """Utility function to generate unique access code."""
+    access_code = generate_access_code(prefix, length)
+    retries = 0
+
+    # Use the model directly to query the database
+    while model.objects.filter(**{field_name: access_code}).exists():
+        if retries >= 4:
+            length += 1  # Increase length if retries exceed
+            retries = 0
+        access_code = generate_access_code(prefix, length)
+        retries += 1
+
+    return access_code
+
+
+def generate_access_code(prefix, length=6):
+    """Helper to generate a prefixed random string."""    
+    STRING_ASCII_DIGITS = string.ascii_uppercase + string.digits
+    return f"{prefix}_{get_random_string(length=length, allowed_chars=STRING_ASCII_DIGITS)}"
+
+
 def default_competency_data():
         return dict({"1": "Communication Skills", "2": "Teamwork", "3": "Planning and Organizing", "4": "Client Focus"})
 
@@ -291,49 +315,59 @@ class ClientUserInfo(TenantAwareModel):
     allow_access_to_snippet = models.BooleanField(default=True)
     report_on = models.BooleanField(null=True,blank=True)
 
-    
-
-
     class Meta:
         db_table = "client_user_info"
-
         unique_together = (("tenant_id", "client_name"),)
 
     def save(self, *args, **kwargs):
         # Auto-generate access_code if blank
         if not self.widget_access_code:
-            self.widget_access_code = self.get_unique_access_code()
+            self.widget_access_code = get_unique_access_code(
+                ClientUserInfo, "widget_access_code", self.client_name[:3].upper(), length=6
+            )
 
         super().save(*args, **kwargs)
 
-    def get_unique_access_code(self) -> str:
-        USER_TEST_ACCESS_CODE = 6
-        access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
-        retries = 0
+    def __str__(self):
+        return self.client_name
 
-        while ClientUserInfo.objects.filter(widget_access_code=access_code).exists():
-            if retries >= 4:
-                USER_TEST_ACCESS_CODE += 1
-                retries = 0
-            access_code = self.generate_access_code(USER_TEST_ACCESS_CODE)
-            retries += 1
+class SnippetAccessCode(MyModel):
+    client = models.ForeignKey(ClientUserInfo, on_delete=models.CASCADE, related_name="snippet_access_code")
+    access_code = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
+    is_active = models.BooleanField(default=True)
+    is_temporary = models.BooleanField(default=False)
+    max_test_attempts = models.IntegerField(null=True, blank=True, default=2)
 
-        return access_code
+    class Meta:
+        db_table = "access_code"
+        unique_together = (("deleted","client","access_code"),)
 
-    def generate_access_code(self, user_test_accesscode) -> str:
-        """Helper to generate a prefixed random string."""
-        prefix = ""
-        if len(self.client_name.split()) == 1:
-            prefix = self.client_name[:4].upper()
-        else:
-            prefix = ''.join(word[0] for word in self.client_name.split()).upper()
-        STRING_ASCII_DIGITS = (string.ascii_uppercase + string.digits)
-        return f"{prefix}_{get_random_string(length=user_test_accesscode, allowed_chars=STRING_ASCII_DIGITS)}"
 
+    def save(self, *args, **kwargs):
+        # Auto-generate access_code if blank
+        if not self.access_code:
+            self.access_code = get_unique_access_code(
+                SnippetAccessCode, "access_code", self.client.client_name[:3].upper(), length=6
+            )
+
+        super().save(*args, **kwargs)
 
 
     def __str__(self):
-        return self.client_name
+        return f"{self.client.client_name} - {self.access_code}"
+
+class AccessCodeLog(MyModel):
+    access_code = models.ForeignKey(SnippetAccessCode, on_delete=models.CASCADE, related_name="logs")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="access_logs")
+    session_attempted = models.IntegerField(null=True, blank=True, default=0)
+
+    class Meta:
+        db_table = "access_code_log"
+        unique_together = (( "deleted","access_code","user"),)
+
+
+    def __str__(self):
+        return f"{self.access_code.access_code} - {self.user.uid}"
 
 
 class ReportConfig(MyModel):

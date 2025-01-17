@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig)
+                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import shift_all_emails_to_domain_client
@@ -64,6 +64,22 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_editable = ('domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
 
+@admin.register(SnippetAccessCode)
+class SnippetAccessCodeAdmin(admin.ModelAdmin):
+    list_display = ('client', 'access_code', 'is_active', 'is_temporary','max_test_attempts')
+    search_fields = ('client__client_name', 'access_code')
+    list_filter = ('is_active', 'is_temporary')
+    ordering = ('client__client_name',)
+    fields = ('client', 'access_code', 'is_active', 'is_temporary')
+
+@admin.register(AccessCodeLog)
+class AccessCodeLogAdmin(admin.ModelAdmin):
+    list_display = ('access_code', 'user', 'session_attempted')
+    search_fields = ('access_code__access_code', 'user__name')
+    list_filter = ('session_attempted',)
+    ordering = ('access_code__access_code',)
+    fields = ('access_code', 'user', 'session_attempted')
+
 @admin.register(ReportConfig)
 class ReportConfigAdmin(TenantAwareModelAdmin):
     list_display = (
@@ -116,6 +132,13 @@ def new_create_client_info_activity(sender, instance, **kwargs):
         shift_all_emails_to_domain_client(
             tenant_id= instance.tenant_id,
             domain= client_domain
+        )
+
+        SnippetAccessCode.objects.create(
+            client=instance,
+            access_code=instance.widget_access_code,
+            is_active=True,
+            is_temporary=False
         )
 
     print(f"================={instance.make_new_user_in_trail}===========")
