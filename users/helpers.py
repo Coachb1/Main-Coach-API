@@ -296,8 +296,11 @@ def validate_access_code(tenant_id,client_name,user_id,access_code):
         return {'error': 'Invalid access code'}, False
     if access_code_obj.is_temporary:
         logs = access_code_obj.logs.filter(deleted=False,user=user).first()
-        if logs and logs.session_attempted > access_code_obj.max_test_attempts:
+        if logs and logs.session_attempted >= access_code_obj.max_test_attempts:
             return {'error': 'access_code expired'}, False
+        
+    if not access_code_obj.is_active:
+        return {'error': 'access_code expired'}, False
         
     
     AccessCodeLog.objects.get_or_create(
