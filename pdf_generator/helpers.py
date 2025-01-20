@@ -1204,7 +1204,7 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
                 if subsection.range_value:
                     subsection_data["range"] = subsection.range_value
                 if 'test_description if you want' in subsection.value:
-                    subsection_data['value'] = test.description
+                    subsection_data['value'] = test.report_description
 
                 hierarchy.append({subsection.name :subsection_data})
             return hierarchy
