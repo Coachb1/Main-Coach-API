@@ -153,6 +153,9 @@ class User(TenantAwareModel):
     @property
     def is_active(self):
         return self.can_login
+    
+    def __str__(self):
+        return f"{self.name} -({self.role})"
 
 
 class UserAttribute(TenantAwareModel):
@@ -345,7 +348,7 @@ class SnippetAccessCode(MyModel):
 
     def save(self, *args, **kwargs):
         # Auto-generate access_code if blank
-        if not self.access_code:
+        if self.access_code in [None, ""]:
             self.access_code = get_unique_access_code(
                 SnippetAccessCode, "access_code", self.client.client_name[:3].upper(), length=6
             )

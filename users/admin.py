@@ -9,6 +9,9 @@ from coaching_conversations.helpers import shift_all_emails_to_domain_client
 from email_sender.helpers import send_welcome_email
 from tenants.admin import TenantAwareModelAdmin
 from users.choices import BotTypeChoice
+from django import forms
+from import_export.admin import ExportActionMixin
+from users.models import get_unique_access_code
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
@@ -64,13 +67,54 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_editable = ('domain_name','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
 
+
+class SnippetAccessCodeForm(forms.ModelForm):
+    generate_more = forms.IntegerField(
+        label="Number of access code", 
+        min_value=1, 
+        initial=1, 
+        help_text="Enter the number of access codes to generate with same confirations."
+    )
+
+    class Meta:
+        model = SnippetAccessCode
+        fields = ['client', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts']
+
+    def clean(self):
+        if self.cleaned_data['generate_more'] < 1:
+            raise forms.ValidationError("Number of access codes to generate must be greater than 0.")
+        
+        cleaned_data = super().clean()
+        num_codes = self.cleaned_data['generate_more']
+        if not self.cleaned_data.get('client'):
+            raise forms.ValidationError("Please select a client before generating access codes.")
+        
+        access_codes = []
+        if num_codes > 1:
+            for _ in range((num_codes-1)):
+                access_codes.append(SnippetAccessCode(
+                    client=cleaned_data['client'],
+                    access_code=get_unique_access_code(
+                        SnippetAccessCode, "access_code", cleaned_data['client'].client_name[:3].upper(), length=6
+                    ),
+                    is_active=cleaned_data['is_active'],  # Default can be adjusted
+                    is_temporary=cleaned_data['is_temporary'],  # Adjust if needed
+                    max_test_attempts=cleaned_data['max_test_attempts']
+                ))
+            
+            # Bulk create the access codes to reduce database hits
+            SnippetAccessCode.objects.bulk_create(access_codes)
+
+        return cleaned_data
+
 @admin.register(SnippetAccessCode)
-class SnippetAccessCodeAdmin(admin.ModelAdmin):
+class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
+    form = SnippetAccessCodeForm
     list_display = ('client', 'access_code', 'is_active', 'is_temporary','max_test_attempts')
     search_fields = ('client__client_name', 'access_code')
-    list_filter = ('is_active', 'is_temporary')
-    ordering = ('client__client_name',)
-    fields = ('client', 'access_code', 'is_active', 'is_temporary')
+    list_filter = ('is_active', 'is_temporary','client__client_name')
+    list_editable = ('is_active', 'is_temporary','max_test_attempts')
+    ordering = ('-id',)
 
 @admin.register(AccessCodeLog)
 class AccessCodeLogAdmin(admin.ModelAdmin):
@@ -78,7 +122,6 @@ class AccessCodeLogAdmin(admin.ModelAdmin):
     search_fields = ('access_code__access_code', 'user__name')
     list_filter = ('session_attempted',)
     ordering = ('access_code__access_code',)
-    fields = ('access_code', 'user', 'session_attempted')
 
 @admin.register(ReportConfig)
 class ReportConfigAdmin(TenantAwareModelAdmin):
