@@ -30,6 +30,7 @@ from tests.choices import ScenarioCaseChoices
 from users.helpers import get_client_info_from_user_detail
 from apis.accounts.serializers import clientUserInfoSerializer
 from collections import defaultdict
+from commons.notifications import send_error_notification
 
 import matplotlib
 matplotlib.use('Agg')
@@ -1204,7 +1205,7 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
                 if subsection.range_value:
                     subsection_data["range"] = subsection.range_value
                 if 'test_description if you want' in subsection.value:
-                    subsection_data['value'] = test.description
+                    subsection_data['value'] = test.report_description
 
                 hierarchy.append({subsection.name :subsection_data})
             return hierarchy
@@ -1230,4 +1231,5 @@ def generate_section_json(section:PsychometricReportSection, test:Test):
 
     except Exception as e:
         logger.exception(f"Failed to generate json for psy report config: {e}")
+        send_error_notification('generate_section_json', f"Failed to generate json for psy report config: {e}", {'psychometric_id': section.uid})
         return None
