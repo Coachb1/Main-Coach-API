@@ -286,6 +286,9 @@ def format_test_orchestrated_conversation(raw_data):
         if INTERACTION_MODE in input_dict:
             if input_dict[INTERACTION_MODE] and len(input_dict[INTERACTION_MODE].strip()) >0:
                 output_dict["interaction_mode"] = input_dict[INTERACTION_MODE].strip().lower()
+
+        if output_dict['scenario_case'] in ['game','psychometric'] :
+            output_dict['interaction_mode'] = 'text'
             
         if CLIENT in input_dict:
             if input_dict[CLIENT] and len(input_dict[CLIENT].strip()) > 0 :
@@ -825,6 +828,10 @@ def format_test_data_slack(raw_data,tenant):
             for key in input_dict:
                 if key.startswith(QUESTIONUI):
                     output_dict['ui_information'][f"Question {key[len(QUESTIONUI) + 1:]}"] = input_dict.get(f"{QUESTIONUI} {key[len(QUESTIONUI) + 1:]}",None)
+        
+        if output_dict['scenario_case'] in ['psychometric'] :
+            output_dict['interaction_mode'] = 'text'
+            
         
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:

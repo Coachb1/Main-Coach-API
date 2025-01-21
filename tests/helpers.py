@@ -11173,3 +11173,43 @@ def format_game_json_to_string(data):
 
 
     return f"{context}{details}\n\n{content_str}"
+
+
+def delete_soft_deleted_test_attempt_session(sessions:TestAttemptSession):
+    if sessions.exists():
+        for test_attempt_session in sessions:
+            print('deleting session : ', test_attempt_session.uid)
+            TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).delete()
+
+        sessions.delete()
+
+def cleanup_database():
+    from users.models import CoachCoacheeMentorMenteeProfile
+    with transaction.atomic():
+        # deleting all deleted test
+        tests = Test.objects.filter(deleted=True)
+        print('test count to delete:', tests.count())
+        if tests.count() > 0:
+            for test in tests:
+                print('deleting test: ', test.uid)
+                sessions = TestAttemptSession.objects.filter(test_id=test.uid)
+                delete_soft_deleted_test_attempt_session(sessions=sessions)
+                TestQuestion.objects.filter(test_id=test.uid).delete()
+
+            tests.delete()
+
+        # deleting all soft deleted test attempt session
+        sessions = TestAttemptSession.objects.filter(deleted=True)
+        print('total session: ', sessions.count())
+        if sessions.count() > 0:
+            delete_soft_deleted_test_attempt_session(sessions=sessions)
+
+        #deleting singature bot and profile soft deleted
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=True)
+        print('profile: ', profile.count())
+        if profile.count() > 0:
+            profile.delete()
+        bot = SignatureBot.objects.filter(deleted=True)
+        print('bot: ', bot.count())
+        if bot.count() > 0:
+            bot.delete()

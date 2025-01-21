@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
-from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile, SignatureBot
+from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile, SignatureBot, AccessCodeLog
 from users.models import UserAttribute
 from users.choices import BotTypeChoice
 from web_auth.helpers import create_new_tokens, logout_entity
@@ -280,3 +280,32 @@ def generate_bot_id(bot_type, participant_id, bot_name):
     bot_id = bot_id.replace("_","-")
 
     return bot_id
+
+
+def validate_access_code(tenant_id,client_name,user_id,access_code):
+    client = ClientUserInfo.objects.filter(deleted=False, tenant_id=tenant_id,client_name=client_name).first()
+    if not client:
+        return {'error': 'Client not found'}, False
+
+    user = User.objects.filter(deleted=False, uid=user_id).first()
+    if not user:
+        return {'error': 'User not found or already deleted'}, False
+
+    access_code_obj = client.snippet_access_code.filter(deleted=False,is_active=True,access_code=access_code).first()
+    if not access_code_obj:
+        return {'error': 'Invalid access code'}, False
+    if access_code_obj.is_temporary:
+        logs = access_code_obj.logs.filter(deleted=False,user=user).first()
+        if logs and logs.session_attempted >= access_code_obj.max_test_attempts:
+            return {'error': 'access_code expired'}, False
+        
+    if not access_code_obj.is_active:
+        return {'error': 'access_code expired'}, False
+        
+    
+    AccessCodeLog.objects.get_or_create(
+        access_code=access_code_obj,
+        user=user
+    )
+
+    return {'success': 'Access code is valid'}, True
