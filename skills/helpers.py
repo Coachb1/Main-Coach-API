@@ -1832,59 +1832,33 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     """
     It evaluates the cultural rating for a scenario (test,trainer type)
     """
-    cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
-                       'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+    # cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
+    #                    'relationship based', 'high context communication', 'Persuasion', 'argumentative']
 
-    # prompt = f'''
-    # "TITLE:" {test_title};
+    cultural_skills = [
+            "Need for Structure",
+            "Orientation towards Authority",
+            "Emphasis on Relationships",
+            "Propensity for Risk-Taking",
+            "Direct Communication Style",
+            "Long term focus",
+            "Value Placed on Independence"
+        ]
+    
+    #previous cultural rating :
+    #        - Hierarchy: Does the conversation look like the participants have strict hierarchical relationship (highest score of 10) or casual professional relationship (scores 0)?
 
-    # "DESCRIPTION:" {test_description};
+        # - Consensual: Does the conversation looks like the respondents have respect for boundary and empathy? ( High yes score 10 and the low is 0)
 
-    # "CONVERSATION:" {conversation};
-
-    # "Evaluation Criteria:"
-    # - Relevance: Does the answers directly address the questions in the conversation?
-    # - Accuracy: Is the information in the answers correct?
-    # - Completeness: Does the answers provide a comprehensive response to the questions?
-    # - Clarity: Are the answers well-written and easy to understand?
-
-    # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the given answers on a scale of 0-10, with scores in increments of 0.5 for each behaviour trait in this cultural_list in JSON. 
-
-    # "cultural_list:" "{cultural_skills}"
-
-    # NOTE: Please put properties of JSON enclosed in double quotes.
-
-    # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
-    # '''
-
-    # prompt = f'''
-        # "TITLE:" {test_title};
-
-        # "DESCRIPTION:" {test_description};
-
-        # "CONVERSATION:" {conversation};
-
-        # "Evaluation Criteria:"
-        # - Hierarchy:  Does the conversation look like the participants have strict hierarchical relationship (highest score of 10) or casual professional relationship ( scores 0)?
-        # - Consensual: Does the conversation looks like the respondents have respect for boundary and empathy? ( High yes score 10 and the low is 0) 
         # - Indirect negative feedback: Do the participants provide a subtle feedback or a blunt feedback? (Subtle feedback is 10 and blunt feedback is 0)
-        # - Relationship-based: Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (scores 0)?    
-        # - High context communication:  Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (scores 10)? 
-        # - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?  
-        # - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)? 
 
-        # "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
-        # "cultural_list:" "{cultural_skills}"
+        # - Relationship-based: Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (scores 0)?
 
-        # NOTE: Please put properties of JSON enclosed in double quotes.
+        # - High context communication: Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (scores 10)?
 
-        # Example of JSON: {{"hierarchy": "9.5", "consensual": "4", "indirect negative feedback": "4.5", "relationship-based": "6", "high context communication": "2.5", "Persuasion": "5", "argumentative": "10"}}
+        # - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?
 
-        # NOTE: For the entire conversation no two skills from {cultural_skills} can have exact same scores.
-
-        # NOTE: Do not add any English language sentence in the output.
-
-    # '''
+        # - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)?
 
     prompt = f'''
         \n\nHuman:
@@ -1943,13 +1917,14 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     description_var = input("${description}")
     conversation_var = input("${conversation}")
     evaluation_criteria = input("{
-        "Hierarchy": "Does the conversation look like the participants have strict hierarchical relationship",
-        "Consensual": "Does the conversation looks like the respondents have respect for boundary and empathy?",
-        "Indirect negative feedback": "Do the participants provide a subtle feedback or a blunt feedback?",
-        "Relationship-based": "Does the conversation look like the participants focus on relationships",
-        "High context communication": "Does the conversation look like the participants focus on subtle cues",
-        "Persuasion": "Does the conversation look like the participants value emotional appeals",
-        "Argumentative": "Does the conversation look like the participants see debate and disagreement as a competition"}")
+    "Need for Structure": "Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.",
+    "Orientation towards Authority": "Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.",
+    "Emphasis on Relationships": "Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.",
+    "Propensity for Risk-Taking": "Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.",
+    "Direct Communication Style": "How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.",
+    "Long term focus": "Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.",
+    "Value Placed on Independence": "Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration."
+    }")
     culture_var = input("${culture_skills}").split(',')
 
     culture_var = [culture.strip() for culture in culture_var]
@@ -2187,7 +2162,15 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
     """
     cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
                        'relationship based', 'high context communication', 'Persuasion', 'argumentative']
-
+    cultural_skills = [
+            "Need for Structure",
+            "Orientation towards Authority",
+            "Emphasis on Relationships",
+            "Propensity for Risk-Taking",
+            "Direct Communication Style",
+            "Long term focus",
+            "Value Placed on Independence"
+        ]
     # prompt = f'''
     # "Objective:" {objective};
 
