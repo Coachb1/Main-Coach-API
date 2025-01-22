@@ -12,7 +12,7 @@ class CharacteristicsAndPromptsAdmin(TenantAwareModelAdmin):
 class CompetencySkillAndClientMappingAdmin(TenantAwareModelAdmin):
     list_display = ('id','tenant_id','client_id','client_name', 'competency_skill','prompts','output')
     search_fields = ('client_id','competency_skill','client_name')
-    list_filter = ('tenant_id','client_id','competency_skill')
+    list_filter = ('client_id','competency_skill')
     list_editable = ('competency_skill','prompts','output')
 
     def client_name(self, obj):

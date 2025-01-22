@@ -4934,11 +4934,12 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         data["real_name"] = participant_name
         data["candidate_name"] = participant_attributes.get("email")
 
-    email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
+    email_subject = f"{data['real_name']}, your simulation feedback report on '{test_name}'  is completed on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email',None)
 
+    data['user_email'] = participant_email
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
@@ -5014,10 +5015,11 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         data["real_name"] = participant_name
         data["candidate_name"] = participant_attributes.get("email")
 
-    email_subject = f"{test_name} completed by {data['real_name']} (username: {data['candidate_name']}) on {test_completion_date} 🚀🚀"
+    email_subject = f"{data['real_name']}, your simulation feedback report on '{test_name}  is completed on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email')
+    data['user_email'] = participant_email
 
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate

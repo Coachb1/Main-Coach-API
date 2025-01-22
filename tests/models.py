@@ -419,6 +419,8 @@ class PsychometricReportSection(MyModel):
 
     class Meta:
         db_table = "psychometric_report_section"
+        verbose_name = "Psychometric Report Configuration"
+        verbose_name_plural = "Psychometric Report Configurations"
         unique_together = (
             ('name','deleted')
         )
