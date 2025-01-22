@@ -8,7 +8,7 @@ def get_user_by_id(user_id) -> User:
 
 
 def get_user_display_name(user: User):
-    name = ""
+    name = None
     slack_profile_attribute = get_user_attribute(user, tag="slack_profile")
     if slack_profile_attribute:
         real_name = slack_profile_attribute.attributes.get('real_name')
@@ -33,4 +33,4 @@ def get_user_display_name(user: User):
         name = user.name
         name = re.sub(r'[_-]+', ' ', name)
 
-    return name
+    return " ".join([n.capitalize() for n in name.split()])
