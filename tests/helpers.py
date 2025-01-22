@@ -4934,7 +4934,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         data["real_name"] = participant_name
         data["candidate_name"] = participant_attributes.get("email")
 
-    email_subject = f"{data['real_name']}, your simulation feedback report on '{test_name}'  is completed on {test_completion_date} 🚀🚀"
+    email_subject = f"{data['real_name']}, your simulation feedback report on **{test_name}**  is completed on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email',None)
@@ -5015,7 +5015,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         data["real_name"] = participant_name
         data["candidate_name"] = participant_attributes.get("email")
 
-    email_subject = f"{data['real_name']}, your simulation feedback report on '{test_name}  is completed on {test_completion_date} 🚀🚀"
+    email_subject = f"{data['real_name']}, your simulation feedback report on **{test_name}**  is completed on {test_completion_date} 🚀🚀"
 
     participant_email = participant_attributes.get(
         "profile", {}).get("email") or participant_attributes.get('email')
