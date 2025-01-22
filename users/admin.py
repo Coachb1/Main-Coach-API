@@ -11,6 +11,7 @@ from tenants.admin import TenantAwareModelAdmin
 from users.choices import BotTypeChoice
 from django import forms
 from import_export.admin import ExportActionMixin
+from import_export import resources
 from users.models import get_unique_access_code
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
@@ -107,14 +108,37 @@ class SnippetAccessCodeForm(forms.ModelForm):
 
         return cleaned_data
 
+class SnippetAccessCodeResource(resources.ModelResource):
+    class Meta:
+        model = SnippetAccessCode
+        fields = ('id', 'client', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
+        export_order = ('id', 'client', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
+        
+
+    # Custom field names using dehydrate methods
+    def dehydrate_client(self, snippet):
+        return snippet.client.client_name
+
+    def dehydrate_is_active(self, snippet):
+        return "Active" if snippet.is_active else "Inactive"
+
+    def dehydrate_is_temporary(self, snippet):
+        return "Temporary" if snippet.is_temporary else "Permanent"
+
+
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
     form = SnippetAccessCodeForm
+    resource_class = SnippetAccessCodeResource
     list_display = ('client', 'access_code', 'is_active', 'is_temporary','max_test_attempts')
     search_fields = ('client__client_name', 'access_code')
     list_filter = ('is_active', 'is_temporary','client__client_name')
     list_editable = ('is_active', 'is_temporary','max_test_attempts')
     ordering = ('-id',)
+
+    def get_export_queryset(self, request):
+        queryset = super().get_export_queryset(request)
+        return queryset.values('id', 'client__client_name', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
 
 @admin.register(AccessCodeLog)
 class AccessCodeLogAdmin(admin.ModelAdmin):
