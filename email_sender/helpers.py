@@ -66,10 +66,10 @@ def send_email(to_email, subject, data):
     msg['To'] = to_email
 
 
-    candidate_name = f"{data['real_name']} (username: {data['candidate_name']})"
+    candidate_name = f"{data['real_name']}"
 
     html_body = get_html_body(
-        candidate_name, data["test_name"], data["report_url"])
+        candidate_name, data["user_email"], data["report_url"])
 
     msg.attach(MIMEText(html_body, 'html'))
     msg_str = msg.as_string()
@@ -1058,9 +1058,9 @@ def get_session_notes_html_body(mentor_name,mentor_email,mentee_name,mentee_emai
 
 
 
-def get_html_body(candidate_name, test_name, report_url):
+def get_html_body(candidate_name, user_email, report_url):
     msg = f"""
-    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">The  {candidate_name} has completed the interaction {test_name}. The detailed report can be viewed here:</p>
+    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Your personalized Feedback Report is now available! This comprehensive report provides valuable insights into your leadership strengths, weaknesses, and areas for growth. You have 60 days to access your report.</p>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
     <tbody>
         <tr>
@@ -1076,8 +1076,12 @@ def get_html_body(candidate_name, test_name, report_url):
         </tr>
     </tbody>
     </table>
+    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We encourage you to review your report at your convenience. If you have any questions or would like to schedule a time to discuss your results in more detail, please don't hesitate to reply to this email. You can also request to schedule a meeting for a readout.</p
     """
-    return get_email_wrapper(html_content=msg)
+    footer = f"""
+    <p>Sincerely,</p><p>Team Coach-Bot</p><p>User Identifier Tag: {user_email}</p>
+    """
+    return get_email_wrapper(html_content=msg,title=f"Hey {candidate_name}!", footer=footer)
 
 def get_html_body_learner_path(user_name,test_list):
 
@@ -1244,7 +1248,7 @@ def get_html_body_learner_path(user_name,test_list):
 
 
 
-def get_email_wrapper(html_content,title='Hey!',note=""):
+def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards,</p><p>The Team Coachbots</p>"):
 
     template = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -1418,8 +1422,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
                                                                             <tbody>
                                                                                 <tr>
                                                                                     <td align="left" class="esd-block-text">
-                                                                                        <p>Best regards,</p>
-                                                                                        <p>The Team Coachbots</p>
+                                                                                        ${footer}
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
@@ -1479,7 +1482,7 @@ def get_email_wrapper(html_content,title='Hey!',note=""):
     
     """
 
-    template = Template(template).substitute(html_content=html_content,title=title,note=note)
+    template = Template(template).substitute(html_content=html_content,title=title,note=note, footer=footer)
 
     return template
 

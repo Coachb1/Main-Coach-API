@@ -36,14 +36,6 @@ class StartWithUserFilter(admin.SimpleListFilter):
             ('start_with_user', 'Start With User'),
             ('does_not_start_with_user', 'Does Not Start With User'),
         )
-
-    
-    # def queryset(self, request, queryset):
-    #     if self.value() == 'start_with_user':
-    #         return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=False)
-    #     if self.value() == 'does_not_start_with_user':
-    #         return queryset.filter(orchestrated_conversation_details__start_with_user__isnull=True)
-    #     return queryset
     
     
     def queryset(self, request, queryset):
@@ -73,8 +65,8 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('uid','test_code','deleted','title','test_type','scenario_case','interaction_mode','page_name','client_name','competency_group','area_domain','tab_category','calculate_culture', 'psychometric','psychometric_report_config','start_with_user')
     search_fields = ('test_code','title','uid','tab_category','competency_group','area_domain')
     list_editable = ('deleted','calculate_culture','page_name','client_name','competency_group','area_domain','psychometric','psychometric_report_config','tab_category')
-    list_filter = ('tenant_id','deleted','test_type','scenario_case','calculate_culture','interaction_mode','page_name','client_name',StartWithUserFilter,OnlyCompetencyFilter)
-    
+    list_filter = ('deleted','test_type','scenario_case','calculate_culture','interaction_mode','page_name','client_name',StartWithUserFilter,OnlyCompetencyFilter)
+    ordering = ('-id',)
     def start_with_user(self, obj):
         start_with_user_message = obj.orchestrated_conversation_details.get('start_with_user') if obj.orchestrated_conversation_details else None
         start_with_user = False if start_with_user_message is None else True
@@ -85,7 +77,7 @@ class TestQuestionAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_display = ('uid','test_id','question_number','question','question_for','deleted')
     search_fields = ('test_id','uid')
     list_editable = ('deleted',)
-    list_filter = ('tenant_id','test_id')
+    list_filter = ('test_id',)
 
 
 admin.site.register(Test, TestAdmin)
@@ -107,7 +99,7 @@ class PsychometricAdminForm(forms.ModelForm):
 
     class Meta:
         model = Psychometric
-        fields = '__all__'
+        fields = ('name', 'description', 'deleted')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -158,11 +150,17 @@ class PsychometricAdminForm(forms.ModelForm):
             except ValidationError as e:
                 raise ValidationError(_(f"Error parsing CSV file: {e}"))
             
-        return cleaned_data            
+        return cleaned_data    
+            
+class PsychometricItemsInline(admin.TabularInline):
+    model = PsychometricItem
+    extra = 0  # Start with 1 extra row for adding new subsections
+    show_change_link = True  # Allow users to edit the related subsection from this interface
 
 
 class PsychometricAdmin(admin.ModelAdmin):
     form = PsychometricAdminForm
+    inlines = [PsychometricItemsInline,]
     list_per_page = 10
     # filter_horizontal = ('items',)
     list_display = ('id', 'uid', 'tenant_id','name', 'description')
@@ -172,68 +170,15 @@ class PsychometricAdmin(admin.ModelAdmin):
 admin.site.register(Psychometric, PsychometricAdmin)
 
 
-class PsychometricItemAdmin(admin.ModelAdmin):
-    list_per_page = 10
-    list_display = ('id', 'psychometric','section', 'subsection')
-    search_fields = ('section', 'subsection','psychometric')
-    list_filter = ('psychometric',)
-    ordering = ('-id',)
+# class PsychometricItemAdmin(admin.ModelAdmin):
+#     list_per_page = 10
+#     list_display = ('id', 'psychometric','section', 'subsection')
+#     search_fields = ('section', 'subsection','psychometric')
+#     list_filter = ('psychometric',)
+#     ordering = ('-id',)
 
-admin.site.register(PsychometricItem, PsychometricItemAdmin)
+# admin.site.register(PsychometricItem, PsychometricItemAdmin)
 
-
-# class UserTestConfigsAdminForm(forms.ModelForm):
-#     class Meta:
-#         model = UserTestConfigs
-#         fields = '__all__'
-
-#     tenant_id = forms.ChoiceField(
-#         choices=Tenant.get_tenant_choices(),  # Fetch all tenants from the database
-#         required=True,  # Set this to True or False depending on your requirements
-#         help_text=_("Select the tenant."),
-#         initial=None
-#     )
-
-
-#     def clean(self):
-#         cleaned_data = super().clean()
-#         tenant_id = cleaned_data.get("tenant_id")
-
-#         tenant = Tenant.objects.get(uid=tenant_id)
-#         try:
-#             user = get_user_via_identity(
-#                 tenant=tenant,
-#                 identity_type="deepchat_unique_id",
-#                 identity_value=user_email
-#             )
-#             if not user:
-#                 raise ValidationError("Invalid user email!.")
-#         except:
-#             raise ValidationError("Invalid user email!.")
-        
-
-#         cleaned_data['user_id'] = user.uid
-
-
-#         test = Test.objects.filter(tenant_id=tenant_id, test_code=test_code, deleted=False).first()
-#         # Validate test_code based on tenant_id
-#         if not test:
-#             raise ValidationError("Invalid test code for the given tenant.")
-        
-#         cleaned_data['test_title'] = test.title
-
-
-#         if cleaned_data.get('access_code'):
-#             if UserTestConfigs.objects.filter(tenant_id=tenant_id, access_code=self.access_code).exists():
-#                 raise ValidationError("The access code is already taken. Please choose a unique access code.")
-
-#         return cleaned_data
-
-# class UserTestConfigsAdmin(TenantAwareModelAdmin):
-#     list_display = ('id','client_name', 'member_emails','report_on', 'access_code')
-#     search_fields = ('client_name', 'member_emails','access_code')
-
-# admin.site.register(UserTestConfigs, UserTestConfigsAdmin)
 
 class ScenarioCaseFilter(admin.SimpleListFilter):
     title = "Scenario Case"
@@ -619,7 +564,7 @@ class SubsectionInline(admin.TabularInline):
     autocomplete_fields = ['parent']  # Use autocomplete for parent field, which is a ForeignKey
     show_change_link = True  # Allow users to edit the related subsection from this interface
 
-class SectionAdmin(admin.ModelAdmin):
+class PsychometricReportConfigAdmin(admin.ModelAdmin):
     form= PsychometricReportAdminForm
     list_display = ('uid','name', 'value', 'footer')
     search_fields = ('name', 'value')
@@ -657,6 +602,9 @@ class SubsectionAdmin(admin.ModelAdmin):
         }),
     )
 
+    def has_module_permission(self, request):
+        return False
+
 # Registering the models in the admin panel
-admin.site.register(PsychometricReportSection, SectionAdmin)
+admin.site.register(PsychometricReportSection, PsychometricReportConfigAdmin)
 admin.site.register(PsychometricReportSubsection, SubsectionAdmin)
