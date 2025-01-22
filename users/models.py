@@ -252,7 +252,8 @@ class BotAttribute(TenantAwareModel):
 
     class Meta:
         db_table = "bot_attributes"
-
+        verbose_name = "Signature Bot Attribute"
+        verbose_name_plural = "Signature Bot Attributes"
         unique_together = (("tenant_id", "bot_id"),)
 
 
@@ -367,6 +368,8 @@ class AccessCodeLog(MyModel):
     class Meta:
         db_table = "access_code_log"
         unique_together = (( "deleted","access_code","user"),)
+        verbose_name = "Snippet Access Code Log"
+        verbose_name_plural = "Snippet Access Code Logs"
 
 
     def __str__(self):
