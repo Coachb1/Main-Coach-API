@@ -39,15 +39,6 @@ class ClientNameFilter(admin.SimpleListFilter):
     def lookups(self, request, model_admin):
         # Generate the list of client names to filter by
         client_names = set()
-        # for obj in model_admin.model.objects.all():
-        #     profile = CoachCoacheeMentorMenteeProfile.objects.filter(uid=obj.profile_id).first()
-        #     if profile:
-        #         client_name = get_client_info_from_user_detail(
-        #                                                         tenant_id=profile.tenant_id,
-        #                                                         user_uid=profile.user_id
-        #                                                        )
-        #         if client_name:
-        #             client_names.add((client_name.client_name, client_name.client_name))
         clients = set(ClientUserInfo.objects.all().values_list('client_name',flat=True))
         for client_name in clients:
             client_names.add((client_name, client_name))

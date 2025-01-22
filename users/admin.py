@@ -11,6 +11,7 @@ from tenants.admin import TenantAwareModelAdmin
 from users.choices import BotTypeChoice
 from django import forms
 from import_export.admin import ExportActionMixin
+from import_export import resources
 from users.models import get_unique_access_code
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
@@ -26,6 +27,13 @@ class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_editable = ('use_coachee_info_in_prompt',)
     ordering = ('-id',)
 
+class SignaturebotAttributeAdmin(TenantAwareModelAdmin):
+    list_per_page = 10
+    list_display = ('id', 'bot_id', 'bot_name', 'about', 'coach_name', 'coach_email', 'client_name', 'is_audio_response')
+    list_filter = ('bot_id', 'bot_name', 'coach_name', 'client_name', 'is_audio_response')
+    search_fields = ('bot_id', 'bot_name', 'coach_name', 'coach_email', 'client_name')
+    list_editable = ('bot_name', 'coach_name', 'coach_email', 'client_name', 'is_audio_response', 'about')
+    ordering = ('-id',)
 
 class SignatureBotAdmin(TenantAwareModelAdmin):
     list_per_page = 10
@@ -35,7 +43,7 @@ class SignatureBotAdmin(TenantAwareModelAdmin):
     list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
     ordering = ('-id',)
 
-class BotUserMappingAdmin(TenantAwareModelAdmin):
+class BotAndUserMappingAdmin(TenantAwareModelAdmin):
     list_per_page = 10
     list_display = ('id','bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number','user_mob_number','user_name','user_email')
     list_filter = ('bot_id','bot_owner_name','bot_owner_email','bot_owner_mob_number')
@@ -107,17 +115,40 @@ class SnippetAccessCodeForm(forms.ModelForm):
 
         return cleaned_data
 
+class SnippetAccessCodeResource(resources.ModelResource):
+    class Meta:
+        model = SnippetAccessCode
+        fields = ('id', 'client', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
+        export_order = ('id', 'client', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
+        
+
+    # Custom field names using dehydrate methods
+    def dehydrate_client(self, snippet):
+        return snippet.client.client_name
+
+    def dehydrate_is_active(self, snippet):
+        return "Active" if snippet.is_active else "Inactive"
+
+    def dehydrate_is_temporary(self, snippet):
+        return "Temporary" if snippet.is_temporary else "Permanent"
+
+
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
     form = SnippetAccessCodeForm
+    resource_class = SnippetAccessCodeResource
     list_display = ('client', 'access_code', 'is_active', 'is_temporary','max_test_attempts')
     search_fields = ('client__client_name', 'access_code')
     list_filter = ('is_active', 'is_temporary','client__client_name')
     list_editable = ('is_active', 'is_temporary','max_test_attempts')
     ordering = ('-id',)
 
+    def get_export_queryset(self, request):
+        queryset = super().get_export_queryset(request)
+        return queryset.values('id', 'client__client_name', 'access_code', 'is_active', 'is_temporary', 'max_test_attempts')
+
 @admin.register(AccessCodeLog)
-class AccessCodeLogAdmin(admin.ModelAdmin):
+class SnippetAccessCodeLogAdmin(admin.ModelAdmin):
     list_display = ('access_code', 'user', 'session_attempted')
     search_fields = ('access_code__access_code', 'user__name')
     list_filter = ('session_attempted',)
@@ -159,9 +190,9 @@ class ReportConfigAdmin(TenantAwareModelAdmin):
 #     ordering = ('-id',)
 
 admin.site.register(CoachCoacheeMentorMenteeProfile, CoachCoacheeMentorMenteeProfileAdmin)
-admin.site.register(BotAttribute)
+admin.site.register(BotAttribute, SignaturebotAttributeAdmin)
 admin.site.register(SignatureBot, SignatureBotAdmin)
-admin.site.register(BotAndUserMapping, BotUserMappingAdmin)
+admin.site.register(BotAndUserMapping, BotAndUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
 admin.site.register(CoachRecommendationsForUser,CoachRecommendationsAdmin)
 # admin.site.register(User,UserAdmin)
