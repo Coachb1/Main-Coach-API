@@ -354,6 +354,27 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if is_whatsapp or report_url is None or report_url == "":
                 report_url = test_attempt_session.report_url
 
+            if test.scenario_case in [ScenarioCaseChoices.journaling]:
+                feedbacks = ''
+                responses = TestQuestionResponse.objects.filter(
+                        test_attempt_session_id=test_attempt_session.uid,
+                        responder_type='user',
+                        deleted=0
+                    )
+                for response in responses:
+                    if response.feedback_text:
+                        feedbacks += response.feedback_text + '\n'
+
+                if len(feedbacks.strip()) >0:
+                    feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
+                    logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
+                    if len(feedbacks_summary) > 0:
+                        test_attempt_session.feedback_summary = feedbacks_summary
+                        test_attempt_session.save(update_fields=['feedback_summary'])
+
+                    
+                send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
             if test.test_type == TestTypeChoices.coaching or test.scenario_case in [ScenarioCaseChoices.process_training] or test.test_type in (TestTypeChoices.dynamic_mcq, TestTypeChoices.mcq) or test.is_transcript_only:
                 send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
