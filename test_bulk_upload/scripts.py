@@ -411,6 +411,9 @@ def format_test_orchestrated_conversation(raw_data):
                 else:
                     output_dict['is_transcript_only'] = False
 
+        if output_dict['scenario_case'] == 'journaling':
+            output_dict['is_transcript_only'] = True
+
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
                 is_free = input_dict[IS_FREE].strip().lower()
@@ -902,6 +905,10 @@ def format_test_data_slack(raw_data,tenant):
                 else:
                     output_dict['is_transcript_only'] = False
                     is_transcript_only = False
+                    
+        if output_dict['scenario_case'] == 'journaling':
+            output_dict['is_transcript_only'] = True
+            is_transcript_only = True
 
         if IS_FREE in input_dict:
             if input_dict[IS_FREE] and len(input_dict[IS_FREE].strip()) > 0:
