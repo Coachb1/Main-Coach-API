@@ -337,11 +337,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     continue
 
                 response_text = participant_response.response_text
+                feedback_text = participant_response.feedback_text
+
                 data = {
                     "question_text": question_text,
-                    "response_text": response_text,
-                    
+                    "response_text": response_text,                    
                 }
+                if feedback_text and len(feedback_text.split()) > 10:
+                    data['feedback_text'] = feedback_text
+                    
                 if test.scenario_case == "process_training":
                     correct_answer = question.mcq_answer
                     response_rating = participant_response.response_rating
