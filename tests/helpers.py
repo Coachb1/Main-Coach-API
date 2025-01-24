@@ -2149,12 +2149,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         #     feedback_text = "No feedback can be generated because of too low response length"
         #     go_for_feedback = False
 
-        if test.scenario_case == ScenarioCaseChoices.process_training or (test.is_transcript_only):
+        if test.scenario_case in [ScenarioCaseChoices.psychometric, ScenarioCaseChoices.process_training]:
             feedback_text = "No feedback..."
-            go_for_feedback = False
-
-        if test.scenario_case in [ScenarioCaseChoices.psychometric]:
-            feedback_text = " "
             go_for_feedback = False
         
         if go_for_feedback:
@@ -4919,7 +4915,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
         mobile_number = participant_attributes.get("mobile_number")
         participant_name = f"{participant_name} ({mobile_number})"
     else:
-        participant_name = participant_attributes.get("name")
+        participant_name = get_user_display_name(get_user_by_id(test_attempt_session.participant_id))
 
     
 
@@ -5001,7 +4997,8 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
         mobile_number = participant_attributes.get("mobile_number")
         participant_name = f"{participant_name} ({mobile_number})"
     else:
-        participant_name = participant_attributes.get("name")
+        participant_name = get_user_display_name(get_user_by_id(test_attempt_session.participant_id))
+
 
     
 
