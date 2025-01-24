@@ -42,6 +42,7 @@ class ScenarioCaseChoices(DjangoChoices):
     assessment = ChoiceItem('assessment')
     psychometric = ChoiceItem('psychometric')
     game = ChoiceItem('game')
+    journaling = ChoiceItem('journaling')
 
 
 
