@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 @timeit
-def anthropic_completion(prompt, max_tokens):
+def anthropic_completion(prompt, max_tokens,temp=1 ,models="claude-3-haiku-20240307"):
     """
     Generate completions for a given prompt using the Anthropic API.
 
@@ -40,9 +40,9 @@ def anthropic_completion(prompt, max_tokens):
             #                              model='claude-2', max_tokens_to_sample=max_tokens,
             #                              stop_sequences=[anthropic.HUMAN_PROMPT])
             response = client.messages.create(
-                        model="claude-3-haiku-20240307",
+                        model=models,
                         max_tokens=4096,
-                        temperature=1,
+                        temperature=temp,
                         messages=[
                             {
                                 "role": "user",
