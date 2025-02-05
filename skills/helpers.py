@@ -1040,7 +1040,7 @@ def evaluate_rating_for_process_training(test_question_response, question_text, 
 
 
 @timeit
-def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code, skills, user_skill_prompt, is_free=False):
+def evaluate_response_skill(test_attempt_session, conversation, test_title, test_description, test_code, skills, user_skill_prompt, is_free=False, company_context=None, model_order=['gemini','anthropic','gpt']):
     """
     This function evaluates a user's response to a test based on a set of skills.
 
@@ -1167,39 +1167,52 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         '''
     
     code_prompt = """
-        # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
-        # Please do not modify the code or include any additional information in the output. 
-        # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
-        # Define the format instructions
+        \n\nHuman:
+        "TITLE:" ${title};
+
+        "DESCRIPTION:" ${description};
+
+        "CONVERSATION:" ${conversation};
+
+        "skills" : ${skills_list}
+
+        "Evaluation Criteria:"
+
+        - Relevance: Does the answer directly address the question?
+
+        - Accuracy: Is the information in the answer correct?
+
+        - Completeness: Does the answer provide a comprehensive response to the question?
+
+        - Clarity: Is the answer well-written and easy to understand?
+
+        REQUIRED FROM LLM:
+        - Always consider the Title, Description, and Conversation when rating the skills. Evaluate each skill based on the criteria provided, ensuring a comprehensive and holistic analysis.
+        - Assign a unique score between 0.5 and 9.5 for each skill listed in {skills}, ensuring that no two skills receive the same score. Use decimal values for more precision (e.g., 4.2, 7.3).
+        - Ensure that each skill is rated uniquely, with no repeated scores.
+
+        Strict Constraints:
+        -   No two skills should have the same score.
+        -   Do not modify the provided code or include any additional information in the output.
+        -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
+
         format_instructions = {
-        "output_format": "word",
-        "explanations": False,
-        "word_counts": False
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
         }
+        **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
         import json
-        import random
-        title_var = input("${title}")
-        description_var = input("${description}")
-        conversation_var = input("${conversation}")
-        evaluation_criteria = [
-            {"name": "Relevance", "description": "Does the answer directly address the question?"},
-            {"name": "Accuracy", "description": "Is the information in the answer correct?"},
-            {"name": "Completeness", "description": "Does the answer provide a comprehensive response to the question?"},
-            {"name": "Clarity", "description": "Is the answer well-written and easy to understand?"}
-        ]
-        skills_var = input("${skills_list}").split(',')
-        skills_var = [skill.strip() for skill in skills_var]
-        def evaluate_skills(conversation, skills):
-        scores = {}
-        for skill in skills:
-        if skill.lower() in conversation.lower():
-        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
-        else:
-        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
-        return json.dumps(scores)
-        print(evaluate_skills(conversation_var, skills_var))
+        from typing import Dict
 
+        ScoreDictionary = Dict[str, float]
+        final_scores: ScoreDictionary = {
+        "skill": float(calulated score)
+        }
 
+        print(json.dumps(final_scores))
+
+        \n\nAssistant:
     """
 
     prompt = Template(code_prompt).substitute(
@@ -1210,220 +1223,55 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
     )
 
     if is_free:
-        ##################* anthropic ###################
-        is_evaluated = True
+        model_order = ['anthropic']
 
-        responses = []
-        response = {}
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
-
+    responses = []
+    is_evaluated = False
+    
+    model_functions = {
+        "gemini": gemini_completion,
+        "anthropic": anthropic_completion,
+        "gpt": lambda p: gpt3_completion(p, stop=["USER:", "CoachBot"]).text,
+    }
+    
+    for model in model_order:
+        max_tries = 3
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(skills_rating) * 100)
-                logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-
+                logging.info(f"[evaluate_response_skill] Trying {model} [outer] for {4 - max_tries} time")
+                response = model_functions[model](prompt)
+                
                 skills_rating_str = json_extraction(response)
-
                 skills_rating = json.loads(skills_rating_str)
-
-                if not is_skill_matched(skills,skills_rating.keys()):
-                    raise ValueError("Skills not found in the skills list.")
-
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-        else:
-             # HACK in case everything fails; just evaluate as a random number
-            response = {}
-            for skill in skills_rating:
-                response[skill] = random.randint(3, 7)
-
-            # send error on slack to debug this
-            send_slack_message({"process": "evaluate_response_skills",
-                                "test_attempt_session": test_attempt_session.uid,
-                                "error": "failed to evaluate; putting random value"})
-
-            return response, {}, True
-    else:
-
-
-
-        ################################* gemini_completion ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_response_skill ":f"trying gemini_completion [outer] for {3 - max_tries + 1} time"})
-                response = gemini_completion(prompt)
-                logger.info({"****evaluate_response_skill ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-
-                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
-                    raise ValueError("Skills not found in the skills list.")
-
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] gemini_completion for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ################################* gemini_completion end ################################
-        logger.info({"****evaluate_response_skill ":f"failed gemini_completion, so trying anthropic_completion"})
-
-        ##################* anthropic ###################
-        is_evaluated = True
-
-        responses = []
-        response = {}
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_response_skill ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(skills_rating) * 100)
-                logger.info({"****evaluate_response_skill ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
-                    raise ValueError("Skills not found in the skills list.")
-
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ##################* anthropic end ###################
-
-        logger.info({"****evaluate_response_skill ":f"failed anthropic, so trying gpt_compeletion"})
-
-        ################################* gpt ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_response_skill ":f"trying gpt [outer] for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_response_skill ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                if not is_skill_matched(skills,skills_rating.keys()):  # checking if skills are from skills list
+                
+                if not is_skill_matched(skills, skills_rating.keys()):
                     raise ValueError("Skills not found in the skills list.")
                 
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
+                skills_rating = {skill: float(score) for skill, score in skills_rating.items()}
                 responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
+                response = skills_rating
+                is_evaluated = True
+                break  # Exit retry loop on success
+            
             except Exception as e:
-                logger.error({"****evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                logging.error(f"[evaluate_response_skill] {model} [outer] failed for {4 - max_tries} time: {e}")
                 max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
                 time.sleep(1)
-                continue
-
-
+    
         if is_evaluated:
+            logger.info(f"[evaluate_response_skill] Final skill rating: {responses}")
             return *responses, is_evaluated
-
-        ################################* gpt end ################################
-
-
-        logger.info({"****evaluate_response_skill ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in skills_rating:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_response_skills",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate; putting random value"})
-
-        return response, {}, True
+    
+    logging.info("All models failed, assigning default values")
+    
+    response = {skill: random.randint(3, 7) for skill in skills}
+    send_slack_message({
+        "process": "evaluate_response_skills",
+        "test_attempt_session": test_attempt_session.uid,
+        "error": "Failed to evaluate; assigning random values"
+    })
+    
+    return response, True
 
 
 @timeit
@@ -1828,7 +1676,7 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     
 
 @timeit
-def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code,is_free=False):
+def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code,is_free=False, company_context=None, model_order=["gemini", "anthropic", "gpt"]):
     """
     It evaluates the cultural rating for a scenario (test,trainer type)
     """
@@ -1902,261 +1750,108 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
     
 
     code_prompt = """
-    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
-    # Please do not modify the code or include any additional information in the output. 
-    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
-    # Define the format instructions
-    format_instructions = {
-    "output_format": "word",
-    "explanations": False,
-    "word_counts": False
-    }
-    import json
-    import random
-    title_var = input("${title}")
-    description_var = input("${description}")
-    conversation_var = input("${conversation}")
-    evaluation_criteria = input("{
-    "Need for Structure": "Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.",
-    "Orientation towards Authority": "Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.",
-    "Emphasis on Relationships": "Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.",
-    "Propensity for Risk-Taking": "Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.",
-    "Direct Communication Style": "How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.",
-    "Long term focus": "Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.",
-    "Value Placed on Independence": "Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration."
-    }")
-    culture_var = input("${culture_skills}").split(',')
+        \n\nHuman:
+            "TITLE:" ${title};
 
-    culture_var = [culture.strip() for culture in culture_var]
+            "DESCRIPTION:" ${description};
 
-    def evaluate_culture(conversation, culture):
-    scores = {}
-    for cult in culture:
-    if cult.lower() in conversation.lower():
-    scores[cult] = round(random.uniform(0.5, 10) * 2) / 2
-    else:
-    scores[cult] = round(random.uniform(0.5, 10) * 2) / 2
-    return json.dumps(scores)
+            "CONVERSATION:" ${conversation};
 
-    print(evaluate_culture(conversation_var, culture_var))
+            "cultural_list:" ${skills_list}
 
 
-    """
+            "Evaluation Criteria:"
+                - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
+                - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
+                - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
+                - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
+                - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
+                - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
+                - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
+
+            "REQUIRED FROM LLM:" 
+            - Always consider the Title, Description, and Conversation when rating the skills. Evaluate each skill based on the criteria provided, ensuring a comprehensive and holistic analysis.
+            - Assign a unique score between 0.5 and 9.5 for each skill listed in {cultural_list}, ensuring that no two skills receive the same score. Use decimal values for more precision (e.g., 4.2, 7.3).
+            - Ensure that each skill is rated uniquely, with no repeated scores.
+
+            Strict Constraints:
+            -   No two skills should have the same score.
+            -   Do not modify the provided code or include any additional information in the output.
+            -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
+
+            format_instructions = {
+                "output_format": "word",
+                "explanations": False,
+                "word_counts": False
+            }
+            **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
+            import json
+            from typing import Dict
+
+            ScoreDictionary = Dict[str, float]
+            final_scores: ScoreDictionary = {
+            "skill": float(calulated score)
+            }
+            print(json.dumps(final_scores))
+        \n\nAssistant:
+        """
 
     prompt = Template(code_prompt).substitute(
         title=test_title,
         description = test_description,
         conversation = conversation,
-        culture_skills = ",".join(cultural_skills),
+        skills_list = ",".join(cultural_skills),
     )
     if is_free:
-        ################################* anthropic ################################
-        is_evaluated = True
-        responses = []
-        response = {}
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
+        model_order = ['anthropic']
 
+    responses = []
+    is_evaluated = False
+    
+    model_functions = {
+        "gemini": gemini_completion,
+        "anthropic": anthropic_completion,
+        "gpt": lambda p: gpt3_completion(p, stop=["USER:", "CoachBot"]).text,
+    }
+    
+    for model in model_order:
+        max_tries = 3
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(cultural_skills) * 100)
-                logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-
-
-                skills_rating_str= json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e},exc_info=True)
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-        else:
-            # HACK in case everything fails; just evaluate as a random number
-            response = {}
-            for skill in cultural_skills:
-                response[skill] = random.randint(3, 7)
-
-            # send error on slack to debug this
-            send_slack_message({"process": "evaluate_conversation",
-                                "test_attempt_session": test_attempt_session.uid,
-                                "error": "failed to evaluate; putting random value"})
-
-            return response,{}, True
-
-    else:     
-
-        
-
-        ################################* gemini_completion ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] gemini_completion for {3 - max_tries + 1} time"})
-                response = gemini_completion(prompt)
-                logger.info({"****evaluate_conversation ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
-
-
+                logging.info(f"[evaluate_conversation] Trying {model} [outer] for {4 - max_tries} time")
+                response = model_functions[model](prompt)
+                
                 skills_rating_str = json_extraction(response)
-
                 skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
+                
+                skills_rating = {skill: float(score) for skill, score in skills_rating.items()}
                 responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str)
-                # responses.append(skills_explanation)
-
-                break
-
+                is_evaluated = True
+                break  # Exit retry loop on success
+            
             except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gemini_completion for {3 - max_tries + 1} time","error":e },exc_info=True)
+                logging.error(f"[evaluate_conversation]{model}[outer] failed for {4 - max_tries} time: {e}", exc_info=True)
                 max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
                 time.sleep(1)
-                continue
-
-
+    
         if is_evaluated:
             return *responses, is_evaluated
-
-        ################################* gemini_completion end ################################
-
-        logger.info({"****evaluate_conversation ":f"failed gemini_completion, so trying anthropic_completion"})
-
-        ################################* anthropic ################################
-        is_evaluated = True
-        responses = []
-        response = {}
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(cultural_skills) * 100)
-                logger.info({"****evaluate_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-
-
-                skills_rating_str= json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str,skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e},exc_info=True)
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ################################* anthropic end ################################
-        
-        logger.info({"****evaluate_conversation ":f"failed gpt, so trying gemini_completion"})
-
-        ################################* gpt ################################
-        responses = []
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                responses.append(skills_rating)
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"!!!!!!!!!!!!evaluate_response_skill ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e },exc_info=True)
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return *responses, is_evaluated
-
-        ################################* gpt end ################################
-
-
-        logger.info({"****evaluate_conversation ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in cultural_skills:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_conversation",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate; putting random value"})
-
-        return response,{}, True
+    
+    logging.info("All models failed, assigning default values")
+    
+    response = {skill: random.randint(3, 7) for skill in cultural_skills}
+    send_slack_message({
+        "process": "evaluate_conversation",
+        "test_attempt_session": test_attempt_session.uid,
+        "error": "Failed to evaluate; assigning random values"
+    })
+    
+    return response, True
 
 
 
 @timeit
-def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code,test,is_free=False):
+def evaluate_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, test_code,test,is_free=False,model_order=["gemini", "anthropic", "gpt"]):
     """
     It evaluates the cultural rating for a scenario (group discussion)
     """
@@ -2216,253 +1911,112 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         \n\nAssistant:
     '''
     code_prompt = """
-    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
-    # Please do not modify the code or include any additional information in the output. 
-    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
-    # Define the format instructions
-    format_instructions = {
-    "output_format": "word",
-    "explanations": False,
-    "word_counts": False
-    }
-    import json
-    import random
+    \n\nHuman:
+        "Objective:" ${objective}; 
+        "Conversation:" ${conversation}; 
+        "cultural_list:" ${cultural_skills};
+        "user_persona": ${user_persona};
 
-    title = input("${title}")
-    description = input("${description}")
-    conversation = input("${conversation}")
-    user_persona = input("${user_persona}")
-    cultures_var = input("${cultural_skills}").split(',')
-    cultures_list = [culture.strip() for culture in cultures_var]
+        "Evaluation Criteria:"
+                - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
+                - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
+                - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
+                - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
+                - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
+                - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
+                - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
 
-    instructions = "Based on the above criteria please evaluate the '{user_persona}' only from a scale of 1.5-9, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {cultures_list} in JSON.".format(user_persona=user_persona,cultures_list=cultures_list)
 
-    def evaluate_cultures(conversation, cultures):
-    scores = {}
-    for culture in cultures:
-        if culture.lower() in conversation.lower():
-        scores[culture] = round(random.uniform(0.5, 10) * 2) / 2
-        else:
-        scores[culture] = round(random.uniform(0.5, 10) * 2) / 2
-    return json.dumps(scores)
+        "REQUIRED FROM LLM:" 
+            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
+            - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'cultural_list',ensuring that no two skills receive the same score.
+            - Ensure that each skill is rated uniquely, with no repeated scores.
 
-    print(evaluate_cultures(conversation, cultures_list))
+        Strict Constraints:
+        -   No two skills should have the same score.
+        -   Do not modify the provided code or include any additional information in the output.
+        -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
 
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        }
+        **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
+        import json
+        from typing import Dict
+
+        ScoreDictionary = Dict[str, float]
+        final_scores: ScoreDictionary = {
+        "skill": float(calulated score)
+        }
+        print(json.dumps(final_scores))
+        \n\nAssistant:
     """
 
     prompt = Template(code_prompt).substitute(
-        title = test.title,
-        description = test.description,
+        objective=objective,
         user_persona = user_persona,
         conversation = conversation,
         cultural_skills = ",".join(cultural_skills)
     )
 
-
-
     if is_free:
-         ################################* anthropic ################################
-        skills_rating = None
-        response = None
-        is_evaluated = True
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
+        model_order = ['anthropic']
+    
+    skills_rating = None
+    is_evaluated = True
+    max_tries = 3  # Each model itself retries 3 times
 
+    for model in model_order:
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(cultural_skills) * 100)
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* anthropic end ################################
-
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in cultural_skills:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_group_discussion_conversation",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate_free_type; putting random value"})
-
-        return response
-
-
-    else:
-
-
-        ################################* gemini_completion ################################
-        skills_rating = None
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gemini_completion for {3 - max_tries + 1} time"})
-                response = gemini_completion(prompt)
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
+                logger.info({"****evaluate_group_discussion_conversation ": f"trying [outer] {model} for {3 - max_tries + 1} time"})
+                
+                if model == "anthropic":
+                    response = anthropic_completion(prompt, len(cultural_skills) * 100)
+                elif model == "gemini":
+                    response = gemini_completion(prompt)
+                elif model == "gpt":
+                    response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                else:
+                    continue
+                
+                logger.info({"****evaluate_group_discussion_conversation ": f"response [outer] {model} for {3 - max_tries + 1} time", "response": response})
                 
                 skills_rating_str = json_extraction(response)
-
                 skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-
-                # skills_explanation = to_dict(skills_explanation_str)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gemini_completion for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* gemini_completion end ################################
-
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed gemini_completion, so trying anthropic_completion"})
-
-        ################################* anthropic ################################
-        skills_rating = None
-        response = None
-        is_evaluated = True
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(prompt, len(cultural_skills) * 100)
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] anthropic for {1 - max_tries + 1} time","error":e})
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* anthropic end ################################
-        
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed anthropic, so trying gpt_compeletion "})
-
-        ################################* gpt ################################
-        skills_rating = None
-        is_evaluated = True
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
                 
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
                 
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-
-                break
+                return skills_rating
 
             except Exception as e:
-                logger.error({"****evaluate_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
+                logger.error({"****evaluate_group_discussion_conversation ": f"failed [outer] {model} for {3 - max_tries + 1} time", "error": e})
                 max_tries -= 1
                 if max_tries == 0:
                     is_evaluated = False
-                    break
-
                 time.sleep(1)
-                continue
 
         if is_evaluated:
             return skills_rating
 
-        ################################* gpt end ################################
+    logger.info({"****evaluate_group_discussion_conversation ": "failed everything, so assigning default values"})
 
+    # HACK in case everything fails; just evaluate as a random number
+    response = {skill: random.randint(3, 7) for skill in cultural_skills}
+    
+    # send error on slack to debug this
+    send_slack_message({"process": "evaluate_group_discussion_conversation",
+                        "test_attempt_session": test_attempt_session.uid,
+                        "error": "failed to evaluate; putting random value"})
 
-        logger.info({"****evaluate_group_discussion_conversation ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in cultural_skills:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_group_discussion_conversation",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate; putting random value"})
-
-        return response
+    return response
 
 
 @timeit
-def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate,test,is_free=False):
+def evaluate_skills_group_discussion_conversation(test_attempt_session, conversation, user_persona, objective, skills_to_evaluate,test,is_free=False,model_order=['gemini','anthropic','gpt']):
     """
     It evaluates the normal skills rating for a scenario (group discussion)
     """
@@ -2522,238 +2076,109 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     '''
 
     code_prompt = """
-    # This code is designed to run as is, and the output will be only in the print format without any explanations or word counts. 
-    # Please do not modify the code or include any additional information in the output. 
-    # NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT
-    # Define the format instructions
-    format_instructions = {
-    "output_format": "word",
-    "explanations": False,
-    "word_counts": False
-    }
-    import json
-    import random
-    title = input("${title}")
-    description = input("${description}")
-    conversation = input("${conversation}")
-    user_persona = input("${user_persona}")
-    skills_var = input("${skill_list}").split(',')
-    skills_list = [skill.strip() for skill in skills_var]
+    \n\nHuman:
+        "Objective:" ${objective}; 
+        "Conversation:" ${conversation}; 
+        "user_persona": ${user_persona};
+        "skills_list:" ${skill_list};
 
-    instructions = "Based on the above criteria, please evaluate the conversation between the '{user_persona}' and the '{user_persona}' only from a scale of 1.5-10, with scores in increments of 0.5. Evaluate the conversation for the '{user_persona}' and the '{user_persona}' only, in this conversation for each behaviour trait in this {skills_list} in JSON.".format(user_persona=user_persona, skills_list=skills_list)
+        "Evaluation Criteria:"
 
+        - Relevance: Does the answer directly address the question?
 
-    def evaluate_skills(conversation, skills):
-    scores = {}
-    for skill in skills:
-        if skill.lower() in conversation.lower():
-        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
-        else:
-        scores[skill] = round(random.uniform(0.5, 10) * 2) / 2
-    return json.dumps(scores)
+        - Accuracy: Is the information in the answer correct?
 
-    print(evaluate_skills(conversation_var, skills_list))
-    
+        - Completeness: Does the answer provide a comprehensive response to the question?
+
+        - Clarity: Is the answer well-written and easy to understand?
+        
+
+        "REQUIRED FROM LLM:" 
+            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
+            - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'skills_list',ensuring that no two skills receive the same score.
+            - Ensure that each skill is rated uniquely, with no repeated scores.
+
+        Strict Constraints:
+        -   No two skills should have the same score.
+        -   Do not modify the provided code or include any additional information in the output.
+        -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
+
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        }
+        **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
+        import json
+        from typing import Dict
+
+        ScoreDictionary = Dict[str, float]
+        final_scores: ScoreDictionary = {
+        "skill": float(calulated score)
+        }
+        print(json.dumps(final_scores))
+        \n\nAssistant:
     """
 
     prompt = Template(code_prompt).substitute(
         skill_list = ','.join(skills_to_evaluate),
-        title = test.title,
-        description = test.description,
         user_persona = user_persona,
         conversation = conversation,
+        objective = objective
     )
 
-
     if is_free:
-        ################################* anthropic ################################
-        skills_rating = None
-        response = None
-        is_evaluated = True
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
+        model_order = ['anthropic']
 
+    skills_rating = None
+    response = None
+    is_evaluated = False
+    
+    for model in model_order:
+        max_tries = 3
         while max_tries > 0:
             try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(
-                    prompt, len(skills_to_evaluate) * 100)
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
+                logger.info({f"****evaluate_skills_group_discussion_conversation ":
+                             f"trying [outer] {model} for {3 - max_tries + 1} time"})
+                
+                if model == "anthropic":
+                    response = anthropic_completion(prompt, len(skills_to_evaluate) * 100)
+                elif model == "gemini":
+                    response = gemini_completion(prompt)
+                elif model == "gpt":
+                    response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
+                
+                logger.info({f"****evaluate_skills_group_discussion_conversation ":
+                             f"response [outer] {model} for {3 - max_tries + 1} time",
+                             "response": response})
                 
                 skills_rating_str = json_extraction(response)
-
                 skills_rating = json.loads(skills_rating_str)
+                
                 for skill in skills_rating:
                     skills_rating[skill] = float(skills_rating[skill])
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
                 
+                is_evaluated = True
                 break
             except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
+                logger.error({f"****evaluate_skills_group_discussion_conversation ":
+                              f"failed [outer] {model} for {3 - max_tries + 1} time",
+                              "error": e})
                 max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
                 time.sleep(1)
                 continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* anthropic end ################################
-
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in skills_to_evaluate:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_skills_group_discussion_conversation",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate free type; putting random value"})
-
-        return response
-
-    else:
         
-
-        ################################* gemini_completion ################################
-        skills_rating = None
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gemini_completion for {3 - max_tries + 1} time"})
-                response = gemini_completion(prompt)
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gemini_completion for {3 - max_tries + 1} time","response":response})
-                
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-                # skills_explanation = to_dict(skills_explanation_str)
-                # responses.append(skills_explanation)
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gemini_completion for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
         if is_evaluated:
             return skills_rating
-
-        ################################* gemini_completion end ################################
-
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed gemini_completion, so trying anthropic_completion"})
-
-        ################################* anthropic ################################
-        skills_rating = None
-        response = None
-        is_evaluated = True
-        max_tries = 3  # because anthropic_completion function itself retries 3 times
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] anthropic for {1 - max_tries + 1} time"})
-                response = anthropic_completion(
-                    prompt, len(skills_to_evaluate) * 100)
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] anthropic for {1 - max_tries + 1} time","response":response})
-                
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-                # skills_explanation = to_dict(skills_explanation_str, skills_rating)
-                # responses.append(skills_explanation)
-                
-                break
-            except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] anthropic for {3 - max_tries + 1} time","error":e})
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* anthropic end ################################
-
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed anthropic, so trying gpt"})
-
-        ################################* gpt ################################
-        skills_rating = None
-        response = None
-        max_tries = 3  # because gpt3_completion function itself retries 3 times
-        is_evaluated = True
-
-        while max_tries > 0:
-            try:
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"trying [outer] gpt for {3 - max_tries + 1} time"})
-                response = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                logger.info({"****evaluate_skills_group_discussion_conversation ":f"response [outer] gpt for {3 - max_tries + 1} time","response":response})
-                
-                skills_rating_str = json_extraction(response)
-
-                skills_rating = json.loads(skills_rating_str)
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-
-
-                break
-
-            except Exception as e:
-                logger.error({"****evaluate_skills_group_discussion_conversation ":f"failed [outer] gpt for {3 - max_tries + 1} time","error":e })
-                max_tries -= 1
-                if max_tries == 0:
-                    is_evaluated = False
-                    break
-
-                time.sleep(1)
-                continue
-
-        if is_evaluated:
-            return skills_rating
-
-        ################################* gpt end ################################
-
-
-        logger.info({"****evaluate_skills_group_discussion_conversation ":f"failed everything, so assigning default values"})
-
-        # HACK in case everything fails; just evaluate as a random number
-        response = {}
-        for skill in skills_to_evaluate:
-            response[skill] = random.randint(3, 7)
-
-        # send error on slack to debug this
-        send_slack_message({"process": "evaluate_skills_group_discussion_conversation",
-                            "test_attempt_session": test_attempt_session.uid,
-                            "error": "failed to evaluate; putting random value"})
-
-        return response
+    
+    logger.info({"****evaluate_skills_group_discussion_conversation ": "failed everything, assigning default values"})
+    response = {skill: random.randint(3, 7) for skill in skills_to_evaluate}
+    
+    send_slack_message({"process": "evaluate_skills_group_discussion_conversation",
+                         "test_attempt_session": test_attempt_session.uid,
+                         "error": "failed to evaluate; assigning random value"})
+    
+    return response
 
 
 ##########################* SKILLS EXPLANATION START *##########################
@@ -3507,3 +2932,218 @@ def upsert_into_skill_index(tenant_id: str,
         SkillIndex.objects.get_or_create(tenant_id=tenant_id,
                                          name=skill,
                                          defaults=dict(display=skill))
+
+def test_for_ratings():
+    company_context = '''The company is using this simulation for their critical hires - to assess them if they will be really fitting to the culture and context of " Customer First" and "Overcommunicating" to keep things moving and transparent.'''
+
+    company_context = ''' The company is using this simulation for their critical hires - to assess them if they will be really fitting to the culture and context of \" Customer First\" and \"Overcommunicating\" to keep things moving and transparent.Like in a power plant crisis situation should be over-communicating and putting the customer's interest first. '''
+    company_context = None
+    code_prompt = """
+     \n\nHuman:
+        "TITLE:" ${title};
+
+        "DESCRIPTION:" ${description};
+
+        "CONVERSATION:" ${conversation};
+
+        "skills" : ${skills_list}
+
+        "Evaluation Criteria:"
+
+        - Relevance: Does the answer directly address the question?
+
+        - Accuracy: Is the information in the answer correct?
+
+        - Completeness: Does the answer provide a comprehensive response to the question?
+
+        - Clarity: Is the answer well-written and easy to understand?
+
+        REQUIRED FROM LLM:
+        - Always consider the Title, Description, and Conversation when rating the skills. Evaluate each skill based on the criteria provided, ensuring a comprehensive and holistic analysis.
+        - Assign a unique score between 0.5 and 9.5 for each skill listed in {skills}, ensuring that no two skills receive the same score. Use decimal values for more precision (e.g., 4.2, 7.3).
+        - Ensure that each skill is rated uniquely, with no repeated scores.
+
+        Strict Constraints:
+        -   No two skills should have the same score.
+        -   Do not modify the provided code or include any additional information in the output.
+        -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
+
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        }
+        **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
+        import json
+        from typing import Dict
+
+        ScoreDictionary = Dict[str, float]
+        final_scores: ScoreDictionary = {
+        "skill": float(calulated score)
+        }
+
+        print(final_scores)
+
+        \n\nAssistant:
+    """
+
+    code_prompt_culture = """
+    \n\nHuman:
+        "TITLE:" ${title};
+
+        "DESCRIPTION:" ${description};
+
+        "CONVERSATION:" ${conversation};
+
+        "cultural_list:" ${skills_list}
+
+
+        "Evaluation Criteria:"
+            - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
+            - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
+            - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
+            - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
+            - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
+            - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
+            - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
+
+        "REQUIRED FROM LLM:" 
+        - Always consider the Title, Description, and Conversation when rating the skills. Evaluate each skill based on the criteria provided, ensuring a comprehensive and holistic analysis. Use decimal values for more precision (e.g., 4.2, 7.3).
+        - Assign a unique score between 0.5 and 9.5 for each skill listed in {cultural_list}, ensuring that no two skills receive the same score.
+        - Ensure that each skill is rated uniquely, with no repeated scores.
+
+        Strict Constraints:
+        -   No two skills should have the same score.
+        -   Do not modify the provided code or include any additional information in the output.
+        -   NEVER PRINT ANYTHING ELSE EXCEPT THE PRINT OUTPUT.
+
+        format_instructions = {
+            "output_format": "word",
+            "explanations": False,
+            "word_counts": False
+        }
+        **Output in JSON format**:  Ensure that the output is formatted as valid JSON.
+        import json
+        from typing import Dict
+
+        ScoreDictionary = Dict[str, float]
+        final_scores: ScoreDictionary = {
+        "skill": float(calulated score)
+        }
+        print(json.dumps(final_scores))
+       \n\nAssistant:
+    """
+
+    
+    from tests.models import Test, TestQuestionResponse, TestQuestion
+    # from commons.deepseek import deepseek_completion
+    test = Test.objects.get(uid='d1bcb9eb-2574-49cb-a24c-a9e371433386')
+
+    conversation = ""
+    count = 1
+    responses = TestQuestionResponse.objects.filter(test_attempt_session_id="b5bd2666-5977-4352-b15c-f164897ddeed")
+
+    for response in responses:
+
+        question = TestQuestion.objects.get(
+            uid=response.question_id)
+
+        question_text = question.question
+        response_text = response.response_text
+
+        conversation += f"{count}. [Question:] {question_text}\n"
+        if not question.is_view_only:
+            conversation += f"[Answer:] {response_text}\n\n"
+
+        count += 1
+
+    cultural_skills = [
+            "Need for Structure",
+            "Orientation towards Authority",
+            "Emphasis on Relationships",
+            "Propensity for Risk-Taking",
+            "Direct Communication Style",
+            "Long term focus",
+            "Value Placed on Independence"
+        ]
+    prompt = Template(code_prompt_culture).substitute(
+        title=test.title,
+        description = test.description,
+        conversation = conversation,
+        skills_list = cultural_skills
+    )
+
+    feedback_prompt = """\n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Expert Suggestions:  ${question_context} 
+                Candidate answer:  ${candidate_reply}
+                CompanyContext: ${company_context}
+        
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , CompanyContext,only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. 
+                The feedback should be structured in the following format:
+                                    Key Insights: "Output text"
+                                    What went well: Output text"
+                                    What did not work: Output text"
+                                    Sample Candidate Answer : "Output text"
+                                    Counter Intuitive Insight :  "Output text"
+
+                \n\nAssistant:
+"""
+
+    oldfeedback = """
+    \n\nHuman:
+                Title: ${test_title}. 
+                Test Description: ${test_description}
+                Customer question:  ${question} 
+                Expert Suggestions:  ${question_context} 
+                Candidate answer:  ${candidate_reply}
+        
+                Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. 
+The feedback should be structured in the following format:
+                    Key Insights: "Output text"
+                    What went well: Output text"
+                    What did not work: Output text"
+                    Sample Candidate Answer : "Output text"
+                    Counter Intuitive Insight :  "Output text"
+
+                \n\nAssistant:
+"""
+
+
+    # prompt = Template(oldfeedback).substitute(
+    #     test_title=test.title,
+    #     description = test.description,
+    #     conversation = conversation,
+    #     skills_list = test.skills_to_evaluate,
+    #     company_context = company_context
+    # )
+    data = f"""
+    Title: {test.title}
+    Description: {test.description}
+    conversation: {conversation}
+    """
+    print(data)
+    result = []
+    for _ in range(3):
+        temp = {}
+        # temp['o1'] = gpt3_completion(prompt=prompt,engine='o1',stop=['User','Coachbots'])
+        # temp['gpt4-turbo'] = gpt3_completion(prompt=prompt,stop=['User','Coachbots']).text
+        # temp['gpt-4o'] = gpt3_completion(prompt=prompt,engine='gpt-4o',stop=['User','Coachbots']).text
+        # temp['gpt-4o-mini'] = gpt3_completion(prompt=prompt,engine='gpt-4o-mini',stop=['User','Coachbots']).text
+        # temp['o1-mini'] = gpt3_completion(prompt=prompt,engine='o1-mini',stop=['User','Coachbots']).text
+        # temp['o3-mini'] = gpt3_completion(prompt=prompt,engine='o3-mini',stop=['User','Coachbots']).text
+        # temp['haiku'] = anthropic_completion(prompt, 4000, temp=0)
+        # temp['claude-3-5-sonnet-20241022'] = anthropic_completion(prompt, 4000, models="claude-3-5-sonnet-20241022",temp=0)
+        # temp['claude-3-opus-20240229'] = anthropic_completion(prompt, 4000, models="claude-3-opus-20240229",temp=0)
+        # temp['claude-3-sonnet-20240229'] = anthropic_completion(prompt, 4000, models="claude-3-sonnet-20240229",temp=0)
+        # temp['claude-3-haiku-20240307'] = anthropic_completion(prompt, 4000, models="claude-3-haiku-20240307",temp=0)
+        temp['gemini_flash'] = json.loads(json_extraction(gemini_completion(prompt=prompt,models=['gemini-1.5-flash-001'])))
+        # temp['gemini_1.5PRO'] = gemini_completion(prompt=prompt,models=['gemini-1.5-pro-001'],temperature=0)
+        # temp['deepseek'] = deepseek_completion(prompt)
+        # temp['gemini-2.0-flash-exp'] = gemini_completion(prompt=prompt,models=['gemini-2.0-flash-exp'],temperature=0)
+        result.append(temp)
+
+    print(result)
+

@@ -73,7 +73,27 @@ def gpt3_completion(prompt,
     while True:
         try:
             logger.info({"**** gpt3_completion":f"trying gpt for {retry} time"})
-            response = openai.chat.completions.create(
+            try:
+                response = openai.chat.completions.create(
+                    model=engine,
+                    messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                        "type": "text",
+                        "text": prompt
+                        }
+                    ]
+                    }],
+                    temperature=temp,
+                    max_tokens=max_tokens - prompt_tokens,
+                    top_p=top_p,
+                    frequency_penalty=freq_pen,
+                    presence_penalty=pres_pen,
+                    stop=stop)
+            except Exception as e:
+                logger.exception(f"{e}")
+                response = openai.chat.completions.create(
                 model=engine,
                 messages=[{
                 "role": "user",
@@ -84,11 +104,6 @@ def gpt3_completion(prompt,
                     }
                 ]
                 }],
-                temperature=temp,
-                max_tokens=max_tokens - prompt_tokens,
-                top_p=top_p,
-                frequency_penalty=freq_pen,
-                presence_penalty=pres_pen,
                 stop=stop)
             text = response.choices[0].message.content.strip()
             text = re.sub('[\r\n]+', '\n', text)
