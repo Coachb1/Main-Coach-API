@@ -2114,6 +2114,16 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     user_feedback_prompt=user_feedback_prompt
             )
 
+        elif test.scenario_case == ScenarioCaseChoices.journaling:
+            prompt = get_journaling_feedback_prompt(
+                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                    test_title=test.title,
+                    test_description=test.description,
+                    question=question.question,
+                    candidate_reply=test_question_response.response_text,
+                    user_feedback_prompt=user_feedback_prompt
+            )
+
         else:
             if question.gpt_prompt_override or test.gpt_prompt_override:
                 prompt = get_overridden_prompt(
@@ -2195,6 +2205,17 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                                             candidate_reply=test_question_response.response_text,
                                                             user_feedback_prompt=user_feedback_prompt
                                                     )
+                                    
+                        elif test.scenario_case == ScenarioCaseChoices.journaling:
+                            prompt = get_journaling_feedback_prompt(
+                                    prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                                    test_title=test.title,
+                                    test_description=test.description,
+                                    question=question.question,
+                                    candidate_reply=test_question_response.response_text,
+                                    user_feedback_prompt=user_feedback_prompt
+                            )
+
                         else:
                             if question.gpt_prompt_override or test.gpt_prompt_override:
                                 prompt = get_overridden_prompt(
@@ -2713,6 +2734,15 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
         else:
             if background is not None:
                 prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
+            elif test.scenario_case == ScenarioCaseChoices.journaling:
+                prompt = get_journaling_feedback_prompt(
+                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                        test_title=test.title,
+                        test_description=test.description,
+                        question=question.question,
+                        candidate_reply=test_question_response.response_text,
+                        user_feedback_prompt=""
+                )
             else:
                 if question.gpt_prompt_override or test.gpt_prompt_override:
                     prompt = get_overridden_prompt(
@@ -3531,10 +3561,10 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
         # if culture_skills_rating score is greater than 8.5 then trim the score to 8.5
         for skill in culture_skills_rating:
-            if culture_skills_rating[skill] > 8.5:
-                culture_skills_rating[skill] = 8.5
+            if culture_skills_rating[skill] > 9.5:
+                culture_skills_rating[skill] = 9.4
             elif culture_skills_rating[skill] < 0.5:
-                culture_skills_rating[skill] = 0.5
+                culture_skills_rating[skill] = 0.6
 
         culture_skills_rating = update_culture_skills_if_same_scores(
             culture_skills_rating)
@@ -3565,10 +3595,10 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
+        if skills_rating[skill] > 9.5:
+            skills_rating[skill] = 9.4
         elif skills_rating[skill] < 0.5:
-            skills_rating[skill] = 0.5
+            skills_rating[skill] = 0.6
 
 
     skills_rating_score = {}
@@ -4713,6 +4743,10 @@ def modify_skills_rating_if_same(skills):
     value_counts = {}
     start = time.time()
 
+    if len(skills) == len(set(skills.values())):
+        return skills
+
+
     for skill, value in sorted(skills.items(), key=lambda x: x[1]):
         # Modify the value to be unique and a multiple of 0.25
         while True:
@@ -5161,10 +5195,10 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
     # if score is greater than 8.5 then trim it to 8.5
     for skill in culture_skills_rating:
-        if culture_skills_rating[skill] > 8.5:
-            culture_skills_rating[skill] = 8.5
+        if culture_skills_rating[skill] > 9.5:
+            culture_skills_rating[skill] = 9.4
         elif culture_skills_rating[skill] < 0.5:
-            culture_skills_rating[skill] = 0.5
+            culture_skills_rating[skill] = 0.6
 
     return culture_skills_rating
 
@@ -5226,10 +5260,10 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
         return None
     
     for skill in skills_rating:
-        if skills_rating[skill] > 8.5:
-            skills_rating[skill] = 8.5
+        if skills_rating[skill] > 9.5:
+            skills_rating[skill] = 9.1
         elif skills_rating[skill] < 0.5:
-            skills_rating[skill] = 0.5
+            skills_rating[skill] = 0.6
 
     return skills_rating
 
@@ -6524,6 +6558,41 @@ def get_english_support_feedback_prompt(prompt_template: str,
             Additionally, comment on their ability to convey complex ideas effectively and their overall command of the English language. Comment on the emotions that should have been used in the response and does that choice of words reflect that emotion. 
 
             Provide constructive insights that help gauge the candidate's overall language proficiency and potential for improvement. Provide the feedback based on Expert Suggestions. Please provide feedback which specifically help enhance English speaking skills of the candidate. Only provide feedback on the English proficiency of the candidate.
+
+            ${format_prompt}
+            ${user_feedback_prompt}
+            \n\nAssistant:
+            """
+        )
+        
+        return template.substitute(test_title=test_title,
+                            test_description=test_description,
+                            question=question,
+                            prompt_template=prompt_template,
+                            candidate_reply=candidate_reply,
+                            user_feedback_prompt=user_feedback_prompt,
+                            format_prompt=format_prompt)
+@timeit
+def get_journaling_feedback_prompt(prompt_template: str,
+                        test_title: str,
+                        test_description: str,
+                        question: str,
+                        candidate_reply: str,
+                        user_feedback_prompt:str):
+        format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
+
+        template = Template(
+            """
+            \n\nHuman:
+            Title: ${test_title}. 
+            Test Description: ${test_description}
+            Customer question:  ${question} 
+            Evaluation Criteria: ${prompt_template} 
+            Candidate answer:  ${candidate_reply}
+
+            Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
+
+            FOR Sample Candidate: Provide constructive feedback in the context of journaling, presenting a sample candidate response based on the provided Q&A. Maintain the structure outlined in the custom prompt while intentionally including with full statements reference to the XYZ AB framework. Never mention letters XYZ AB.
 
             ${format_prompt}
             ${user_feedback_prompt}
