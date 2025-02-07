@@ -888,9 +888,9 @@ class AccountsViewSet(ApiViewSet,
 
                     # directory.save()
                     try:
-                        subject = "AI Frame Updation"
+                        subject = "AI Copilot Updation"
                         html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI frame/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI Copilot/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
                             """
 
                         send_email_with_html_template(subject=subject,html_content=html,to_email=profile.email,title=f'Hey {profile.name}!')
@@ -1583,8 +1583,8 @@ class AccountsViewSet(ApiViewSet,
                                     send_email_with_html_template(subject=subject,html_content=html)
                             
                                 except Exception as e:
-                                    logger.exception(f"Ai frame creation email is failed reason: {e}")
-                                    error_msg = f"Ai frame creation email is failed reason: {e}\n\n"
+                                    logger.exception(f"Ai Copilot creation email is failed reason: {e}")
+                                    error_msg = f"Ai Copilot creation email is failed reason: {e}\n\n"
                                     error_msg += traceback.format_exc()
                                     send_error_notification("create_bot_by_details",error_msg,{"bot_id":bot_id,"profile_id":profile_id,'email': email, 'profile': coach_profile})
 
