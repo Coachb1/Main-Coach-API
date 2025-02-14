@@ -240,10 +240,8 @@ def format_test_orchestrated_conversation(raw_data):
             media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
             medias = []
             for m in media:
-                if 'youtu.be' in m:
-                    medias.append(format_youtube_link(m,only_video_id=True))
-                else:
-                    medias.append(m)
+                medias.append(format_youtube_link(m,only_video_id=True))
+
 
             output_dict['description_media'] = ",".join(medias)
 
@@ -812,10 +810,7 @@ def format_test_data_slack(raw_data,tenant):
             media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
             medias = []
             for m in media:
-                if 'youtu.be' in m:
-                    medias.append(format_youtube_link(m,only_video_id=True))
-                else:
-                    medias.append(m)
+                medias.append(format_youtube_link(m,only_video_id=True))
 
             output_dict['description_media'] = ",".join(medias)
 
