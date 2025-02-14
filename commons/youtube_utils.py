@@ -3,32 +3,48 @@ from urllib.parse import urlparse, parse_qs
 from commons.timeit import timeit
 import requests
 import logging
+from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 
 
-def format_youtube_link(youtube_link):
-    """ 
-    This function takes a YouTube link as input and converts it into a standard YouTube link format if it's in a shortened (youtu.be) format.
 
-    The function checks if "youtu.be" is in the input link. If it is, the function extracts the video ID from the link by splitting the link on "/" and taking the last element, then splitting that on "?" and taking the first element. This video ID is then used to construct a new link in the standard YouTube format (https://www.youtube.com/watch?v=video_id).
+def format_youtube_link(youtube_link: str, only_video_id: bool = False) -> str:
+    """
+    Converts a YouTube link to its standard format (https://www.youtube.com/watch?v=video_id).
+    
+    Supports both "youtu.be" shortened links and standard YouTube links.
+    
+    Args:
+        youtube_link (str): The YouTube link to be formatted.
+        only_video_id (bool): If True, returns only the video ID.
+    
+    Returns:
+        str: The formatted YouTube link or just the video ID if only_video_id is True.
+    
+    Example:
+        >>> format_youtube_link("https://youtu.be/dQw4w9WgXcQ")
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+        
+        >>> format_youtube_link("https://www.youtube.com/watch?v=dQw4w9WgXcQ", only_video_id=True)
+        'dQw4w9WgXcQ'
+    """
 
-    If "youtu.be" is not in the input link, the function assumes that the link is already in the standard format and returns it as is.
+    parsed_url = urlparse(youtube_link)
 
-    Args: youtube_link (str): The YouTube link to be formatted. This can be in any format that YouTube supports (e.g., youtu.be links or standard YouTube links).
-
-    Returns: str: The YouTube link in the standard format. If the input link was in the youtu.be format, it is converted to the standard format. If the input link was already in the standard format, it is returned as is.
-
-    Example: >>> youtube_link = "https://youtu.be/dQw4w9WgXcQ" >>> print(format_youtube_link(youtube_link)) "https://www.youtube.com/watch?v=dQw4w9WgXcQ" """
-
-    if "youtu.be" in youtube_link:
-        # Extract the video ID from the input link
-        video_id = youtube_link.split("/")[-1].split("?")[0]
-        # Construct the new YouTube link format
-        converted_link = f"https://www.youtube.com/watch?v={video_id}"
-        return converted_link
+    # Handle "youtu.be" short links
+    if parsed_url.netloc == "youtu.be":
+        video_id = parsed_url.path.lstrip("/")
+    
+    # Handle standard YouTube links
+    elif only_video_id and parsed_url.netloc in ("www.youtube.com", "youtube.com") and "v" in parse_qs(parsed_url.query):
+        video_id = parse_qs(parsed_url.query)["v"][0]
+    
     else:
-        return youtube_link
+        return youtube_link  # Return original if format is unrecognized
+
+    return f"https://www.youtube.com/watch?v={video_id}"
+
 
 @timeit
 def get_youtube_transcript(url):
