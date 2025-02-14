@@ -241,7 +241,7 @@ def format_test_orchestrated_conversation(raw_data):
             medias = []
             for m in media:
                 if 'youtu.be' in m:
-                    medias.append(format_youtube_link(m))
+                    medias.append(format_youtube_link(m,only_video_id=True))
                 else:
                     medias.append(m)
 
@@ -813,7 +813,7 @@ def format_test_data_slack(raw_data,tenant):
             medias = []
             for m in media:
                 if 'youtu.be' in m:
-                    medias.append(format_youtube_link(m))
+                    medias.append(format_youtube_link(m,only_video_id=True))
                 else:
                     medias.append(m)
 
