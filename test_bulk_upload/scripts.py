@@ -14,6 +14,7 @@ from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
 from tests.models import Test, TestQuestion, Psychometric, PsychometricReportSection
+from commons.youtube_utils import format_youtube_link
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -234,6 +235,16 @@ def format_test_orchestrated_conversation(raw_data):
 
         if test:
             output_dict['test_code'] = test.test_code
+
+        if output_dict['description_media']:
+            media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
+            medias = []
+            for m in media:
+                medias.append(format_youtube_link(m,only_video_id=True))
+
+
+            output_dict['description_media'] = ",".join(medias)
+
         media_json = {}
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
             image_link = input_dict[TEST_IMAGE_LINK].strip()
@@ -601,6 +612,7 @@ def format_test_orchestrated_conversation(raw_data):
         for key in input_dict:
             if key.startswith('Person'):
                 name = input_dict[key].split(':')[0].strip()
+                name = name.replace('*',"").replace(":","")
                 persons.append(name)
                 initial_messages.append(input_dict[key])
                 test_main_context += input_dict[key]
@@ -649,12 +661,12 @@ def format_test_orchestrated_conversation(raw_data):
                 #         if name.split()[0].lower() in input_dict[key].lower():
                 #             question['question_for'] = name
                 #             break
-
-                matched_name = next((name for name in persons if name.split()[0].lower() in input_dict[key].lower()), None)
+                print('persons', persons)
+                matched_name = next((name for name in persons if name.strip().lower() in input_dict[key].lower()), None)
                 if matched_name:
                     if RESPONDER in input_dict:
                     
-                        if input_dict[RESPONDER] and len(input_dict[RESPONDER].strip()) > 0:
+                        if input_dict[RESPONDER] and len(input_dict[RESPONDER].strip()) > 0 and output_dict.get('test_type') == "dynamic_discussion_thread":
                             responder = input_dict[RESPONDER].strip()
                             matched_name = responder
                     question['question_for'] = matched_name
@@ -667,6 +679,7 @@ def format_test_orchestrated_conversation(raw_data):
         if 'questions' in output_dict and len(output_dict.get('questions')) > 0:
             last_question = output_dict['questions'][-1]
             if last_question['question_for'] != 'user':
+                logger.exception(f"Last question should be for user: {output_dict.get('questions')}")
                 json_data = {"last_question_for_user": "Last question should be for user"}
                 return json_data, False
             
@@ -675,6 +688,8 @@ def format_test_orchestrated_conversation(raw_data):
             question_for = [q['question_for'] for q in output_dict['questions']]
             for i in range(len(question_for) - 1):
                 if question_for[i] == "user" and question_for[i + 1] == "user":
+                    logger.exception(f"Questions for user should not occur continously: {output_dict.get('questions')}")
+
                     json_data = {"last_question_for_user": "Questions for user should not occur continously"}
 
                     return json_data, False
@@ -790,6 +805,16 @@ def format_test_data_slack(raw_data,tenant):
 
         if test:
             output_dict['test_code'] = test.test_code
+
+        if output_dict['description_media']:
+            media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
+            medias = []
+            for m in media:
+                medias.append(format_youtube_link(m,only_video_id=True))
+
+            output_dict['description_media'] = ",".join(medias)
+
+            
         media_json = {}
 
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
@@ -1109,7 +1134,7 @@ def format_test_data_slack(raw_data,tenant):
 
         unique_skill_count = len(set(skills_list))
 
-        if unique_skill_count < 6 and not(input_dict[SCENARIO_CASE] == 'psychometric' or is_transcript_only):
+        if unique_skill_count < 6 and not(input_dict[SCENARIO_CASE] == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
             return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
         
         if unique_skill_count > 8:
