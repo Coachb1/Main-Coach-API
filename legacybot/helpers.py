@@ -3,11 +3,11 @@ from legacybot.models import Thread, ChatConversation, LegacyBotUser
 from commons.utils import generic_completion
 from string import Template
 from tests.helpers import json_extraction
+from datetime import date
 import logging
 import json5
 import uuid
 import re
-
 logger = logging.getLogger(__name__)
 
 @timeit
@@ -119,3 +119,43 @@ def generate_bot_identifier(bot_name,assistant_id):
     bot_id = bot_id.replace("_", "-")
     
     return bot_id
+
+def calculate_session_info(user:LegacyBotUser , thread_ids:list):
+    qouta_exceeded, sessionCount, conversation_steps = False, 0, 0
+    today_data = {}
+    try:
+        conversations = ChatConversation.objects.filter(thread_id__in=thread_ids)
+        conversation_count = conversations.count()
+        # Prevent division by zero
+        if user.session_per_conversation_step > 0:
+            sessionCount = conversation_count // (user.session_per_conversation_step * 2)
+        else:
+            sessionCount = 0  # Default value when session_per_conversation_step is zero
+
+        
+        # Check if the user has unlimited sessions
+        unlimited_session = user.max_session == -1  # Explicitly checking for -1
+        conversation_steps = conversation_count / 2
+
+        # Determine if quota is exceeded
+
+        todays_conversations = conversations.filter(created__date = date.today())
+        todays_conversation_count = todays_conversations.count()
+        if user.session_per_conversation_step > 0:
+            today_session_count = todays_conversation_count // (user.session_per_conversation_step * 2)
+        else:
+            today_session_count = 0  # Default value when session_per_conversation_step is zero
+
+        qouta_exceeded = False if unlimited_session else today_session_count >= user.max_session
+
+        today_data = {
+            "conversation_count": todays_conversation_count,
+            "session_count": today_session_count,
+            "conversation_steps": todays_conversation_count / 2
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to calculate session info for user {user}: {e}")
+
+    return qouta_exceeded, sessionCount, conversation_steps, today_data
+

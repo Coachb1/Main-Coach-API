@@ -32,9 +32,10 @@ class LegacyBotAdmin(admin.ModelAdmin):
 
 @admin.register(LegacyBotUser)
 class LegacyBotUserAdmin(admin.ModelAdmin):
-    list_display = ('id','uid','bot_id', 'email', 'name','first_name', 'last_name', 'att')
+    list_display = ('id','uid', 'is_active', 'role', 'bot_id', 'email', 'name','first_name', 'last_name')
     search_fields = ('email', 'name', 'bot_id')
-    list_editable = ('bot_id', 'email', 'name', 'first_name', 'last_name', 'att')
+    list_filter = ('role','is_active','bot_id')
+    list_editable = ('bot_id', 'is_active', 'role', 'email', 'name', 'first_name', 'last_name')
 
 
 # @admin.register(LegacyBotRoleAndPermissions)
