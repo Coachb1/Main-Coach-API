@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from legacybot.models import LegacyBot, LegacyBotUser, Thread, ChatConversation
 from commons.cloudinary import upload_image
-from legacybot.helpers import generate_bot_identifier
+from legacybot.helpers import generate_bot_identifier, calculate_session_info
 from legacybot.choices import RoleAndPermissionType
 
 class LegacyBotSerializer(serializers.ModelSerializer):
@@ -56,14 +56,17 @@ class LegacyBotUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance:LegacyBotUser):
         data = super().to_representation(instance)
 
-        threads = Thread.objects.filter(user_id=instance.uid)
-        conversations = ChatConversation.objects.filter(thread_id__in=list(threads.values_list('uid', flat=True)))
-        conversation_count = conversations.count()
-        unlimited_session = True if instance.max_session < 0 else False
-        data['qouta_exceeded'] = unlimited_session
+        threads = Thread.objects.filter(user_id=instance.uid,deleted=False)
+        quota_exceeded, total_sessions, total_conversation, today_data = calculate_session_info(
+                                                                                   user=instance,
+                                                                                   thread_ids=list(threads.values_list('uid', flat=True))
+                                                                                   )
+        data['qouta_exceeded'] = quota_exceeded
+        data["TotalSessionCount"] = total_sessions
+        data["total_conversation_steps"]= total_conversation
+        data["today_data"] = today_data
 
-        data["TotalSessionCount"] = conversation_count // (instance.session_per_conversation_step * 2)
-        data["total_conversation_steps"]= conversation_count / 2
+        # in user sessioncount contain all bots. to get session count for each bot we need use thread or convsetion api.
 
         if threads.count() >0:
             data['last_conversation_date'] = threads.order_by('-updated').first().updated.date()
@@ -85,13 +88,14 @@ class ThreadSerializer(serializers.ModelSerializer):
         user = LegacyBotUser.objects.get(uid=instance.user_id)
         
         if user:
-            conversation_count = ChatConversation.objects.filter(thread_id=instance.uid).count()
-
-            unlimited_session = True if user.max_session < 0 else False
-            data['qouta_exceeded'] = unlimited_session
-            data["sessionCount"] = conversation_count // (user.session_per_conversation_step * 2)
-            data["conversation_steps"]= conversation_count / 2
-            data['qouta_exceeded'] = unlimited_session
+            quota_exceeded, total_sessions, total_conversation, today_data = calculate_session_info(
+                                                                                        user=user,
+                                                                                        thread_ids=[instance.uid]
+                                                                                        )
+            data['qouta_exceeded'] = quota_exceeded
+            data["sessionCount"] = total_sessions
+            data["conversation_steps"]= total_conversation
+            data["today_data"] = today_data
 
         return data
 
@@ -106,13 +110,13 @@ class ChatConversationSerializer(serializers.ModelSerializer):
 
         user_id = Thread.objects.get(uid=instance.thread_id).user_id
         user = LegacyBotUser.objects.get(uid=user_id)
-        
+
         if user:
-            conversation_count = ChatConversation.objects.filter(thread_id=instance.thread_id).count()
-            unlimited_session = True if user.max_session < 0 else False
-            data['qouta_exceeded'] = unlimited_session
-            data["sessionCount"] = conversation_count // (user.session_per_conversation_step * 2)
-            data["conversation_steps"]= conversation_count / 2
+            quota_exceeded, total_sessions, total_conversation,today_data =calculate_session_info(user=user,thread_ids=[instance.thread_id])
+            data['qouta_exceeded'] = quota_exceeded
+            data["sessionCount"] = total_sessions
+            data["conversation_steps"]= total_conversation
+            data["today_data"] = today_data
 
         return data
 
