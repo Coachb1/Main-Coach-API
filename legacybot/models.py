@@ -48,6 +48,11 @@ class LegacyBot(MyModel):
         on_delete=models.CASCADE
     )
     is_published = models.BooleanField(null=True, default=False)
+    stream = models.BooleanField(null=True, default=False)
+    show_report = models.BooleanField(null=True, default=False)
+    report_info = models.JSONField(null=True,blank=True,default=None) 
+    buttons = models.JSONField(null=True,blank=True,default=None) # list of buttons
+    welcome_text = models.CharField(max_length=255,null=True, blank=True, default=None)
 
 
     class Meta:
