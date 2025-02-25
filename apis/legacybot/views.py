@@ -5,7 +5,7 @@ from clients.permissions import IsAuthenticatedClient
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from collections import defaultdict
-from legacybot.helpers import get_or_generate_action_data
+from legacybot.helpers import get_or_generate_action_data, calculate_session_info
 import logging
 
 logger = logging.getLogger("main")
@@ -136,6 +136,31 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
             bots = LegacyBot.objects.filter(creator=user, deleted=False)
             serializer = LegacyBotSerializer(bots, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Error getting bot by user : {e}")
+            return Response({'detail': f"Error getting bot by user"}, status=status.HTTP_400_BAD)
+            
+    @action(methods=['GET'], detail=False, url_path="get-session-informations")
+    def get_session_information(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id', None)
+        bot_id = request.query_params.get('bot_id', None)
+
+        logger.info(f"get_session_information: user_id: {user_id}, bot_id: {bot_id}")
+        if not user_id or not bot_id:
+            return Response({"detail": "user_id and bot_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = LegacyBotUser.objects.get(uid=user_id)
+            threads = Thread.objects.filter(user_id=user_id,bot_id=bot_id,deleted=False)
+            quota_exceeded, total_sessions, total_conversation, today_data = calculate_session_info(
+                                                                                    user=user,
+                                                                                    thread_ids=list(threads.values_list('uid', flat=True))
+                                                                                    )
+            return Response(data={
+                'quota_exceeded': quota_exceeded,
+                'total_sessions': total_sessions,
+                'total_conversation': total_conversation,
+                'today_data': today_data
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Error getting bot by user : {e}")
             return Response({'detail': f"Error getting bot by user"}, status=status.HTTP_400_BAD)

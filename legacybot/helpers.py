@@ -1,13 +1,13 @@
 from commons.timeit import timeit
-from legacybot.models import Thread, ChatConversation, LegacyBotUser
+from legacybot.models import Thread, ChatConversation, LegacyBotUser, LegacyBot
 from commons.utils import generic_completion
 from string import Template
 from tests.helpers import json_extraction
+from datetime import date
 import logging
 import json5
 import uuid
 import re
-
 logger = logging.getLogger(__name__)
 
 @timeit
@@ -18,7 +18,8 @@ def get_or_generate_action_data(threads: Thread):
     if threads.count() == 0:
         return action_data
     user = LegacyBotUser.objects.get(uid=threads.first().user_id)
-    for thread in threads:
+    bot = LegacyBot.objects.get(uid=threads.first().bot_id)
+    for thread in threads.order_by('updated'):
         try:
             if user.uid != thread.user_id:
                 user = LegacyBotUser.objects.get(uid=thread.user_id)
@@ -39,9 +40,21 @@ def get_or_generate_action_data(threads: Thread):
                 logger.info(f"Using existing action data for thread {thread.uid}")
                 action_data.append({thread.uid: thread.action_data})
                 continue
-
             # Generate new action data
-            data = generate_action_report_data(conversations=conversations)
+            if bot.show_report:
+                only_report_data = [conv.content for conv in conversations if conv.role == 'assistant' and "Top 5 Scenarios & Probabilities" in conv.content]
+                if only_report_data:
+                    data = {
+                            'summary': only_report_data[-1],
+                            'keyTakeaways': None,
+                            'skillsFocus': []
+                        }
+                else:
+                    logger.warning(f"No conversation found in the thread: {thread.uid}")
+                    action_data.append({thread.uid: "No conversation found."})
+                    continue
+            else:
+                data = generate_action_report_data(conversations=conversations)
             data.update({
                 "last_conversation_id": last_conversation.uid,
                 "conversationTitle": thread.chat_topic,
@@ -60,7 +73,7 @@ def get_or_generate_action_data(threads: Thread):
             logger.error(f"No conversations found for thread {thread.uid}")
         except Exception as e:
             logger.exception(f"Failed to process thread {thread.uid}: {e}", exc_info=True)
-
+    
     return action_data
 
     
@@ -119,3 +132,43 @@ def generate_bot_identifier(bot_name,assistant_id):
     bot_id = bot_id.replace("_", "-")
     
     return bot_id
+
+def calculate_session_info(user:LegacyBotUser , thread_ids:list):
+    qouta_exceeded, sessionCount, conversation_steps = False, 0, 0
+    today_data = {}
+    try:
+        conversations = ChatConversation.objects.filter(thread_id__in=thread_ids)
+        conversation_count = conversations.count()
+        # Prevent division by zero
+        if user.session_per_conversation_step > 0:
+            sessionCount = conversation_count // (user.session_per_conversation_step * 2)
+        else:
+            sessionCount = 0  # Default value when session_per_conversation_step is zero
+
+        
+        # Check if the user has unlimited sessions
+        unlimited_session = user.max_session == -1  # Explicitly checking for -1
+        conversation_steps = conversation_count / 2
+
+        # Determine if quota is exceeded
+
+        todays_conversations = conversations.filter(created__date = date.today())
+        todays_conversation_count = todays_conversations.count()
+        if user.session_per_conversation_step > 0:
+            today_session_count = todays_conversation_count // (user.session_per_conversation_step * 2)
+        else:
+            today_session_count = 0  # Default value when session_per_conversation_step is zero
+
+        qouta_exceeded = False if unlimited_session else today_session_count >= user.max_session
+
+        today_data = {
+            "conversation_count": todays_conversation_count,
+            "session_count": today_session_count,
+            "conversation_steps": todays_conversation_count / 2
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to calculate session info for user {user}: {e}")
+
+    return qouta_exceeded, sessionCount, conversation_steps, today_data
+
