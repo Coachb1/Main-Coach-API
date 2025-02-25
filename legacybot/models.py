@@ -48,6 +48,11 @@ class LegacyBot(MyModel):
         on_delete=models.CASCADE
     )
     is_published = models.BooleanField(null=True, default=False)
+    stream = models.BooleanField(null=True, default=True)
+    show_report = models.BooleanField(null=True, default=False)
+    report_info = models.JSONField(null=True,blank=True,default=None) 
+    buttons = models.JSONField(null=True,blank=True,default=None) # list of buttons
+    welcome_text = models.CharField(max_length=255,null=True, blank=True, default=None)
 
 
     class Meta:
@@ -64,13 +69,15 @@ class LegacyBotUser(MyModel):
     first_name = models.CharField(max_length=100, null=True,blank=True, default=None)
     last_name = models.CharField(max_length=100, null=True,blank=True, default=None)
     att = models.JSONField(null=True,blank=True, default=None)
-    is_whitelist = models.BooleanField(null=True, default=False)
+    is_whitelist = models.BooleanField(null=True, default=False) #not using
+    is_active = models.BooleanField(blank=True, default=True)
     preferences = models.CharField(max_length=255,null=True, blank=True, default=None)
+    role = models.CharField(max_length=50,choices=RoleAndPermissionType ,null=True, blank=True, default=RoleAndPermissionType.freemium)
     max_session = models.IntegerField(
         null=True, 
         blank=True, 
         default=10,
-        help_text="Maximum number of sessions. Set to -1 for unlimited sessions."
+        help_text="Maximum number of sessions. Set to -1 for unlimited sessions. if you choose role Premimum it will considered -1."
     )
     session_per_conversation_step = models.PositiveIntegerField(
         null=True, 
@@ -86,6 +93,12 @@ class LegacyBotUser(MyModel):
         unique_together = (
             ('email', 'deleted'),
         )
+
+    def save(self, *args, **kwargs):
+        if self.role == RoleAndPermissionType.premimum:
+            self.max_session = -1
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} ({self.email})"

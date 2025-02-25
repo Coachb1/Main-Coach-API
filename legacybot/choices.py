@@ -7,6 +7,6 @@ class RoleType(DjangoChoices):
 
 class RoleAndPermissionType(DjangoChoices):
     premimum = ChoiceItem('premimum')
-    demo = ChoiceItem('demo')
+    freemium = ChoiceItem('freemium')
 
     
