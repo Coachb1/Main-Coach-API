@@ -1,5 +1,5 @@
 from commons.timeit import timeit
-from legacybot.models import Thread, ChatConversation, LegacyBotUser
+from legacybot.models import Thread, ChatConversation, LegacyBotUser, LegacyBot
 from commons.utils import generic_completion
 from string import Template
 from tests.helpers import json_extraction
@@ -18,7 +18,8 @@ def get_or_generate_action_data(threads: Thread):
     if threads.count() == 0:
         return action_data
     user = LegacyBotUser.objects.get(uid=threads.first().user_id)
-    for thread in threads:
+    bot = LegacyBot.objects.get(uid=threads.first().bot_id)
+    for thread in threads.order_by('updated'):
         try:
             if user.uid != thread.user_id:
                 user = LegacyBotUser.objects.get(uid=thread.user_id)
@@ -39,9 +40,21 @@ def get_or_generate_action_data(threads: Thread):
                 logger.info(f"Using existing action data for thread {thread.uid}")
                 action_data.append({thread.uid: thread.action_data})
                 continue
-
             # Generate new action data
-            data = generate_action_report_data(conversations=conversations)
+            if bot.show_report:
+                only_report_data = [conv.content for conv in conversations if conv.role == 'assistant' and "Top 5 Scenarios & Probabilities" in conv.content]
+                if only_report_data:
+                    data = {
+                            'summary': only_report_data[-1],
+                            'keyTakeaways': None,
+                            'skillsFocus': []
+                        }
+                else:
+                    logger.warning(f"No conversation found in the thread: {thread.uid}")
+                    action_data.append({thread.uid: "No conversation found."})
+                    continue
+            else:
+                data = generate_action_report_data(conversations=conversations)
             data.update({
                 "last_conversation_id": last_conversation.uid,
                 "conversationTitle": thread.chat_topic,
@@ -60,7 +73,7 @@ def get_or_generate_action_data(threads: Thread):
             logger.error(f"No conversations found for thread {thread.uid}")
         except Exception as e:
             logger.exception(f"Failed to process thread {thread.uid}: {e}", exc_info=True)
-
+    
     return action_data
 
     
