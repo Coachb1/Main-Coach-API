@@ -1,5 +1,6 @@
 from commons.timeit import timeit
 from legacybot.models import Thread, ChatConversation, LegacyBotUser, LegacyBot
+from legacybot.choices import RoleAndPermissionType
 from commons.utils import generic_completion
 from string import Template
 from tests.helpers import json_extraction
@@ -12,13 +13,19 @@ logger = logging.getLogger(__name__)
 
 @timeit
 def get_or_generate_action_data(threads: Thread):
-    session_per_conversation_step = 10
     logger.info(f"Processing  [get_or_generate_action_data] for threads: [{threads.count()}: {threads.values_list('uid',flat=True)}]")
     action_data = []
     if threads.count() == 0:
         return action_data
     user = LegacyBotUser.objects.get(uid=threads.first().user_id)
     bot = LegacyBot.objects.get(uid=threads.first().bot_id)
+    session_per_conversation_step = (
+        user.session_per_conversation_step if user.max_session > 0 
+        else bot.session_per_conversation_step if bot 
+        else 10
+    )
+
+    print(session_per_conversation_step)
     for thread in threads.order_by('updated'):
         try:
             if user.uid != thread.user_id:
@@ -55,12 +62,14 @@ def get_or_generate_action_data(threads: Thread):
                     continue
             else:
                 data = generate_action_report_data(conversations=conversations)
+
             data.update({
                 "last_conversation_id": last_conversation.uid,
                 "conversationTitle": thread.chat_topic,
                 "lastDate": str(last_conversation.created.date()),
-                "sessionCount": conversation_count // (user.session_per_conversation_step * 2),
-                "conversation_steps": conversation_count / 2
+                "sessionCount": conversation_count // (session_per_conversation_step * 2),
+                "conversation_steps": conversations.filter(role='assistant').count(),
+                "session_per_conversation_step": session_per_conversation_step
             })
 
             # Save the new action data to the thread
@@ -133,42 +142,51 @@ def generate_bot_identifier(bot_name,assistant_id):
     
     return bot_id
 
-def calculate_session_info(user:LegacyBotUser , thread_ids:list):
-    qouta_exceeded, sessionCount, conversation_steps = False, 0, 0
-    today_data = {}
+def calculate_session_info(user: LegacyBotUser, thread_ids: list, bot_id: str = None):
     try:
+        # Fetch conversations in bulk to minimize queries
         conversations = ChatConversation.objects.filter(thread_id__in=thread_ids)
+
+        # Get bot instance if bot_id is provided
+        bot = LegacyBot.objects.filter(uid=bot_id).first() if bot_id else None
+
+        # Set session limits based on bot or user
+        session_per_conversation_step = (
+            user.session_per_conversation_step if user.max_session > 0 
+            else bot.session_per_conversation_step if bot 
+            else 10
+        )
+
+        max_session = (
+            user.max_session if user.max_session > 0 
+            else bot.max_session if bot 
+            else 1
+        )
+        print(max_session, session_per_conversation_step, 'here:')
+
+        # Calculate session count (avoid division by zero)
         conversation_count = conversations.count()
-        # Prevent division by zero
-        if user.session_per_conversation_step > 0:
-            sessionCount = conversation_count // (user.session_per_conversation_step * 2)
-        else:
-            sessionCount = 0  # Default value when session_per_conversation_step is zero
+        sessionCount = conversation_count // (session_per_conversation_step * 2) if session_per_conversation_step > 0 else 0
 
-        
-        # Check if the user has unlimited sessions
-        unlimited_session = user.max_session == -1  # Explicitly checking for -1
-        conversation_steps = conversation_count / 2
+        # Count assistant conversation steps
+        conversation_steps = conversations.filter(role="assistant").count()
 
-        # Determine if quota is exceeded
-
-        todays_conversations = conversations.filter(created__date = date.today())
+        # Calculate today's conversation data
+        todays_conversations = conversations.filter(created__date=date.today())
         todays_conversation_count = todays_conversations.count()
-        if user.session_per_conversation_step > 0:
-            today_session_count = todays_conversation_count // (user.session_per_conversation_step * 2)
-        else:
-            today_session_count = 0  # Default value when session_per_conversation_step is zero
+        today_session_count = todays_conversation_count // (session_per_conversation_step * 2) if session_per_conversation_step > 0 else 0
 
-        qouta_exceeded = False if unlimited_session else today_session_count >= user.max_session
+        # Check if quota is exceeded
+        qouta_exceeded = user.role != RoleAndPermissionType.premimum and today_session_count >= max_session
 
         today_data = {
             "conversation_count": todays_conversation_count,
             "session_count": today_session_count,
-            "conversation_steps": todays_conversation_count / 2
+            "conversation_steps": todays_conversations.filter(role="assistant").count(),
         }
+
+        return qouta_exceeded, sessionCount, conversation_steps, today_data
 
     except Exception as e:
         logger.exception(f"Failed to calculate session info for user {user}: {e}")
-
-    return qouta_exceeded, sessionCount, conversation_steps, today_data
-
+        return False, 0, 0, {}  # Return default values on failure
