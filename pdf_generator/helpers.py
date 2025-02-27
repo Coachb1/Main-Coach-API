@@ -374,7 +374,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "skill_summary":test_attempt_session.culture_and_skill_summary,
                 'pshycometric_data': psychometric_data,'psychometric_info': psychometric_info, 
                 "other_psychometric_infos": other_psychometric_infos,
-                "category": test.category
+                "category": test.category, "interaction_code": test.test_code
                 }
 
 
@@ -507,7 +507,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  'pshycometric_data': psychometric_data, 'psychometric_info': psychometric_info, 
                  'other_psychometric_infos': other_psychometric_infos,
                  "category": test.category,
-                 "response_relevance":response_relevance
+                 "response_relevance":response_relevance, 
+                 "interaction_code": test.test_code
                  }
 
 
@@ -562,7 +563,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'psychometric_info': psychometric_info, 
                 'other_psychometric_infos': other_psychometric_infos,
                 "category": test.category,
-                "response_relevance": response_relevance
+                "response_relevance": response_relevance, 
+                "interaction_code": test.test_code
                 }
 
 
@@ -701,7 +703,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'psychometric_info': psychometric_info,
                 'other_psychometric_infos': other_psychometric_infos,
                 'report_description': test.report_description,
-                'category': test.category
+                'category': test.category, "interaction_code": test.test_code
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
