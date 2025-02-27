@@ -53,6 +53,18 @@ class LegacyBot(MyModel):
     report_info = models.JSONField(null=True,blank=True,default=None) 
     buttons = models.JSONField(null=True,blank=True,default=None) # list of buttons
     welcome_text = models.CharField(max_length=255,null=True, blank=True, default=None)
+    max_session = models.IntegerField(
+        null=True, 
+        blank=True, 
+        default=1,
+        help_text="Maximum number of sessions."
+    )
+    session_per_conversation_step = models.PositiveIntegerField(
+        null=True, 
+        blank=True, 
+        default=10,
+        help_text="This represents how many conv step a session will contain."
+    )
 
 
     class Meta:
@@ -76,8 +88,8 @@ class LegacyBotUser(MyModel):
     max_session = models.IntegerField(
         null=True, 
         blank=True, 
-        default=10,
-        help_text="Maximum number of sessions. Set to -1 for unlimited sessions. if you choose role Premimum it will considered -1."
+        default=-1,
+        help_text="Maximum number of sessions. if -1 then Main legacybot session config will be considered."
     )
     session_per_conversation_step = models.PositiveIntegerField(
         null=True, 
