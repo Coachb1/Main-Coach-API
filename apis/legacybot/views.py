@@ -153,7 +153,8 @@ class LegacyBotUserViewSet(viewsets.ModelViewSet):
             threads = Thread.objects.filter(user_id=user_id,bot_id=bot_id,deleted=False)
             quota_exceeded, total_sessions, total_conversation, today_data = calculate_session_info(
                                                                                     user=user,
-                                                                                    thread_ids=list(threads.values_list('uid', flat=True))
+                                                                                    thread_ids=list(threads.values_list('uid', flat=True)),
+                                                                                    bot_id=bot_id
                                                                                     )
             return Response(data={
                 'quota_exceeded': quota_exceeded,
