@@ -4001,6 +4001,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "other_psychometric_infos": other_psychometric_infos,
         'report_description': test.report_description,
         "category": test.category,
+        "interaction_code": test.test_code
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
