@@ -8201,31 +8201,31 @@ def get_report_using_session(session_id, type_of_test):
 
     if type_of_test == TestTypeChoices.dynamic_discussion_thread:
       r ={
-      'Title': data['data']['title'],
-      'description': data['data']['test_description'],
-      'objective': data['data']['objective'],
+      'Title': data['title'],
+      'description': data['test_description'],
+      'objective': data['objective'],
 
-      'question And Answer': data['data']['chat_conversation'],
-      'skills_graph_data': data['data']['skills_rating'],
-      'skills_explanation': data['data']['skills_explanation'],
-      'feedback_summary': data['data']['feedback_summary'],
-      'skill_summary': data['data']['skill_summary'],
-      'culture_graph_data': data['data']['culture_skills'],
-      'culture_skills_explanation': data['data']['culture_skills_explanation'],
-      'competency_data': data['data']['competency_data']
+      'question And Answer': data['chat_conversation'],
+      'skills_graph_data': data['skills_rating'],
+      'skills_explanation': data['skills_explanation'],
+      'feedback_summary': data['feedback_summary'],
+      'skill_summary': data['skill_summary'],
+      'culture_graph_data': data['culture_skills'],
+      'culture_skills_explanation': data['culture_skills_explanation'],
+      'competency_data': data['competency_data']
     }
     else:
         r = {
-      'Title': data['data']['title'],
-      'description': data['data']['test_description'],
-      'question And Answer': data['data']['qa'],
-      'skills_graph_data': data['data']['skills_graph_data'],
-      'skills_explanation': data['data']['skills_explanation'],
-      'feedback_summary': data['data']['feedback_summary'],
-      'skill_summary': data['data']['skill_summary'],
-      'culture_graph_data': data['data']['culture_graph_data'],
-      'culture_skills_explanation': data['data']['culture_skills_explanation'],
-      'competency_data': data['data']['competency_data']
+      'Title': data['title'],
+      'description': data['test_description'],
+      'question And Answer': data['qa'],
+      'skills_graph_data': data['skills_graph_data'],
+      'skills_explanation': data['skills_explanation'],
+      'feedback_summary': data['feedback_summary'],
+      'skill_summary': data['skill_summary'],
+      'culture_graph_data': data['culture_graph_data'],
+      'culture_skills_explanation': data['culture_skills_explanation'],
+      'competency_data': data['competency_data']
     }
 
     result = ''
@@ -11555,6 +11555,8 @@ def process_test_pilot_user_csv(csv, tenant_id):
                 identity_type=identity_type
             )
 
+            
+
             if user:
                 test_pilot_user.user = user
                 updated_fields.append('user')
@@ -11569,11 +11571,38 @@ def process_test_pilot_user_csv(csv, tenant_id):
                     updated_fields.append('client')
 
 
+                context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
+                if test_pilot_user.objective:
+                    context += f"Objective: {test_pilot_user.objective}\n"
+                if test_pilot_user.industry:
+                    context += f"Industry: {test_pilot_user.industry}"
+                if test_pilot_user.department:
+                    context += f"department: {test_pilot_user.department}"
+                if test_pilot_user.key_stakeholders:
+                    context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+                if test_pilot_user.situation:
+                    context += f"situation: {test_pilot_user.situation}"
                 # now creating starting test scenarios
-                # for _ in range(3):
-                #     create_scenario_from_site_context(
-                #         url = None
-                #     )
+                for _ in range(3):
+                    try:
+                        test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                                assign_to=user.uid, 
+                                                                is_micro=True,
+                                                                flavour='normal',
+                                                                by_pass_access_token=True
+                                                                )
+                        logger.info(f"created_test: {test[0]}, {test[0]['test_code']}")
+                        test = test[0]
+                        TestPilotRecords.objects.create(
+                            pilotuser = user,
+                            test = Test.objects.get(test_code=test['test_code']),
+                        )
+                        break
+                    
+                    except Exception as e:
+                        logger.exception(f"{e}")
+
+                    
 
 
             
