@@ -668,4 +668,4 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
         )
 
 
-# admin.site.register(TestPilotuser, TestPilotUserAdmin)
+admin.site.register(TestPilotuser, TestPilotUserAdmin)
