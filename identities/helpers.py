@@ -78,3 +78,14 @@ def get_user_via_identity(tenant: Tenant,
         logger.info({"!!!!ERROR": e}, exc_info=True)
 
     return user
+
+
+def get_identity_value_by_tenant(tenant_id, all_types=False):
+    # Fetch unique tenant_id + identity_type
+    all_identity_types = Identity.objects.values('tenant_id', 'identity_type').distinct()
+
+    if all_types:
+        return list(all_identity_types)  # Convert QuerySet to list if needed
+
+    # Filter by specific tenant_id and return the first match (or None if not found)
+    return all_identity_types.filter(tenant_id=tenant_id).first()
