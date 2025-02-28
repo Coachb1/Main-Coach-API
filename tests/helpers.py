@@ -8196,7 +8196,43 @@ def get_report_using_session(session_id, type_of_test):
         data = get_report_from_test_attempt_session(
                 test_attempt_session, only_data=True)
 
-    return data
+
+    
+
+    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+      r ={
+      'Title': data['data']['title'],
+      'description': data['data']['test_description'],
+      'objective': data['data']['objective'],
+
+      'question And Answer': data['data']['chat_conversation'],
+      'skills_graph_data': data['data']['skills_rating'],
+      'skills_explanation': data['data']['skills_explanation'],
+      'feedback_summary': data['data']['feedback_summary'],
+      'skill_summary': data['data']['skill_summary'],
+      'culture_graph_data': data['data']['culture_skills'],
+      'culture_skills_explanation': data['data']['culture_skills_explanation'],
+      'competency_data': data['data']['competency_data']
+    }
+    else:
+        r = {
+      'Title': data['data']['title'],
+      'description': data['data']['test_description'],
+      'question And Answer': data['data']['qa'],
+      'skills_graph_data': data['data']['skills_graph_data'],
+      'skills_explanation': data['data']['skills_explanation'],
+      'feedback_summary': data['data']['feedback_summary'],
+      'skill_summary': data['data']['skill_summary'],
+      'culture_graph_data': data['data']['culture_graph_data'],
+      'culture_skills_explanation': data['data']['culture_skills_explanation'],
+      'competency_data': data['data']['competency_data']
+    }
+
+    result = ''
+    for key, value in r.items():
+        result += f"{key}: {value}"
+
+    return result
 
         
 def get_scenario_creation_report_prompt(site_information,prompt_type, session_id, num_questions=3,case='default'):
@@ -11534,9 +11570,10 @@ def process_test_pilot_user_csv(csv, tenant_id):
 
 
                 # now creating starting test scenarios
-                create_scenario_from_site_context(
-
-                )
+                # for _ in range(3):
+                #     create_scenario_from_site_context(
+                #         url = None
+                #     )
 
 
             
