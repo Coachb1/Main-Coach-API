@@ -908,6 +908,7 @@ class TestViewSet(ApiViewSet,
         use_anthropic = request.query_params.get("use_anthropic",True)
         flavour = request.query_params.get('flavour',None)
         previous_session_id = request.query_params.get('previous_session_id',None)
+        custom_prompt = request.query_params.get('custom_prompt',None)
 
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
@@ -955,7 +956,8 @@ class TestViewSet(ApiViewSet,
                                                              assigned_by=assigned_by, is_micro=is_micro,
                                                              regeneration=regeneration,use_anthropic=use_anthropic,
                                                              flavour=flavour,
-                                                             previous_session_id=previous_session_id
+                                                             previous_session_id=previous_session_id,
+                                                             custom_prompt=custom_prompt
                                                              )
                 if scenario:
                     resp_data.append(scenario)
@@ -968,7 +970,8 @@ class TestViewSet(ApiViewSet,
                                                                         origin=source, competency=None, 
                                                                         creator_user_id=creator_user_id,assign_to=assign_to,
                                                                         assigned_by=assigned_by,is_micro=is_micro,
-                                                                        previous_session_id=previous_session_id)
+                                                                        previous_session_id=previous_session_id,
+                                                                        custom_prompt=custom_prompt)
                 if scenario:
                     resp_data.append(dynamic_discussion)
                 else:
