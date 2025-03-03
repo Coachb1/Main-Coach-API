@@ -22,6 +22,7 @@ from django.shortcuts import render, redirect
 from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
 from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
+from django.utils.html import format_html
 import io
 import csv
 import json
@@ -587,9 +588,42 @@ admin.site.register(PsychometricReportSection, PsychometricReportConfigAdmin)
 admin.site.register(PsychometricReportSubsection, SubsectionAdmin)
 
 
+class TestPilotRecordsInline(admin.TabularInline):
+    model = TestPilotRecords
+    extra = 1
+    fields = ('test', 'sent_email', 'test_attempted', 'active')
+    readonly_fields = ('test',)
+    can_delete = True
+
+
+
 class TestPilotUserAdmin(TenantAwareModelAdmin):
-    list_display = ("name", "email", "industry", "department", "tenant_id")
-    search_fields = ("name",)
+    list_display = ('id', 'name', 'email', 'industry', 'department', 'restart_status', 'view_records')
+    list_filter = ('industry', 'department', 'restart')
+    search_fields = ('name', 'email', 'industry', 'department')
+    inlines = [TestPilotRecordsInline]
+    
+    def restart_status(self, obj):
+        return format_html('<span style="color:{}; font-weight:bold;">{}</span>',
+                           'green' if obj.restart else 'red', 'Yes' if obj.restart else 'No')
+    restart_status.short_description = "Restart"
+    
+    def view_records(self, obj):
+        return format_html('<a href="/custom-admin/tests/testpilotrecords/?pilotuser__id__exact={}" style="color: blue; font-weight: bold;">View Records</a>', obj.id)
+    view_records.short_description = "Test Records"
+
+    ordering = ('-id',)
+    fieldsets = (
+        ('User Information', {
+            'fields': ('user', 'client', 'name', 'email')
+        }),
+        ('Professional Details', {
+            'fields': ('industry', 'department', 'targeted_skills', 'objective')
+        }),
+        ('Additional Info', {
+            'fields': ('key_stakeholders', 'situation', 'restart')
+        }),
+    )
     change_list_template = (
         "admin/testpilotusers/testpilotuser_changelist.html"  # Custom template for button
     )
@@ -669,3 +703,30 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 
 
 admin.site.register(TestPilotuser, TestPilotUserAdmin)
+
+class TestPilotRecordsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted', 'active')
+    search_fields = ('pilotuser__name', 'test__name', 'pilotuser__email')
+    list_filter = ('sent_email', 'test_attempted', 'active')
+    ordering = ('id',)
+
+    fieldsets = (
+        ('Pilot User & Test', {
+            'fields': ('pilotuser', 'test')
+        }),
+        ('Status', {
+            'fields': ('sent_email', 'test_attempted', 'active')
+        }),
+        ('Additional Info', {
+            'fields': ('body',)
+        }),
+    )
+
+    @admin.display(description='Pilot User Email')
+    def get_pilotuser_email(self, obj):
+        return obj.pilotuser.email if obj.pilotuser else None
+    @admin.display(description='Pilot User Email')
+    def get_pilotuser_name(self, obj):
+        return obj.pilotuser.name if obj.pilotuser else None
+
+admin.site.register(TestPilotRecords, TestPilotRecordsAdmin)
