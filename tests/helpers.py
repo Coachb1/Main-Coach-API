@@ -8230,7 +8230,7 @@ def get_report_using_session(session_id, type_of_test):
 
     result = ''
     for key, value in r.items():
-        result += f"{key}: {value}"
+        result += f"{key}: {value}\n\n"
 
     return result
 
@@ -8646,7 +8646,7 @@ def create_scenario_from_site_context(url,
 
             if by_pass_access_token:
                 try:
-                    tenant = Tenant.object.get(uid=tenant_id)
+                    tenant = Tenant.objects.get(uid=tenant_id)
                     serializer = CreateTestSerializer(data=test_json)
                     serializer.is_valid(raise_exception=True)
 
@@ -8659,7 +8659,7 @@ def create_scenario_from_site_context(url,
                         tenant=tenant,
                         **serializer.validated_data
                     )
-                    return {'title': test.tile,'test_code': test.test_code,
+                    return {'title': test.title,'test_code': test.test_code,
                                 'description': test.description,'test_type': test.test_type,
                                 "is_micro": test.is_micro,"scenario_case": test.scenario_case,
                                 "interaction_mode": test.interaction_mode, "scenario": scenario}
@@ -11518,6 +11518,25 @@ def cleanup_database():
             bot.delete()
 
 
+def check_updates(instance, updates):
+    """
+    Checks if any values in the updates dictionary differ from the current instance values.
+
+    Args:
+        instance: The model instance to compare.
+        updates: Dictionary containing field-value pairs to check for updates.
+
+    Returns:
+        bool: True if any value is updated, False otherwise.
+    """
+    updated_fields = []
+    for field, new_value in updates.items():
+        old_value = getattr(instance, field, None)
+        if old_value != new_value:
+            updated_fields.append(field)
+
+    return updated_fields if updated_fields else []
+
 def process_test_pilot_user_csv(csv, tenant_id):
     test_to_create = ['simulation', 'role_play', 'games', 'dynamic', 'dynamic_user_first']
     for row in csv:
@@ -11529,35 +11548,48 @@ def process_test_pilot_user_csv(csv, tenant_id):
             raise ValidationError('CSV contains empty required fields.')
 
         # Create or update record
+        defaults = {
+            "name": row.get("Name"),
+            "targeted_skills": row.get("Targeted Skills"),
+            "objective": row.get("Objective"),
+            "industry": row.get("Industry"),
+            "department": row.get("Department"),
+            "key_stakeholders": row.get("Key Stakeholders"),
+            "situation": row.get("Situation"),
+        }
+
         test_pilot_user, is_created = TestPilotuser.objects.update_or_create(
             email=email,
             tenant_id=tenant_id,
-            defaults={
-                "name": row.get("Name").strip(),
-                "targeted_skills": row.get("Targeted Skills").strip(),
-                "objective": row.get("Objective").strip(),
-                "industry": row.get("Industry").strip(),
-                "department": row.get("Department").strip(),
-                "key_stakeholders": row.get("Key Stakeholders").strip(),
-                "situation": row.get("Situation").strip(),
-            },
+            defaults=defaults,
         )
-
         print(tenant_id, is_created)
         updated_fields = []
-        if is_created:
-            tenant = Tenant.objects.get(uid=tenant_id)
-            identity_type = get_identity_value_by_tenant(tenant_id=tenant_id)
-            print(identity_type)
-            user = get_user_via_identity(
-                tenant=tenant,
-                identity_value=email,
-                identity_type=identity_type
-            )
 
+        updated = check_updates(test_pilot_user, defaults) if not is_created else []
+
+
+        if len(updated) > 0:
+            test_pilot_user.restart= True
+            updated_fields.append('restart')
+            is_created = True
             
 
-            if user:
+        
+        if is_created:
+            if not test_pilot_user.user:
+                tenant = Tenant.objects.get(uid=tenant_id)
+                identity_type = get_identity_value_by_tenant(tenant_id=tenant_id)
+                print(identity_type)
+                user = get_user_via_identity(
+                    tenant=tenant,
+                    identity_value=email,
+                    identity_type=identity_type
+                )
+
+                if not user:
+                    raise ValidationError(f"{email} has no user and/or client.")
+
                 test_pilot_user.user = user
                 updated_fields.append('user')
 
@@ -11566,44 +11598,54 @@ def process_test_pilot_user_csv(csv, tenant_id):
                     user_uid=user.uid,
 
                 )
-                if client:
-                    test_pilot_user.client = client
-                    updated_fields.append('client')
+                if not client:
+                    raise ValidationError(f"{email} has no user and/or client.")
+            
+                test_pilot_user.client = client
+                updated_fields.append('client')
 
 
-                context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
-                if test_pilot_user.objective:
-                    context += f"Objective: {test_pilot_user.objective}\n"
-                if test_pilot_user.industry:
-                    context += f"Industry: {test_pilot_user.industry}"
-                if test_pilot_user.department:
-                    context += f"department: {test_pilot_user.department}"
-                if test_pilot_user.key_stakeholders:
-                    context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
-                if test_pilot_user.situation:
-                    context += f"situation: {test_pilot_user.situation}"
-                # now creating starting test scenarios
-                for _ in range(3):
-                    try:
-                        test = create_scenario_from_site_context(None, "", tenant_id, context, 
-                                                                assign_to=user.uid, 
-                                                                is_micro=True,
-                                                                flavour='normal',
-                                                                by_pass_access_token=True
-                                                                )
-                        logger.info(f"created_test: {test[0]}, {test[0]['test_code']}")
-                        test = test[0]
-                        TestPilotRecords.objects.create(
-                            pilotuser = user,
-                            test = Test.objects.get(test_code=test['test_code']),
-                        )
-                        break
+            context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
+            if test_pilot_user.objective:
+                context += f"Objective: {test_pilot_user.objective}\n"
+            if test_pilot_user.industry:
+                context += f"Industry: {test_pilot_user.industry}"
+            if test_pilot_user.department:
+                context += f"department: {test_pilot_user.department}"
+            if test_pilot_user.key_stakeholders:
+                context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+            if test_pilot_user.situation:
+                context += f"situation: {test_pilot_user.situation}"
+
+
+            context = json.dumps({
+                "title": "",
+                "data": {'information': context}
+            })
+            # now creating starting test scenarios
+            for i in range(3):
+                try:
+                    test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                            assign_to=user.uid, 
+                                                            is_micro=True,
+                                                            flavour='normal',
+                                                            by_pass_access_token=True
+                                                            )
+                    logger.info(f"created_test: {test}, {test['test_code']}")
+                    TestPilotRecords.objects.create(
+                        pilotuser = test_pilot_user,
+                        test = Test.objects.get(test_code=test['test_code']),
+                    )
+                    break
+                
+                except Exception as e:
+                    logger.exception(f"{e}")
+                    if i+1 ==3:
+                        raise e
+
                     
-                    except Exception as e:
-                        logger.exception(f"{e}")
-
-                    
-
+        if len(updated_fields) > 0:
+            test_pilot_user.save(update_fields=updated_fields)
 
             
 
