@@ -876,7 +876,7 @@ class TestViewSet(ApiViewSet,
 
             Algorithm:
             1. Get the tenant ID from the request object.
-            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request query parameters.
+            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request data.
             3. If the mode is 'A':
                 - Create an empty list to store the test scenarios data.
                 - If the static scenario flag is True:
@@ -891,24 +891,24 @@ class TestViewSet(ApiViewSet,
                 - Return the test scenarios data in the HTTP response object.
         """ 
         tenant_id = self.request.tenant.uid
-        url = request.query_params.get('url')
-        mode = request.query_params.get('mode')
-        access_token = request.query_params.get('access_token')
-        context = request.query_params.get('information',None)
-        source = request.query_params.get('source',None)
-        creator_user_id = request.query_params.get('creator_user_id',None)
-        competency = request.query_params.get('competency',None)
-        is_static = request.query_params.get('is_static',True)
-        is_dynamic = request.query_params.get('is_dynamic',False)
-        assign_to = request.query_params.get('assign_to')
-        assigned_by = request.query_params.get("assigned_by")
-        is_micro = request.query_params.get("is_micro",True)
-        regeneration = request.query_params.get("regeneration",False)
-        is_fetch = request.query_params.get("is_fetch",False)
-        use_anthropic = request.query_params.get("use_anthropic",True)
-        flavour = request.query_params.get('flavour',None)
-        previous_session_id = request.query_params.get('previous_session_id',None)
-        custom_prompt = request.query_params.get('custom_prompt',None)
+        url = request.data.get('url')
+        mode = request.data.get('mode')
+        access_token = request.data.get('access_token')
+        context = request.data.get('information',None)
+        source = request.data.get('source',None)
+        creator_user_id = request.data.get('creator_user_id',None)
+        competency = request.data.get('competency',None)
+        is_static = request.data.get('is_static',True)
+        is_dynamic = request.data.get('is_dynamic',False)
+        assign_to = request.data.get('assign_to')
+        assigned_by = request.data.get("assigned_by")
+        is_micro = request.data.get("is_micro",True)
+        regeneration = request.data.get("regeneration",False)
+        is_fetch = request.data.get("is_fetch",False)
+        use_anthropic = request.data.get("use_anthropic",True)
+        flavour = request.data.get('flavour',None)
+        previous_session_id = request.data.get('previous_session_id',None)
+        custom_prompt = request.data.get('custom_prompt',None)
 
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
