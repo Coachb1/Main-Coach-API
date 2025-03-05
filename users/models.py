@@ -318,6 +318,7 @@ class ClientUserInfo(TenantAwareModel):
     allow_access_to_platform = models.BooleanField(default=True)
     allow_access_to_snippet = models.BooleanField(default=True)
     report_on = models.BooleanField(null=True,blank=True)
+    show_recommendations = models.BooleanField(default=True)
 
     class Meta:
         db_table = "client_user_info"

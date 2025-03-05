@@ -15,7 +15,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios)
-from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs
+from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -43,6 +43,7 @@ from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cac
 import logging
 from identities.models import Identity
 from commons.google_apis import gemini_chat_completion
+from apis.tests.serializers import TestRecommendationSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -1652,3 +1653,62 @@ class TestViewSet(ApiViewSet,
             return Response({'response': response}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": "failed to generate response", "detail": e.args}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['GET', 'POST'],detail=False, url_path="test-recommendations")
+    def test_recommendations(self, request, *args, **kwargs):
+        try:
+            tenant = request.tenant
+
+            if request.method == 'GET':
+                origin_test_id = request.query_params.get('origin_test_id')
+                test_case = request.query_params.get('test_case')
+                session_id = request.query_params.get('session_id')
+                user_id = request.query_params.get('user_id')
+
+                filters = {'deleted': False, 'tenant_id': tenant.uid}
+                if origin_test_id:
+                    filters['origin_test'] = origin_test_id
+                if test_case:
+                    filters['test_case'] = test_case
+                if session_id:
+                    filters['session_id'] = session_id
+                if user_id: 
+                    filters['user_id'] = user_id
+                print(filters)
+                test_recommendations = TestRecommendation.objects.filter(**filters)
+                data = {
+                    "total_recommendation": test_recommendations.count(),
+                    "test_case": test_case if test_case else "all",
+                    "results": TestRecommendationSerializer(test_recommendations, many=True).data,
+                }
+                return Response(data, status=status.HTTP_200_OK)
+
+            elif request.method == 'POST':
+                recommended_test_id = request.data.get('recommended_test_id')
+                session_id = request.data.get('session_id')
+                test_case = request.data.get('test_case')
+
+                if not (recommended_test_id and session_id and test_case):
+                    return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    session = TestAttemptSession.objects.get(deleted=False, uid=session_id)
+                    recommended_test = Test.objects.get(deleted=False, uid=recommended_test_id)
+                    origin_test = Test.objects.get(deleted=False, uid=session.test_id)
+                except Test.DoesNotExist:
+                    return Response({"error": "Invalid test IDs or session_id provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+                test_recommendation = TestRecommendation.objects.create(
+                    recommended_test=recommended_test,
+                    test_case=test_case,
+                    origin_test=origin_test,
+                    tenant_id=tenant.uid,
+                    session_id = session.uid,
+                    user_id = session.participant_id
+                )
+
+                return Response(TestRecommendationSerializer(test_recommendation).data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.exception(f"Failed to process test recommendations: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
