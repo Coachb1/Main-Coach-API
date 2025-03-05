@@ -15,7 +15,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios)
-from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs
+from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -43,6 +43,7 @@ from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cac
 import logging
 from identities.models import Identity
 from commons.google_apis import gemini_chat_completion
+from apis.tests.serializers import TestRecommendationSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -876,7 +877,7 @@ class TestViewSet(ApiViewSet,
 
             Algorithm:
             1. Get the tenant ID from the request object.
-            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request query parameters.
+            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request data.
             3. If the mode is 'A':
                 - Create an empty list to store the test scenarios data.
                 - If the static scenario flag is True:
@@ -891,22 +892,24 @@ class TestViewSet(ApiViewSet,
                 - Return the test scenarios data in the HTTP response object.
         """ 
         tenant_id = self.request.tenant.uid
-        url = request.query_params.get('url')
-        mode = request.query_params.get('mode')
-        access_token = request.query_params.get('access_token')
-        context = request.query_params.get('information',None)
-        source = request.query_params.get('source',None)
-        creator_user_id = request.query_params.get('creator_user_id',None)
-        competency = request.query_params.get('competency',None)
-        is_static = request.query_params.get('is_static',True)
-        is_dynamic = request.query_params.get('is_dynamic',True)
-        assign_to = request.query_params.get('assign_to')
-        assigned_by = request.query_params.get("assigned_by")
-        is_micro = request.query_params.get("is_micro",True)
-        regeneration = request.query_params.get("regeneration",False)
-        is_fetch = request.query_params.get("is_fetch",False)
-        use_anthropic = request.query_params.get("use_anthropic",True)
-        flavour = request.query_params.get('flavour',None)
+        url = request.data.get('url')
+        mode = request.data.get('mode')
+        access_token = request.data.get('access_token')
+        context = request.data.get('information',None)
+        source = request.data.get('source',None)
+        creator_user_id = request.data.get('creator_user_id',None)
+        competency = request.data.get('competency',None)
+        is_static = request.data.get('is_static',True)
+        is_dynamic = request.data.get('is_dynamic',False)
+        assign_to = request.data.get('assign_to')
+        assigned_by = request.data.get("assigned_by")
+        is_micro = request.data.get("is_micro",True)
+        regeneration = request.data.get("regeneration",False)
+        is_fetch = request.data.get("is_fetch",False)
+        use_anthropic = request.data.get("use_anthropic",True)
+        flavour = request.data.get('flavour',None)
+        previous_session_id = request.data.get('previous_session_id',None)
+        custom_prompt = request.data.get('custom_prompt',None)
 
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
@@ -953,19 +956,27 @@ class TestViewSet(ApiViewSet,
                                                              creator_user_id=creator_user_id, assign_to=assign_to, 
                                                              assigned_by=assigned_by, is_micro=is_micro,
                                                              regeneration=regeneration,use_anthropic=use_anthropic,
-                                                             flavour=flavour
+                                                             flavour=flavour,
+                                                             previous_session_id=previous_session_id,
+                                                             custom_prompt=custom_prompt
                                                              )
                 if scenario:
                     resp_data.append(scenario)
                 else:
                     resp_data.append({'message':"failed to generate the scenario"})
-            # if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
-            #     dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, tenant_id=tenant_id,context=context,type_of_test=TestTypeChoices.dynamic_discussion_thread, 
-            #                                                         origin=source, competency=None, creator_user_id=creator_user_id,assign_to=assign_to,assigned_by=assigned_by,is_micro=is_micro)
-            #     if scenario:
-            #         resp_data.append(dynamic_discussion)
-            #     else:
-            #         resp_data.append({'message':"failed to generate the dynamic_discussion"})
+            if is_dynamic == 'true' or is_dynamic == True or is_dynamic == "True":
+                dynamic_discussion = create_scenario_from_site_context(url=url, access_token=access_token, 
+                                                                       tenant_id=tenant_id,context=context,
+                                                                       type_of_test=TestTypeChoices.dynamic_discussion_thread, 
+                                                                        origin=source, competency=None, 
+                                                                        creator_user_id=creator_user_id,assign_to=assign_to,
+                                                                        assigned_by=assigned_by,is_micro=is_micro,
+                                                                        previous_session_id=previous_session_id,
+                                                                        custom_prompt=custom_prompt)
+                if scenario:
+                    resp_data.append(dynamic_discussion)
+                else:
+                    resp_data.append({'message':"failed to generate the dynamic_discussion"})
             return Response(data=resp_data, status=status.HTTP_201_CREATED)
         else:
             logger.info("*********************************** MODE B ********************************")
@@ -1642,3 +1653,66 @@ class TestViewSet(ApiViewSet,
             return Response({'response': response}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": "failed to generate response", "detail": e.args}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['GET', 'POST'],detail=False, url_path="test-recommendations")
+    def test_recommendations(self, request, *args, **kwargs):
+        try:
+            tenant = request.tenant
+
+            if request.method == 'GET':
+                origin_test_id = request.query_params.get('origin_test_id')
+                test_case = request.query_params.get('test_case')
+                session_id = request.query_params.get('session_id')
+                user_id = request.query_params.get('user_id')
+
+                filters = {'deleted': False, 'tenant_id': tenant.uid}
+                if origin_test_id:
+                    try:
+                        filters['origin_test'] = Test.objects.get(deleted=False, uid=origin_test_id)
+                    except Exception as e:
+                        logger.exception(f"Invalid origin test ID")
+                        return Response({'error': f"Invalid origin test id: {origin_test_id}"}, status=status.HTTP_400_BAD_REQUEST)
+                if test_case:
+                    filters['test_case'] = test_case
+                if session_id:
+                    filters['session_id'] = session_id
+                if user_id: 
+                    filters['user_id'] = user_id
+                print(filters)
+                test_recommendations = TestRecommendation.objects.filter(**filters)
+                data = {
+                    "total_recommendation": test_recommendations.count(),
+                    "test_case": test_case if test_case else "all",
+                    "results": TestRecommendationSerializer(test_recommendations, many=True).data,
+                }
+                return Response(data, status=status.HTTP_200_OK)
+
+            elif request.method == 'POST':
+                recommended_test_id = request.data.get('recommended_test_id')
+                session_id = request.data.get('session_id')
+                test_case = request.data.get('test_case')
+
+                if not (recommended_test_id and session_id and test_case):
+                    return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    session = TestAttemptSession.objects.get(deleted=False, uid=session_id)
+                    recommended_test = Test.objects.get(deleted=False, uid=recommended_test_id)
+                    origin_test = Test.objects.get(deleted=False, uid=session.test_id)
+                except Test.DoesNotExist:
+                    return Response({"error": "Invalid test IDs or session_id provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+                test_recommendation = TestRecommendation.objects.create(
+                    recommended_test=recommended_test,
+                    test_case=test_case,
+                    origin_test=origin_test,
+                    tenant_id=tenant.uid,
+                    session_id = session.uid,
+                    user_id = session.participant_id
+                )
+
+                return Response(TestRecommendationSerializer(test_recommendation).data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.exception(f"Failed to process test recommendations: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -8,6 +8,7 @@ from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
 from tests.choices import ScenarioCaseChoices
+from tests.choices import TestCaseChoices
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
@@ -442,3 +443,49 @@ class PsychometricReportSubsection(MyModel):
         unique_together = (
             ('name','section','deleted')
         )
+
+
+class TestPilotuser(TenantAwareModel):
+    user = models.ForeignKey('users.User',on_delete=models.CASCADE, null=True, blank=True, default=None)
+    client = models.ForeignKey('users.ClientUserInfo',on_delete=models.CASCADE, null=True, blank=True, default=None)
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    targeted_skills = models.TextField()
+    objective = models.TextField(null=True, blank=True, default=None)
+    industry = models.CharField(max_length=255, null=True, blank=True, default=None)
+    department = models.CharField(max_length=255, null=True, blank=True, default=None)
+    key_stakeholders = models.TextField(null=True, blank=True, default=None)
+    situation = models.TextField(null=True, blank=True, default=None)
+    restart = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "test_pilot_user"
+        unique_together = ('email', 'tenant_id')
+
+class TestPilotRecords(TenantAwareModel):
+    pilotuser = models.ForeignKey(TestPilotuser, to_field="uid", on_delete=models.CASCADE)
+    test = models.ForeignKey(Test, to_field="uid", on_delete=models.CASCADE)
+    sent_email = models.BooleanField(default=False)
+    body = models.TextField(null=True, blank=True, default=None)
+    test_attempted = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "test_pilot_record"
+
+
+class TestRecommendation(TenantAwareModel):
+    recommended_test = models.ForeignKey(
+        Test, to_field="uid", on_delete=models.CASCADE, related_name="recommended_tests"
+    )
+    test_case = models.CharField(max_length=125, choices=TestCaseChoices)
+    origin_test = models.ForeignKey(
+        Test, to_field="uid", on_delete=models.CASCADE, related_name="origin_tests"
+    )
+    session_id = models.CharField(max_length=255, blank=True, null=True)
+    user_id = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        db_table = "test_recommendation"
+        unique_together = ("recommended_test", "test_case", "origin_test")
+
