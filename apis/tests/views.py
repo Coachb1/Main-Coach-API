@@ -1667,7 +1667,11 @@ class TestViewSet(ApiViewSet,
 
                 filters = {'deleted': False, 'tenant_id': tenant.uid}
                 if origin_test_id:
-                    filters['origin_test'] = origin_test_id
+                    try:
+                        filters['origin_test'] = Test.objects.get(deleted=False, uid=origin_test_id)
+                    except Exception as e:
+                        logger.exception(f"Invalid origin test ID")
+                        return Response({'error': f"Invalid origin test id: {origin_test_id}"}, status=status.HTTP_400_BAD_REQUEST)
                 if test_case:
                     filters['test_case'] = test_case
                 if session_id:
