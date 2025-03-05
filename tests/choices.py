@@ -69,6 +69,11 @@ class QuestionForChoices(DjangoChoices):
     bot_llm = ChoiceItem("bot_llm")
     user = ChoiceItem("user")
 
+class TestCaseChoices(DjangoChoices):
+    hard_skills = ChoiceItem("hard_skills")
+    soft_skills = ChoiceItem("soft_skills")
+    report = ChoiceItem("report")
+
 
 class QuestionResponseTypeChoices(DjangoChoices):
     text = ChoiceItem("text")

@@ -85,8 +85,10 @@ from django.core.exceptions import ValidationError
 from commons.google_apis import gemini_chat_completion
 import csv
 from collections import defaultdict
-from tests.models import PsychometricReportSection, PsychometricReportSubsection
-
+from tests.models import PsychometricReportSection, PsychometricReportSubsection, TestPilotuser, TestPilotRecords
+from identities.helpers import get_user_via_identity, get_identity_value_by_tenant
+from pdf_generator.helpers import get_report_from_test_attempt_session
+from apis.tests.serializers import CreateTestSerializer
 logger = logging.getLogger(__name__)
 
 fcfs_handler = FcfsHandler(2)
@@ -8184,6 +8186,278 @@ def get_one_scenario_prompt(site_information,prompt_type, num_questions=3, case=
 
     return prompt
         
+def get_report_using_session(session_id, type_of_test):
+    test_attempt_session = TestAttemptSession.objects.get(uid=session_id)
+
+    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+        data = get_meeting_report_from_test_attempt_session(
+                test_attempt_session)
+    else:
+        data = get_report_from_test_attempt_session(
+                test_attempt_session, only_data=True)
+
+
+    
+
+    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
+      r ={
+      'Title': data['title'],
+      'description': data['test_description'],
+      'objective': data['objective'],
+
+      'question And Answer': data['chat_conversation'],
+      'skills_graph_data': data['skills_rating'],
+      'skills_explanation': data['skills_explanation'],
+      'feedback_summary': data['feedback_summary'],
+      'skill_summary': data['skill_summary'],
+      'culture_graph_data': data['culture_skills'],
+      'culture_skills_explanation': data['culture_skills_explanation'],
+      'competency_data': data['competency_data']
+    }
+    else:
+        r = {
+      'Title': data['title'],
+      'description': data['test_description'],
+      'question And Answer': data['qa'],
+      'skills_graph_data': data['skills_graph_data'],
+      'skills_explanation': data['skills_explanation'],
+      'feedback_summary': data['feedback_summary'],
+      'skill_summary': data['skill_summary'],
+      'culture_graph_data': data['culture_graph_data'],
+      'culture_skills_explanation': data['culture_skills_explanation'],
+      'competency_data': data['competency_data']
+    }
+
+    result = ''
+    for key, value in r.items():
+        result += f"{key}: {value}\n\n"
+
+    return result
+
+def get_test_info_by_session_id(session_id):
+    data = ""
+    session = TestAttemptSession.objects.filter(deleted=False, uid=session_id).first()
+    if session:
+        test = Test.objects.filter(deleted=False, uid=session.test_id).first()
+        if test:
+            data = f'''
+            Title: {test.title}
+            Description: {test.description}
+            SKILLS: [{test.skills_to_evaluate}]
+            '''
+
+    return data
+
+        
+def get_scenario_creation_report_prompt(prompt_type, session_id, num_questions=3,case='default'):
+    prompt = ''
+    # report_data = get_report_using_session(session_id,prompt_type)
+    report_data = get_test_info_by_session_id(session_id=session_id)
+
+    if prompt_type == TestTypeChoices.dynamic_discussion_thread:
+        prompt = """
+                        \n\nHuman:
+                        {Information} - ${information}
+
+                        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
+
+                        Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
+                        Questions - Give me the first question the manager will ask the team member based on the situation .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
+                        Output format - Manager name: Question
+                        For example - Ajay: question?
+                        Prompts - As given in the output format. 
+
+                        Here the format looks like :
+
+                        "Title:",
+
+                        "Description:",
+
+                        "Questions:",
+
+                        "Prompts:" - ["Please respond in order to continue." 
+                        "Respond as {Manager name}", 
+                        "Please respond in order to continue." 
+                        "Respond as {Manager name}", 
+                        "Please respond in order to continue." 
+                        "Respond as {Manager name}", 
+                        "Please respond in order to continue." 
+                        "Respond as {Manager name}", 
+                        "Please respond in order to continue." 
+                        "Respond as {Manager name}"
+                        "Conclude the discussion as a participant."]
+
+                        Write the manager's name in place of {Manager name}. The Manager name should always be the same. Do not make any changes in the given format. . 
+
+                        Do not include any response.
+                        Always provide the output in the given format. 
+
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
+                        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+                        
+                        NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
+                        NOTE : Never miss the Title, Description, Questions.
+
+                        \n\nAssistant: 
+
+                    """
+        prompt = Template(prompt).substitute(information = report_data)  
+    else:
+        if case == 'normal':
+            prompt = """
+                \n\nHuman:
+                information: "${information}"
+
+                Carefully review and analyze the provided {information}. Using this assessment, create a rigorous, high-level simulation that serves as an extended version of the previous scenario. This new scenario must specifically address areas where candidates previously scored low or where improvement is needed, ensuring a targeted approach to skill development.
+
+                Key Requirements:
+
+                The new scenario must build upon the previous one, extending its complexity while introducing fresh challenges.
+                Focus on areas where candidates demonstrated lower scores or struggled, ensuring the simulation directly targets weaknesses.
+                Introduce new variables, constraints, or decision points that escalate difficulty while maintaining continuity.
+                Challenge candidates to apply deeper critical thinking, adaptability, and problem-solving skills under more complex conditions.
+                Avoid repeating previous instructions unless necessary for context—focus on expanding and intensifying the situation rather than restating it.
+                Additionally, provide an analysis of which key areas need improvement and how this extended scenario aims to strengthen them.
+
+                Deliver the extended scenario accordingly.
+
+
+                Give:
+                Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+                Title - Give a specific and relevant title for this description in less than 10 words.
+                Questions - Develop a set of ${num_of_question} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+                Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+                KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+
+                Here the format looks like :
+
+                "Title",
+
+                "Description",
+
+                "Question 1",
+
+                "Prompt 1",
+
+                "Takeaway 1" ,
+
+                "Skills 1" repeated for ${num_of_question} question(s). Do not include any {responder} response.
+
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+                
+                NOTE : Make sure the simulation is very advanced and tough.
+                \n\nAssistant:
+
+                """ 
+        elif case == 'soft_skills':
+
+            prompt = '''
+            \n\nHuman:
+            (information: ${information})
+
+            Carefully review and analyze the provided {information}. Based on this assessment, create a rigorous, high-level simulation that serves as an extended version of the previous scenario, diving deeper into the required skills and interactions. This new scenario must specifically address new areas for candidates to explore, ensuring a targeted approach to tackling an entirely new challenge. 
+
+            Key Requirements:
+                Create a brand new scenaio in the same industry. Target ONLY soft skills that are not covered in the {information} context.
+
+                
+            Deliver the extended scenario accordingly
+
+
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem focuses exclusively on soft skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of ${num_of_question} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on soft skills
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on soft skills.
+            Always end the description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X as in (information).
+            Identify Y as the person asking as in (information)
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for ${num_of_question} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            
+            NOTE: Description, questions, and skills should focus exclusively on soft skills.
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word AND shall not repeat from (information).
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description] as in (information). Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement and other variables.
+            \n\nAssistant:
+                    
+        '''
+            
+        elif case == 'hard_skills':
+            prompt = '''
+            \n\nHuman:
+            (information: ${information})
+
+            Carefully review and analyze the provided {information}. Based on this assessment, create a rigorous, high-level simulation that serves as an extended version of the previous scenario, diving deeper into the required skills and interactions. This new scenario must specifically address new areas for candidates to explore, ensuring a targeted approach to tackling an entirely new challenge.
+
+            Key Requirements:
+                Create a brand new scenaio in the same industry. Target ONLY hard skills that are not covered in the {information} context.
+
+                
+            Deliver the extended scenario accordingly
+
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem focuses exclusively on hard skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of ${num_of_question} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on hard skills
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on hard skills
+            Always end the description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X as in (information).
+            Identify Y as the person asking as in (information)
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for ${num_of_question} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+
+            NOTE: Description, questions, and skills should focus exclusively on hard skills.
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word AND shall not repeat from (information).
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description] as in (information). Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement and other variables.
+            \n\nAssistant:
+            
+            '''
+        prompt = Template(prompt).substitute(information = report_data,
+                                            num_of_question=num_questions) 
+        
+    logger.info({"prompt": prompt})
+
+    return prompt
+        
         
         
 def get_improved_title(title):
@@ -8221,7 +8495,25 @@ def decode_basic_auth_token(token: str) -> str:
     return key, secret
 
 @timeit
-def create_scenario_from_site_context(url,access_token, tenant_id, context,is_feedback_bot=False, use_anthropic = True,type_of_test=TestTypeChoices.test, origin = None, competency = None, creator_user_id = None, custom_prompt = None, scenario_summary=None, assign_to=None, assigned_by=None, is_micro = True, regeneration=False,flavour=None):
+def create_scenario_from_site_context(url,
+                                      access_token, 
+                                      tenant_id, 
+                                      context,
+                                      is_feedback_bot=False, 
+                                      use_anthropic = True,
+                                      type_of_test=TestTypeChoices.test, 
+                                      origin = None, 
+                                      competency = None, 
+                                      creator_user_id = None, 
+                                      custom_prompt = None, 
+                                      scenario_summary=None, 
+                                      assign_to=None, 
+                                      assigned_by=None, 
+                                      is_micro = True, 
+                                      regeneration=False,
+                                      flavour=None,
+                                      previous_session_id=None,
+                                      by_pass_access_token=False):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -8255,6 +8547,9 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
     max_retry = 3
     case_type = None
     available_case_types = ['case','normal','checkin','interview','role_play']
+    if previous_session_id:
+        available_case_types = ['soft_skills', 'hard_skills']
+
     for i in range(max_retry):
         logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
         if case_type is not None:
@@ -8298,10 +8593,26 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
             #     return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
             site_information = replace_words(site_information)
 
-            prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
-
-            if is_feedback_bot:
+            if custom_prompt:
+                prompt = custom_prompt
+            elif is_feedback_bot:
                 prompt = get_prompt_for_feedback_bot(site_information)
+            elif previous_session_id:
+                prompt = get_scenario_creation_report_prompt(
+                    prompt_type=type_of_test,
+                    num_questions=3 if is_micro else 6,
+                    case=case_type,
+                    session_id=previous_session_id
+                )
+            else:
+                prompt = get_one_scenario_prompt(
+                    site_information=site_information,
+                    prompt_type=type_of_test,
+                    num_questions=3 if is_micro else 6,
+                    case=case_type
+                )
+
+            logger.info(f"{previous_session_id} Final Prompt: {prompt}")
             response = {}
             scenario = ''
             title, description, question_info, skill_to_evalaute = "","","",""
@@ -8329,6 +8640,8 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                     else:
                         logger.info(f'trying scenario creation bison for {i +1} time')
                         scenario = gemini_completion(prompt)
+                        scenario = re.sub(r'[#*]', '', scenario)
+
                     # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                     # scenario = fcfs_handler.process_request(prompt)
                     logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
@@ -8389,7 +8702,7 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
                         # print('garbage scenario :',scenario)
                         garbage_scenarios.append(scenario)
                         rating = 0
-                        logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                        logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
                         scd = ScenarioCreationDetails.objects.create(
                                 tenant_id=tenant_id,
                                 creator_id = creator_user_id if creator_user_id else "system",
@@ -8444,63 +8757,101 @@ def create_scenario_from_site_context(url,access_token, tenant_id, context,is_fe
 
             json_data = json.dumps(test_json)
 
-            headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': access_token
-                    }
-            
-            logger.info(f"{'#'*100} Scenario raw data : {test_json}  , origin :{origin} {'#'*100} ")
-            # return test_json
-            
-            try:
-                resp = requests.post(
-                                        API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
-                response = resp.json()
-                print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
+            if by_pass_access_token:
+                try:
+                    tenant = Tenant.objects.get(uid=tenant_id)
+                    serializer = CreateTestSerializer(data=test_json)
+                    serializer.is_valid(raise_exception=True)
+
+                    if serializer.validated_data["creator_id"] is None:
+                        serializer.validated_data["creator_id"] = admin_user.uid
+
+
+
+                    test, test_questions = create_test(
+                        tenant=tenant,
+                        **serializer.validated_data
+                    )
+                    return {'title': test.title,'test_code': test.test_code,
+                                'description': test.description,'test_type': test.test_type,
+                                "is_micro": test.is_micro,"scenario_case": test.scenario_case,
+                                "interaction_mode": test.interaction_mode, 
+                                "scenario": scenario,'prompt': prompt,
+                                "test_id": test.uid}
+                    
+                except Exception as e:
+                    logger.error(e,exc_info=True)
+                    scd = ScenarioCreationDetails.objects.create(
+                                    tenant_id=tenant_id,
+                                    creator_id = creator_user_id if creator_user_id else "system",
+                                    input = f"{title} : {des}",
+                                    output = scenario,
+                                    status = "failed",
+                                    reason_of_failure = f"failed to extract information for following reason : {e}"
+                                )
+                    raise e
+
+
+            else:
+                headers = {
+                            'Content-Type': 'application/json',
+                            'Authorization': access_token
+                        }
                 
-                # if assign_to is not None:
-                #     try:
-                #         user_attribute = UserAttribute.objects.filter(deleted=False, user_id=assign_to)
-                #         assigned_tests = user_attribute.assigned_tests
-                #         if assigned_tests is None:
-                #             assigned_tests = {}
+                logger.info(f"{'#'*100} Scenario raw data : {test_json}  , origin :{origin} {'#'*100} ")
+                # return test_json
+                
+                try:
+                    resp = requests.post(
+                                            API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
+                    response = resp.json()
+                    print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
+                    
+                    # if assign_to is not None:
+                    #     try:
+                    #         user_attribute = UserAttribute.objects.filter(deleted=False, user_id=assign_to)
+                    #         assigned_tests = user_attribute.assigned_tests
+                    #         if assigned_tests is None:
+                    #             assigned_tests = {}
+                                
+                    #         if f'{assigned_by}' in assigned_tests :
+                    #             assigned_tests[f'{assigned_by}'] =  assigned_tests[f'{assigned_by}'] + f'{assigned_by}'
+                    #         else:
+                    #             assigned_tests[f'{assigned_by}'] = f'{assigned_by}'
+                    #         user_attribute.save()
                             
-                #         if f'{assigned_by}' in assigned_tests :
-                #             assigned_tests[f'{assigned_by}'] =  assigned_tests[f'{assigned_by}'] + f'{assigned_by}'
-                #         else:
-                #             assigned_tests[f'{assigned_by}'] = f'{assigned_by}'
-                #         user_attribute.save()
-                        
-                #     except Exception as e:
-                #         logger.exception({"error":f"failed to assign test to user : {assign_to}"})
+                    #     except Exception as e:
+                    #         logger.exception({"error":f"failed to assign test to user : {assign_to}"})
 
-                if origin == "script":
-                    resp_json = test_json.copy()
-                    resp_json['test_code'] = response['test_code']
+                    if origin == "script":
+                        resp_json = test_json.copy()
+                        resp_json['test_code'] = response['test_code']
 
-                    return resp_json
-                
-                # if resp.status_code != 201:
-                #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
-                return {'title': response['title'],'test_code': response['test_code'],
-                        'description': response['description'],'test_type': response['test_type'],
-                        "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
-                        "interaction_mode": response['interaction_mode']}
-                
-            except Exception as e:
-                logger.error(e,exc_info=True)
-                scd = ScenarioCreationDetails.objects.create(
-                                tenant_id=tenant_id,
-                                creator_id = creator_user_id if creator_user_id else "system",
-                                input = f"{title} : {des}",
-                                output = scenario,
-                                status = "failed",
-                                reason_of_failure = f"failed to extract information for following reason : {e}"
-                            )
-                raise e
+                        return resp_json
+                    
+                    # if resp.status_code != 201:
+                    #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
+                    return {'title': response['title'],'test_code': response['test_code'],
+                            'description': response['description'],'test_type': response['test_type'],
+                            "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
+                            "interaction_mode": response['interaction_mode'], 
+                            "scenario": scenario, 'prompt': prompt
+                            , "test_id": response['uid']}
+                    
+                except Exception as e:
+                    logger.error(e,exc_info=True)
+                    scd = ScenarioCreationDetails.objects.create(
+                                    tenant_id=tenant_id,
+                                    creator_id = creator_user_id if creator_user_id else "system",
+                                    input = f"{title} : {des}",
+                                    output = scenario,
+                                    status = "failed",
+                                    reason_of_failure = f"failed to extract information for following reason : {e}"
+                                )
+                    raise e
 
         except Exception as e:
-            logger.info(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+            logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
             scd = ScenarioCreationDetails.objects.create(
                                 tenant_id=tenant_id,
                                 creator_id = creator_user_id if creator_user_id else "system",
@@ -11282,3 +11633,137 @@ def cleanup_database():
         print('bot: ', bot.count())
         if bot.count() > 0:
             bot.delete()
+
+
+def check_updates(instance, updates):
+    """
+    Checks if any values in the updates dictionary differ from the current instance values.
+
+    Args:
+        instance: The model instance to compare.
+        updates: Dictionary containing field-value pairs to check for updates.
+
+    Returns:
+        bool: True if any value is updated, False otherwise.
+    """
+    updated_fields = []
+    for field, new_value in updates.items():
+        old_value = getattr(instance, field, None)
+        if old_value != new_value:
+            updated_fields.append(field)
+
+    return updated_fields if updated_fields else []
+
+def process_test_pilot_user_csv(csv, tenant_id):
+    test_to_create = ['simulation', 'role_play', 'games', 'dynamic', 'dynamic_user_first']
+    for row in csv:
+        email = row.get("Email").strip()
+        name = row.get("Name").strip()
+        targeted_skills = row.get("Targeted Skills").strip()
+
+        if not email or not name or not targeted_skills:
+            raise ValidationError('CSV contains empty required fields.')
+
+        # Create or update record
+        defaults = {
+            "name": row.get("Name"),
+            "targeted_skills": row.get("Targeted Skills"),
+            "objective": row.get("Objective"),
+            "industry": row.get("Industry"),
+            "department": row.get("Department"),
+            "key_stakeholders": row.get("Key Stakeholders"),
+            "situation": row.get("Situation"),
+        }
+
+        test_pilot_user, is_created = TestPilotuser.objects.update_or_create(
+            email=email,
+            tenant_id=tenant_id,
+            defaults=defaults,
+        )
+        print(tenant_id, is_created)
+        updated_fields = []
+
+        updated = check_updates(test_pilot_user, defaults) if not is_created else []
+
+
+        if len(updated) > 0:
+            test_pilot_user.restart= True
+            updated_fields.append('restart')
+            is_created = True
+            
+
+        
+        if is_created:
+            if not test_pilot_user.user:
+                tenant = Tenant.objects.get(uid=tenant_id)
+                identity_type = get_identity_value_by_tenant(tenant_id=tenant_id)
+                print(identity_type)
+                user = get_user_via_identity(
+                    tenant=tenant,
+                    identity_value=email,
+                    identity_type=identity_type
+                )
+
+                if not user:
+                    raise ValidationError(f"{email} has no user and/or client.")
+
+                test_pilot_user.user = user
+                updated_fields.append('user')
+
+                client = get_client_info_from_user_detail(
+                    tenant_id=tenant_id,
+                    user_uid=user.uid,
+
+                )
+                if not client:
+                    raise ValidationError(f"{email} has no user and/or client.")
+            
+                test_pilot_user.client = client
+                updated_fields.append('client')
+
+
+            context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
+            if test_pilot_user.objective:
+                context += f"Objective: {test_pilot_user.objective}\n"
+            if test_pilot_user.industry:
+                context += f"Industry: {test_pilot_user.industry}"
+            if test_pilot_user.department:
+                context += f"department: {test_pilot_user.department}"
+            if test_pilot_user.key_stakeholders:
+                context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+            if test_pilot_user.situation:
+                context += f"situation: {test_pilot_user.situation}"
+
+
+            context = json.dumps({
+                "title": "",
+                "data": {'information': context}
+            })
+            # now creating starting test scenarios
+            for i in range(3):
+                try:
+                    test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                            assign_to=user.uid, 
+                                                            is_micro=True,
+                                                            flavour='normal',
+                                                            by_pass_access_token=True
+                                                            )
+                    logger.info(f"created_test: {test}, {test['test_code']}")
+                    TestPilotRecords.objects.create(
+                        pilotuser = test_pilot_user,
+                        test = Test.objects.get(test_code=test['test_code']),
+                    )
+                    break
+                
+                except Exception as e:
+                    logger.exception(f"{e}")
+                    if i+1 ==3:
+                        raise e
+
+                    
+        if len(updated_fields) > 0:
+            test_pilot_user.save(update_fields=updated_fields)
+
+            
+
+    
