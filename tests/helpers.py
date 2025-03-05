@@ -8775,7 +8775,9 @@ def create_scenario_from_site_context(url,
                     return {'title': test.title,'test_code': test.test_code,
                                 'description': test.description,'test_type': test.test_type,
                                 "is_micro": test.is_micro,"scenario_case": test.scenario_case,
-                                "interaction_mode": test.interaction_mode, "scenario": scenario,'prompt': prompt}
+                                "interaction_mode": test.interaction_mode, 
+                                "scenario": scenario,'prompt': prompt,
+                                "test_id": test.uid}
                     
                 except Exception as e:
                     logger.error(e,exc_info=True)
@@ -8832,7 +8834,9 @@ def create_scenario_from_site_context(url,
                     return {'title': response['title'],'test_code': response['test_code'],
                             'description': response['description'],'test_type': response['test_type'],
                             "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
-                            "interaction_mode": response['interaction_mode'], "scenario": scenario, 'prompt': prompt}
+                            "interaction_mode": response['interaction_mode'], 
+                            "scenario": scenario, 'prompt': prompt
+                            , "test_id": response['uid']}
                     
                 except Exception as e:
                     logger.error(e,exc_info=True)
