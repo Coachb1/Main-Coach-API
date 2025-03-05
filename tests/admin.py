@@ -16,7 +16,7 @@ from users.models import UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import format_game_json_to_string, process_test_pilot_user_csv
-from .models import PsychometricReportSection, PsychometricReportSubsection
+from .models import PsychometricReportSection, PsychometricReportSubsection, TestRecommendation
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -609,7 +609,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
     restart_status.short_description = "Restart"
     
     def view_records(self, obj):
-        return format_html('<a href="/custom-admin/tests/testpilotrecords/?pilotuser__id__exact={}" style="color: blue; font-weight: bold;">View Records</a>', obj.id)
+        return format_html('<a href="/custom-admin/tests/testpilotrecords/?pilotuser__uid__exact={}" style="color: blue; font-weight: bold;">View Records</a>', obj.uid)
     view_records.short_description = "Test Records"
 
     ordering = ('-id',)
@@ -730,3 +730,10 @@ class TestPilotRecordsAdmin(admin.ModelAdmin):
         return obj.pilotuser.name if obj.pilotuser else None
 
 admin.site.register(TestPilotRecords, TestPilotRecordsAdmin)
+
+@admin.register(TestRecommendation)
+class TestRecommendationAdmin(admin.ModelAdmin):
+    list_display = ("id", "recommended_test", "origin_test", "test_case", "session_id", "user_id")
+    search_fields = ("recommended_test__uid", "origin_test__uid", "test_case", "session_id", "user_id")
+    list_filter = ("test_case",)
+    ordering = ("id",)
