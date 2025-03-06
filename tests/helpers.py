@@ -8366,7 +8366,7 @@ def get_scenario_creation_report_prompt(prompt_type, session_id, num_questions=3
 
             Key Requirements:
                 Create a brand new scenaio in the same industry. Target ONLY soft skills that are not covered in the {information} context.
-
+                Note: Never change the Industry Domain of the scenario.
                 
             Deliver the extended scenario accordingly
 
@@ -8414,7 +8414,7 @@ def get_scenario_creation_report_prompt(prompt_type, session_id, num_questions=3
 
             Key Requirements:
                 Create a brand new scenaio in the same industry. Target ONLY hard skills that are not covered in the {information} context.
-
+                Note: Never change the Industry Domain of the scenario.
                 
             Deliver the extended scenario accordingly
 
