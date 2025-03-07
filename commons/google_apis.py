@@ -221,7 +221,7 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001"],instruction=None):
+def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001","gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],instruction=None):
     logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models} adn \n instruction: {instruction}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
@@ -274,7 +274,7 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
 
 
 @timeit
-def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-2.0-flash-001"],instructions=None,json_ouput=True):
+def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-2.0-flash-001","gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],instructions=None,json_ouput=True):
     logger.info(f"gemini_chat_completion prompt: {prompt}, json_output: {json_ouput}and \nmodels: {models}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
