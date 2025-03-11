@@ -505,7 +505,8 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
     else:
         try:
-            user = User.objects.get(uid=user_id)
+            user = User.objects.get(deleted=False,tenant_id=tenant_id,uid=user_id)
+            user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user.uid).attributes
         except Exception as e:
             logger.error({"Error":e},exc_info=True)
             return {"error": "User not found"}, False
@@ -710,7 +711,7 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
                             </tr>
                     </table>
                     """
-        user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user_id).attributes
+        # user_att = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=user.uid).attributes
         emails = [user_att['email'],"coachbots@googlegroups.com"]
         for email in emails:
             send_email_with_html_template(subject=subject,html_content=html,to_email=email,title=f'Hey {user_name}!')
