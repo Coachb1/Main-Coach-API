@@ -89,6 +89,7 @@ from tests.models import PsychometricReportSection, PsychometricReportSubsection
 from identities.helpers import get_user_via_identity, get_identity_value_by_tenant
 from pdf_generator.helpers import get_report_from_test_attempt_session
 from apis.tests.serializers import CreateTestSerializer
+from tests.choices import PersonalityModelChoices
 logger = logging.getLogger(__name__)
 
 fcfs_handler = FcfsHandler(2)
@@ -246,7 +247,8 @@ def create_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
-                psychometric_report_config:str) -> tuple[Test, list[TestQuestion]]:
+                psychometric_report_config:str,
+                personality_model: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -445,7 +447,8 @@ def create_test(tenant: Tenant,
             report_description=report_description,
             category=category,
             is_single_select=is_single_select,
-            psychometric_report_config=psychometric_report_config
+            psychometric_report_config=psychometric_report_config,
+            personality_model=personality_model
         )
 
         test_questions = []
@@ -563,7 +566,8 @@ def update_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
-                psychometric_report_config:str ) -> tuple[Test, list[TestQuestion]]:
+                psychometric_report_config:str,
+                personality_model: str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -703,6 +707,8 @@ def update_test(tenant: Tenant,
             test.is_single_select = is_single_select
         if test.psychometric_report_config != psychometric_report_config:
             test.psychometric_report_config = psychometric_report_config
+        if test.personality_model != personality_model:
+            test.personality_model = personality_model
 
         test.save()
 
@@ -4003,7 +4009,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "other_psychometric_infos": other_psychometric_infos,
         'report_description': test.report_description,
         "category": test.category,
-        "interaction_code": test.test_code
+        "interaction_code": test.test_code,
+        "personality_model_data": test_attempt_session.personality_model_data
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -4358,6 +4365,8 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
         evaluate_competency_data_thread(questions,responses,test,test_attempt_session,compentecy_skills)
         
+    evaluate_personality_model_data(test_attempt_session=test_attempt_session, test=test)
+    
     skills_=[]
     for question in questions:
         required_skills = question.key_learning_skills.split(",")
@@ -11766,4 +11775,135 @@ def process_test_pilot_user_csv(csv, tenant_id):
 
             
 
+def get_personality_model_prompt(personality_model:str, scenario:str):
+    prompt = ""
+    if personality_model == 'belbin':
+        prompt = """
+    Scenario: (${scenario})
+
+    Using the provided scenario transcript, generate a commentary from the perspective of Belbin Team Roles. For each role, describe strategies for navigating the conversation, ensuring these are tailored to the transcript. Incorporate direct examples. Do not assess the parameters at all—the users already have their Belbin analysis. Our goal is simply to help them correlate their roles to the scenario.
+
+    System Mandates: Always use the template below as it is. Never provide navigation text—always generate.
+
+
+     {
+    "Plant": {
+      "Definition": "Plants are creative, imaginative, unorthodox and solve difficult problems. They are weak in communicating to others and may ignore details.",
+      "Navigation": "(Provide strategies uniquely customized to the transcript. Focus on how creativity can address specific challenges and give examples.)"
+    },
+    "Resource Investigator": {
+      "Definition": "Resource Investigators are extrovert, enthusiastic, communicative and explore opportunities and develop contacts. But they may be over-optimistic and lose interest once the initial enthusiasm has passed.",
+      "Navigation": "(Utilize enthusiasm to explore opportunities linked to the transcript. Provide examples of fostering connections or recalling relevant information.)"
+    },
+    "Coordinator": {
+      "Definition": "Coordinators are mature, confident, identify talent and clarify goals. They can be seen as manipulative and offload personal work.",
+      "Navigation": "(Assign roles based on strengths observed in the transcript. Ensure clear goals and collaboration, referencing specific dialogue instances.)"
+    },
+    "Shaper": {
+      "Definition": "Shapers are dynamic, thrive on pressure, have the drive and courage to overcome obstacles. They can be prone to provocation and offend people’s feelings.",
+      "Navigation": "(Inject energy and focus at crucial moments in the transcript. Address concerns constructively, using specific examples.)"
+    },
+    "Monitor Evaluator": {
+      "Definition": "Monitor Evaluators are sober, strategic and discerning and see all options. They sometimes lack drive and inspire others.",
+      "Navigation": "(Critically examine ideas presented in the transcript. Offer logical alternatives and ensure team consensus with specific references.)"
+    },
+    "Teamworker": {
+      "Definition": "Teamworkers are co-operative, perceptive and diplomatic and listen and avert friction. But they can be indecisive in crunch situations.",
+      "Navigation": "(Foster understanding and agreement from the transcript’s conflict points. Promote harmonious resolution with direct examples.)"
+    },
+    "Implementer": {
+      "Definition": "Implementers are practical, reliable, efficient and turn ideas into actions and organize work that needs to be done. They can be inflexible and slow to respond to new possibilities.",
+      "Navigation": "(Identify and organize actionable steps from the transcript. Stay open to new suggestions and adapt plans as required.)"
+    },
+    "Completer Finisher": {
+      "Definition": "Completer Finishers are painstaking, conscientious, anxious and search out errors and omissions. They can be inclined to delegate.",
+      "Navigation": "(Ensure completeness and accuracy by reviewing details from the transcript. Offer insights to address gaps, with specific examples.)"
+    }
+  }
+"""
+
+    return Template(prompt).substitute(scenario=scenario)
+
+def format_personality_data(personality_model:str, data:dict):
+    output_format = {}
+    title = ""
+    if personality_model == PersonalityModelChoices.belbin:
+        title = 'Belbin Commentary'
+        output_format = {
+            "Social Roles": ["Resource Investigator","Teamworker", "Coordinator"],
+            "Thinking Roles": ["Plant", "Monitor Evaluator"],
+            "Action Roles": ["Shaper", "Implementer", "Completer Finisher"]      
+        }
+
+    formatted_output = {}
+    for category, roles in output_format.items():
+        formatted_output[category] = {
+            role: data[role]
+            for role in roles
+        }
+
+    return {title: formatted_output}
+
+def extract_json_from_string(text):
+    try:
+        # Regex to capture JSON inside triple backticks (handles optional 'json' prefix)
+        match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
+        if match:
+            json_str = match.group(1).strip()  # Extract and trim the JSON content
+            return json.loads(json_str)  # Convert to dictionary
+        
+        raise ValueError("No valid JSON found in the string.")
     
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON format: {e}")
+
+def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, test:Test):
+    if test.personality_model:
+        try:
+            conversation = ""
+            count = 1
+
+            for response in TestQuestionResponse.objects.filter(deleted=False,test_attempt_session_id=test_attempt_session.uid):
+
+                question = TestQuestion.objects.get(
+                    uid=response.question_id)
+
+                question_text = question.question
+                response_text = response.response_text
+
+                conversation += f"Question {count}: {question_text}\n"
+                if not question.is_view_only:
+                    conversation += f"Answer: {response_text}\n\n"
+
+                count += 1
+
+            
+            scenario = f'''
+                Title: {test.title}
+                Description: {test.description}
+                {conversation}
+                '''
+            prompt = get_personality_model_prompt(test.personality_model,scenario)
+            response = None
+            for i in range(3):
+                try:
+                    
+                    logger.info(f"evaluating personality model data: {scenario}")
+                    response = generic_completion(
+                        prompt=prompt,
+                        tokens=2048
+                    )
+                    response = format_personality_data(test.personality_model,extract_json_from_string(response))
+                    logger.info(f"response: {response}")
+                    test_attempt_session.personality_model_data = response
+                    test_attempt_session.save(update_fields=['personality_model_data'])
+                    
+                    break
+                
+                except Exception as e:
+                    logger.exception(f"{e}")
+                    if i+1 ==3:
+                        raise e
+        except Exception as e:
+            logger.exception(f"Failed to evaluate personality modle data: {e}")
+            raise e

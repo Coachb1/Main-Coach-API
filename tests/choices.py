@@ -44,6 +44,13 @@ class ScenarioCaseChoices(DjangoChoices):
     game = ChoiceItem('game')
     journaling = ChoiceItem('journaling')
 
+class PersonalityModelChoices(DjangoChoices):
+    sixteen_factor_discussion = ChoiceItem('sixteen_factor_discussion')
+    disc_parameter_discussion = ChoiceItem('disc_parameter_discussion')
+    belbin = ChoiceItem('belbin')
+    blanchard = ChoiceItem('blanchard')
+    big_5 = ChoiceItem('big_5')
+
 
 
 class InteractionModeChoices(DjangoChoices):
