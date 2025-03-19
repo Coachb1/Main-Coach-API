@@ -11777,70 +11777,307 @@ def process_test_pilot_user_csv(csv, tenant_id):
 
 def get_personality_model_prompt(personality_model:str, scenario:str):
     prompt = ""
-    if personality_model == 'belbin':
+    if personality_model == PersonalityModelChoices.belbin:
         prompt = """
-    Scenario: (${scenario})
+            Scenario: (${scenario})
 
-    Using the provided scenario transcript, generate a commentary from the perspective of Belbin Team Roles. For each role, describe strategies for navigating the conversation, ensuring these are tailored to the transcript. Incorporate direct examples. Do not assess the parameters at all—the users already have their Belbin analysis. Our goal is simply to help them correlate their roles to the scenario.
+            Using the provided scenario transcript, generate a commentary from the perspective of Belbin Team Roles. For each role, describe strategies for navigating the conversation, ensuring these are tailored to the transcript. Incorporate direct examples. Do not assess the parameters at all—the users already have their Belbin analysis. Our goal is simply to help them correlate their roles to the scenario.
 
-    System Mandates: Always use the template below as it is. Never provide navigation text—always generate.
+            System Mandates: Always use the template below as it is. Never provide navigation text—always generate.
 
 
-     {
-    "Plant": {
-      "Definition": "Plants are creative, imaginative, unorthodox and solve difficult problems. They are weak in communicating to others and may ignore details.",
-      "Navigation": "(Provide strategies uniquely customized to the transcript. Focus on how creativity can address specific challenges and give examples.)"
-    },
-    "Resource Investigator": {
-      "Definition": "Resource Investigators are extrovert, enthusiastic, communicative and explore opportunities and develop contacts. But they may be over-optimistic and lose interest once the initial enthusiasm has passed.",
-      "Navigation": "(Utilize enthusiasm to explore opportunities linked to the transcript. Provide examples of fostering connections or recalling relevant information.)"
-    },
-    "Coordinator": {
-      "Definition": "Coordinators are mature, confident, identify talent and clarify goals. They can be seen as manipulative and offload personal work.",
-      "Navigation": "(Assign roles based on strengths observed in the transcript. Ensure clear goals and collaboration, referencing specific dialogue instances.)"
-    },
-    "Shaper": {
-      "Definition": "Shapers are dynamic, thrive on pressure, have the drive and courage to overcome obstacles. They can be prone to provocation and offend people’s feelings.",
-      "Navigation": "(Inject energy and focus at crucial moments in the transcript. Address concerns constructively, using specific examples.)"
-    },
-    "Monitor Evaluator": {
-      "Definition": "Monitor Evaluators are sober, strategic and discerning and see all options. They sometimes lack drive and inspire others.",
-      "Navigation": "(Critically examine ideas presented in the transcript. Offer logical alternatives and ensure team consensus with specific references.)"
-    },
-    "Teamworker": {
-      "Definition": "Teamworkers are co-operative, perceptive and diplomatic and listen and avert friction. But they can be indecisive in crunch situations.",
-      "Navigation": "(Foster understanding and agreement from the transcript’s conflict points. Promote harmonious resolution with direct examples.)"
-    },
-    "Implementer": {
-      "Definition": "Implementers are practical, reliable, efficient and turn ideas into actions and organize work that needs to be done. They can be inflexible and slow to respond to new possibilities.",
-      "Navigation": "(Identify and organize actionable steps from the transcript. Stay open to new suggestions and adapt plans as required.)"
-    },
-    "Completer Finisher": {
-      "Definition": "Completer Finishers are painstaking, conscientious, anxious and search out errors and omissions. They can be inclined to delegate.",
-      "Navigation": "(Ensure completeness and accuracy by reviewing details from the transcript. Offer insights to address gaps, with specific examples.)"
-    }
-  }
-"""
+            {
+            "Plant": {
+            "Definition": "Plants are creative, imaginative, unorthodox and solve difficult problems. They are weak in communicating to others and may ignore details.",
+            "Navigation": "(Provide strategies uniquely customized to the transcript. Focus on how creativity can address specific challenges and give examples.)"
+            },
+            "Resource Investigator": {
+            "Definition": "Resource Investigators are extrovert, enthusiastic, communicative and explore opportunities and develop contacts. But they may be over-optimistic and lose interest once the initial enthusiasm has passed.",
+            "Navigation": "(Utilize enthusiasm to explore opportunities linked to the transcript. Provide examples of fostering connections or recalling relevant information.)"
+            },
+            "Coordinator": {
+            "Definition": "Coordinators are mature, confident, identify talent and clarify goals. They can be seen as manipulative and offload personal work.",
+            "Navigation": "(Assign roles based on strengths observed in the transcript. Ensure clear goals and collaboration, referencing specific dialogue instances.)"
+            },
+            "Shaper": {
+            "Definition": "Shapers are dynamic, thrive on pressure, have the drive and courage to overcome obstacles. They can be prone to provocation and offend people’s feelings.",
+            "Navigation": "(Inject energy and focus at crucial moments in the transcript. Address concerns constructively, using specific examples.)"
+            },
+            "Monitor Evaluator": {
+            "Definition": "Monitor Evaluators are sober, strategic and discerning and see all options. They sometimes lack drive and inspire others.",
+            "Navigation": "(Critically examine ideas presented in the transcript. Offer logical alternatives and ensure team consensus with specific references.)"
+            },
+            "Teamworker": {
+            "Definition": "Teamworkers are co-operative, perceptive and diplomatic and listen and avert friction. But they can be indecisive in crunch situations.",
+            "Navigation": "(Foster understanding and agreement from the transcript’s conflict points. Promote harmonious resolution with direct examples.)"
+            },
+            "Implementer": {
+            "Definition": "Implementers are practical, reliable, efficient and turn ideas into actions and organize work that needs to be done. They can be inflexible and slow to respond to new possibilities.",
+            "Navigation": "(Identify and organize actionable steps from the transcript. Stay open to new suggestions and adapt plans as required.)"
+            },
+            "Completer Finisher": {
+            "Definition": "Completer Finishers are painstaking, conscientious, anxious and search out errors and omissions. They can be inclined to delegate.",
+            "Navigation": "(Ensure completeness and accuracy by reviewing details from the transcript. Offer insights to address gaps, with specific examples.)"
+            },
+            "Specialist": {
+            "Definition": "Specialists are single-minded, self-starting, dedicated and provide rare knowledge and skills. They can contribute on only a narrow front and dwell on technicalities.",
+            "Navigation": "(Recognize and leverage specific areas of expertise showcased in the transcript. Direct technical discussions and ensure understanding across the team using specific dialogue quotes.)"
+            }
+        }
+        """
+    elif personality_model == PersonalityModelChoices.big_5:
+        prompt = """
+        Scenario: (${scenario})
+
+        Using the provided scenario transcript, generate a critical commentary from the perspective of Big 5 Personality Profiles. For each parameter, provide navigation strategies to guide individuals in effectively engaging with the conversation based on their respective personality traits. Ensure that the discussion is firmly grounded in the transcript, incorporating specific examples to illustrate interaction styles, decision-making approaches, and behavioral tendencies.
+        
+        Always generate navigation or any analysis that utilizes the transcript to provide actionable strategies for engagement.
+        
+        Do not assess the parameters at all—the users already have their Big 5 Personality analysis. Our objective is solely to provide a structured means for them to correlate their personality traits to the scenario.
+        
+        System Mandates: Always use the template below as it is.
+
+        {
+            "Openness to Experience": {
+                "Definition": "Openness to experience reflects the degree to which a person is imaginative, curious, and open to new ideas and experiences.",
+                "Navigation": {
+                "High": "Use your creative strengths to explore innovative solutions present in the transcript. Clearly communicate your thought process to align with team goals.",
+                "Low": "Rely on practical insights found in the transcript to ground the team. Be open to new ideas that could provide unexpected insights."
+                }
+            },
+            "Conscientiousness": {
+                "Definition": "Conscientiousness measures the degree to which a person is organized, responsible, and disciplined.",
+                "Navigation": {
+                "High": "Utilize your organizational skills to clarify tasks and responsibilities outlined in the transcript. Help the team make decisions efficiently.",
+                "Low": "Encourage flexibility by suggesting alternative approaches when the transcript reflects challenges. Adapt as new insights emerge."
+                }
+            },
+            "Extraversion": {
+                "Definition": "Extraversion reflects the degree to which a person is outgoing, sociable, and assertive.",
+                "Navigation": {
+                "High": "Leverage your enthusiasm to engage and motivate the team, particularly when the transcript suggests low energy. Include quieter members in discussions.",
+                "Low": "Offer reflective input and observations when applicable from the transcript. Provide insights that help guide the team constructively."
+                }
+            },
+            "Agreeableness": {
+                "Definition": "Agreeableness measures the degree to which a person is compassionate, cooperative, and trusting.",
+                "Navigation": {
+                "High": "Foster a supportive atmosphere by addressing any tensions in the transcript with empathy. Emphasize collaboration and understanding.",
+                "Low": "Apply your critical thinking to offer constructive feedback where needed. Provide alternative solutions to resolve challenges highlighted in the transcript."
+                }
+            },
+            "Neuroticism": {
+                "Definition": "Neuroticism reflects the degree to which a person is anxious, emotionally unstable, and prone to negative emotions.",
+                "Navigation": {
+                "High": "Recognize any instances of stress in the transcript and use coping strategies to remain focused. Communicate if you need team support.",
+                "Low": "Offer stability by remaining calm and composed, especially when the transcript indicates tension. Provide reassurance and keep the team focused."
+                }
+            }
+        }
+        """
+
+    elif personality_model == PersonalityModelChoices.blanchard:
+        prompt = """
+        Scenario: (${scenario})
+
+        Using the provided scenario transcript, generate a critical commentary from the perspective of Blanchard Leadership Styles. For each leadership style, analyze how individuals should navigate the conversation based on their respective leadership approach. Ensure that the discussion is firmly grounded in the transcript, incorporating specific examples to highlight leadership behaviors, decision-making patterns, and interaction dynamics.
+        
+        Always generate navigation or any analysis that utilizes the transcript to provide actionable strategies for engagement.
+        
+        Do not assess the styles at all—the users already have their Blanchard Leadership Style analysis. Our objective is solely to provide a structured means for them to correlate their leadership approach to the scenario.
+        
+        System Mandates: Always use the template below as it is.
+
+        ``` json
+        { 
+          "S1: Directing (High Directive, Low Supportive)": {
+                "Definition": "The leader defines the roles and tells people what, how, when, and where to do various tasks. Decisions are made by the leader. Best for low competence and low commitment (D1).",
+                "Navigation": "When the transcript shows the team is unsure of their roles, use directive leadership by clearly assigning tasks, like \"Let's each focus on a specific area.\" Transition to less direction as the team gains confidence."
+            },
+          "S2: Coaching (High Directive, High Supportive)":  {
+                "Definition": "The leader still provides direction but now seeks to hear team members’ opinions, asks for suggestions, explains decisions, and supports progress. Best for some competence, but low commitment (D2).",
+                "Navigation": "As the transcript indicates growing understanding, invite team input and ask questions like, \"What are your thoughts on this approach?\" Support their suggestions while guiding the process."
+            },
+           "S3: Supporting (Low Directive, High Supportive)": {
+                "Definition": "The leader focuses on facilitating and supporting team members’ efforts toward task accomplishment and shares responsibility for decision-making. Best for high competence, but variable commitment (D3).",
+                "Navigation": "In the transcript, when team members show competence, but need encouragement, facilitate by asking, \"What have you tried so far?\" Empower them to find solutions while offering encouragement."
+            },
+            "S4: Delegating (Low Directive, Low Supportive)": {
+                "Definition": "The leader turns over responsibility for decision-making, implementation, and evaluation to team members. Best for high competence and high commitment (D4).",
+                "Navigation": "When the transcript shows high competence and commitment, delegate tasks fully, asking, \"Who wants to take charge of this section?\" Trust the team to manage independently and provide motivation."
+            }
+            
+        }
+        ```
+        """
+
+    elif personality_model == PersonalityModelChoices.sixteen_factor_discussion:
+        prompt = """
+        Scenario: (${scenario})
+        
+        Using the provided scenario transcript, generate a critical commentary from the perspective of 16PF Personality Definitions. Ensure that the commentary remains directly grounded in the transcript, using specific examples to illustrate key behavioral tendencies and interaction styles.
+
+        Always generate navigation or any analysis that utilizes the transcript to provide actionable strategies for engagement.
+
+        Do not assess the parameters at all—the users already have their 16PF Personality Analysis. Our objective is solely to provide a structured means for them to correlate their personality traits to the scenario.
+
+        OUTPUT Must be in a valid JSON Below:
+        ``` json
+            {
+            "Warmth (A)": {
+            "Definition": "This parameter concerns interpersonal warmth, sociability, and enthusiasm versus reservedness and detachment. High A individuals are outgoing, attentive to others, and expressive. Low A individuals are more reserved, formal, and impersonal.",
+            "Navigation": "In the transcript, if collaborative discussion is essential, use your sociability to facilitate open communication if high A. For low A, make an effort to appreciate others' contributions to enhance team dynamics."
+            },
+            "Reasoning (B)": {
+            "Definition": "This parameter reflects abstract thinking and problem-solving ability versus concrete, literal thinking. High B individuals are quick learners, grasp complex ideas easily, and enjoy intellectual challenges. Low B individuals prefer practical, hands-on tasks and may find abstract concepts challenging.",
+            "Navigation": "During problem-solving discussions, ensure you explain your reasoning clearly if high B. If low B, rely on your practical skills and seek clarification to fully understand tasks."
+            },
+            "Emotional Stability (C)": {
+            "Definition": "This parameter relates to emotional resilience, adaptability, and calmness versus reactivity, anxiety, and frustration. High C individuals are emotionally stable, calm under pressure, and adaptable to changing circumstances. Low C individuals are more prone to anxiety, mood swings, and difficulty coping with stress.",
+            "Navigation": "When the transcript reflects stressful scenarios, leverage your calmness to support the team if high C. If low C, identify emotional triggers and communicate your needs to better manage stress."
+            },
+            "Dominance (E)": {
+            "Definition": "This parameter measures assertiveness, independence, and competitiveness versus deference, compliance, and cooperativeness. High E individuals are assertive, take charge, and enjoy being in control. Low E individuals are more agreeable, accommodating, and prefer to avoid conflict.",
+            "Navigation": "Use assertiveness to guide team decision-making effectively if high E, but ensure inclusivity. If low E, share your insights confidently as your perspective is valuable in this conversation."
+            },
+            "Liveliness (F)": {
+            "Definition": "This parameter reflects enthusiasm, spontaneity, and impulsiveness versus seriousness, restraint, and deliberation. High F individuals are enthusiastic, energetic, and enjoy being around others. Low F individuals are more serious, cautious, and prefer quieter environments.",
+            "Navigation": "Inject enthusiasm to boost morale if the transcript suggests it is needed for high F. For low F, offer stability and lighten the mood when appropriate with humor."
+            },
+            "Rule-Consciousness (G)": {
+            "Definition": "This parameter assesses adherence to rules, moral standards, and duty versus nonconformity and disregard for rules. High G individuals are conscientious, dutiful, and follow rules carefully. Low G individuals are more flexible, independent, and may challenge established norms.",
+            "Navigation": "Maintain adherence to guidelines if high G, as required by the transcript. If low G, propose creative problem-solving approaches when traditional methods are ineffective."
+            },
+            "Social Boldness (H)": {
+            "Definition": "This parameter relates to risk-taking, venturesomeness, and spontaneity versus shyness, caution, and sensitivity. High H individuals are bold, adventurous, and comfortable taking risks. Low H individuals are more cautious, shy, and prefer familiar situations.",
+            "Navigation": "Encourage risk-taking for innovative solutions if the transcript shows a need for high H. If low H, ensure careful analysis to mitigate potential risks."
+            },
+            "Sensitivity (I)": {
+            "Definition": "This parameter measures empathy, artistic appreciation, and intuition versus practicality, objectivity, and realism. High I individuals are sensitive, empathetic, and attuned to their own emotions and the emotions of others. Low I individuals are more practical, objective, and focus on facts rather than feelings.",
+            "Navigation": "Use empathy to address team emotional needs if high I. For low I, provide practical, objective feedback to maintain focus on tasks."
+            },
+            "Vigilance (L)": {
+            "Definition": "This parameter reflects trust, acceptance, and tolerance versus suspicion, skepticism, and vigilance. High L individuals are suspicious, skeptical, and tend to question the motives of others. Low L individuals are trusting, accepting, and see the best in people.",
+            "Navigation": "Challenge assumptions to ensure clarity if the transcript demands for high L. If low L, promote a collaborative atmosphere by fostering trust and communication."
+            },
+            "Abstractedness (M)": {
+            "Definition": "This parameter assesses imagination, creativity, and unconventionality versus practicality, groundedness, and conventionality. High M individuals are imaginative, creative, and think outside the box. Low M individuals are more practical, grounded, and prefer concrete solutions.",
+            "Navigation": "Encourage creative brainstorming if the scenario calls for new ideas if high M. If low M, focus on ensuring practical solutions and efficient task completion."
+            },
+            "Privateness (N)": {
+            "Definition": "This parameter relates to discretion, non-disclosure, and calculating versus forthrightness, genuineness, and naïveté. High N individuals are discreet, private, and tend to keep their thoughts and feelings to themselves. Low N individuals are more open, forthright, and express their opinions freely.",
+            "Navigation": "Share insights with the team even if it feels uncomfortable for high N. For low N, ensure you contribute openly and allow others space in conversations."
+            },
+            "Apprehension (O)": {
+            "Definition": "This parameter measures self-assurance, confidence, and resilience versus anxiety, worry, and self-doubt. High O individuals are anxious, worried, and prone to self-doubt. Low O individuals are confident, self-assured, and resilient.",
+            "Navigation": "Focus on your strengths and challenge negative thoughts if high O. For low O, provide support and encouragement to build team confidence."
+            },
+            "Openness to Change (Q1)": {
+            "Definition": "This parameter reflects willingness to try new things, embrace change, and challenge traditions versus resistance to change and preference for the familiar. High Q1 individuals are open to new experiences, enjoy change, and challenge the status quo. Low Q1 individuals prefer familiar routines, resist change, and value tradition.",
+            "Navigation": "Propose experimenting with new approaches if the transcript highlights situations that need innovation for high Q1. If low Q1, offer tried-and-true methods for consistent results."
+            },
+            "Self-Reliance (Q2)": {
+            "Definition": "This parameter measures independence, resourcefulness, and self-sufficiency versus dependence, sociability, and group reliance. High Q2 individuals are independent, resourceful, and prefer to work alone. Low Q2 individuals are more sociable, dependent on others, and prefer to work in groups.",
+            "Navigation": "Balance independence with effective team collaboration if high Q2. If low Q2, enhance teamwork and collaborative efforts as highlighted in the transcript."
+            },
+            "Perfectionism (Q3)": {
+            "Definition": "This parameter assesses self-discipline, organization, and control versus impulsivity, flexibility, and spontaneity. High Q3 individuals are disciplined, organized, and strive for perfection. Low Q3 individuals are more flexible, impulsive, and spontaneous.",
+            "Navigation": "Keep the team organized and focused if high Q3 is beneficial as per the transcript. If low Q3, foster adaptability and embrace creative solutions."
+            },
+            "Tension (Q4)": {
+            "Definition": "This parameter relates to restlessness, impatience, and irritability versus relaxation, composure, and patience. High Q4 individuals are restless, impatient, and easily frustrated. Low Q4 individuals are relaxed, composed, and patient.",
+            "Navigation": "Manage restlessness to maintain team focus if high Q4 reveals urgency in the transcript. If low Q4, provide a calming influence in high-pressure situations."
+            }
+        }
+        ```
+
+        """
+
+    elif personality_model == PersonalityModelChoices.disc_parameter_discussion:
+        prompt = """
+        Scenario: (${scenario})
+
+        Using the provided scenario transcript, generate a critical commentary from the perspective of DISC Profiles. For each parameter, analyze how individuals should navigate the conversation based on their respective DISC traits. Ensure that the discussion is firmly grounded in the transcript, incorporating specific examples to illustrate interaction styles, decision-making approaches, and behavioral tendencies.
+
+        Always generate navigation or any analysis that utilizes the transcript to provide actionable strategies for engagement.
+
+        Do not assess the parameters at all—the users already have their DISC Profile analysis. Our objective is solely to provide a structured means for them to correlate their personality traits to the scenario.
+
+        System Mandates: Output must be in valid JSON as below. 
+
+        ``` json
+        {
+        "D": {
+            "Definition": "Dominance reflects how a person deals with problems, asserts themselves, and controls situations. Individuals with high D scores are often described as direct, decisive, strong-willed, and results-oriented.",
+            "Navigation": "(If the transcript shows challenges, use your decisiveness to make quick, informed decisions. Focus on guiding the team collaboratively, integrating others' input to ensure collective success.)"
+        },
+        "I": {
+            "Definition": "Influence measures how a person relates to people and tries to influence others. Those with high I scores are typically seen as enthusiastic, optimistic, persuasive, and outgoing.",
+            "Navigation": "(When the transcript reflects low morale, use your enthusiasm to motivate the team. Communicate solutions clearly, keeping discussions focused and productive, especially when time is limited.)"
+        },
+        "S": {
+            "Definition": "Steadiness measures how a person responds to the pace of the environment and how predictable they want it to be. People with high S scores are generally seen as patient, predictable, calm, and loyal.",
+            "Navigation": "(During stressful moments in the transcript, use your calm demeanor to stabilize the team. Offer support and keep the focus, being open to faster-paced or assertive actions as needed.)"
+        },
+        "C": {
+            "Definition": "Conscientiousness measures how a person responds to rules and procedures, sets standards, and approaches quality. Individuals with high C scores are often described as careful, analytical, systematic, and precise.",
+            "Navigation": "(If detail is critical in the transcript, use your methodical approach to identify patterns and clues. Balance accuracy with urgency, sharing insights clearly to avoid errors.)"
+        },
+        "Mixed Parameters": {
+            "High D/High I": "When the transcript shows a need for leadership, lead charismatically while actively listening to others. Avoid dominating conversations by encouraging input.",
+            "High S/High C": "In moments requiring consistency from the transcript, be thorough and reliable. Remain open to changes and suggestions as the situation develops.",
+            "High D/Low S": "Lead decisively during critical moments in the transcript, but be mindful of impatience. Manage your pace to prevent friction with the team.",
+            "High I/Low C": "Use enthusiasm to motivate when needed, as highlighted in the transcript. Support your enthusiasm with clear reasoning and attention to detail."
+        }
+        }
+        ```
+        """
 
     return Template(prompt).substitute(scenario=scenario)
 
 def format_personality_data(personality_model:str, data:dict):
-    output_format = {}
     title = ""
+    formatted_output = {}
+
     if personality_model == PersonalityModelChoices.belbin:
         title = 'Belbin Commentary'
         output_format = {
             "Social Roles": ["Resource Investigator","Teamworker", "Coordinator"],
-            "Thinking Roles": ["Plant", "Monitor Evaluator"],
+            "Thinking Roles": ["Plant", "Monitor Evaluator", "Specialist"],
             "Action Roles": ["Shaper", "Implementer", "Completer Finisher"]      
         }
 
-    formatted_output = {}
-    for category, roles in output_format.items():
-        formatted_output[category] = {
-            role: data[role]
-            for role in roles
-        }
+        for category, roles in output_format.items():
+            formatted_output[category] = {
+                role: data[role]
+                for role in roles if role in data
+            }
+    
+    elif personality_model == PersonalityModelChoices.big_5:
+        title = 'Big 5 Commentary'
+        for key, value in data.items():
+            if 'Navigation' in value and type(value['Navigation']) == dict:
+                value['Navigation'] = [f"{k}: {v}" for k, v in value['Navigation'].items()]
+
+        formatted_output = {" ": data}
+    
+    elif personality_model == PersonalityModelChoices.blanchard:
+        title = 'Blanchard Commentary'
+        formatted_output = {" ": data}
+
+    elif personality_model == PersonalityModelChoices.sixteen_factor_discussion:
+        title = '16PF Commentary'
+        formatted_output = {" ": data}
+
+    elif personality_model == PersonalityModelChoices.disc_parameter_discussion:
+        title = 'DISC Commentary'
+        # Define the order for sorting
+        sort_order = ["D", "S", "I", "C", "Mixed Parameters"]
+
+        # Sort the dictionary based on the defined order
+        sorted_data = {key: data[key] for key in sort_order if key in data}
+        
+        formatted_output = {" ": sorted_data}
 
     return {title: formatted_output}
 
@@ -11891,12 +12128,40 @@ def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, tes
                     logger.info(f"evaluating personality model data: {scenario}")
                     response = generic_completion(
                         prompt=prompt,
-                        tokens=2048
+                        tokens= 4000 if test.personality_model else 2048
                     )
                     response = format_personality_data(test.personality_model,extract_json_from_string(response))
                     logger.info(f"response: {response}")
                     test_attempt_session.personality_model_data = response
                     test_attempt_session.save(update_fields=['personality_model_data'])
+                    
+                    break
+                
+                except Exception as e:
+                    logger.exception(f"{e}")
+                    if i+1 ==3:
+                        raise e
+        except Exception as e:
+            logger.exception(f"Failed to evaluate personality modle data: {e}")
+            raise e
+
+
+def evaluate_personality_model_datav2(personality_model, scenario):
+    if personality_model:
+        try:
+
+            prompt = get_personality_model_prompt(personality_model,scenario)
+            response = None
+            for i in range(3):
+                try:
+                    
+                    logger.info(f"evaluating personality model data: {scenario}")
+                    response = generic_completion(
+                        prompt=prompt,
+                        tokens= 4000 if personality_model else 2048
+                    )
+                    response = format_personality_data(personality_model,extract_json_from_string(response))
+                    logger.info(f"response: {response}")
                     
                     break
                 
