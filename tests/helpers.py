@@ -12087,7 +12087,7 @@ def extract_json_from_string(text):
         match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
         if not match:
             match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
-            
+
         if match:
             json_str = match.group(1).strip()  # Extract and trim the JSON content
             return json.loads(json_str)  # Convert to dictionary
