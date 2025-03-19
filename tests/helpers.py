@@ -12085,6 +12085,9 @@ def extract_json_from_string(text):
     try:
         # Regex to capture JSON inside triple backticks (handles optional 'json' prefix)
         match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
+        if not match:
+            match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
+            
         if match:
             json_str = match.group(1).strip()  # Extract and trim the JSON content
             return json.loads(json_str)  # Convert to dictionary
@@ -12134,34 +12137,6 @@ def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, tes
                     logger.info(f"response: {response}")
                     test_attempt_session.personality_model_data = response
                     test_attempt_session.save(update_fields=['personality_model_data'])
-                    
-                    break
-                
-                except Exception as e:
-                    logger.exception(f"{e}")
-                    if i+1 ==3:
-                        raise e
-        except Exception as e:
-            logger.exception(f"Failed to evaluate personality modle data: {e}")
-            raise e
-
-
-def evaluate_personality_model_datav2(personality_model, scenario):
-    if personality_model:
-        try:
-
-            prompt = get_personality_model_prompt(personality_model,scenario)
-            response = None
-            for i in range(3):
-                try:
-                    
-                    logger.info(f"evaluating personality model data: {scenario}")
-                    response = generic_completion(
-                        prompt=prompt,
-                        tokens= 4000 if personality_model else 2048
-                    )
-                    response = format_personality_data(personality_model,extract_json_from_string(response))
-                    logger.info(f"response: {response}")
                     
                     break
                 
