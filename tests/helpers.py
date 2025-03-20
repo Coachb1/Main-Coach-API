@@ -12118,6 +12118,8 @@ def extract_valid_json(text):
 
 def extract_json_from_string(text):
     try:
+        text = text.replace('\n','')
+
         # Regex to capture JSON inside triple backticks (handles optional 'json' prefix)
         match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
 
