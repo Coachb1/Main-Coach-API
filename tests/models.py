@@ -9,6 +9,7 @@ from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.choices import TestTypeChoices
 from tests.choices import ScenarioCaseChoices
 from tests.choices import TestCaseChoices
+from tests.choices import PersonalityModelChoices
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
@@ -175,6 +176,7 @@ class Test(TenantAwareModel):
         null=True,  # Allow null if a test can exist without a psychometricreprot config
         default=None
     )
+    personality_model = models.CharField(max_length=255, choices=PersonalityModelChoices,null=True, blank=True, default=None)
     
     class Meta:
         db_table = "test"
@@ -277,8 +279,7 @@ class TestAttemptSession(TenantAwareModel):
     is_signature_bot = models.BooleanField(
             null=True, blank=True, default=False)
     pshycometric_data = models.JSONField(null=True, blank=True, default=None)
-
-    
+    personality_model_data = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"

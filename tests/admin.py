@@ -89,6 +89,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "calculate_culture",
         "psychometric",
         "psychometric_report_config",
+        "personality_model",
         "start_with_user",
     )
     search_fields = (
@@ -108,6 +109,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "area_domain",
         "psychometric",
         "psychometric_report_config",
+        "personality_model",
         "tab_category",
     )
     list_filter = (
