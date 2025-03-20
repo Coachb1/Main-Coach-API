@@ -90,6 +90,7 @@ from identities.helpers import get_user_via_identity, get_identity_value_by_tena
 from pdf_generator.helpers import get_report_from_test_attempt_session
 from apis.tests.serializers import CreateTestSerializer
 from tests.choices import PersonalityModelChoices
+import json5 
 logger = logging.getLogger(__name__)
 
 fcfs_handler = FcfsHandler(2)
@@ -12059,43 +12060,77 @@ def format_personality_data(personality_model:str, data:dict):
             if 'Navigation' in value and type(value['Navigation']) == dict:
                 value['Navigation'] = [f"{k}: {v}" for k, v in value['Navigation'].items()]
 
-        formatted_output = {" ": data}
+        formatted_output = {"HiddenCategory1 ": data}
     
     elif personality_model == PersonalityModelChoices.blanchard:
         title = 'Blanchard Commentary'
-        formatted_output = {" ": data}
+        formatted_output = {"HiddenCategory1": data}
 
     elif personality_model == PersonalityModelChoices.sixteen_factor_discussion:
         title = '16PF Commentary'
-        formatted_output = {" ": data}
+        output_format = {
+            "Q Parameters": ["Openness to Change (Q1)", "Self-Reliance (Q2)", "Perfectionism (Q3)", "Tension (Q4)"],
+        }
+
+        for category, parameters in output_format.items():
+            formatted_output[category] = {
+                parameter: data[parameter]
+                for parameter in parameters if parameter in data
+            }
+
+        formatted_output["HiddenCategory1"] = {
+            parameter: value
+            for parameter, value in data.items() if parameter not in output_format['Q Parameters']
+        }
 
     elif personality_model == PersonalityModelChoices.disc_parameter_discussion:
         title = 'DISC Commentary'
-        # Define the order for sorting
-        sort_order = ["D", "S", "I", "C", "Mixed Parameters"]
-
-        # Sort the dictionary based on the defined order
-        sorted_data = {key: data[key] for key in sort_order if key in data}
         
-        formatted_output = {" ": sorted_data}
+        formatted_output = {"HiddenCategory1": data}
 
     return {title: formatted_output}
+
+def extract_valid_json(text):
+    """Extracts and validates JSON from a given text, handling edge cases including multiline strings."""
+    text = text.strip()
+    
+    # Find the first and last occurrence of curly braces to extract potential JSON
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    
+    if first_brace == -1 or last_brace == -1 or first_brace > last_brace:
+        return None  # No valid JSON found
+
+    json_str = text[first_brace:last_brace + 1]
+
+    # Attempt to fix common JSON issues
+    json_str = re.sub(r",\s*}", "}", json_str)  # Remove trailing commas before closing braces
+    json_str = re.sub(r",\s*\]", "]", json_str)  # Remove trailing commas before closing brackets
+
+    # Handle multiline string values (convert raw newlines inside JSON values to \n)
+    json_str = re.sub(r'(?<!\\)"([^"]*?)\n([^"]*?)"', r'"\1\\n\2"', json_str)
+
+    try:
+        return json5.loads(json_str)
+    except Exception as e:
+        raise e # JSON is still invalid
 
 def extract_json_from_string(text):
     try:
         # Regex to capture JSON inside triple backticks (handles optional 'json' prefix)
         match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
-        if not match:
-            match = re.search(r"```(?:json)?\n([\s\S]*?)\n```", text, re.MULTILINE)
 
         if match:
             json_str = match.group(1).strip()  # Extract and trim the JSON content
-            return json.loads(json_str)  # Convert to dictionary
+            return json5.loads(json_str)  # Convert to dictionary
         
         raise ValueError("No valid JSON found in the string.")
     
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON format: {e}")
+    except Exception as e:
+        try:
+            return extract_valid_json(text)
+        except Exception as e:
+            raise ValueError(f"Invalid JSON format: {e}")
 
 def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, test:Test):
     if test.personality_model:
