@@ -12060,7 +12060,7 @@ def format_personality_data(personality_model:str, data:dict):
             if 'Navigation' in value and type(value['Navigation']) == dict:
                 value['Navigation'] = [f"{k}: {v}" for k, v in value['Navigation'].items()]
 
-        formatted_output = {"HiddenCategory1 ": data}
+        formatted_output = {"HiddenCategory1": data}
     
     elif personality_model == PersonalityModelChoices.blanchard:
         title = 'Blanchard Commentary'
@@ -12093,6 +12093,7 @@ def format_personality_data(personality_model:str, data:dict):
 def extract_valid_json(text):
     """Extracts and validates JSON from a given text, handling edge cases including multiline strings."""
     text = text.strip()
+    text = text.replace('\n','')
     
     # Find the first and last occurrence of curly braces to extract potential JSON
     first_brace = text.find('{')
