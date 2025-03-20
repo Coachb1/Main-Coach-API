@@ -209,7 +209,15 @@ input[type='file']{
 <body
     <div class="container">
         <h1 class="header-title">Coach<span class="white-text bg-title">BOT</span></h1>
-        <h1 class="welcome-text">Welcome to the Test Create/Update Page!</h1>
+        <h1 class="welcome-text">
+            Welcome to the 
+            {% if urlSlug == "process-file-slack" %} 
+                Static
+            {% elif urlSlug == 'process-orchestrated-conversation-slack-file' %} 
+                Dynamic
+            {% endif %}
+            Test Create/Update Page!
+        </h1>
         <p class="message-text">Upload a csv file to create/update tests.</p>
         <h1 id='urlSlug' style="display: none;">{{urlSlug}}</h1>
         <form id="form" method="post" enctype="multipart/form-data">
