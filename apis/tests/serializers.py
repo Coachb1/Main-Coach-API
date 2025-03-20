@@ -141,6 +141,7 @@ class CreateTestSerializer(serializers.Serializer):
     is_single_select = serializers.BooleanField(
         required=False, default=False)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
+    personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -225,7 +226,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "report_description",
                   "category",
                   "is_single_select",
-                  "psychometric_report_config"
+                  "psychometric_report_config",
+                  "personality_model"
                   ]
 
     def get_questions(self, instance):

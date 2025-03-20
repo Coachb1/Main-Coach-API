@@ -103,6 +103,7 @@ REPORT_DESCRIPTION = "Report Description"
 CATEGORY = "Category"
 IS_SINGLE_SELECT = "Is Single Select"
 PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
+PERSONALITY_MODEL = 'Personality Model'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -311,6 +312,9 @@ def format_test_orchestrated_conversation(raw_data):
                     available_clients = ClientUserInfo.objects.all().values_list('client_name', flat=True)
                     logger.info(f"###########################Available Client info: {available_clients}")
                     return {"error": f"Client does not exist: {output_dict['client_name']}. available clients: {list(available_clients)}"}, False
+
+        if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
+            output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -1027,6 +1031,9 @@ def format_test_data_slack(raw_data,tenant):
             else:
                 output_dict['psychometric_report_config'] =  "3eecb3a3-dfca-4f9c-95c6-fccc1b25d717"  if  PsychometricReportSection.objects.filter(uid='3eecb3a3-dfca-4f9c-95c6-fccc1b25d717').first() else None
 
+
+        if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
+            output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
