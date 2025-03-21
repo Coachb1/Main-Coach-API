@@ -24,7 +24,7 @@ from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
 from users.models import ClientUserInfo, UserAttribute, ReportConfig
 import re
-from skills.helpers import get_competency_prompt_or_output, get_competency_prompt_or_output_via_db
+from skills.helpers import get_competency_prompt_or_output, get_competency_prompt_or_output_via_db, get_culture_skills
 import logging
 from tests.choices import ScenarioCaseChoices
 from users.helpers import get_client_info_from_user_detail
@@ -242,6 +242,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     psychometric_info = None
     other_psychometric_infos = {}
 
+    culture_map_evaluation_criteria = get_culture_skills(
+                    "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
+                    only_criteria=True 
+                    )
+
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data
         psy_sections = set(test.psychometric.psy_items.filter(deleted=False).values_list('section', flat=True))
@@ -375,7 +380,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'pshycometric_data': psychometric_data,'psychometric_info': psychometric_info, 
                 "other_psychometric_infos": other_psychometric_infos,
                 "category": test.category, "interaction_code": test.test_code,
-                "personality_model_data": test_attempt_session.personality_model_data
+                "personality_model_data": test_attempt_session.personality_model_data,
+                "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
                 }
 
 
@@ -510,7 +516,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  "category": test.category,
                  "response_relevance":response_relevance, 
                  "interaction_code": test.test_code,
-                 "personality_model_data": test_attempt_session.personality_model_data
+                 "personality_model_data": test_attempt_session.personality_model_data,
+                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria
                  }
 
 
@@ -567,7 +574,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "category": test.category,
                 "response_relevance": response_relevance, 
                 "interaction_code": test.test_code,
-                "personality_model_data": test_attempt_session.personality_model_data
+                "personality_model_data": test_attempt_session.personality_model_data,
+                "culture_map_evaluation_criteria": culture_map_evaluation_criteria
                 }
 
 
@@ -707,7 +715,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'other_psychometric_infos': other_psychometric_infos,
                 'report_description': test.report_description,
                 'category': test.category, "interaction_code": test.test_code,
-                "personality_model_data": test_attempt_session.personality_model_data
+                "personality_model_data": test_attempt_session.personality_model_data,
+                "culture_map_evaluation_criteria": culture_map_evaluation_criteria
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
