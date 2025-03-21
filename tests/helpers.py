@@ -72,7 +72,7 @@ from tests.choices import ScenarioCaseChoices
 from bs4 import BeautifulSoup
 import requests
 from test_bulk_upload.scripts import API_ENDPOINT_SLACK
-from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data
+from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data, get_culture_skills
 from readability import Document
 from test_bulk_upload.constants import get_skills
 from django.db.models import Q
@@ -3847,6 +3847,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
+    culture_map_evaluation_criteria = get_culture_skills(
+                    "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
+                    only_criteria=True 
+                    )
     # try:
     #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
     #                                                 user_uid=test_attempt_session.participant_id
@@ -4011,7 +4015,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         'report_description': test.report_description,
         "category": test.category,
         "interaction_code": test.test_code,
-        "personality_model_data": test_attempt_session.personality_model_data
+        "personality_model_data": test_attempt_session.personality_model_data,
+        "culture_map_evaluation_criteria": culture_map_evaluation_criteria
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -5196,12 +5201,12 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
         count += 1
 
     # Evaluate conversation
-    if test.is_free:
-        culture_skills_rating, is_evaluated = evaluate_conversation(
-            test_attempt_session, conversation, test.title, test.description, test.test_code,True)
-    else:
-        culture_skills_rating, is_evaluated = evaluate_conversation(
-            test_attempt_session, conversation, test.title, test.description, test.test_code)
+    culture_skills_rating, is_evaluated = evaluate_conversation(
+        test_attempt_session=test_attempt_session,
+        conversation=conversation,
+        test=test,
+        is_free=test.is_free
+    )
 
     if not is_evaluated:
         return None

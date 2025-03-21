@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 from string import Template
 import json5
+from tests.choices import TestTypeChoices, ScenarioCaseChoices
 
 
 
@@ -1673,40 +1674,178 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
         return response
 
 
-    
+def get_culture_skills(skills_type: str, only_criteria: bool = False):
+    cultural_skills = {
+            "Need for Structure": "Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.",
+            "Orientation towards Authority": "Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.",
+            "Emphasis on Relationships": "Does the conversation display emphasis on relationships? Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.",
+            "Direct Communication Style": "How direct is the communication style displayed in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.",
+            "Long Term Focus": "Does the conversation display long-term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.",
+            "Value Placed on Independence": "Does the conversation display a need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.",
+            "Propensity for Risk-Taking": "Does the conversation display a high-risk or low-risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion."
+        }
+    evaluation_criteria = None
+    if skills_type == 'communicational':
+        cultural_skills = {
+            "Hierarchy": "Does the conversation look like the participants have a strict hierarchical relationship (highest score of 10) or a casual professional relationship (score of 0)?",
+            "Consensual": "Does the conversation look like the respondents have respect for boundaries and empathy? (High yes score of 10 and low is 0).",
+            "Indirect Negative Feedback": "Do the participants provide subtle feedback or blunt feedback? (Subtle feedback is 10 and blunt feedback is 0).",
+            "Relationship-Based": "Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (score of 0)?",
+            "High Context Communication": "Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (score of 10)?",
+            "Persuasion": "Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (score of 0)?",
+            "Argumentative": "Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (score of 10)?"
+        }
+    elif skills_type == 'workplace_skills':
+        cultural_skills = {
+            "Need for Structure": "Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.",
+            "Orientation towards Authority": "Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.",
+            "Emphasis on Relationships": "Does the conversation display emphasis on relationships? Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.",
+            "Direct Communication Style": "How direct is the communication style displayed in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.",
+            "Long Term Focus": "Does the conversation display long-term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.",
+            "Value Placed on Independence": "Does the conversation display a need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.",
+            "Propensity for Risk-Taking": "Does the conversation display a high-risk or low-risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion."
+        }
+    elif skills_type == 'ocean_model':
+        cultural_skills = {
+            "Openness to Experience": "Does the conversation display openness to experience? Assesses the individual's curiosity, creativity, and receptiveness to new ideas versus preference for familiarity and conventional thinking.",
+            "Conscientiousness": "Does the conversation display conscientiousness? Measures the individual's organization, attention to detail, and reliability versus spontaneity and casual approach to obligations.",
+            "Extraversion": "Does the conversation display extraversion? Evaluates the individual's sociability, assertiveness, and energy in social settings versus preference for solitude and quieter environments.",
+            "Agreeableness": "Does the conversation display agreeableness? Assesses the individual's cooperation, consideration for others, and harmonious approach versus competitive or challenging interactions.",
+            "Neuroticism": "Does the conversation display neuroticism? Measures the individual's emotional stability, resilience to stress, and ability to manage negative emotions versus tendency toward anxiety, worry, or emotional volatility."
+        }
+        evaluation_criteria = {"Evaluation Criteria for the Big Five Personality Traits (OCEAN)" : """
+        The following criteria provide a structured framework for assessing the five major personality dimensions known as the **OCEAN** model (**Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism**). These criteria can be used to evaluate an individual's personality traits through **conversation analysis, behavioral observation, or self-reporting**.
+<br><br>
+### Openness to Experience:
+
+- **Intellectual Curiosity**: Does the conversation display interest in abstract ideas, philosophical discussions, or theoretical concepts?
+  *Assesses the individual's tendency to explore new intellectual territories versus preferring practical, concrete thinking.*
+
+- **Aesthetic Appreciation**: Does the conversation reveal sensitivity to art, beauty, or creative expression?
+  *Measures the individual's receptiveness to aesthetic experiences versus indifference to artistic elements.*
+
+- **Imagination and Fantasy**: Does the conversation demonstrate creative thinking, imaginative scenarios, or "outside-the-box" perspectives?
+  *Evaluates the tendency toward creative visualization versus literal, fact-based thinking.*
+
+- **Receptiveness to New Experiences**: Does the conversation show willingness to try unfamiliar activities or consider novel approaches?
+  *Assesses openness to new experiences versus preference for familiar routines and traditional methods.*
+
+- **Tolerance for Ambiguity**: Does the conversation display comfort with uncertainty and open-ended situations?
+  *Measures preference for exploration and discovery versus need for definitive answers and closure.*
+
+- **Intellectual Independence**: Does the conversation reveal a tendency to question established conventions or authority?
+  *Evaluates the propensity to challenge traditional viewpoints versus accepting conventional wisdom.*
+
+<br>
+
+### Conscientiousness:
+
+- **Organizational Tendency**: Does the conversation display evidence of systematic planning and organization?
+  *Assesses the individual's preference for order and structure versus spontaneity and flexibility.*
+
+- **Attention to Detail**: Does the conversation demonstrate thoroughness and precision in discussing topics?
+  *Measures meticulousness and careful consideration versus a more casual, general approach.*
+
+- **Goal Orientation**: Does the conversation reflect clear objectives and purposeful direction?
+  *Evaluates focus on achievement and task completion versus more relaxed, process-oriented engagement.*
+
+- **Reliability and Dependability**: Does the conversation suggest follow-through on commitments and responsibilities?
+  *Assesses trustworthiness and consistency versus unpredictability or unreliability.*
+
+- **Self-Discipline**: Does the conversation indicate ability to persist with difficult or tedious tasks?
+  *Measures capacity for sustained effort versus preference for immediate gratification.*
+
+- **Deliberativeness**: Does the conversation show careful consideration before making decisions or forming opinions?
+  *Evaluates thoughtful deliberation versus impulsivity.*
+
+<br>
+
+### Extraversion:
+
+- **Social Engagement**: Does the conversation display enthusiasm for social interaction and group activities?
+  *Assesses preference for being with others versus solitary pursuits.*
+
+- **Assertiveness**: Does the conversation demonstrate comfort with expressing opinions and taking the lead?
+  *Measures directness and leadership orientation versus reticence and following tendencies.*
+
+- **Energy Level**: Does the conversation reflect high animation, expressiveness, and vigor?
+  *Evaluates energetic, dynamic engagement versus calm, reserved demeanor.*
+
+- **Stimulation Seeking**: Does the conversation indicate desire for excitement and stimulating environments?
+  *Assesses preference for high-energy, varied experiences versus quieter, more predictable settings.*
+
+- **Social Confidence**: Does the conversation show ease in social situations and comfort being the center of attention?
+  *Measures self-assurance in social contexts versus social inhibition.*
+
+- **Conversational Dominance**: Does the conversation reveal a tendency to initiate and sustain dialogue?
+  *Evaluates talkativeness and conversation-driving behavior versus listening and responding primarily when addressed.*
+
+
+<br>
+
+### Agreeableness:
+
+- **Empathic Concern**: Does the conversation display understanding of and sensitivity to others' feelings?
+  *Assesses emotional resonance with others versus detachment or indifference.*
+
+- **Cooperative Orientation**: Does the conversation demonstrate willingness to accommodate others' needs and perspectives?
+  *Measures collaborative approach versus competitive or self-focused orientation.*
+
+- **Trust in Others**: Does the conversation reflect a tendency to assume others' good intentions?
+  *Evaluates belief in others' benevolence versus skepticism or suspicion.*
+
+- **Conflict Avoidance**: Does the conversation show preference for harmony and consensus over confrontation?
+  *Assesses comfort with compromise versus standing firm on positions.*
+
+- **Altruistic Tendency**: Does the conversation indicate willingness to help others without expectation of return?
+  *Measures selfless concern for others' welfare versus self-interest prioritization.*
+
+- **Forgiving Attitude**: Does the conversation display ability to let go of grievances and restore relations?
+  *Evaluates tendency to forgive transgressions versus holding grudges.*
+
+  
+<br>
+
+### Neuroticism:
+
+- **Emotional Reactivity**: Does the conversation show intense responses to minor stressors or criticisms?
+  *Assesses sensitivity to negative stimuli versus emotional stability under pressure.*
+
+- **Anxiety Level**: Does the conversation display excessive worry about potential problems or uncertainties?
+  *Measures tendency toward fearful anticipation versus calm confidence about the future.*
+
+- **Mood Fluctuation**: Does the conversation demonstrate rapid or unpredictable changes in emotional state?
+  *Evaluates emotional variability versus consistent mood.*
+
+- **Self-Consciousness**: Does the conversation reveal heightened awareness of potential judgment or criticism?
+  *Assesses concern about others' opinions versus self-assured independence.*
+
+- **Stress Tolerance**: Does the conversation indicate difficulty coping with challenging situations?
+  *Measures vulnerability to stress versus resilience and adaptability.*
+
+- **Negative Outlook**: Does the conversation display tendencies toward pessimism or focus on negative aspects?
+  *Evaluates negative bias in perceptions versus balanced or positive perspective.*
+
+
+        """}
+
+    if only_criteria:
+        return evaluation_criteria
+
+    return cultural_skills, evaluation_criteria
+
 
 @timeit
-def evaluate_conversation(test_attempt_session, conversation, test_title, test_description, test_code,is_free=False, company_context=None, model_order=["gemini", "anthropic", "gpt"]):
+def evaluate_conversation(test_attempt_session, conversation, test, is_free=False, model_order=["gemini", "anthropic", "gpt"]):
     """
     It evaluates the cultural rating for a scenario (test,trainer type)
     """
-    # cultural_skills = ['hierarchy', 'consensual', 'indirect negative feedback',
-    #                    'relationship based', 'high context communication', 'Persuasion', 'argumentative']
+    test_title = test.title
+    test_description = test.description
+    cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
 
-    cultural_skills = [
-            "Need for Structure",
-            "Orientation towards Authority",
-            "Emphasis on Relationships",
-            "Propensity for Risk-Taking",
-            "Direct Communication Style",
-            "Long term focus",
-            "Value Placed on Independence"
-        ]
-    
-    #previous cultural rating :
-    #        - Hierarchy: Does the conversation look like the participants have strict hierarchical relationship (highest score of 10) or casual professional relationship (scores 0)?
-
-        # - Consensual: Does the conversation looks like the respondents have respect for boundary and empathy? ( High yes score 10 and the low is 0)
-
-        # - Indirect negative feedback: Do the participants provide a subtle feedback or a blunt feedback? (Subtle feedback is 10 and blunt feedback is 0)
-
-        # - Relationship-based: Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (scores 0)?
-
-        # - High context communication: Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (scores 10)?
-
-        # - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?
-
-        # - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)?
+    evaluation_criteria = "\n".join([f"- {skill}: {desc}" for skill, desc in cultural_skills_and_desc.items()])
+    cultural_skills = cultural_skills_and_desc.keys()
 
     prompt = f'''
         \n\nHuman:
@@ -1717,21 +1856,8 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         "CONVERSATION:" {conversation};
 
         "Evaluation Criteria:"
-
-        - Hierarchy: Does the conversation look like the participants have strict hierarchical relationship (highest score of 10) or casual professional relationship (scores 0)?
-
-        - Consensual: Does the conversation looks like the respondents have respect for boundary and empathy? ( High yes score 10 and the low is 0)
-
-        - Indirect negative feedback: Do the participants provide a subtle feedback or a blunt feedback? (Subtle feedback is 10 and blunt feedback is 0)
-
-        - Relationship-based: Does the conversation look like the participants focus on relationships (highest score of 10) or tasks (scores 0)?
-
-        - High context communication: Does the conversation look like the participants focus on subtle cues (highest score of 0) or explicit verbal communication (scores 10)?
-
-        - Persuasion : Does the conversation look like the participants value emotional appeals (highest score of 10) or completely rely on logic and evidence (scores 0)?
-
-        - Argumentative : Does the conversation look like the participants see debate and disagreement as a competition (highest score of 0) or view it as a collaborative process to find truth (scores 10)?
-
+        {evaluation_criteria}
+        
         "REQUIRED FROM LLM:" Based on the above criteria please evaluate the entire conversation - which is a list of all questions and answers. Rate the criteria's only from a scale of 1.5-9 in such a way that no two skills can have the exact same score, with scores in increments of 0.5 for each behavior trait listed above which corresponds to this cultural_list in JSON.
 
         "cultural_list:" "{cultural_skills}"
@@ -1761,14 +1887,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
 
 
             "Evaluation Criteria:"
-                - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
-                - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
-                - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
-                - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
-                - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
-                - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
-                - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
-
+                ${evaluation_criteria}
             "REQUIRED FROM LLM:" 
             - Always consider the Title, Description, and Conversation when rating the skills. Evaluate each skill based on the criteria provided, ensuring a comprehensive and holistic analysis.
             - Assign a unique score between 0.5 and 9.5 for each skill listed in {cultural_list}, ensuring that no two skills receive the same score. Use decimal values for more precision (e.g., 4.2, 7.3).
@@ -1801,6 +1920,7 @@ def evaluate_conversation(test_attempt_session, conversation, test_title, test_d
         description = test_description,
         conversation = conversation,
         skills_list = ",".join(cultural_skills),
+        evaluation_criteria = evaluation_criteria
     )
     if is_free:
         model_order = ['anthropic']
