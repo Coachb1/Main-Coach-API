@@ -1715,76 +1715,117 @@ def get_culture_skills(skills_type: str, only_criteria: bool = False):
         }
         evaluation_criteria = {"Evaluation Criteria for the Big Five Personality Traits (OCEAN)" : """
         The following criteria provide a structured framework for assessing the five major personality dimensions known as the **OCEAN** model (**Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism**). These criteria can be used to evaluate an individual's personality traits through **conversation analysis, behavioral observation, or self-reporting**.
+<br><br>
+### Openness to Experience:
 
-        ## Openness to Experience
+- **Intellectual Curiosity**: Does the conversation display interest in abstract ideas, philosophical discussions, or theoretical concepts?
+  *Assesses the individual's tendency to explore new intellectual territories versus preferring practical, concrete thinking.*
 
-        - **Intellectual Curiosity**:  
-        Does the conversation display interest in abstract ideas, philosophical discussions, or theoretical concepts?  
-        *Assesses the individual's tendency to explore new intellectual territories versus preferring practical, concrete thinking.*
+- **Aesthetic Appreciation**: Does the conversation reveal sensitivity to art, beauty, or creative expression?
+  *Measures the individual's receptiveness to aesthetic experiences versus indifference to artistic elements.*
 
-        - **Aesthetic Appreciation**:  
-        Does the conversation reveal sensitivity to art, beauty, or creative expression?  
-        *Measures the individual's receptiveness to aesthetic experiences versus indifference to artistic elements.*
+- **Imagination and Fantasy**: Does the conversation demonstrate creative thinking, imaginative scenarios, or "outside-the-box" perspectives?
+  *Evaluates the tendency toward creative visualization versus literal, fact-based thinking.*
 
-        - **Imagination and Fantasy**:  
-        Does the conversation demonstrate creative thinking, imaginative scenarios, or "outside-the-box" perspectives?  
-        *Evaluates the tendency toward creative visualization versus literal, fact-based thinking.*
+- **Receptiveness to New Experiences**: Does the conversation show willingness to try unfamiliar activities or consider novel approaches?
+  *Assesses openness to new experiences versus preference for familiar routines and traditional methods.*
 
-        - **Receptiveness to New Experiences**:  
-        Does the conversation show willingness to try unfamiliar activities or consider novel approaches?  
-        *Assesses openness to new experiences versus preference for familiar routines and traditional methods.*
+- **Tolerance for Ambiguity**: Does the conversation display comfort with uncertainty and open-ended situations?
+  *Measures preference for exploration and discovery versus need for definitive answers and closure.*
 
-        - **Tolerance for Ambiguity**:  
-        Does the conversation display comfort with uncertainty and open-ended situations?  
-        *Measures preference for exploration and discovery versus need for definitive answers and closure.*
+- **Intellectual Independence**: Does the conversation reveal a tendency to question established conventions or authority?
+  *Evaluates the propensity to challenge traditional viewpoints versus accepting conventional wisdom.*
 
-        - **Intellectual Independence**:  
-        Does the conversation reveal a tendency to question established conventions or authority?  
-        *Evaluates the propensity to challenge traditional viewpoints versus accepting conventional wisdom.*
+<br>
 
-        ## Conscientiousness
+### Conscientiousness:
 
-        - **Organizational Tendency**:  
-        Does the conversation display evidence of systematic planning and organization?  
-        *Assesses the individual's preference for order and structure versus spontaneity and flexibility.*
+- **Organizational Tendency**: Does the conversation display evidence of systematic planning and organization?
+  *Assesses the individual's preference for order and structure versus spontaneity and flexibility.*
 
-        - **Attention to Detail**:  
-        Does the conversation demonstrate thoroughness and precision in discussing topics?  
-        *Measures meticulousness and careful consideration versus a more casual, general approach.*
+- **Attention to Detail**: Does the conversation demonstrate thoroughness and precision in discussing topics?
+  *Measures meticulousness and careful consideration versus a more casual, general approach.*
 
-        - **Goal Orientation**:  
-        Does the conversation reflect clear objectives and purposeful direction?  
-        *Evaluates focus on achievement and task completion versus more relaxed, process-oriented engagement.*
+- **Goal Orientation**: Does the conversation reflect clear objectives and purposeful direction?
+  *Evaluates focus on achievement and task completion versus more relaxed, process-oriented engagement.*
 
-        - **Reliability and Dependability**:  
-        Does the conversation suggest follow-through on commitments and responsibilities?  
-        *Assesses trustworthiness and consistency versus unpredictability or unreliability.*
+- **Reliability and Dependability**: Does the conversation suggest follow-through on commitments and responsibilities?
+  *Assesses trustworthiness and consistency versus unpredictability or unreliability.*
 
-        - **Self-Discipline**:  
-        Does the conversation indicate ability to persist with difficult or tedious tasks?  
-        *Measures capacity for sustained effort versus preference for immediate gratification.*
+- **Self-Discipline**: Does the conversation indicate ability to persist with difficult or tedious tasks?
+  *Measures capacity for sustained effort versus preference for immediate gratification.*
 
-        - **Deliberativeness**:  
-        Does the conversation show careful consideration before making decisions or forming opinions?  
-        *Evaluates thoughtful deliberation versus impulsivity.*
+- **Deliberativeness**: Does the conversation show careful consideration before making decisions or forming opinions?
+  *Evaluates thoughtful deliberation versus impulsivity.*
 
-        ## Extraversion
+<br>
 
-        - **Social Engagement**:  
-        Does the conversation display enthusiasm for social interaction and group activities?  
-        *Assesses preference for being with others versus solitary pursuits.*
+### Extraversion:
 
-        - **Assertiveness**:  
-        Does the conversation demonstrate comfort with expressing opinions and taking the lead?  
-        *Measures directness and leadership orientation versus reticence and following tendencies.*
+- **Social Engagement**: Does the conversation display enthusiasm for social interaction and group activities?
+  *Assesses preference for being with others versus solitary pursuits.*
 
-        - **Energy Level**:  
-        Does the conversation reflect high animation, expressiveness, and vigor?  
-        *Evaluates energetic, dynamic engagement versus calm, reserved demeanor.*
+- **Assertiveness**: Does the conversation demonstrate comfort with expressing opinions and taking the lead?
+  *Measures directness and leadership orientation versus reticence and following tendencies.*
 
-        - **Stimulation Seeking**:  
-        Does the conversation indicate desire for excitement and stimulating environments?  
-        *Assesses preference for engaging, novel experiences versus contentment with routine or predictability.*
+- **Energy Level**: Does the conversation reflect high animation, expressiveness, and vigor?
+  *Evaluates energetic, dynamic engagement versus calm, reserved demeanor.*
+
+- **Stimulation Seeking**: Does the conversation indicate desire for excitement and stimulating environments?
+  *Assesses preference for high-energy, varied experiences versus quieter, more predictable settings.*
+
+- **Social Confidence**: Does the conversation show ease in social situations and comfort being the center of attention?
+  *Measures self-assurance in social contexts versus social inhibition.*
+
+- **Conversational Dominance**: Does the conversation reveal a tendency to initiate and sustain dialogue?
+  *Evaluates talkativeness and conversation-driving behavior versus listening and responding primarily when addressed.*
+
+
+<br>
+
+### Agreeableness:
+
+- **Empathic Concern**: Does the conversation display understanding of and sensitivity to others' feelings?
+  *Assesses emotional resonance with others versus detachment or indifference.*
+
+- **Cooperative Orientation**: Does the conversation demonstrate willingness to accommodate others' needs and perspectives?
+  *Measures collaborative approach versus competitive or self-focused orientation.*
+
+- **Trust in Others**: Does the conversation reflect a tendency to assume others' good intentions?
+  *Evaluates belief in others' benevolence versus skepticism or suspicion.*
+
+- **Conflict Avoidance**: Does the conversation show preference for harmony and consensus over confrontation?
+  *Assesses comfort with compromise versus standing firm on positions.*
+
+- **Altruistic Tendency**: Does the conversation indicate willingness to help others without expectation of return?
+  *Measures selfless concern for others' welfare versus self-interest prioritization.*
+
+- **Forgiving Attitude**: Does the conversation display ability to let go of grievances and restore relations?
+  *Evaluates tendency to forgive transgressions versus holding grudges.*
+
+  
+<br>
+
+### Neuroticism:
+
+- **Emotional Reactivity**: Does the conversation show intense responses to minor stressors or criticisms?
+  *Assesses sensitivity to negative stimuli versus emotional stability under pressure.*
+
+- **Anxiety Level**: Does the conversation display excessive worry about potential problems or uncertainties?
+  *Measures tendency toward fearful anticipation versus calm confidence about the future.*
+
+- **Mood Fluctuation**: Does the conversation demonstrate rapid or unpredictable changes in emotional state?
+  *Evaluates emotional variability versus consistent mood.*
+
+- **Self-Consciousness**: Does the conversation reveal heightened awareness of potential judgment or criticism?
+  *Assesses concern about others' opinions versus self-assured independence.*
+
+- **Stress Tolerance**: Does the conversation indicate difficulty coping with challenging situations?
+  *Measures vulnerability to stress versus resilience and adaptability.*
+
+- **Negative Outlook**: Does the conversation display tendencies toward pessimism or focus on negative aspects?
+  *Evaluates negative bias in perceptions versus balanced or positive perspective.*
+
 
         """}
 
