@@ -25,7 +25,7 @@ def create_new_tokens(entity_type: str,
         token=random_token,
         nbf=now,
         iat=now,
-        exp=now + timezone.timedelta(days=30),
+        exp=now + timezone.timedelta(days=1000),
     )
 
     return {"refresh": token.refresh_token, "access": token.access_token}
