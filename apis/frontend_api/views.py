@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
 from tests.choices import TestAttemptSessionStatusChoices
-from tests.models import TestAttemptSession
+from tests.models import TestAttemptSession, Test
 from .serializers import FrontendAuthSerializer, FrontendAccessTokenSerializer
 from .serializers import FrontendLeaderboardReportSerializer
 from .serializers import FrontendCandidateReportSerializer
@@ -30,6 +30,7 @@ from utilities.models import JotUrlSession
 import datetime
 import pytz
 import os
+import re
 
 
 import hashlib
@@ -332,3 +333,53 @@ class FrontendAuthViewSet(ApiViewSet):
             logger.error({"!!!Error":e},exc_info=True)
         
         return Response(data={"sid": session.session_id,"_h":get_h(session.session_id)}, status=status.HTTP_200_OK)
+    
+    @action(methods=['POST'], detail=False, url_path='reset-expiry-token')
+    def reset_expiry_token(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+    
+        sessions = TestAttemptSession.objects.filter(
+            deleted=False, status=TestAttemptSessionStatusChoices.completed
+        ).exclude(finished_at=None).exclude(report_url=None)
+    
+        if user_id:
+            sessions = sessions.filter(participant_id=user_id)
+    
+        # Fetch existing test IDs in bulk
+        existing_tests = set(
+            Test.objects.filter(deleted=False, uid__in=sessions.values_list("test_id", flat=True))
+            .values_list("uid", flat=True)
+        )
+    
+        user_tokens = {}
+        updated_sessions = []
+    
+        for session in sessions:
+            logger.info(f"session:uid: {session.uid} report_url: {session.report_url}, finished_at={session.finished_at}, deleted: {session.deleted}")
+            if not session.report_url:
+                logger.info(f'Session with id {session.uid} does not have a report URL')
+                continue
+            participant_id = session.participant_id
+    
+            if participant_id not in user_tokens:
+                logger.info(f"Creating new tokens for user {participant_id}")
+                user_tokens[participant_id] = create_new_tokens("user-report", "uid", participant_id)["refresh"]
+                logger.info(f"Refresh token: {user_tokens[participant_id]}")
+    
+            if session.test_id not in existing_tests:
+                logger.warning(f"Test with id {session.test_id} not found")
+                continue
+    
+            refresh_token = user_tokens[participant_id]
+            report_type = session.report_url.split("/")[3]
+            updated_url = re.sub(rf"(?<={re.escape(report_type)}/)[^/\?]+", refresh_token, session.report_url)
+    
+            session.report_url = updated_url
+            updated_sessions.append(session)
+    
+        # Bulk update all modified sessions at once
+        if updated_sessions:
+            TestAttemptSession.objects.bulk_update(updated_sessions, ["report_url"])
+    
+        return Response(data={"message": "Updated the report tokens"}, status=status.HTTP_200_OK)
+    
