@@ -16,7 +16,6 @@ from commons.anthropic import anthropic_completion
 from apis.accounts.serializers import UserIDPSerializers
 from string import Template
 from commons.utils import generic_completion
-from tests.helpers import create_one_question_scenario_from_context, create_scenario_from_site_context
 import re
 from tests.choices import TestTypeChoices
 from settings import FRONTEND_BASE_URL
@@ -585,7 +584,6 @@ def process_idp(idp_data,user_id,tenant_id,access_token,only_data=False, idp_id 
 
 
         tests = {}
-        # create_one_question_scenario_from_context(prompt_type="manager-team",information="Thought Leadership in Digital Marketing",access_token="access_token",tenant_id=tenant_id)
         skills = hard_soft_skills.split(',')
         total_scenarios_created = 0
 
