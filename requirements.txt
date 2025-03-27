@@ -91,3 +91,5 @@ django-redis==5.4.0
 django-clearcache==1.2.1
 django-storages==1.13.2
 openpyxl==3.1.5
+django-celery-beat==2.7.0
+celery==5.4.0

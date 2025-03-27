@@ -5,7 +5,7 @@ import random
 import string
 import tempfile
 import time
-from datetime import date
+from datetime import date, timedelta
 from string import Template
 import base64
 import math
@@ -26,7 +26,7 @@ from commons.timeit import timeit
 from commons.fcfs_handler import FcfsHandler
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
-from email_sender.helpers import send_email, send_generic_email
+from email_sender.helpers import send_email, send_email_from_emailit, send_generic_email
 from external_apis.coach_metric_api import coach_metric_api, default_metrics
 from external_apis.coach_whisper_api import coach_whisper_api
 from external_apis.whatsapp_api import whatsapp_api
@@ -41,7 +41,7 @@ from skills.models import SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
-from tests.choices import InteractionModeChoices, QuestionForChoices, TestTypeChoices
+from tests.choices import InteractionModeChoices, PilotTestPreferencesChoices, QuestionForChoices, TestTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.models import Test
@@ -9446,6 +9446,7 @@ def create_scenario_from_site_context(url,
                                       previous_session_id=None,
                                       by_pass_access_token=False,
                                       game_single_select=False,
+                                      available_case=None
                                       ):
     """
     This function generates a scenario based on the meta information of a given URL.
@@ -9495,6 +9496,16 @@ def create_scenario_from_site_context(url,
     "static_game","dynamic_game"
     ]
 
+    if flavour:
+        if flavour in dynamic_case_types:
+            type_of_test = TestTypeChoices.dynamic_discussion_thread
+            scenario_case = ScenarioCaseChoices.dynamic_discussion
+
+        elif flavour in game_case_types:
+            type_of_test = TestTypeChoices.dynamic_discussion_thread
+            scenario_case = ScenarioCaseChoices.game
+
+
     start_with_user_opt = ["team-manager","sales-customer","customer-sales","manager-team"]
     start_with_user = None
     available_case_types = all_case_types
@@ -9512,6 +9523,9 @@ def create_scenario_from_site_context(url,
 
     if previous_session_id:
         available_case_types = ['soft_skills', 'hard_skills']
+
+    if available_case:
+        available_case_types = available_case # it will override 
 
     for i in range(max_retry):
         logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
@@ -12438,6 +12452,111 @@ def check_updates(instance, updates):
 
     return updated_fields if updated_fields else []
 
+
+
+def get_next_test(test_pilot_user: TestPilotuser):
+    test_sequence = ["dynamic_game", "static_role_play_soft", "dynamic_start_with_user", 
+                    "static_hard", "static_soft", "normal_dynamic_test_hard", 
+                    "static_role_play_hard", "normal_dynamic_test_soft", "case", "checkin",
+                    "static_game"]
+    soft = ['static_role_play_soft', 'dynamic_start_with_user', 'static_soft','normal_dynamic_test_soft']
+    hard = ['static_hard', 'normal_dynamic_test_hard', 'static_role_play_hard']
+    others = ['dynamic_game', 'case', 'checkin','static_game']
+
+
+    if test_pilot_user.preferences == PilotTestPreferencesChoices.only_hard_skills:
+        test_sequence = hard
+    elif test_pilot_user.preferences == PilotTestPreferencesChoices.only_soft_skills:
+        test_sequence = soft
+
+
+    previous_records = TestPilotRecords.objects.filter(pilotuser=test_pilot_user).last()
+
+    if previous_records and previous_records.scenario_case_type in test_sequence:
+        last_index = test_sequence.index(previous_records.scenario_case_type)
+        next_index = (last_index + 1) % len(test_sequence)  # Loop back if at the end
+        next_test = test_sequence[next_index]
+    else:
+        next_test = test_sequence[0]  # Start from beginning if unknown
+
+    logger.info(f"{previous_records.scenario_case_type if previous_records else 'None'}, {next_test}")
+
+    return next_test
+
+
+
+def get_future_date(days=5, date_format="%Y-%m-%d"):
+    """Returns the date 'days' days from today in the specified format."""
+    future_date = datetime.datetime.today() + timedelta(days=days)
+    return future_date.strftime(date_format)
+
+def get_test_pilot_email_template(name, title, code, platform, access_code ):
+    template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Leadership Simulation Email</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: auto;
+                    background: #f9f9f9;
+                    padding: 20px;
+                    border-radius: 10px;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 10px 20px;
+                    color: #fff;
+                    background: #007bff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                }
+                .footer {
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #666;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <p>Hi ${name},</p>
+                <p>Your weekly leadership simulation is ready! The details are below.</p>
+                <p>Spend 10 minutes practicing real-time interaction & real-world decision making with our interactive platform.</p>
+                <h3>Access Details</h3>
+                <ul>
+                    <li><a href="${platform_url}"><strong>Platform</strong> </a></li>
+                    <li><strong>Access Code:</strong>${access_code}</li>
+                    <li><strong>Interaction Code:</strong> ${test_code}</li>
+                </ul>
+                <h3>How to Participate</h3>
+                <p>Visit the platform URL and locate the login page.</p>
+                <p>Enter the access and interaction codes when prompted (case-sensitive).</p>
+                <p>You may be asked for your name and email. Simulation feedback reports will be delivered to this email.</p>
+                <p>CoachBot skills engine will detect skill gaps based on your performance and serve another scenario (Optional).</p>
+                <p>Complete the scenario and the optional step by <strong>${next_day}</strong> date to maximize your Leadership Leaderboard scores!</p>
+                <h3>This Week’s Simulation Title: ${title}</h3>
+                <p><em>Note: The theme and track of the simulations are based on your inputs/organizational mandate. Please contact us if you wish to change them.</em></p>
+                <p>Need help? Reply directly or contact <a href="mailto:support@coachbot.com">support@coachbot.com</a>.</p>
+                <p>Keep growing,</p>
+                <p><strong>Team CoachBot</strong></p>
+                <p class="footer">This is an automated email. Please do not reply directly.</p>
+            </div>
+        </body>
+        </html>             
+        """
+
+    return Template(template).substitute(name=name, title=title, test_code=code, platform_url=platform, access_code=access_code, next_day=get_future_date())
+
 def process_test_pilot_user_csv(csv, tenant_id):
     test_to_create = ['simulation', 'role_play', 'games', 'dynamic', 'dynamic_user_first']
     for row in csv:
@@ -12457,6 +12576,12 @@ def process_test_pilot_user_csv(csv, tenant_id):
             "department": row.get("Department"),
             "key_stakeholders": row.get("Key Stakeholders"),
             "situation": row.get("Situation"),
+            "history": row.get("History"),
+            "company": row.get("Company"),
+            "top_skills": row.get("Top Skills"),
+            "leaderboard": row.get("Leaderboard"),
+            "preferences":row.get('Perferences'),
+            "frequency" : row.get('Frequency')
         }
 
         test_pilot_user, is_created = TestPilotuser.objects.update_or_create(
@@ -12524,19 +12649,46 @@ def process_test_pilot_user_csv(csv, tenant_id):
                 "data": {'information': context}
             })
             # now creating starting test scenarios
+            scenario_type = get_next_test(test_pilot_user)
             for i in range(3):
                 try:
-                    test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                    if scenario_type == 'dynamic_start_with_user':
+                        test = create_scenario_from_site_context(None, "", tenant_id, context, 
                                                             assign_to=user.uid, 
                                                             is_micro=True,
-                                                            flavour='normal',
-                                                            by_pass_access_token=True
+                                                            flavour=scenario_type,
+                                                            type_of_test=TestTypeChoices.dynamic_discussion_thread,
+                                                            scenario_case='start_with_userteam-manager',
+                                                            by_pass_access_token=True,
+                                                            available_case=[scenario_type] # it will override
+                                                            )
+                    else:
+                        test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                            assign_to=user.uid, 
+                                                            is_micro=True,
+                                                            flavour=scenario_type,
+                                                            by_pass_access_token=True,
+                                                            available_case=[scenario_type] # it will override
                                                             )
                     logger.info(f"created_test: {test}, {test['test_code']}")
-                    TestPilotRecords.objects.create(
+                    test = Test.objects.get(test_code=test['test_code'])
+                    record = TestPilotRecords.objects.create(
                         pilotuser = test_pilot_user,
-                        test = Test.objects.get(test_code=test['test_code']),
+                        test = test,
+                        scenario_case_type = scenario_type
                     )
+                    send_email_from_emailit(test_pilot_user.email,
+                                    subject=f"Leadership Simulation #: {test.title} 🔍",
+                                    body= get_test_pilot_email_template(
+                                        name=test_pilot_user.name,
+                                        title=test.title,
+                                        code=test.test_code,
+                                        platform="https://www.coachots.com/",
+                                        access_code="ABC"
+                                    )
+            )
+                    record.sent_email = True
+                    record.save(update_fields=['sent_email'])
                     break
                 
                 except Exception as e:
@@ -12549,13 +12701,7 @@ def process_test_pilot_user_csv(csv, tenant_id):
             test_pilot_user.save(update_fields=updated_fields)
 
 
-
-def create_and_email_to_pilot_user(pilot_user_id:str):
-    test_sequence = ["Game dynamic", "Roleplay Soft", "User first - Soft", 
-                    "Normal hard skill", "normal soft skill", "Normal dynamic-Hard", 
-                    "Roleplay Hard", "Normal Dynamic-Soft", "Case", "Check-in Soft",
-                    "Game static"]
-    test_pilot_user = TestPilotuser.objects.get(uid=pilot_user_id)
+def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
 
     context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
     if test_pilot_user.objective:
@@ -12568,26 +12714,72 @@ def create_and_email_to_pilot_user(pilot_user_id:str):
         context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
     if test_pilot_user.situation:
         context += f"situation: {test_pilot_user.situation}"
+    context = json.dumps({
+                "title": "",
+                "data": {'information': context}
+            })
+    scenario_type = get_next_test(test_pilot_user)
 
     for i in range(3):
         try:
-            test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
+            if scenario_type == 'dynamic_start_with_user':
+                test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
                                                     assign_to=test_pilot_user.user.uid, 
                                                     is_micro=True,
-                                                    flavour='normal',
-                                                    by_pass_access_token=True
+                                                    flavour=scenario_type,
+                                                    type_of_test=TestTypeChoices.dynamic_discussion_thread,
+                                                    scenario_case='start_with_userteam-manager',
+                                                    by_pass_access_token=True,
+                                                    available_case=[scenario_type] # it will override
                                                     )
-            logger.info(f"created_test: {test}, {test['test_code']}")
-            TestPilotRecords.objects.create(
+            else:
+                test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
+                                                    assign_to=test_pilot_user.user.uid, 
+                                                    is_micro=True,
+                                                    flavour=scenario_type,
+                                                    by_pass_access_token=True,
+                                                    available_case = [scenario_type] # it will override
+                                                    )
+            
+            logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
+            test = Test.objects.get(test_code=test['test_code'])
+            record = TestPilotRecords.objects.create(
                 pilotuser = test_pilot_user,
-                test = Test.objects.get(test_code=test['test_code']),
+                test = test,
+                scenario_case_type = scenario_type
             )
+            
+            send_email_from_emailit(test_pilot_user.email,
+                                    subject=f"Leadership Simulation #: {test.title} 🔍",
+                                    body= get_test_pilot_email_template(
+                                        name=test_pilot_user.name,
+                                        title=test.title,
+                                        code=test.test_code,
+                                        platform="https://www.coachots.com/",
+                                        access_code="ABC"
+                                    )
+            )
+
+            record.sent_email = True
+            record.save(update_fields=['sent_email'])
             break
         
         except Exception as e:
             logger.exception(f"{e}")
             if i+1 ==3:
                 raise e
+
+
+def pilot_test_creation_job(frequency):
+    test_pilot_users = TestPilotuser.objects.filter(deleted=False)
+    for pilot_user in test_pilot_users:
+        if pilot_user.frequency == frequency:
+            try:
+                create_and_email_to_pilot_user(pilot_user)
+            except Exception as e:
+                send_error_notification("create_and_email_to_pilot_user", 
+                                        f"Failed to call for {pilot_user.email}",
+                                        {})
 
 def get_personality_model_prompt(personality_model:str, scenario:str):
     prompt = ""

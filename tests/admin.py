@@ -600,7 +600,7 @@ class TestPilotRecordsInline(admin.TabularInline):
 
 
 class TestPilotUserAdmin(TenantAwareModelAdmin):
-    list_display = ('id', 'name', 'email', 'industry', 'department', 'restart_status', 'view_records')
+    list_display = ('id', 'name', 'email','targeted_skills' ,'industry', 'department', 'restart_status','preferences', 'frequency','view_records')
     list_filter = ('industry', 'department', 'restart')
     search_fields = ('name', 'email', 'industry', 'department')
     inlines = [TestPilotRecordsInline]
@@ -623,7 +623,10 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
             'fields': ('industry', 'department', 'targeted_skills', 'objective')
         }),
         ('Additional Info', {
-            'fields': ('key_stakeholders', 'situation', 'restart')
+            'fields': ('key_stakeholders', 'situation', "company", 'top_skills', 'history', 'leaderboard', 'restart')
+        }),
+        ('Configrations', {
+            'fields': ('preferences', 'frequency')
         }),
     )
     change_list_template = (
@@ -675,6 +678,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
                 try:
                     process_test_pilot_user_csv(csv=reader, tenant_id=tenant_id)
                 except Exception as e:
+                    logger.exception(e)
                     messages.error(request, f"{e}")
                     return redirect(request.get_full_path())
                 
@@ -707,7 +711,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 admin.site.register(TestPilotuser, TestPilotUserAdmin)
 
 class TestPilotRecordsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted', 'active')
+    list_display = ('id', 'get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted','scenario_case_type', 'active')
     search_fields = ('pilotuser__name', 'test__name', 'pilotuser__email')
     list_filter = ('sent_email', 'test_attempted', 'active')
     ordering = ('id',)
