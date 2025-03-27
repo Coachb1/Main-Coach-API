@@ -17,6 +17,37 @@ from external_apis.slack_alert_api import send_slack_message
 
 import logging
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_email_from_emailit(receiver_email,subject,body):
+# Email details
+    sender_email = "Coach Bot <mail@coachbots.com>"
+    password = "em_smtp_1Pe2EoMFxmatBWlVTTVBHEo3YDwzxxH9"
+
+    # Set up the MIME
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = subject
+
+    # Email body
+    message.attach(MIMEText(body, "html"))
+
+    try:
+        # Connect to the server
+        with smtplib.SMTP("smtp.emailit.com", 587) as server:
+            server.starttls()  # Start TLS encryption
+            server.login(sender_email, password)  # Login to the email server
+            server.sendmail(sender_email, receiver_email, message.as_string())  # Send the email
+            print("Email sent successfully!")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise e
+
+
 logger = logging.getLogger(__name__)
 
 LOGIN_EMAIL = "deb@coachbots.com"

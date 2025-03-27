@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices
+from tests.choices import InteractionModeChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -458,6 +458,23 @@ class TestPilotuser(TenantAwareModel):
     key_stakeholders = models.TextField(null=True, blank=True, default=None)
     situation = models.TextField(null=True, blank=True, default=None)
     restart = models.BooleanField(default=False)
+    preferences = models.CharField(max_length=255,
+                                   choices=PilotTestPreferencesChoices, 
+                                   default=PilotTestPreferencesChoices.mix
+                                   )
+    frequency = models.CharField(max_length=255,
+                                choices=PilotTestFrequencyChoices, 
+                                default=PilotTestFrequencyChoices.monday
+                                )
+
+    generated_data_for_test = models.JSONField(null=True, blank=True, default=None)
+    company = models.TextField(null=True, blank=True, default=None)
+    top_skills = models.TextField(null=True, blank=True, default=None)
+    history = models.TextField(null=True, blank=True, default=None)
+    leaderboard = models.TextField(null=True, blank=True, default=None)
+
+
+
 
     class Meta:
         db_table = "test_pilot_user"
@@ -470,6 +487,7 @@ class TestPilotRecords(TenantAwareModel):
     body = models.TextField(null=True, blank=True, default=None)
     test_attempted = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
+    scenario_case_type = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_pilot_record"
