@@ -600,7 +600,7 @@ class TestPilotRecordsInline(admin.TabularInline):
 
 
 class TestPilotUserAdmin(TenantAwareModelAdmin):
-    list_display = ('id', 'name', 'email','targeted_skills' ,'industry', 'department', 'restart_status','preferences', 'frequency','view_records')
+    list_display = ('id', 'name', 'email','targeted_skills' ,'industry', 'department', 'restart_status','preferences', 'frequency','view_records',"company", 'top_skills', 'history', 'leaderboard')
     list_filter = ('industry', 'department', 'restart')
     search_fields = ('name', 'email', 'industry', 'department')
     inlines = [TestPilotRecordsInline]
@@ -661,7 +661,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
                 decoded_file = io.TextIOWrapper(csv_file, encoding="utf-8")
                 reader = csv.DictReader(decoded_file)
 
-                required_fields = ["Name", "Email", "Targeted Skills"]
+                required_fields = ["Name", "Email", "Targeted Skills", "Frequency", "Perferences"]
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:
