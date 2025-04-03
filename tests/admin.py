@@ -23,6 +23,8 @@ from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
 from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
+from import_export.resources import ModelResource
+from import_export.fields import Field
 import io
 import csv
 import json
@@ -711,10 +713,40 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 
 admin.site.register(TestPilotuser, TestPilotUserAdmin)
 
-class TestPilotRecordsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted','scenario_case_type', 'active')
+
+class TestPilotRecordsResource(ModelResource):
+    id = Field(attribute='id', column_name='ID')
+    created = Field(attribute='created', column_name='Created')
+    pilotuser_name = Field(column_name='Pilot User Name')
+    pilotuser_email = Field(column_name='Pilot User Email')
+    test = Field(attribute='test', column_name='Test')
+    sent_email = Field(column_name='Sent Email')
+    test_attempted = Field(column_name='Test Attempted')
+    scenario_case_type = Field(attribute='scenario_case_type', column_name='Scenario Case Type')
+
+    class Meta:
+        model = TestPilotRecords
+        fields = ('id', 'created', 'test', 'scenario_case_type')  # Explicitly mentioned fields
+        export_order = ('id', 'created', 'pilotuser_name', 'pilotuser_email', 'test', 'sent_email', 'test_attempted', 'scenario_case_type')
+
+    def dehydrate_pilotuser_name(self, obj):
+        return obj.pilotuser.name if obj.pilotuser else ""
+
+    def dehydrate_pilotuser_email(self, obj):
+        return obj.pilotuser.email if obj.pilotuser else ""
+
+    def dehydrate_sent_email(self, obj):
+        return "True" if obj.sent_email else "False"
+
+    def dehydrate_test_attempted(self, obj):
+        return "True" if obj.test_attempted else "False"
+
+
+class TestPilotRecordsAdmin(ExportActionMixin,TenantAwareModelAdmin):
+    resource_class = TestPilotRecordsResource
+    list_display = ('id', 'created','get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted','scenario_case_type', 'active')
     search_fields = ('pilotuser__name', 'test__name', 'pilotuser__email')
-    list_filter = ('sent_email', 'test_attempted', 'active')
+    list_filter = ('sent_email', 'test_attempted', 'active', 'created')
     ordering = ('id',)
 
     fieldsets = (
