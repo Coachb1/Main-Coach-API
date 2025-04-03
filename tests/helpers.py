@@ -12656,13 +12656,13 @@ def process_test_pilot_user_csv(csv, tenant_id):
             if test_pilot_user.objective:
                 context += f"Objective: {test_pilot_user.objective}\n"
             if test_pilot_user.industry:
-                context += f"Industry: {test_pilot_user.industry}"
+                context += f"Industry: {test_pilot_user.industry}\n"
             if test_pilot_user.department:
-                context += f"department: {test_pilot_user.department}"
+                context += f"department: {test_pilot_user.department}\n"
             if test_pilot_user.key_stakeholders:
-                context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+                context += f"key stakeholders: {test_pilot_user.key_stakeholders}\n"
             if test_pilot_user.situation:
-                context += f"situation: {test_pilot_user.situation}"
+                context += f"situation: {test_pilot_user.situation}\n"
 
             intake = context
             context = json.dumps({
@@ -12733,13 +12733,13 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
     if test_pilot_user.objective:
         context += f"Objective: {test_pilot_user.objective}\n"
     if test_pilot_user.industry:
-        context += f"Industry: {test_pilot_user.industry}"
+        context += f"Industry: {test_pilot_user.industry}\n"
     if test_pilot_user.department:
-        context += f"department: {test_pilot_user.department}"
+        context += f"department: {test_pilot_user.department}\n"
     if test_pilot_user.key_stakeholders:
-        context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+        context += f"key stakeholders: {test_pilot_user.key_stakeholders}\n"
     if test_pilot_user.situation:
-        context += f"situation: {test_pilot_user.situation}"
+        context += f"situation: {test_pilot_user.situation}\n"
 
     intake = context
     context = json.dumps({
