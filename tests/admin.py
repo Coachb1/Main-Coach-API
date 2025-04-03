@@ -23,6 +23,8 @@ from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
 from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
+from import_export.resources import ModelResource
+from import_export.fields import Field
 import io
 import csv
 import json
@@ -600,7 +602,7 @@ class TestPilotRecordsInline(admin.TabularInline):
 
 
 class TestPilotUserAdmin(TenantAwareModelAdmin):
-    list_display = ('id', 'name', 'email','targeted_skills' ,'industry', 'department', 'restart_status','preferences', 'frequency','view_records')
+    list_display = ('id', 'name', 'email','targeted_skills' ,'industry', 'department', 'restart_status','preferences', 'frequency','view_records',"company", 'top_skills', 'history', 'leaderboard')
     list_filter = ('industry', 'department', 'restart')
     search_fields = ('name', 'email', 'industry', 'department')
     inlines = [TestPilotRecordsInline]
@@ -661,7 +663,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
                 decoded_file = io.TextIOWrapper(csv_file, encoding="utf-8")
                 reader = csv.DictReader(decoded_file)
 
-                required_fields = ["Name", "Email", "Targeted Skills"]
+                required_fields = ["Name", "Email", "Targeted Skills", "Frequency", "Perferences", "Same Intake"]
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:
@@ -670,9 +672,10 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 
                 # ✅ 4. Check if the CSV contains all required fields
                 if not all(field in reader.fieldnames for field in required_fields):
+                    r_fields = ",".join(required_fields)
                     messages.error(
                         request,
-                        "CSV is missing required fields: Name, Email, Targeted Skills.",
+                        f"CSV is missing required fields: {r_fields} .",
                     )
                     return redirect(request.get_full_path())
                 try:
@@ -710,10 +713,40 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 
 admin.site.register(TestPilotuser, TestPilotUserAdmin)
 
-class TestPilotRecordsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted','scenario_case_type', 'active')
+
+class TestPilotRecordsResource(ModelResource):
+    id = Field(attribute='id', column_name='ID')
+    created = Field(attribute='created', column_name='Created')
+    pilotuser_name = Field(column_name='Pilot User Name')
+    pilotuser_email = Field(column_name='Pilot User Email')
+    test = Field(attribute='test', column_name='Test')
+    sent_email = Field(column_name='Sent Email')
+    test_attempted = Field(column_name='Test Attempted')
+    scenario_case_type = Field(attribute='scenario_case_type', column_name='Scenario Case Type')
+
+    class Meta:
+        model = TestPilotRecords
+        fields = ('id', 'created', 'test', 'scenario_case_type')  # Explicitly mentioned fields
+        export_order = ('id', 'created', 'pilotuser_name', 'pilotuser_email', 'test', 'sent_email', 'test_attempted', 'scenario_case_type')
+
+    def dehydrate_pilotuser_name(self, obj):
+        return obj.pilotuser.name if obj.pilotuser else ""
+
+    def dehydrate_pilotuser_email(self, obj):
+        return obj.pilotuser.email if obj.pilotuser else ""
+
+    def dehydrate_sent_email(self, obj):
+        return "True" if obj.sent_email else "False"
+
+    def dehydrate_test_attempted(self, obj):
+        return "True" if obj.test_attempted else "False"
+
+
+class TestPilotRecordsAdmin(ExportActionMixin,TenantAwareModelAdmin):
+    resource_class = TestPilotRecordsResource
+    list_display = ('id', 'created','get_pilotuser_name', 'get_pilotuser_email', 'test', 'sent_email', 'test_attempted','scenario_case_type', 'active')
     search_fields = ('pilotuser__name', 'test__name', 'pilotuser__email')
-    list_filter = ('sent_email', 'test_attempted', 'active')
+    list_filter = ('sent_email', 'test_attempted', 'active', 'created')
     ordering = ('id',)
 
     fieldsets = (
