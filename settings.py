@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'storages',
     'mail_box.apps.MailBoxConfig',
-    'legacybot.apps.LegacybotConfig'
+    'legacybot.apps.LegacybotConfig',
+    'django_celery_beat'
     
 ]
 
