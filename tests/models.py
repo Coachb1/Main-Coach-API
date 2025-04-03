@@ -472,6 +472,8 @@ class TestPilotuser(TenantAwareModel):
     top_skills = models.TextField(null=True, blank=True, default=None)
     history = models.TextField(null=True, blank=True, default=None)
     leaderboard = models.TextField(null=True, blank=True, default=None)
+    send_email = models.BooleanField(default=True)
+
 
 
 
@@ -488,6 +490,7 @@ class TestPilotRecords(TenantAwareModel):
     test_attempted = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     scenario_case_type = models.CharField(max_length=255, null=True, blank=True, default=None)
+    intake = models.CharField(max_length=255, null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_pilot_record"

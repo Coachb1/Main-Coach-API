@@ -661,7 +661,7 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
                 decoded_file = io.TextIOWrapper(csv_file, encoding="utf-8")
                 reader = csv.DictReader(decoded_file)
 
-                required_fields = ["Name", "Email", "Targeted Skills", "Frequency", "Perferences"]
+                required_fields = ["Name", "Email", "Targeted Skills", "Frequency", "Perferences", "Same Intake"]
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:
@@ -670,9 +670,10 @@ class TestPilotUserAdmin(TenantAwareModelAdmin):
 
                 # ✅ 4. Check if the CSV contains all required fields
                 if not all(field in reader.fieldnames for field in required_fields):
+                    r_fields = ",".join(required_fields)
                     messages.error(
                         request,
-                        "CSV is missing required fields: Name, Email, Targeted Skills.",
+                        f"CSV is missing required fields: {r_fields} .",
                     )
                     return redirect(request.get_full_path())
                 try:
