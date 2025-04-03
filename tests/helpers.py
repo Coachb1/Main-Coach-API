@@ -5,7 +5,7 @@ import random
 import string
 import tempfile
 import time
-from datetime import date
+from datetime import date, timedelta
 from string import Template
 import base64
 import math
@@ -26,7 +26,7 @@ from commons.timeit import timeit
 from commons.fcfs_handler import FcfsHandler
 from documents.choices import DocOwnerTypeChoice, DocTypeChoice
 from documents.helpers import create_document, get_document_url
-from email_sender.helpers import send_email, send_generic_email
+from email_sender.helpers import send_email, send_email_from_emailit, send_generic_email
 from external_apis.coach_metric_api import coach_metric_api, default_metrics
 from external_apis.coach_whisper_api import coach_whisper_api
 from external_apis.whatsapp_api import whatsapp_api
@@ -41,7 +41,7 @@ from skills.models import SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
-from tests.choices import InteractionModeChoices, QuestionForChoices, TestTypeChoices
+from tests.choices import InteractionModeChoices, PilotTestPreferencesChoices, QuestionForChoices, TestTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
 from tests.choices import TestQuestionResponseEvaluationStatusChoices
 from tests.models import Test
@@ -7430,204 +7430,830 @@ def submit_feedback(
 
     return test_question_response.feedback_text
 
-def scrape_meta_info(url):
+
+#------------- ScenarioCreator ------------------
+
+# all scenario prompt static, dynamic
+def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3):
+    prompt = ""
+    if scenario_type == 'normal':
+      prompt = """
+        \n\nHuman:
+        {Information} -
+        %s -
+        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique. Each question shall have a unique skill.
+        Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        In every response, you must:
+        Clearly state your role as X.
+        Identify Y as the person asking
+        The Question, Custom Prompt, KLP, KLS should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        “Statement:",
+        "Question 1:",
+        "Prompt 1:",
+        "Takeaway 1:" ,
+        "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+        NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+        NOTE: "Rating" must be included.
+        NOTE : Make sure the simulation is very advanced and tough.
+        NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        NOTE: Never miss Title, Description, Statement and other variables.
+        NOTE: Do not mention "X" or "Y".
+        \n\nAssistant:
+
     """
-    Scrape meta information (title and description) from a given URL.
+    elif scenario_type == 'role_play':
+      prompt= """
+        \n\nHuman:
+        {Information} - %s-
+        Read this {information} thoroughly. Based on this information and your understanding create an advanced and tough roleplay situation to practice the skills presented in the {information}. After making the situation provide these:
+        Description - Define the situation and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should describe the problem and what was the particular situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third-person point of view. Describe 100 to 200 words. Do not add any conclusion.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions.
+        Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+        KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
+        KLS - Add the skill(s) that are tested with each question. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique.
+        Always use indian names in the role play, also mention what role the user will be playing while answering the questions in the description.
+        Always use name in each question. The role play shall also have element of a other person who will be asking the questions.
+        Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        The Question, Custom Prompt, KLP, KLS should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        “Statement:",
+        "Question 1:",
+        "Prompt 1:",
+        "Takeaway 1:" ,
+        "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+        NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+        NOTE: "Rating" must be included.
+        NOTE: Make sure the roleplay is very advanced and tough.
+        NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
+        NOTE: Always mention in the context what role the user will be playing the role while answering.
+        NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        NOTE: Never miss Title, Description, Statement and other variables.
+        NOTE: Do not mention "X" or "Y".
+        \n\nAssistant:
+        """
+      
+    elif scenario_type == "case":
+      prompt = """
+        \n\nHuman:
+        {Information} - %s
+        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique.
+        Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        Always Use a literary genre to generate the response in high literature.
+        Literary genres encompass a wide spectrum of styles and themes, ranging from the imaginative realms of fiction, poetry, drama, and fantasy to the factual landscapes of non-fiction, biography, and autobiography. Mystery, science fiction, romance, historical fiction, and horror delve into specific narrative territories, while thriller, adventure, satire, comedy, tragedy, and epic offer diverse storytelling approaches. Additionally, fables, fairy tales, mythology, and folklore explore cultural narratives and traditions. Genres like dystopian, gothic, bildungsroman (coming-of-age), absurdist, and magical realism push the boundaries of conventional storytelling, while realistic fiction and experimental literature offer unique perspectives on reality and form. Each genre contributes to the rich tapestry of literary expression, offering readers a multitude of worlds and experiences to explore.
+        In every response, you must:
+        Clearly state your role as X.
+        Identify Y as the person asking
+        The Question, Custom Prompt, KLP, KLS should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        “Statement:",
+        "Question 1:",
+        "Prompt 1:",
+        "Takeaway 1:" ,
+        "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+        NOTE: "Rating" must be included.
+        NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+        NOTE : Make sure the simulation is very advanced and tough.
+        NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        NOTE: Always use suitable literary genre to genre create the response.
+        NOTE: Never miss Title, Description, Statement and other variables.
+        NOTE: Do not mention "X" or "Y".
+        \n\nAssistant:
 
-    Parameters:
-    - url (str): The URL to scrape meta information from.
+        """
+      
+    elif scenario_type == "interview":
+      prompt = """
+        \n\nHuman:
+        {Information} - %s
+        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+        Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+        Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+        KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique.
+        Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        Always use a interview to generate the response for communication and information gathering.
+        An interview is a formal conversation between an interviewer and an interviewee, typically in a professional setting, to assess the interviewee's suitability for a particular role or to gather information. It is a common practice in the corporate world and other professional settings, where employers or hiring managers conduct interviews to evaluate potential candidates for employment.
+        In every response, you must:
+        Clearly state your role as X.
+        Identify Y as the person asking
+        The Question, Custom Prompt, KLP, KLS should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        “Statement:",
+        "Question 1:",
+        "Prompt 1:",
+        "Takeaway 1:" ,
+        "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+        'The Question, Prompt, Takeaway, Skills should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+        NOTE: "Rating" must be included.
+        NOTE : Make sure the simulation is very advanced and tough.
+        NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+        NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        NOTE: Always use interview for communication and information gathering.
+        NOTE: Never miss Title, Description, Statement and other variables.
+        NOTE: Do not mention "X" or "Y".
+        \n\nAssistant:
+        """
+    elif scenario_type == 'checkin':
+      prompt = """
+          \n\nHuman:
+          {Information} - %s
+          Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+          Description - Define the situation, and the problem. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+          Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description related to the check-in.
+          Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
+          Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+          KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
+          KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique.
+          Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+          Always use a check-in to generate the response for communication and information gathering.
+          Check-in in a corporate setting refers to the process of employees or participants recording their arrival at the workplace, a meeting, a conference, or any other professional gathering. This practice allows for improved attendance tracking, resource allocation, and streamlined communication within the enterprise.
+          In every response, you must:
+          Clearly state your role as X.
+          Identify Y as the person asking
+          The Question, Custom Prompt, KLP, KLS should be numbered.
+          Here the format looks like :
+          "Title:",
+          "Description:”,
+          “Statement:",
+          "Question 1:",
+          "Prompt 1:",
+          "Takeaway 1:" ,
+          "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+          'The Question, Prompt, Takeaway, Skills should be numbered.'
+          NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+          NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable like an check-in.
+          . Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+          NOTE: "Rating" must be included.
+          NOTE : Make sure the simulation is very advanced and tough.
+          NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+          NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+          NOTE: Always use check-in for communication and information gathering.
+          NOTE: Never miss Title, Description, Statement and other variables.
+          NOTE: Do not mention "X" or "Y".
+          \n\nAssistant:
 
-    Returns:
-    - tuple: A tuple containing the title and description extracted from the meta tags.
-             If an error occurs, the tuple contains an error message.
+          """
+    elif scenario_type == "static_hard":
+      prompt = '''
+      \n\nHuman:
+            {Information} -
+            %s -
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem focuses exclusively on hard skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on hard skills
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on hard skills
+            Always end the description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X as in (information).
+            Identify Y as the person asking as in (information)
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title:",
+            "Description:”,
+            “Statement:",
+            "Question 1:",
+            "Prompt 1:",
+            "Takeaway 1:" ,
+            "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
 
-    Example:
-    >>> scrape_meta_info('https://example.com')
-    # Returns a tuple with the title and description extracted from the meta tags of the given URL.
-    """
-    try:
-        # Send an HTTP GET request to the URL
-        response = requests.get(url)
+            NOTE: Description, questions, and skills should focus exclusively on hard skills.
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word AND shall not repeat from (information).
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description] as in (information). Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement and other variables.
+            \n\nAssistant:
 
-        # Check if the request was successful (status code 200)
-        if response.status_code == 200:
-            # Parse the HTML content of the page
-            soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Find the meta title and description tags
-            title_tag = soup.find('meta', attrs={'name': 'title'}) or soup.find('meta', attrs={'property': 'og:title'})
-            description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+      '''
+    elif scenario_type == 'static_soft':
+      prompt = """
+            (information: %s)
 
-            # Extract content from the meta tags
-            title = title_tag['content'] if title_tag else None
-            description = description_tag['content'] if description_tag else None
+            Carefully review and analyze the provided {information}. Based on this assessment, create a rigorous, high-level simulation that serves as an extended version of the previous scenario, diving deeper into the required skills and interactions. This new scenario must specifically address new areas for candidates to explore, ensuring a targeted approach to tackling an entirely new challenge.
 
-            return title, description
+            Key Requirements:
+              Create a brand new scenaio in the same industry. Target ONLY soft skills that are not covered in the {information} context.
+              Note: Never change the Industry Domain of the scenario.
 
-        else:
-            return "Error: Unable to fetch the URL. Status code: " + str(response.status_code), ""
+            Deliver the extended scenario accordingly
 
-    except Exception as e:
-        return "Error: " + str(e), ""
 
-def extract_information_dynamic_scenario(text,is_dynamic=False,candidate_type="Manager",num_questions=3):
-    """
-    Extract information from a dynamic scenario text.
+            Read this {information} thoroughly. Now based on this information and your understanding create an advanced and tough simulation situation to practice the skills presented in the {information}. After creating the situation provide these:
+            Description - Define the situation, and the problem focuses exclusively on soft skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should just describe the problem and what was the specific situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on soft skills
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (SKILLS) instead use different skills. Each question shall have a unique skill AND shall not repeat from (SKILLS) instead use different skills and focus exclusively on soft skills.
+            Always end the description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X as in (information).
+            Identify Y as the person asking as in (information)
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title:",
+            "Description:”,
+            “Statement:",
+            "Question 1:",
+            "Prompt 1:",
+            "Takeaway 1:" ,
+            "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
 
-    Parameters:
-    - text (str): The dynamic scenario text to extract information from.
-    - is_dynamic (bool): Indicates whether the scenario is dynamic.
-    - candidate_type (str): Type of candidate (e.g., 'Manager', 'Team Member').
+            NOTE: Description, questions, and skills should focus exclusively on soft skills.
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word AND shall not repeat from (SKILLS) instead use different skills.
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description] as in (information). Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement and other variables.
+            \n\nAssistant:
 
-    Returns:
-    - tuple: A tuple containing title, description, question_info, rating, evaluation_skill_list, and orchestrated_conversation_details.
+      """
+    elif scenario_type == 'static_role_play_soft':
+      prompt = """
+      \n\nHuman:
+                {Information} - %s-
+                Read this {information} thoroughly. Based on this information and your understanding create an advanced and tough roleplay situation to practice the skills presented in the {information}. After making the situation provide these:
+                Description - Define the situation and the problem focuses exclusively on soft skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should describe the problem and what was the particular situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third-person point of view. Describe 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions. Question shall focus exclusively on soft skills
+                Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
+                KLS - Add the skill(s) that are tested with each question. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique and and focus exclusively on soft skills.
+                Always use indian names in the role play, also mention what role the user will be playing while answering the questions in the description.
+                Always use name in each question. The role play shall also have element of a other person who will be asking the questions.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+                Here the format looks like :
+                "Title:",
+                "Description:”,
+                “Statement:",
+                "Question 1:",
+                "Prompt 1:",
+                "Takeaway 1:" ,
+                "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
 
-    Example:
-    >>> extract_information_dynamic_scenario('Title: Test Title\nDescription: Test Description\nQuestion: What is your approach to leadership?\nRating: 5', is_dynamic=True, candidate_type='Manager')
-    # Returns a tuple with extracted information from the dynamic scenario text.
-    """
-    title_pattern = re.compile(r'Title\s*:\s*(.+)')
-    description_pattern = re.compile(r'Description\s*:\s*(.+)')
-    question_pattern = re.compile(r'Question\s*:\s*(.+)')
-    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
-    if not question_pattern.findall(text):
-        question_pattern = re.compile(r'Questions\s*:\s*(.+)')
+                NOTE: Description, questions, and skills should focus exclusively on soft skills.
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+                NOTE: "Rating" must be included.
+                NOTE: Make sure the roleplay is very advanced and tough.
+                NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
+                NOTE: Always mention in the context what role the user will be playing the role while answering.
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Never miss Title, Description, Statement and other variables.
 
-    # Extracting information using regular expressions
-    title_match = title_pattern.search(text)
-    description_match = description_pattern.search(text)
-    questions_match = question_pattern.search(text)
-    rating_match = rating_pattern.search(text)
+                \n\nAssistant:
 
-    # If title_pattern doesn't match, try to find the title as the lines before the description
-    if not title_match:
-        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
-        title_match = pattern.search(text)
-        if not title_match:
-            raise ValueError("Invalid format. Unable to extract the title.")
-        
-    if not (title_match and description_match and question_pattern.findall(text)):
-        raise ValueError("Invalid format. Unable to extract necessary information.")
+      """
 
-    title = title_match.group(1).strip()
-    description = description_match.group(1).strip()
-    questions = questions_match.group(1).strip()
-    rating = int(rating_match.group(1)) if rating_match else 0
-    question_info = []
+    elif scenario_type == 'static_role_play_hard':
+      prompt = """
+      \n\nHuman:
+                {Information} - %s-
+                Read this {information} thoroughly. Based on this information and your understanding create an advanced and tough roleplay situation to practice the skills presented in the {information}. After making the situation provide these:
+                Description - Define the situation and the problem focuses exclusively on hard skills. Never mention any characters or character names in the description. The problem should be a normal corporate problem. Make the description specific based on data, industry, events, etc. The description should describe the problem and what was the particular situation that led to this problem. No dialogues should be included. The description should ALWAYS be from the third-person point of view. Describe 100 to 200 words. Do not add any conclusion.
+                Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions. Question shall focus exclusively on hard skills
+                Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+                KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
+                KLS - Add the skill(s) that are tested with each question. And For every question choose exactly {%s} skill(s) and not more or less than {%s} should be chosen for each question. The skills for all the questions should be unique and and focus exclusively on hard skills.
+                Always use indian names in the role play, also mention what role the user will be playing while answering the questions in the description.
+                Always use name in each question. The role play shall also have element of a other person who will be asking the questions.
+                Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                The Question, Custom Prompt, KLP, KLS should be numbered.
+                Here the format looks like :
+                "Title:",
+                "Description:”,
+                “Statement:",
+                "Question 1:",
+                "Prompt 1:",
+                "Takeaway 1:" ,
+                "Skills 1:" repeated for {%s} question(s). Do not include any {responder} response.
+                'The Question, Prompt, Takeaway, Skills should be numbered.'
 
-    if is_dynamic:
-        test_main_context = description + questions
-        orchestrated_conversation_details = {
-                "test_main_context": test_main_context,
-                "test_user_persona": candidate_type.capitalize(),
-                "objective": description,
-                "initial_messages": [questions]
+                NOTE: Description, questions, and skills should focus exclusively on hard skills.
+                NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+                NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+                NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word.
+                NOTE: "Rating" must be included.
+                NOTE: Make sure the roleplay is very advanced and tough.
+                NOTE: Always use a name in each question. The role play shall also have the element of an other person who will be asking the questions.
+                NOTE: Always mention in the context what role the user will be playing the role while answering.
+                NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                NOTE: Never miss Title, Description, Statement and other variables.
+
+                \n\nAssistant:
+
+
+
+      """
+    elif scenario_type == 'dynamic_start_with_user':
+      prompt = """
+      \n\nHuman:
+      {Information} - %s
+
+      Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
+
+      Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+      According to the description always end description with this approach and mention this : You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+      In every response, you must:
+      Clearly state your role as X.
+      Identify Y as the person asking
+      Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+
+      Prompts - As given in the output format.
+
+
+      Here the format looks like :
+      {
+        "Title": "GIVE TITLE",
+        "Context": "GIVE DESCRIPTION",
+        "Candidate Type": based on information who will respond” ,
+        "Scenario Case": "dynamic_discussion",
+        "Email Address List": "mail@coachbots.com",
+        "Certificate Title": "SAME AS TITLE",
+        "Area/Domain": "BASED ON TITLE AND DESCRIPTION",
+        "start with user": "based on information",
+        "is_dynamic_thread": true,
+        "Responder": "the second person name who will ask the questions",
+        "Person 0": "the second person name who will ask the questions :",
+        "0": "Please respond in order to continue.",
+        "1": "Now the second person name who will ask the questions will respond to this remark as a Selfish type of person.",
+        "2": "Please respond in order to continue.",
+        "3": "Now the second person name who will ask the questions will respond to this remark as a Insincere type of person.",
+        "4": "Conclude the discussion as a participant."
+      }
+
+
+      Do not include any response.
+      Always provide the output in the given format.
+
+      NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
+      NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+      NOTE : Make sure the situation is very advanced and tough.
+
+      NOTE : there must be only one manager in picture.
+
+      NOTE : Never miss the Title, Description, Questions.
+      NOTE: Do not mention "X" or "Y".
+
+      \n\nAssistant:
+
+      """
+
+      return f"{prompt}"%(information)
+
+    if scenario_type == 'normal_dynamic_test':
+        prompt = '''
+          \n\nHuman:
+                        {Information} - (%s)
+
+                        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
+
+                        Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+                        According to the description always end description with this approach and mention this : You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                        In every response, you must:
+                        Clearly state your role as X.
+                        Identify Y as the person asking
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                        Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly.
+                        Output format - Y: question?
+                        For example - Ajay: question?
+
+                        Prompts - As given in the output format.
+
+                        Here the format looks like :
+
+                        Title:
+                        Description:
+                        Questions:
+                        Prompts: - ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ]
+
+
+                        Note: Add in prompts set of above ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ] for {%s} and at last add "Conclude the discussion as a participant."
+
+                        Write the manager's name in place of {Y}. The Y should always be the same. Do not make any changes in the given format. .
+
+                        Do not include any response.
+                        Always provide the output in the given format.
+
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
+                        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+                        NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
+                        NOTE : Never miss the Title, Description, Questions.
+                        NOTE: Do not mention "X" or "Y".
+
+                        \n\nAssistant:
+
+
+        '''
+
+        return f"{prompt}"%(information,question_count*2-2)
+
+    if scenario_type == 'normal_dynamic_test_hard':
+        prompt = '''
+          \n\nHuman:
+                        {Information} - (%s)
+
+                        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
+
+                        Description - Define the situation, and the problem focuses exclusively on hard skills. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+                        According to the description always end description with this approach and mention this : You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                        In every response, you must:
+                        Clearly state your role as X.
+                        Identify Y as the person asking
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                        Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Question shall focus exclusively on hard skills. Never start with any introduction sentences. Start with the question directly.
+                        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {8} skill(s) and not more or less than {8} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on hard skills. A comma seprated list of skills should be provided.
+                        Output format - Y: question?
+                        For example - Ajay: question?
+
+                        Prompts - As given in the output format.
+
+                        Here the format looks like :
+
+                        Title:
+                        Description:
+                        Questions:
+                        Skills:
+                        Prompts: - ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ]
+
+
+                        Note: Add in prompts set of above ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ] for {%s} and at last add "Conclude the discussion as a participant."
+
+                        Write the manager's name in place of {Y}. The Y should always be the same. Do not make any changes in the given format. .
+
+                        Do not include any response.
+                        Always provide the output in the given format.
+                        NOTE: Description, questions, and Skills should focus exclusively on hard skills.
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
+                        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+                        NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
+                        NOTE : Never miss the Title, Description, Questions, Skills.
+                        NOTE: Do not mention "X" or "Y".
+
+                        \n\nAssistant:
+
+
+        '''
+
+        return f"{prompt}"%(information,question_count*2-2)
+
+    if scenario_type == 'normal_dynamic_test_soft':
+        prompt = '''
+                \n\nHuman:
+                        {Information} - (%s)
+
+                        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between a manager and a team member to practice the skills presented in the {information}. After creating the situation provide these:
+
+                        Description - Define the situation, and the problem focuses exclusively on soft skills. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. Never give the name of the team member. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
+                        According to the description always end description with this approach and mention this : You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+                        In every response, you must:
+                        Clearly state your role as X.
+                        Identify Y as the person asking
+                        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+                        Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Question shall focus exclusively on soft skills. Never start with any introduction sentences. Start with the question directly.
+                        KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {8} skill(s) and not more or less than {8} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on soft skills. A comma seprated list of skills should be provided.
+                        Output format - Y: question?
+                        For example - Ajay: question?
+
+                        Prompts - As given in the output format.
+
+                        Here the format looks like :
+
+                        Title:
+                        Description:
+                        Questions:
+                        Skills:
+                        Prompts: - ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ]
+
+
+                        Note: Add in prompts set of above ["Please respond in order to continue.",
+                        "Respond as {Y}",
+                        ] for {%s} and at last add "Conclude the discussion as a participant."
+
+                        Write the manager's name in place of {Y}. The Y should always be the same. Do not make any changes in the given format. .
+
+                        Do not include any response.
+                        Always provide the output in the given format.
+                        NOTE: Description, questions, and Skills should focus exclusively on soft skills.
+                        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+
+                        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
+
+                        NOTE : Make sure the situation is very advanced and tough.
+
+                        NOTE : there must be only one manager in picture.
+
+                        NOTE : Never miss the Title, Description, Questions, Skills.
+                        NOTE: Do not mention "X" or "Y".
+
+                        \n\nAssistant:
+
+
+        '''
+
+        return f"{prompt}"%(information,question_count*2-2)
+
+    return f"{prompt}"%(information, question_count, skill_count, skill_count, question_count)
+
+# only game scenario type (dynamic)
+def get_game_prompt(industry, information, num_of_questions, question_type, candidate_type):
+  prompt = '''
+    Create a large "${Industry}" corporate scenario is less than 100 words with a title upto 8-12 words that related to : (${information}).
+
+    Further create ${num_of_questions} MCQ questions with 4 options each that are related to the paragraph that the user must answer as a new manager tasked with solving the issue at hand.
+    The Questions must have 4 options and will have ${question_type} right answer - however they should not be straightforward and it may appear other choices are right as well.
+    Always end the description with As a ${candidate_type} select the right option for the questions presented below.
+
+    GIVE IN THIS VALID JSON FORMAT:
+    json ```
+    {
+      "title": "title goes here",
+      "description": "decrtiption title goes here",
+      "is_single_select": "TRUE or FALSE",
+      "questions" :[
+        {
+          ""context"": {
+            ""section"": ""Section Text""
+          },
+          ""details"": {
+            ""question"": ""Question Text""
+          },
+          ""content"": {
+            ""instruction"": ""Choose one or more options from A, B, C or D"",
+            ""options"": {
+
+                ""A"": ""Option A"",
+                ""B"": ""Option B"",
+                ""C"": ""Option C"",
+                ""D"": ""Option D""
+
             }
+          }
+        },
+      ],
+    }
+    ```
 
-        skills_list_candidate = set()
-        for item in get_skills(candidate_type.capitalize()):
-                skills_list_candidate.add(item.capitalize())
+    (If the prompt mentions "single," then the value of "is_single_select" should be "TRUE" instead.)
+    (If the prompt mentions "multiple," then the value of "is_single_select" should be "FALSE" instead.)
+    NOTE: All keys required in output format.
 
-        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
-        
-        if len(skills_list_candidate) < 6:
-            raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+    '''
 
-        if len(skills_list_candidate) > 8:
-            skills_list_candidate = skills_list_candidate[:8]
+  return Template(prompt).substitute(Industry=industry, information=information, num_of_questions=num_of_questions, question_type=question_type, candidate_type=candidate_type)
 
-        evaluation_skill_list = ','.join(evaluation_skill_list)
+def format_game_custom_prompt(is_single_select, questions, title, description, num_of_questions=None, static=True):
+  instruction = "Choose one option from A, B, C or D" if is_single_select else "Choose one or more options from A, B, C or D"
+  if static:
+    questions = "\n\n".join([str(i) for i in questions])
+    custom_prompt = """
+    **Prompt Guidelines:**
 
-        manager_name = questions.split(':')[0].strip()
-        for i in range(1,2*num_questions):
-            question = {
-                    "question_type": "subjective",
-                    "gpt_prompt_override": "",
-                    "subjective_answer": ""
-                }
+    1. **Display the End Game Message**: Ensure the final message appears as specified, substituting 'x' with the player's total score and replacing '[Game Name]' with the actual game title:
+      - Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
 
-            if i % 2 == 0:
-                question['question'] = f"Respond as {manager_name}"
-                question['question_for'] = manager_name
-            else:
-                question['question'] = "Please respond in order to continue"
-                question['question_for'] = 'user'
+    2. **No clipping or trucation of text**: Ensure that each option is presented in its entirety, without any clipping or truncation of text. Do not hallucinate or invent options; present only the options exactly as provided in the game design.
 
-            if i == 9:
-                question['question'] = "Conclude the discussion as a participant."
+    3. **Demand Correct Input for Progression**: Require players to input a valid choice precisely to advance to subsequent levels. Repeat the prompt until a correct input is received.
 
-            question_info.append(question)
+    4. **Display the Feedback**: Upon game completion, provide approximately 50 words of feedback summarizing the impact of the user's choices on the outcome. Briefly suggest alternative strategies for potentially improved results in future playthroughs.
+
+    5. **Always Present Full Level Details**: Consistently show all levels and options exactly as scripted. Complete all levels and only give feedback as last. Every level and option must be displayed in full, without omission or partial rendering of any text.
+
+    6. **Start with Level Prompt**: When the command """"START"""" is given, begin immediately with the first level.
+
+    7. **Output in JSON format**:  Ensure that the game’s output is formatted as valid JSON. Below is the structure:
+    json
+    if game not ended:
+      ``` json
+      {
+        ""context"": {
+          ""section"": ""Section Text""
+        },
+        ""details"": {
+          ""question"": ""Question Text""
+        },
+        ""content"": {
+          ""instruction"": ""${instruction}"",
+          ""options"": {
+
+              ""A"": ""Option A"",
+              ""B"": ""Option B"",
+              ""C"": ""Option C"",
+              ""D"": ""Option D""
+
+          }
+        }
+      }
+    ```
+    if game ended:
+    json
+    {
+    ""end_message"" : ""[End Game Message]"",
+    ""feedback"": ""[Feedback Text]""
+    }
 
 
-        return title,description,question_info,rating,evaluation_skill_list,orchestrated_conversation_details
+    Let's continue with the game using these guidelines.
 
+    ---
+    ## Title:
+    ${title}
 
+    ## Overview & Gameplay Objectives:
+    ${description}
 
-    # Return the extracted information
-    return title,description,question_info,rating
+    ---
+    if game not ended:
+    Ensure that the game’s output is formatted as valid JSON. Below is the structure:
+    json
+    if game not ended:
+    ```json
+    ${questions}
+    ```
+    ---
 
-def extract_scenarios_info_for_one_question(text):
+    ## End Game Message:
+    Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
+
+    ## Feedback:
+    Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better."
     """
-    Extract information from multiple scenarios in a text containing scenarios for one question.
 
-    Parameters:
-    - text (str): The text containing scenarios for one question.
+    return Template(custom_prompt).substitute(instruction=instruction,questions=questions,title=title,description=description)
+  else:
+    custom_prompt = """
+    **Prompt Guidelines:**
 
-    Returns:
-    - list: A list of dictionaries containing extracted information for each scenario.
+    1. **Display the End Game Message**: Ensure the final message appears as specified, substituting 'x' with the player's total score and replacing '[Game Name]' with the actual game title:
+      - Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
 
-    Example:
-    >>> extract_scenarios_info_for_one_question('Title: Test 1\nDescription: Description 1\nQuestions: Question 1\nRating: 5\nTitle: Test 2\nDescription: Description 2\nQuestions: Question 2\nRating: 4')
-    # Returns a list of dictionaries with extracted information for each scenario.
-    """
-    # Define a regular expression pattern for extracting scenarios
-    text = text.replace("Questions","Question")
-    pattern = re.compile(r"""
-        Title\s*:\s*(?P<title>.*?)\s*
-        Description\s*:\s*(?P<description>.*?)\s*
-        Question\s*:\s*(?P<questions>.*?)\s*
-        Rating\s*:\s*(?P<rating>\d+)
-    """, re.IGNORECASE | re.DOTALL | re.VERBOSE)
+    2. **No clipping or trucation of text**: Ensure that each option is presented in its entirety, without any clipping or truncation of text. Do not hallucinate or invent options; present only the options exactly as provided in the game design.
 
-    # Find all matches in the text
-    matches = pattern.finditer(text)
+    3. **Demand Correct Input for Progression**: Require players to input a valid choice precisely to advance to subsequent levels. Repeat the prompt until a correct input is received.
 
-    # Initialize a list to store extracted information for each scenario
-    scenarios_info = []
+    4. **Display the Feedback**: Upon game completion, provide approximately 50 words of feedback summarizing the impact of the user's choices on the outcome. Briefly suggest alternative strategies for potentially improved results in future playthroughs.
 
-    # Iterate through matches and extract information
-    for match in matches:
-        scenario_info = match.groupdict()
-        scenarios_info.append(scenario_info)
+    5. **Always Present Full Level Details**: Consistently show all levels and options exactly as scripted. Complete all levels and only give feedback as last. Every level and option must be displayed in full, without omission or partial rendering of any text.
 
-    return scenarios_info
+    6. **Start with Level Prompt**: When the command """"START"""" is given, begin immediately with the first level.
 
-def extract_scenarios_info_for_three_question(text):
-    # Define a regular expression pattern for extracting scenarios
-    text = text.replace("KLS", "Skills")
-    # Replace KLP with Takeaway
-    text = text.replace("KLP", "Takeaway")
-    text = text.replace("Custom prompt", "Prompt")
+    7. **Output in JSON format**:  Ensure that the game’s output is formatted as valid JSON. Below is the structure:
+    json
+    if game not ended:
+      ``` json
+    {
+        ""context"": {
+          ""section"": ""Section Text""
+        },
+        ""details"": {
+          ""question"": ""Question Text""
+        },
+        ""content"": {
+          ""instruction"": ""${instruction}"",
+          ""options"": {
 
-    pattern = re.compile(r"""
-        Title\s*:\s*(?P<title>.*?)\s*
-        Description\s*:\s*(?P<description>.*?)\s*
-        Question\s*:\s*(?P<questions>.*?)\s*
-        Rating\s*:\s*(?P<rating>\d+)
-    """, re.IGNORECASE | re.DOTALL | re.VERBOSE)
+              ""A"": ""Option A"",
+              ""B"": ""Option B"",
+              ""C"": ""Option C"",
+              ""D"": ""Option D""
 
-    # Find all matches in the text
-    matches = pattern.finditer(text)
+          }questions
+        }
+      }
+    ```
+    if game ended:
+    json
+    {
+    ""end_message"" : ""[End Game Message]"",
+    ""feedback"": ""[Feedback Text]""
+    }
 
-    # Initialize a list to store extracted information for each scenario
-    scenarios_info = []
+    8. **Craft Challenging Decision Options**: Offer related and nuanced options prompting strategic contemplation for informed decision-making.
 
-    # Iterate through matches and extract information
-    for match in matches:
-        scenario_info = match.groupdict()
-        scenarios_info.append(scenario_info)
+    9. **Total Number of Levels** = ${number_of_level}
 
-    return scenarios_info
+    Let's continue with the game using these guidelines.
+
+    ---
+
+    "## Title:
+    ""${title}""
+    ## Overview & Gameplay Objectives:
+    ${description}
+    ---
+    if game not ended:
+    Ensure that the game’s output is formatted as valid JSON. Below is the structure:
+    json
+    if game not ended:
+      ```json
+    {
+        ""context"": {
+          ""section"": ""Section Text""
+        },
+        ""details"": {
+          ""question"": ""Question Text""
+        },
+        ""content"": {
+          ""instruction"": ""${instruction}"",
+          ""options"": {
+
+              ""A"": ""Option A"",
+              ""B"": ""Option B"",
+              ""C"": ""Option C"",
+              ""D"": ""Option D""
+
+          }
+        }
+      }
+```
+    ---
+
+    ## End Game Message:
+    Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
+
+    ## Feedback:
+    Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better.
+
+
+        """
+
+    return Template(custom_prompt).substitute(instruction=instruction,title=title,description=description,number_of_level=num_of_questions)
+
+# ----game scenario ends----
+
+# ------------Extractors ---------
 
 def extract_text_only(input_text):
     # Remove digits from the text
@@ -7637,6 +8263,7 @@ def extract_text_only(input_text):
     cleaned_text = ' '.join([st.replace("-","").strip().capitalize()  for st in text_without_digits.replace("."," ").strip().split()])
     return cleaned_text
 
+# for static scenarios
 def extract_information(text):
     """
     Extract information from a given text containing details about a scenario.
@@ -7723,7 +8350,6 @@ def extract_information(text):
     informations = {
         'title': title,
         'description': description,
-        'rating': rating,
         'questions': questions
     }
 
@@ -7753,78 +8379,367 @@ def extract_information(text):
 
     skill_to_evaluate = ', '.join(skill_to_evaluate)
 
-    return title, description, question_info, skill_to_evaluate, rating
+    informations['skill_to_evaluate'] = skill_to_evaluate
 
-def extract_info_gpt(scenario):
+    return title, description, question_info, skill_to_evaluate, rating, informations
+
+
+# for dynamic scenarios
+def extract_information_dynamic_scenario(text,candidate_type="Manager",num_questions=3, start_with_user=None):
     """
-    Extracts information from a given scenario string and formats it into a structured output.
+    Extract information from a dynamic scenario text.
 
-    Args:
-        scenario (str): The input scenario string containing information about the title, description,
-                       questions, prompts, takeaways, and skills.
+    Parameters:
+
+    - text (str): The dynamic scenario text to extract information from.
+
+    - is_dynamic (bool): Indicates whether the scenario is dynamic.
+
+    - candidate_type (str): Type of candidate (e.g., 'Manager', 'Team Member').
 
     Returns:
-        tuple: A tuple containing the following elements:
-            - str: Title extracted from the scenario.
-            - str: Description extracted from the scenario.
-            - list of dict: Information about each question in the scenario, including question text,
-                            question type, GPT prompt override, subjective answer, key learning point,
-                            and key learning skills.
-            - str: Skills to evaluate, formatted as a comma-separated string.
-            - int: Rating extracted from the scenario.
+
+    - tuple: A tuple containing title, description, question_info, rating, evaluation_skill_list, and orchestrated_conversation_details.
+    Example:
+
+    >>> extract_information_dynamic_scenario('Title: Test Title\nDescription: Test Description\nQuestion: What is your approach to leadership?\nRating: 5', is_dynamic=True, candidate_type='Manager')
+
+    # Returns a tuple with extracted information from the dynamic scenario text.
     """
 
-    scenario = scenario.replace("KLS", "Skills")
-    # Replace KLP with Takeaway
-    scenario = scenario.replace("KLP", "Takeaway")
-    scenario = scenario.replace("Custom prompt", "Prompt")
+    if not text:
+        raise ValueError("Invalid format. Text is empty.")
+
+    try:
+
+      data = extract_json_from_string(text)
+      manager_name = data['Person 0'].split(':')[0].strip()
+      question_info = []
+      title = data['Title']
+      description = data['Context']
+
+      for key, value in data.items():
+        if key.isdigit():
+          
+          question_info.append({
+            "question": value,
+            "question_type": "subjective",
+            "gpt_prompt_override": "",
+            "subjective_answer": "",
+            'question_for': manager_name if manager_name.strip().lower() in value.strip().lower() else 'user'
+          })
+
+      test_main_context = description + data['Person 0']
+
+      orchestrated_conversation_details = {
+            "test_main_context": test_main_context,
+            "test_user_persona": data['Candidate Type'].capitalize(),
+            "objective": description,
+            "initial_messages": [data['Person 0']],
+            "responder_name": data.get('Responder')
+
+        }
+      if start_with_user:
+            orchestrated_conversation_details['start_with_user'] = start_with_user
+
+      infomation = {
+        'title': title,
+        'description': description,
+        'question_info': question_info,
+        "candidate_type": data['Candidate Type'].capitalize(),
+        'area_domain': data['Area/Domain'],
+        'certificate_title': data['Certificate Title'],
+        'email_list': data['Email Address List'],
+        'orchestrated_conversation_details': orchestrated_conversation_details
+      }
+      if data.get('start with user') != "None":
+        infomation['start_with_user'] = data['start with user']
+
+      evaluation_skill_list = data.get('skill_list')
+      if not evaluation_skill_list:
+        skills_list_candidate = set()
+
+        for item in get_skills(candidate_type.capitalize()):
+
+                skills_list_candidate.add(item.capitalize())
 
 
-    # Extract title
-    title_match = re.search(r"Title: (.+)", scenario)
-    title = title_match.group(1) if title_match else None
+
+        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+
+
+
+        if len(evaluation_skill_list) < 6:
+
+            raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+
+
+
+        if len(evaluation_skill_list) > 8:
+
+            evaluation_skill_list = evaluation_skill_list[:8]
+
+
+
+        evaluation_skill_list = ','.join(evaluation_skill_list)
+
+        infomation['skills_list'] = evaluation_skill_list
+
+      logger.info(f'scenario info============================: {infomation}')
+
+
+      return title, description, question_info, 10, evaluation_skill_list, orchestrated_conversation_details, infomation
+
+    except Exception as e:
+      print(e)
+
+    text = text.replace('KLS', 'Skills')
+
+    title_pattern = re.compile(r'Title\s*:\s*(.*?)\n', re.DOTALL)
+
+    description_pattern = re.compile(r'Description\s*:\s*(.*?)\n', re.DOTALL)
+
+    question_pattern = re.compile(r'Question\s*:\s*(.+)')
+
+    skill_pattern = re.compile(r'Skills:\s*(.+)')
+
     rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
-    rating_match = rating_pattern.search(scenario)
+
+    if not question_pattern.findall(text):
+
+        question_pattern = re.compile(r'Questions\s*:\s*(.+)')
+
+
+
+    # Extracting information using regular expressions
+
+    title_match = title_pattern.search(text)
+
+    description_match = description_pattern.search(text)
+
+    questions_match = question_pattern.search(text)
+
+    rating_match = rating_pattern.search(text)
+    skill_match = skill_pattern.search(text)
+
+
+
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+
+    if not title_match:
+
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+
+        title_match = pattern.search(text)
+
+        if not title_match:
+
+            raise ValueError("Invalid format. Unable to extract the title.")
+
+
+
+
+
+    if not (title_match and description_match and question_pattern.findall(text)):
+
+        raise ValueError("Invalid format. Unable to extract necessary information.")
+
+
+
+
+    title = title_match.group(1).strip()
+
+    description = description_match.group(1).strip()
+
+    questions = questions_match.group(1).strip()
+
     rating = int(rating_match.group(1)) if rating_match else 0
 
-    # Extract description
-    description_match = re.search(r"Description:\n(.+?)\nQuestions:", scenario, re.DOTALL)
-    description = description_match.group(1).strip() if description_match else None
-
-    if description is None:
-        description_match = re.search(r"Description: (.+?)\nQuestion 1:", scenario, re.DOTALL)
-        description = description_match.group(1).strip() if description_match else None
+    skill_list = skill_match.group(1).strip().split(',') if skill_match else None
 
     question_info = []
 
-    # Extract questions, prompts, takeaways, and skills
-    question_matches = re.findall(r"(\d+)\. (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
-    print(question_matches)
-    if len(question_matches) == 0:
-        question_matches = re.findall(r"Question (\d+): (.+?)\nPrompt \d+: (.+?)\nTakeaway \d+: (.+?)\nSkills \d+: (.+)", scenario)
 
-    logger.info(f"{'#'*100}  question_matches: {question_matches} {'#'*100} ")
-    skills_to_eva = set()
-    for match in question_matches:
-        num, question, prompt, takeaway, skills = match
-        question_info.append({
-            "question": question,
-            "question_type": "subjective",
-            "gpt_prompt_override": prompt,
-            "subjective_answer": "",
-            "key_learning_point": takeaway,
-            "key_learning_skills": skills
-        })
-        for skill in skills.split(','):
-            skills_to_eva.add(skill.capitalize())
-    
-    skill_to_evalaute =''
 
-    for skill in skills_to_eva:
-        skill_to_evalaute += skill +", "
+    test_main_context = description + questions
 
-    return title,description, question_info, skill_to_evalaute, rating
+    orchestrated_conversation_details = {
 
+            "test_main_context": test_main_context,
+
+            "test_user_persona": candidate_type.capitalize(),
+
+            "objective": description,
+
+            "initial_messages": [questions],
+
+            "responder_name":questions.split(':')[0].strip()
+
+
+        }
+
+    if start_with_user:
+        orchestrated_conversation_details['start_with_user'] = start_with_user
+
+
+    evaluation_skill_list = skill_list
+
+    if not evaluation_skill_list:
+        skills_list_candidate = set()
+
+        for item in get_skills(candidate_type.capitalize()):
+
+                skills_list_candidate.add(item.capitalize())
+
+
+
+        evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+
+
+
+    if len(evaluation_skill_list) < 6:
+
+        raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+
+
+
+    if len(evaluation_skill_list) > 8:
+
+        evaluation_skill_list = evaluation_skill_list[:8]
+
+
+
+    evaluation_skill_list = ','.join(evaluation_skill_list)
+
+
+
+    manager_name = questions.split(':')[0].strip()
+
+    for i in range(1,2*num_questions):
+
+        question = {
+
+                "question_type": "subjective",
+
+                "gpt_prompt_override": "",
+
+                "subjective_answer": ""
+
+            }
+
+
+
+        if i % 2 == 0:
+
+            question['question'] = f"Respond as {manager_name}"
+
+            question['question_for'] = manager_name
+
+        else:
+
+            question['question'] = "Please respond in order to continue"
+
+            question['question_for'] = 'user'
+
+
+
+        if i == (2*num_questions-1):
+
+            question['question'] = "Conclude the discussion as a participant."
+
+
+
+        question_info.append(question)
+
+
+
+    infomation = {
+        'title': title,
+        'description': description,
+        'question_info': question_info,
+        'skill_to_evaluate': evaluation_skill_list,
+        'orchestrated_conversation_details': orchestrated_conversation_details,
+        'candidate_type': candidate_type,
+        'certificate_title': title,
+        'responder': manager_name,
+    }
+
+    logger.info(f'scenario info============================: {infomation}')
+
+    return title, description, question_info, rating, evaluation_skill_list,orchestrated_conversation_details, infomation
+
+# for game type (dyanmic)
+def extract_game_type(text,case_type, question_count=10, candidate_type='Manager'):
+  data = extract_json_from_string(text)
+  if not data:
+    raise ValueError("Invalid format. Unable to extract necessary information.")
+  information = {
+      "title": data['title'],
+      "description": data['description'],
+      "game_questions": data['questions'],
+      "is_single_select": data['is_single_select'].strip().lower() == 'true',
+      "email_list": "mail@coachbots.com",
+      "custom_prompt": format_game_custom_prompt(is_single_select=data.get('is_single_select'),
+                                                questions=data.get('questions'),
+                                                title=data.get('title'),
+                                                description=data.get('description'),
+                                                num_of_questions=question_count,
+                                                static= True if case_type == 'static_game' else False
+                                            )
+  }
+
+  orchestrated_conversation_details = {
+            "test_main_context": information.get('description'),
+            "test_user_persona": candidate_type,
+            "objective": information.get('description'),
+            "initial_messages": [],
+            "responder_name": ""
+
+        }
+  logger.info(f'scenario info============================: {information}')
+
+  return data['title'], data['description'], [],10,"communication skill",orchestrated_conversation_details,information
+
+# helpers
+def scrape_meta_info(url):
+    """
+    Scrape meta information (title and description) from a given URL.
+
+    Parameters:
+    - url (str): The URL to scrape meta information from.
+
+    Returns:
+    - tuple: A tuple containing the title and description extracted from the meta tags.
+             If an error occurs, the tuple contains an error message.
+
+    Example:
+    >>> scrape_meta_info('https://example.com')
+    # Returns a tuple with the title and description extracted from the meta tags of the given URL.
+    """
+    try:
+        # Send an HTTP GET request to the URL
+        response = requests.get(url)
+
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            # Parse the HTML content of the page
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Find the meta title and description tags
+            title_tag = soup.find('meta', attrs={'name': 'title'}) or soup.find('meta', attrs={'property': 'og:title'})
+            description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+
+            # Extract content from the meta tags
+            title = title_tag['content'] if title_tag else None
+            description = description_tag['content'] if description_tag else None
+
+            return title, description
+
+        else:
+            return "Error: Unable to fetch the URL. Status code: " + str(response.status_code), ""
+
+    except Exception as e:
+        return "Error: " + str(e), ""
 
 def get_prompt_for_feedback_bot(site_information):
     prompt = """
@@ -8473,8 +9388,7 @@ def get_scenario_creation_report_prompt(prompt_type, session_id, num_questions=3
 
     return prompt
         
-        
-        
+
 def get_improved_title(title):
     prompt = f"""
         \nHuman:
@@ -8509,15 +9423,17 @@ def decode_basic_auth_token(token: str) -> str:
 
     return key, secret
 
+
 @timeit
 def create_scenario_from_site_context(url,
                                       access_token, 
                                       tenant_id, 
                                       context,
                                       is_feedback_bot=False, 
-                                      use_anthropic = True,
-                                      type_of_test=TestTypeChoices.test, 
-                                      origin = None, 
+                                      use_anthropic = False,
+                                      type_of_test=TestTypeChoices.test,
+                                      scenario_case=ScenarioCaseChoices.simulation, 
+                                      origin = None,
                                       competency = None, 
                                       creator_user_id = None, 
                                       custom_prompt = None, 
@@ -8528,7 +9444,10 @@ def create_scenario_from_site_context(url,
                                       regeneration=False,
                                       flavour=None,
                                       previous_session_id=None,
-                                      by_pass_access_token=False):
+                                      by_pass_access_token=False,
+                                      game_single_select=False,
+                                      available_case=None
+                                      ):
     """
     This function generates a scenario based on the meta information of a given URL.
 
@@ -8555,15 +9474,62 @@ def create_scenario_from_site_context(url,
     - The simulation created is expected to be advanced and tough.
 
     """
-    
+    logger.info(f"{'#'*100}  creating scenario from site context {'#'*100} ")
 
     garbage_scenarios = []
     scenario = ""
     max_retry = 3
     case_type = None
-    available_case_types = ['case','normal','checkin','interview','role_play']
+
+    game_case_types = ["static_game","dynamic_game"]
+
+    static_case_types = ["checkin","interview","case", "normal","role_play","static_role_play_soft",
+    "static_role_play_hard","static_soft","static_hard"]
+
+    dynamic_case_types = ["normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard"]
+    dynamic_start_with_user_case_types = ["dynamic_start_with_user"]
+
+    all_case_types = [
+    "checkin","interview","case", "normal","role_play","static_role_play_soft",
+    "static_role_play_hard","static_soft","static_hard","dynamic_start_with_user",
+    "normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard",
+    "static_game","dynamic_game"
+    ]
+
+    if flavour:
+        if flavour in dynamic_case_types:
+            type_of_test = TestTypeChoices.dynamic_discussion_thread
+            scenario_case = ScenarioCaseChoices.dynamic_discussion
+
+        elif flavour in game_case_types:
+            type_of_test = TestTypeChoices.dynamic_discussion_thread
+            scenario_case = ScenarioCaseChoices.game
+        elif flavour in dynamic_start_with_user_case_types:
+            type_of_test = TestTypeChoices.dynamic_discussion_thread
+            if scenario_case == ScenarioCaseChoices.simulation:
+                scenario_case = "start_with_userteam-manager"
+
+
+    start_with_user_opt = ["team-manager","sales-customer","customer-sales","manager-team"]
+    start_with_user = None
+    available_case_types = all_case_types
+    if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+        available_case_types = game_case_types
+    elif type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case.startswith("start_with_user"):
+        start_with_user = scenario_case.split("start_with_user")[-1]
+        scenario_case = ScenarioCaseChoices.dynamic_discussion
+        available_case_types = dynamic_start_with_user_case_types
+    elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
+        scenario_case = ScenarioCaseChoices.dynamic_discussion
+        available_case_types = dynamic_case_types
+    elif type_of_test == TestTypeChoices.test:
+        available_case_types = static_case_types
+
     if previous_session_id:
         available_case_types = ['soft_skills', 'hard_skills']
+
+    if available_case:
+        available_case_types = available_case # it will override 
 
     for i in range(max_retry):
         logger.info(f"==========================================trying outer test generation for {i+1} time=================================================================")
@@ -8584,28 +9550,16 @@ def create_scenario_from_site_context(url,
 
         try:
             site_information = ""
+            industry = None
             if context:
                 print(f'here {context}')
                 context_data = json.loads(context)
-                title, des = context_data['title'], context_data['data']['information']
+                title, des, industry = context_data['title'], context_data['data']['information'],context_data['data'].get('industry')
                 site_information = f"{title} {des}"
-
-                # title,des = context,""
                 if i > 0:
                     title = get_improved_title(title)
                 logger.info(f"{'#'*100} title: {title}, context: {des} 'title-value': {json.loads(context)['title']} {'#'*100} ")
-            # else:
-            #     article_data = scrape_article_data(url.strip())
-            #     print('='*50)
-            #     print(article_data)
-            #     # if not article_data.get('article_content') or  article_data.get('article_content') == "":
-            #     #     return {'error':"Scenario generation failed because of failure of page extraction please try again."}
-                
-            #     site_information = f"Title: {article_data.get('title')} \n Description: {article_data.get('description')} \n\n Content: {article_data.get('article_content')}"
-
-            # matches = search_keywords(site_information)
-            # if len(matches)> 0:
-            #     return {'error':f"Scenario generation failed because Restricted Keyword found {matches}."}
+            
             site_information = replace_words(site_information)
 
             if custom_prompt:
@@ -8620,55 +9574,60 @@ def create_scenario_from_site_context(url,
                     session_id=previous_session_id
                 )
             else:
-                prompt = get_one_scenario_prompt(
-                    site_information=site_information,
-                    prompt_type=type_of_test,
-                    num_questions=3 if is_micro else 6,
-                    case=case_type
-                )
+                if start_with_user:
+                    site_information += f'\nStart With User: {start_with_user}'
+                elif case_type == 'dynamic_start_with_user':
+                    start_with_user = random.choice(start_with_user_opt)
+                    site_information += f'\nStart With User: {start_with_user}'
+
+                if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                    prompt = get_game_prompt(
+                        industry=industry,
+                        information=site_information,
+                        num_of_questions=10,
+                        question_type= 'single' if game_single_select else 'multiple',
+                        candidate_type='manager'
+                        )
+                else:
+                    prompt = get_scenario_prompt(
+                        information=site_information,
+                        scenario_type=case_type,
+                        question_count=3 if is_micro else 6,
+                    )
 
             logger.info(f"{previous_session_id} Final Prompt: {prompt}")
             response = {}
             scenario = ''
-            title, description, question_info, skill_to_evalaute = "","","",""
+            title, description, question_info, skill_to_evalaute, scenario_information = "","","","", {}
             orchestrated_details = ""
             rating = 0 
             for j in range(1):
-                
-                
                 try:
-                    #### generate scenario using anthropic
-                    """ logger.info(f'trying scenario creation anthropic for {i +1} time')
-                    scenario = anthropic_completion(prompt,5000)
-                    logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
-                    
-                    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
-                    else:
-                        title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
-                    
-                    ### generate scenario using palm
+
                     logger.info(f"============================flavour:  {case_type} ===================================")
                     if use_anthropic:
                         logger.info(f'trying scenario creation anthropic for {i +1} time')
                         scenario = anthropic_completion(prompt,5000)
                     else:
-                        logger.info(f'trying scenario creation bison for {i +1} time')
+                        logger.info(f'trying scenario creation gemini for {i +1} time')
                         scenario = gemini_completion(prompt)
                         scenario = re.sub(r'[#*]', '', scenario)
 
-                    # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
-                    # scenario = fcfs_handler.process_request(prompt)
-                    logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
-
-                    if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True, num_questions=3 if is_micro else 6)
+                    if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
+                                                                                                                                                case_type=case_type,
+                                                                                                                                                question_count=10,
+                                                                                                                                                candidate_type='Manager')
+                    elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                        title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_information_dynamic_scenario(text=scenario, 
+                                                                                                                                                                   num_questions=3 if is_micro else 6,
+                                                                                                                                                                   start_with_user=start_with_user 
+                                                                                                                                                                   )
                     else:
-                        title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
-
+                        title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
 
                 except Exception as e:
-                    logger.info(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
+                    logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
                     scd = ScenarioCreationDetails.objects.create(
                             tenant_id=tenant_id,
                             creator_id = creator_user_id if creator_user_id else "system",
@@ -8679,42 +9638,50 @@ def create_scenario_from_site_context(url,
                         )
                     logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
                     try:
-                        
-                        #### generate scenario using anthropic
-                        """  logger.info(f'trying scenario creation anthropic for {i +1} time')
-                        scenario = anthropic_completion(prompt,5000)
-                        logger.info(f"{'#'*100}  scenario from anthropic : {scenario} {'#'*100} ")
-                        
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
-                        else:
-                            title, description, question_info, skill_to_evalaute,rating = extract_information(scenario) """
-                        
                         case_type = select_other_element(available_case_types,case_type)
-                        ### generate scenario using palm
-                        logger.info(f"============================flavour:  {case_type} ===================================")
+                        logger.info(f"============================flavour 2:  {case_type} ===================================")
+                        if start_with_user:
+                            site_information += f'\nStart With User: {start_with_user}'
+                        elif case_type == 'dynamic_start_with_user':
+                            start_with_user = random.choice(start_with_user_opt)
+                            site_information += f'\nStart With User: {start_with_user}'
 
-                        prompt = custom_prompt if custom_prompt else get_one_scenario_prompt(site_information=site_information,prompt_type=type_of_test,num_questions=3 if is_micro else 6,case=case_type)
-
+                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                            prompt = get_game_prompt(
+                                industry=industry,
+                                information=site_information,
+                                num_of_questions=10,
+                                question_type= 'single' if game_single_select else 'multiple',
+                                candidate_type='manager'
+                                )
+                        else:
+                            prompt = get_scenario_prompt(
+                                information=site_information,
+                                scenario_type=case_type,
+                                question_count=3 if is_micro else 6,
+                            )
                         if use_anthropic:
                             logger.info(f'**retrying scenario creation anthropic for {i +1} time')
                             scenario = anthropic_completion(prompt,5000)
                         else:
-                            logger.info(f'**retrying scenario creation bison for {i +1} time')
+                            logger.info(f'**retrying scenario creation gemini for {i +1} time')
                             scenario = gemini_completion(prompt)
-                        # scenario = fcfs_handler.process(prompt)
-                        # scenario = gpt3_completion(prompt, stop=["USER:", "CoachBot"]).text
                         
-                        logger.info(f"{'#'*100}  scenario from bison : {scenario} {'#'*100} ")
-
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True,num_questions=3 if is_micro else 6)
+                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
+                                                                                                                                                    case_type=case_type,
+                                                                                                                                                    question_count=10,
+                                                                                                                                                    candidate_type='Manager')
+                        elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
+                                                                                                                                                                    num_questions=3 if is_micro else 6,
+                                                                                                                                                                    start_with_user=start_with_user
+                                                                                                                                                                    )
                         else:
-                            title, description, question_info, skill_to_evalaute,rating = extract_information(scenario)
+                            title, description, question_info, skill_to_evalaute,rating,scenario_information = extract_information(scenario)
                     
 
                     except Exception as e:
-                        # print('garbage scenario :',scenario)
                         garbage_scenarios.append(scenario)
                         rating = 0
                         logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
@@ -8734,34 +9701,34 @@ def create_scenario_from_site_context(url,
             admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
 
             logger.info(f"{'#'*100}  skills to evaluate:  <==> {skill_to_evalaute}, description: {description}  {'#'*100} ")
-            scenario_case = ScenarioCaseChoices.simulation
             if case_type == 'role_play':
                 scenario_case = ScenarioCaseChoices.role_play
-            
-            if type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                scenario_case = ScenarioCaseChoices.dynamic_discussion
 
             test_json = {
-                "creator_id": admin_user.uid,
                 "title": json.loads(context)['title'] if origin == "script" else title,
                 "description": description,
                 "email_address_list":'coachbots@googlegroups.com',
                 "questions": question_info,
+                "skills_to_evaluate": skill_to_evalaute,
+                "creator_id": admin_user.uid,
                 "scenario_case": 'pms' if competency is not None else scenario_case,
-                "interaction_mode":'any',
+                "interaction_mode":'text' if scenario_case == ScenarioCaseChoices.game else 'any',
                 "test_type":type_of_test,
                 "email_candidate":True,
                 "gpt_prompt_override":"",
-                "skills_to_evaluate": skill_to_evalaute,
                 "is_self_created": True,
-                "certificate_details": {"title": title},
+                "certificate_details": {"title": scenario_information.get('certificate_title')} if scenario_information.get('certificate_title') else {'title': title},
                 "competency_group": competency,
                 "creator_user_id": creator_user_id,
                 'is_assigned': True if assign_to is not None else False,
                 'assigned_to': assign_to,
                 'assigned_by': assigned_by,
-                'is_micro': is_micro
+                'is_micro': is_micro,
+                'candidate_type': scenario_information.get("candidate_type","Manager"),
             }
+            if scenario_information.get('custom_prompt'):
+                test_json['gpt_prompt_override'] = scenario_information.get('custom_prompt')
+
             if scenario_summary:
                 test_json["scenario_summary"] = scenario_summary
             if type_of_test == TestTypeChoices.dynamic_discussion_thread:
@@ -8787,12 +9754,14 @@ def create_scenario_from_site_context(url,
                         tenant=tenant,
                         **serializer.validated_data
                     )
-                    return {'title': test.title,'test_code': test.test_code,
+                    result = {'title': test.title,'test_code': test.test_code,
                                 'description': test.description,'test_type': test.test_type,
                                 "is_micro": test.is_micro,"scenario_case": test.scenario_case,
                                 "interaction_mode": test.interaction_mode, 
                                 "scenario": scenario,'prompt': prompt,
                                 "test_id": test.uid}
+                    logger.info(f'created Test: {result}')
+                    return result
                     
                 except Exception as e:
                     logger.error(e,exc_info=True)
@@ -8821,31 +9790,13 @@ def create_scenario_from_site_context(url,
                                             API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
                     response = resp.json()
                     print("%"*200, '\n', response, '\n', admin_user.uid,'\n', resp.status_code, "%"*200)
-                    
-                    # if assign_to is not None:
-                    #     try:
-                    #         user_attribute = UserAttribute.objects.filter(deleted=False, user_id=assign_to)
-                    #         assigned_tests = user_attribute.assigned_tests
-                    #         if assigned_tests is None:
-                    #             assigned_tests = {}
-                                
-                    #         if f'{assigned_by}' in assigned_tests :
-                    #             assigned_tests[f'{assigned_by}'] =  assigned_tests[f'{assigned_by}'] + f'{assigned_by}'
-                    #         else:
-                    #             assigned_tests[f'{assigned_by}'] = f'{assigned_by}'
-                    #         user_attribute.save()
-                            
-                    #     except Exception as e:
-                    #         logger.exception({"error":f"failed to assign test to user : {assign_to}"})
-
+             
                     if origin == "script":
                         resp_json = test_json.copy()
                         resp_json['test_code'] = response['test_code']
 
                         return resp_json
                     
-                    # if resp.status_code != 201:
-                    #     return {'message':"failed to generate the scenario","data":garbage_scenarios, 'title':'', 'test_code':'', 'description':''}
                     return {'title': response['title'],'test_code': response['test_code'],
                             'description': response['description'],'test_type': response['test_type'],
                             "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
@@ -8897,176 +9848,7 @@ def create_scenario_from_site_context(url,
 
     # logger.info(f"!!!!!!!!!!!!!!!!!!!!!! Everything failed !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
-
-
-def create_one_question_scenario_from_context(prompt_type:str, information:str,access_token:str,tenant_id:str,test_type:str,use_anthropic:bool=False):
-    """ Work in Progress."""
-    prompt = ""
-    if prompt_type == "manager-team":
-        prompt = """
-        \n\nHuman:
-        {Information} - {user_info}
-
-        Read this {information} thoroughly. Now based on this information and your understanding create 5 advanced and detailed situations to practice the skills presented in the {information}. After creating the situation provide these:
-
-        Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between the manager and a team member. Make the description specific based on data, industry, events, etc. Give the name of the manager. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
-        Questions - Give me the first question the manager will ask the team member based on the situation. The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
-        Output format - Manager name: Question
-
-        Here the format looks like :
-
-        Scenario 1:,
-
-        "Title:",
-
-        "Description:",
-
-        "Question:",
-
-        Do not include any response.
-        Repeat for 5 scenarios.
-        
-        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
-
-        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
-        
-        NOTE : Make sure the situation is very advanced and tough.
-        \n\nAssistant:
-
-
-    """
-    elif prompt_type == "team-team":
-        prompt = """
-        \n\nHuman:
-        {Information} - ${user_info}
-
-        Read this {information} thoroughly. Now based on this information and your understanding create an advanced and detailed description for a conversation between two team members to practice the skills presented in the {information}. After creating the situation provide these:
-
-        Description - Define the situation, and the problem. The problem should be a normal corporate problem. The description should always be about a conversation between two team members. Make the description specific based on data, industry, events, etc. Give the name of the team members. The description should just describe the problem and what was the specific situation that led to this problem. Keep the context Indian. No dialogues should be included. The description should ALWAYS be from the third person point of view. Provide the description in 100 to 200 words. Do not add any conclusion.  It should not be about writing an email.
-        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description. 
-        Questions - Give me the first question the team member will ask another team member based on the situation. The question should be deep, contextual and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly. 
-        Output format - Name: Question
-
-        Here the format looks like :
-
-        "Title:",
-
-        "Description:",
-
-        "Question:",
-
-        Do not include any {responder} response.
-
-        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
-
-        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - "Rating : 6". Do not include any other explanation.
-        
-        NOTE : Make sure the situation is very advanced and tough.
-        \n\nAssistant: 
-
-    """
-        
-    prompt = Template(prompt).substitute(user_info=information)
-    # if use_anthropic:
-    #     scenario = anthropic_completion(prompt,5000)
-    # else:
-    #     scenario = gemini_completion(prompt)
-    # print("palm",scenario)
-    # print("#"*100)
-    # scenarios = extract_scenarios_info_for_one_question(scenario)
-    # scenario_list = []
-    # for i in scenarios:
-    #     title, description, question_info,rating = extract_information_v2(scenario)
-    #     scenario_list.append({
-    #         'title': title,
-    #         "description": description,
-    #         "question_info":question_info,
-    #         "rating": rating
-    #     })
-
-    garbage_scenarios = []
-    scenario_list = []
-    test_list = []
-    for i in range(15):
-        logger.info(f"trying outer test generation for {i+1} time")
-        try:
-            response = {}
-            scenario = ''
-            title, description, question_info = "","",""
-            for i in range(3):
-                logger.info(f'trying scenario creation palm for {i +1} time')
-                try:
-                
-                    if use_anthropic:
-                        scenario = anthropic_completion(prompt,5000)
-                    else:
-                        scenario = gemini_completion(prompt)
-                    print("palm",scenario)
-                    print("#"*100)
-                    scenarios = extract_scenarios_info_for_one_question(scenario)
-                    for i in scenarios:
-                        title, description, question_info,rating = extract_information_dynamic_scenario(scenario)
-                        scenario_list.append({
-                            'title': title,
-                            "description": description,
-                            "question_info":question_info,
-                            "rating": rating
-                        })
-                except:
-                    print('garbage scenario :',scenario)
-                    garbage_scenarios.append(scenario)
-                
-                break
-
-            
-            admin_user = User.objects.filter(tenant_id=tenant_id,role='admin').first()
-
-            for scenario in scenarios:
-                title,description,question_info = scenario.get('title'),scenario.get('description'),scenario.get('question_info')
-                json_data = json.dumps({
-                    "creator_id": admin_user.uid,
-                    "title": title,
-                    "description": description,
-                    "email_address_list":'coachbots@googlegroups.com',
-                    "questions": question_info,
-                    "scenario_case": 'simulation',
-                    "interaction_mode":'any',
-                    "test_type": test_type,
-                    "email_candidate":True,
-                    "gpt_prompt_override":"",
-                    "skills_to_evaluate": "communication skills",
-                    "is_self_created": True,
-                    "certificate_details": {"title": title},
-
-
-                })
-                headers = {
-                            'Content-Type': 'application/json',
-                            'Authorization': access_token
-                        }
-                
-                try:
-                    response = requests.post(
-                                            API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
-                    response = response.json()
-                    print("%"*200, '\n', response, '\n', admin_user.uid,'\n', "%"*200)
-                    return {'title': response['title'],'test_code': response['test_code'],'description': response['description']}
-                    
-                except Exception as e:
-                    logger.error(e,exc_info=True)
-                    
-                    raise e
-
-        except Exception as e:
-            logger.error(e,exc_info=True)
-            if i+1 == 15:
-                logger.info(f"{'!'*100}  failed 15 times  {'!'*100}")
-                return {'message':"failed to generate the scenario","data":garbage_scenarios}
-            continue
-
-
-
+# ---------------ScenarioCreator -----------------
 def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
     """
     This function is used to fetch the test codes based on the site context
@@ -9676,7 +10458,7 @@ def test_model(model_name, num_tests=50):
         try:
             scenario = gemini_completion(prompt,[model_name])
             print(scenario)
-            title,description,question_info,rating,skill_to_evalaute,orchestrated_details = extract_information_dynamic_scenario(text=scenario,is_dynamic=True)
+            title,description,question_info,rating,skill_to_evalaute,orchestrated_details,_ = extract_information_dynamic_scenario(text=scenario)
             print(title, description, question_info, skill_to_evalaute,rating,orchestrated_details) # Replace with your test data path
             results.append((True, scenario,"",(time.time()-start_time)))
         except Exception as e:
@@ -9734,16 +10516,27 @@ def write_to_csv_v2(output_file, results):
                 writer.writerow({'Model': model_name,'Failed Scenarios': failed ,'Test': test_num, 'Status': 'Success' if status else 'Failure', 'Output': output, 'Reason': reason, 'Time': time})
 
 
-def test_scenario():
+def test_scenario(scenario_case,test_type):
     end_result = {}
     results = []
     context = "discussing next steps in career ladder & career development stretegies"
 
     # prompt = get_one_scenario_prompt(site_information=context,prompt_type="test")
-    for _ in range(20):
+    for _ in range(1):
         scenario = ''
         start_time = time.time()
-        is_created, failed_scenarios, test_scenario, reasons = create_scenario_from_site_context('',"Basic MDU2MTUwZWYtYjliYS00NTRlLTkzYTYtMDliZDdjNzFlYjNiOjFkOWMwZGJhLTI0OTAtNDZmYS1hMTNiLTU3Yjg5NDdhNjMwMg==", "627ded98-8585-42a4-9497-ae6db7f31020",'{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }')
+        is_created, failed_scenarios, test_scenario, reasons = create_scenario_from_site_context(url='',
+                                                                                                 access_token="",
+                                                                                                tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",
+                                                                                                context='{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }',
+                                                                                                use_anthropic=False,
+                                                                                                type_of_test=test_type,
+                                                                                                flavour=scenario_case,
+                                                                                                available_case = [scenario_case] ,# it will override
+                                                                                                by_pass_access_token=True,
+        )
+
+
         results.append((is_created, failed_scenarios,test_scenario,reasons,(time.time()-start_time)))
     
     end_result[f'text-bison@001'] = results
@@ -11669,12 +12462,127 @@ def check_updates(instance, updates):
 
     return updated_fields if updated_fields else []
 
+
+
+def get_next_test(test_pilot_user: TestPilotuser):
+    test_sequence = ["dynamic_game", "static_role_play_soft", "dynamic_start_with_user", 
+                    "static_hard", "static_soft", "normal_dynamic_test_hard", 
+                    "static_role_play_hard", "normal_dynamic_test_soft", "case", "checkin",
+                    "static_game"]
+    soft = ['static_role_play_soft', 'dynamic_start_with_user', 'static_soft','normal_dynamic_test_soft']
+    hard = ['static_hard', 'normal_dynamic_test_hard', 'static_role_play_hard']
+    others = ['dynamic_game', 'case', 'checkin','static_game']
+
+
+    if test_pilot_user.preferences == PilotTestPreferencesChoices.only_hard_skills:
+        test_sequence = hard
+    elif test_pilot_user.preferences == PilotTestPreferencesChoices.only_soft_skills:
+        test_sequence = soft
+
+
+    previous_records = TestPilotRecords.objects.filter(pilotuser=test_pilot_user).last()
+
+    if previous_records and previous_records.scenario_case_type in test_sequence:
+        last_index = test_sequence.index(previous_records.scenario_case_type)
+        next_index = (last_index + 1) % len(test_sequence)  # Loop back if at the end
+        next_test = test_sequence[next_index]
+    else:
+        next_test = test_sequence[0]  # Start from beginning if unknown
+
+    logger.info(f"{previous_records.scenario_case_type if previous_records else 'None'}, {next_test}")
+
+    return next_test
+
+
+
+def get_future_date(days=5, date_format="%Y-%m-%d"):
+    """Returns the date 'days' days from today in the specified format."""
+    future_date = datetime.datetime.today() + timedelta(days=days)
+    return future_date.strftime(date_format)
+
+def get_test_pilot_email_template(name, title, code, platform, access_code ):
+    template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Leadership Simulation Email</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: auto;
+                    background: #f9f9f9;
+                    padding: 20px;
+                    border-radius: 10px;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 10px 20px;
+                    color: #fff;
+                    background: #007bff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                }
+                .footer {
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #666;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <p>Hi ${name},</p>
+                <p>Your weekly leadership simulation is ready! The details are below.</p>
+                <p>Spend 10 minutes practicing real-time interaction & real-world decision making with our interactive platform.</p>
+                <h3>Access Details</h3>
+                <ul>
+                    <li><a href="${platform_url}"><strong>Platform</strong> </a></li>
+                    <li><strong>Access Code:</strong>${access_code}</li>
+                    <li><strong>Interaction Code:</strong> ${test_code}</li>
+                </ul>
+                <h3>How to Participate</h3>
+                <p>Visit the platform URL and locate the login page.</p>
+                <p>Enter the access and interaction codes when prompted (case-sensitive).</p>
+                <p>You may be asked for your name and email. Simulation feedback reports will be delivered to this email.</p>
+                <p>CoachBot skills engine will detect skill gaps based on your performance and serve another scenario (Optional).</p>
+                <p>Complete the scenario and the optional step by <strong>${next_day}</strong> date to maximize your Leadership Leaderboard scores!</p>
+                <h3>This Week’s Simulation Title: ${title}</h3>
+                <p><em>Note: The theme and track of the simulations are based on your inputs/organizational mandate. Please contact us if you wish to change them.</em></p>
+                <p>Need help? Reply directly or contact <a href="mailto:support@coachbot.com">support@coachbot.com</a>.</p>
+                <p>Keep growing,</p>
+                <p><strong>Team CoachBot</strong></p>
+                <p class="footer">This is an automated email. Please do not reply directly.</p>
+            </div>
+        </body>
+        </html>             
+        """
+
+    return Template(template).substitute(name=name, title=title, test_code=code, platform_url=platform, access_code=access_code, next_day=get_future_date())
+
 def process_test_pilot_user_csv(csv, tenant_id):
     test_to_create = ['simulation', 'role_play', 'games', 'dynamic', 'dynamic_user_first']
+    test = None
     for row in csv:
         email = row.get("Email").strip()
         name = row.get("Name").strip()
         targeted_skills = row.get("Targeted Skills").strip()
+        same_intake = str(row.get('Same Intake')).strip().lower() == 'true'
+        send_email_to_user = (
+                                str(row.get('Send Email')).strip().lower() == 'true'
+                                if row.get('Send Email') and len(str(row.get('Send Email'))) > 0
+                                else True
+                            )
+
+        
+        print('saem_intake', test, same_intake, send_email_to_user)
 
         if not email or not name or not targeted_skills:
             raise ValidationError('CSV contains empty required fields.')
@@ -11682,12 +12590,19 @@ def process_test_pilot_user_csv(csv, tenant_id):
         # Create or update record
         defaults = {
             "name": row.get("Name"),
-            "targeted_skills": row.get("Targeted Skills"),
-            "objective": row.get("Objective"),
-            "industry": row.get("Industry"),
-            "department": row.get("Department"),
-            "key_stakeholders": row.get("Key Stakeholders"),
-            "situation": row.get("Situation"),
+            "targeted_skills": row.get("Targeted Skills").strip() if row.get("Targeted Skills") else None,
+            "objective": row.get("Objective").strip() if row.get("Objective") else None,
+            "industry": row.get("Industry").strip() if row.get("Industry") else None,
+            "department": row.get("Department").strip() if row.get("Department") else None,
+            "key_stakeholders": row.get("Key Stakeholders").strip() if row.get("Key Stakeholders") else None,
+            "situation": row.get("Situation").strip() if row.get("Situation") else None,
+            "history": row.get("History").strip() if row.get("History") else None,
+            "company": row.get("Company").strip() if row.get("Company") else None,
+            "top_skills": row.get("Top Skills").strip() if row.get("Top Skills") else None,
+            "leaderboard": row.get("Leaderboard").strip() if row.get("Leaderboard") else None,
+            "preferences":row.get('Perferences').strip() if row.get("Perferences") else None,
+            "frequency" : row.get('Frequency').strip() if row.get("Frequency") else None,
+            "send_email": send_email_to_user
         }
 
         test_pilot_user, is_created = TestPilotuser.objects.update_or_create(
@@ -11741,33 +12656,65 @@ def process_test_pilot_user_csv(csv, tenant_id):
             if test_pilot_user.objective:
                 context += f"Objective: {test_pilot_user.objective}\n"
             if test_pilot_user.industry:
-                context += f"Industry: {test_pilot_user.industry}"
+                context += f"Industry: {test_pilot_user.industry}\n"
             if test_pilot_user.department:
-                context += f"department: {test_pilot_user.department}"
+                context += f"department: {test_pilot_user.department}\n"
             if test_pilot_user.key_stakeholders:
-                context += f"key stakeholders: {test_pilot_user.key_stakeholders}"
+                context += f"key stakeholders: {test_pilot_user.key_stakeholders}\n"
             if test_pilot_user.situation:
-                context += f"situation: {test_pilot_user.situation}"
+                context += f"situation: {test_pilot_user.situation}\n"
 
-
+            intake = context
             context = json.dumps({
                 "title": "",
                 "data": {'information': context}
             })
             # now creating starting test scenarios
+            scenario_type = get_next_test(test_pilot_user)
             for i in range(3):
                 try:
-                    test = create_scenario_from_site_context(None, "", tenant_id, context, 
-                                                            assign_to=user.uid, 
-                                                            is_micro=True,
-                                                            flavour='normal',
-                                                            by_pass_access_token=True
-                                                            )
-                    logger.info(f"created_test: {test}, {test['test_code']}")
-                    TestPilotRecords.objects.create(
+                    if same_intake :
+                        if not test:
+                            test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                                    assign_to=user.uid, 
+                                                                    is_micro=True,
+                                                                    flavour=scenario_type,
+                                                                    by_pass_access_token=True,
+                                                                    available_case=[scenario_type] # it will override
+                                                                    )
+                            logger.info(f"created_test: {test}, {test['test_code']}")
+                            test = Test.objects.get(test_code=test['test_code'])
+                    else:
+                        test = create_scenario_from_site_context(None, "", tenant_id, context, 
+                                                                assign_to=user.uid, 
+                                                                is_micro=True,
+                                                                flavour=scenario_type,
+                                                                by_pass_access_token=True,
+                                                                available_case=[scenario_type] # it will override
+                                                                )
+                            
+                        logger.info(f"created_test: {test}, {test['test_code']}")
+                        test = Test.objects.get(test_code=test['test_code'])
+                        
+                    record = TestPilotRecords.objects.create(
                         pilotuser = test_pilot_user,
-                        test = Test.objects.get(test_code=test['test_code']),
+                        test = test,
+                        scenario_case_type = scenario_type,
+                        intake = intake
                     )
+                    if send_email_to_user:
+                        send_email_from_emailit(test_pilot_user.email,
+                                    subject=f"Leadership Simulation #: {test.title} 🔍",
+                                    body= get_test_pilot_email_template(
+                                        name=test_pilot_user.name,
+                                        title=test.title,
+                                        code=test.test_code,
+                                        platform="https://www.coachots.com/",
+                                        access_code="ABC"
+                                    )
+                            )
+                        record.sent_email = True
+                        record.save(update_fields=['sent_email'])
                     break
                 
                 except Exception as e:
@@ -11779,7 +12726,84 @@ def process_test_pilot_user_csv(csv, tenant_id):
         if len(updated_fields) > 0:
             test_pilot_user.save(update_fields=updated_fields)
 
+
+def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
+
+    context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
+    if test_pilot_user.objective:
+        context += f"Objective: {test_pilot_user.objective}\n"
+    if test_pilot_user.industry:
+        context += f"Industry: {test_pilot_user.industry}\n"
+    if test_pilot_user.department:
+        context += f"department: {test_pilot_user.department}\n"
+    if test_pilot_user.key_stakeholders:
+        context += f"key stakeholders: {test_pilot_user.key_stakeholders}\n"
+    if test_pilot_user.situation:
+        context += f"situation: {test_pilot_user.situation}\n"
+
+    intake = context
+    context = json.dumps({
+                "title": "",
+                "data": {'information': context}
+            })
+    scenario_type = get_next_test(test_pilot_user)
+
+    for i in range(3):
+        try:
+            test = TestPilotRecords.object.filter(intake=intake).last()
             
+            if test:
+                test = test.test
+            else:
+                test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
+                                                    assign_to=test_pilot_user.user.uid, 
+                                                    is_micro=True,
+                                                    flavour=scenario_type,
+                                                    by_pass_access_token=True,
+                                                    available_case = [scenario_type] # it will override
+                                                    )
+                
+                logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
+                test = Test.objects.get(test_code=test['test_code'])
+
+            record = TestPilotRecords.objects.create(
+                pilotuser = test_pilot_user,
+                test = test,
+                scenario_case_type = scenario_type,
+                intake = intake
+            )
+            
+            send_email_from_emailit(test_pilot_user.email,
+                                    subject=f"Leadership Simulation #: {test.title} 🔍",
+                                    body= get_test_pilot_email_template(
+                                        name=test_pilot_user.name,
+                                        title=test.title,
+                                        code=test.test_code,
+                                        platform="https://www.coachots.com/",
+                                        access_code="ABC"
+                                    )
+            )
+
+            record.sent_email = True
+            record.save(update_fields=['sent_email'])
+            break
+        
+        except Exception as e:
+            logger.exception(f"{e}")
+            if i+1 ==3:
+                raise e
+
+
+def pilot_test_creation_job(frequency):
+    test_pilot_users = TestPilotuser.objects.filter(deleted=False)
+    for pilot_user in test_pilot_users:
+        if pilot_user.frequency == frequency:
+            try:
+                create_and_email_to_pilot_user(pilot_user)
+            except Exception as e:
+                send_error_notification("create_and_email_to_pilot_user", 
+                                        f"Failed to call for {pilot_user.email}",
+                                        {})
 
 def get_personality_model_prompt(personality_model:str, scenario:str):
     prompt = ""
@@ -12139,6 +13163,264 @@ def extract_json_from_string(text):
             return extract_valid_json(text)
         except Exception as e:
             raise ValueError(f"Invalid JSON format: {e}")
+
+def extract_information_dynamic_scenariov2(text,candidate_type="Manager",num_questions=3):
+
+    """
+
+    Extract information from a dynamic scenario text.
+
+
+
+    Parameters:
+
+    - text (str): The dynamic scenario text to extract information from.
+
+    - is_dynamic (bool): Indicates whether the scenario is dynamic.
+
+    - candidate_type (str): Type of candidate (e.g., 'Manager', 'Team Member').
+
+
+
+    Returns:
+
+    - tuple: A tuple containing title, description, question_info, rating, evaluation_skill_list, and orchestrated_conversation_details.
+
+
+
+    Example:
+
+    >>> extract_information_dynamic_scenario('Title: Test Title\nDescription: Test Description\nQuestion: What is your approach to leadership?\nRating: 5', is_dynamic=True, candidate_type='Manager')
+
+    # Returns a tuple with extracted information from the dynamic scenario text.
+
+    """
+
+    if not text:
+        raise ValueError("Invalid format. Text is empty.")
+
+    try:
+
+      data = extract_json_from_string(text)
+      manager_name = data['Person 0'].split(':')[0].strip()
+      question_info = []
+      title = data['Title']
+      description = data['Context']
+
+      for key, value in data.items():
+        if key.isdigit():
+          question_info.append({
+            "question": value,
+            "question_type": "subjective",
+            "gpt_prompt_override": "",
+            "subjective_answer": "",
+            'question_for': manager_name
+          })
+
+      test_main_context = description + data['Person 0']
+
+      orchestrated_conversation_details = {
+            "test_main_context": test_main_context,
+            "test_user_persona": data['Candidate Type'].capitalize(),
+            "objective": description,
+            "initial_messages": [data['Person 0']]
+
+        }
+
+
+      infomation = {
+        'title': title,
+        'description': description,
+        'question_info': question_info,
+        "candidate_type": data['Candidate Type'].capitalize(),
+        'area_domain': data['Area/Domain'],
+        'certificate_title': data['Certificate Title'],
+        'email_list': data['Email Address List'],
+        'responder': data['Responder'],
+        'orchestrated_conversation_details': orchestrated_conversation_details
+      }
+      if data.get('start with user') != "None":
+        infomation['start_with_user'] = data['start with user']
+
+      if data.get('skill_list'):
+        infomation['skills_list'] = data['skill_list']
+
+
+
+
+      logger.info(f'scenario info============================: {infomation}')
+      return title, description, question_info, 0, [],orchestrated_conversation_details, infomation
+
+    except Exception as e:
+      print(e)
+
+    text = text.replace('KLS', 'Skills')
+
+    title_pattern = re.compile(r'Title\s*:\s*(.*?)\n', re.DOTALL)
+
+    description_pattern = re.compile(r'Description\s*:\s*(.*?)\n', re.DOTALL)
+
+    question_pattern = re.compile(r'Question\s*:\s*(.+)')
+
+    skill_pattern = re.compile(r'Skills:\s*(.+)')
+
+    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
+
+    if not question_pattern.findall(text):
+
+        question_pattern = re.compile(r'Questions\s*:\s*(.+)')
+
+
+
+    # Extracting information using regular expressions
+
+    title_match = title_pattern.search(text)
+
+    description_match = description_pattern.search(text)
+
+    questions_match = question_pattern.search(text)
+
+    rating_match = rating_pattern.search(text)
+    skill_match = skill_pattern.search(text)
+
+
+
+    # If title_pattern doesn't match, try to find the title as the lines before the description
+
+    if not title_match:
+
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+
+        title_match = pattern.search(text)
+
+        if not title_match:
+
+            raise ValueError("Invalid format. Unable to extract the title.")
+
+
+
+
+
+    if not (title_match and description_match and question_pattern.findall(text)):
+
+        raise ValueError("Invalid format. Unable to extract necessary information.")
+
+
+
+    print('skill_match', skill_match)
+
+
+
+    title = title_match.group(1).strip()
+
+    description = description_match.group(1).strip()
+
+    questions = questions_match.group(1).strip()
+
+    rating = int(rating_match.group(1)) if rating_match else 0
+
+    skill_list = skill_match.group(1).strip() if skill_match else None
+
+    question_info = []
+
+
+
+    test_main_context = description + questions
+
+    orchestrated_conversation_details = {
+
+            "test_main_context": test_main_context,
+
+            "test_user_persona": candidate_type.capitalize(),
+
+            "objective": description,
+
+            "initial_messages": [questions]
+
+        }
+
+
+
+    skills_list_candidate = set()
+
+    for item in get_skills(candidate_type.capitalize()):
+
+            skills_list_candidate.add(item.capitalize())
+
+
+
+    evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+
+
+
+    if len(evaluation_skill_list) < 6:
+
+        raise ValueError(f"Skills must have at least 4. Got:  {len(skills_list_candidate)}, {skills_list_candidate}")
+
+
+
+    if len(evaluation_skill_list) > 8:
+
+        evaluation_skill_list = evaluation_skill_list[:8]
+
+
+
+    evaluation_skill_list = ','.join(evaluation_skill_list)
+
+
+
+    manager_name = questions.split(':')[0].strip()
+
+    for i in range(1,2*num_questions):
+
+        question = {
+
+                "question_type": "subjective",
+
+                "gpt_prompt_override": "",
+
+                "subjective_answer": ""
+
+            }
+
+
+
+        if i % 2 == 0:
+
+            question['question'] = f"Respond as {manager_name}"
+
+            question['question_for'] = manager_name
+
+        else:
+
+            question['question'] = "Please respond in order to continue"
+
+            question['question_for'] = 'user'
+
+
+
+        if i == (2*num_questions-1):
+
+            question['question'] = "Conclude the discussion as a participant."
+
+
+
+        question_info.append(question)
+    infomation = {
+        'title': title,
+        'description': description,
+        'question_info': question_info,
+        'skill_to_evaluate': evaluation_skill_list,
+        'rating': rating,
+        'orchestrated_conversation_details': orchestrated_conversation_details
+    }
+
+    if skill_list:
+      infomation['skills_list'] = skill_list
+
+    logger.info(f'scenario info============================: {infomation}')
+    return title, description, question_info, rating, evaluation_skill_list,orchestrated_conversation_details, infomation
+
 
 def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, test:Test):
     if test.personality_model:

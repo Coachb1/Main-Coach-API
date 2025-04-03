@@ -14,7 +14,7 @@ from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
-                            update_prompt_user_attributes, scrape_article_data, update_scenarios)
+                            update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
 from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
@@ -1715,4 +1715,14 @@ class TestViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception(f"Failed to process test recommendations: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    @action(methods=['POST'],detail=False, url_path="test-pilot-creation")
+    def test_pilot_creation(self, request, *args, **kwargs):
+        try:
+            freq = request.data.get('freq')
+            pilot_test_creation_job(freq)
+            return Response({'message': f"Test pilot creation job scheduled for every {freq}"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to [test_pilot_creation]: {e}")
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

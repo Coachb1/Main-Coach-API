@@ -1,5 +1,14 @@
 from djchoices import DjangoChoices, ChoiceItem
 
+class PilotTestPreferencesChoices(DjangoChoices):
+    only_soft_skills = ChoiceItem("only_soft_skills")
+    only_hard_skills = ChoiceItem("only_hard_skills")
+    mix = ChoiceItem("mix")
+
+class PilotTestFrequencyChoices(DjangoChoices):
+    monday = ChoiceItem("monday")
+    mon_and_thu = ChoiceItem("mon_and_thu")
+
 
 class TestTypeChoices(DjangoChoices):
     test = ChoiceItem("test")   # feedback at last
