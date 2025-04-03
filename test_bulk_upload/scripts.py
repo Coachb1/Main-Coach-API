@@ -1628,29 +1628,28 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                 for col in columns_check:
                     if col not in row_data:
-                        raise Exception(f"Column '{col}' not found in row")
+                        occured_errors.append(f"Column '{col}' not found in row")
                     elif not row_data[col]:
-                        raise Exception(
-                            f"Column '{col}' has null or empty value in row")
+                        occured_errors.append(f"Column '{col}' has null or empty value in row")
 
             # Checkoing for empty KLS and KLP and questions
             for row_data in all_rows:
                 for key in row_data:
                     if key.startswith(QUESTION):
                         if not row_data[key] and (IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
-                            raise Exception(
-                                f"Column '{key}' has null or empty value in row")
+                            occured_errors.append(f"Column '{key}' has null or empty value in row")
                     if key.startswith(KLS) or key.startswith(KLP):
                         if not row_data[key]:
-                            raise Exception(
-                                f"Column '{key}' has null or empty value in row")
+                            occured_errors.append(f"Column '{key}' has null or empty value in row")
                         
-                    if row_data[SCENARIO_CASE] == 'psychometric' and (PSYCHOMETRIC not in row_data or len(row_data[PSYCHOMETRIC].strip()) == 0):
-                        raise Exception(
-                                f"Column '{PSYCHOMETRIC}' has null or empty value in row")
+                    if (SCENARIO_CASE in row_data and row_data[SCENARIO_CASE] == 'psychometric') and (PSYCHOMETRIC not in row_data or len(row_data[PSYCHOMETRIC].strip()) == 0):
+                        occured_errors.append(f"Column '{PSYCHOMETRIC}' has null or empty value in row")
+
                         
 
                 # If row is valid, append it to list of valid rows to be sent to API
+                if len(occured_errors)> 0:
+                    raise Exception(set(occured_errors))
                 valid_rows.append(row_data)
 
             logger.info(f"Total valid records: {len(valid_rows)}")
@@ -1687,8 +1686,9 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         logger.info("[Response Received]\n")
 
                         row_data = json.loads(raw_data)
+                        
                         test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
-                                                ] = response.json().get('test_code')
+                                                ] = f"API call failed Details: {response.json()}" if response.status_code != 201 else response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
                         cnt += 1
@@ -1696,6 +1696,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                     except Exception as e:
                         logger.error(e)
+                        occured_errors.append(f"Error occurred; Could not update tests {e.args}" if is_update else f"Error occurred; Could not create tests {e.args}")
                         return {
                             "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"],
                             "exception": True,
@@ -1704,7 +1705,8 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
                     # Check for successful API call
                     if response.status_code != 201:
-                        raise Exception("API call failed")
+                        occured_errors.append(f"API call failed Details: {response.json()}")
+                                            
 
                 else:
                     if "unmatched_skills" in json_data:
@@ -1859,13 +1861,15 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
                 for col in columns_check:
                     if col not in row_data:
-                        raise Exception(f"Column '{col}' not found in row")
+                        occured_errors.append(f"Column '{col}' not found in row")
                     elif not row_data[col]:
-                        raise Exception(
-                            f"Column '{col}' has null or empty value in row")
+                        occured_errors.append(f"Column '{col}' has null or empty value in row")
                     
 
                 # If row is valid, append it to list of valid rows to be sent to API
+                if len(occured_errors)> 0:
+                    raise Exception(set(occured_errors))
+                
                 valid_rows.append(row_data)
 
             logger.info(f"Total valid records: {len(valid_rows)}")
@@ -1903,7 +1907,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
                         row_data = json.loads(raw_data)
                         test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
-                                                ] = response.json().get('test_code')
+                                                ] = f"API call failed Details: {response.json()}" if response.status_code != 201 else response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
                         cnt += 1
@@ -1911,15 +1915,19 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
 
                     except Exception as e:
                         logger.exception(e)
-                        return {
-                            "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"] ,
-                            "exception": True,
-                            "response": response
-                        }
+                        occured_errors.append(f"Error occurred; Could not update tests {e.args}" if is_update else f"Error occurred; Could not create tests {e.args}")
+                        # return {
+                        #     "errors": [f"Error occurred; Could not update tests {e.args}"] if is_update else [f"Error occurred; Could not create tests {e.args}"] ,
+                        #     "exception": True,
+                        #     "response": response
+                        # }
 
                     # Check for successful API call
+                    logger.info(f"response: {response.json()}")
+
                     if response.status_code != 201:
-                        raise Exception("API call failed")
+                        occured_errors.append(f"API call failed Details: {response.json()}")
+                        
                 else:
                     if "last_question_for_user" in json_data:
                         occured_errors.append(json_data['last_question_for_user'])
