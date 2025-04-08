@@ -221,6 +221,7 @@ class SignatureBot(TenantAwareModel):
     system_instructions = models.TextField(null=True, blank=True, default=None)
     allow_public_access = models.BooleanField(null=True,default=False)
     integratable_widget_snippet = models.TextField(null=True, blank=True, default=None)
+    use_latest_simualation = models.BooleanField(null=True,default=False)
     
 
     class Meta:
