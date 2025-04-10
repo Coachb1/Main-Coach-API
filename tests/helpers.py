@@ -3592,6 +3592,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     # Step 2: Extract the first 8 elements from the sorted dictionary  # because we want max 8 skill to evaluate
     skills_rating = dict(list(sorted_dict.items())[:8])
+    skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     
     for skill in skills_rating:
         if skill in temp_rating:
@@ -3600,7 +3601,6 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
         else:
             temp_rating[skill] = skills_rating[skill] or random.randint(3, 7)
             skills_count[skill] = 1
-
 
     # If skills_rating score is greater than 8.5 then trim the score to 8.5
     for skill in skills_rating:
@@ -3627,7 +3627,6 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     
     
 
-    skills_rating = {key.capitalize() : value for key, value in skills_rating.items()}
     if skills_rating:
         test_attempt_session.skills_rating = skills_rating
         updated_fields.append("skills_rating")
