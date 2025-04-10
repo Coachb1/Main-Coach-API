@@ -586,13 +586,11 @@ def format_test_orchestrated_conversation(raw_data):
             candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
             output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
-        if SKILLS_TO_EVALUATE in input_dict:
-            if input_dict[SKILLS_TO_EVALUATE] and len(input_dict[SKILLS_TO_EVALUATE].strip()) > 0:
-
-                skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-                skill_list = [skill.strip() for skill in skill_list]
-                skill_list = ','.join(skill_list)
-                output_dict["skills_to_evaluate"] = skill_list
+        if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
+            skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
+            skill_list = [skill.strip() for skill in skill_list]
+            skill_list = ','.join(skill_list)
+            output_dict["skills_to_evaluate"] = skill_list
         else:
 
             # saving skills_to_evaluate from backend only
