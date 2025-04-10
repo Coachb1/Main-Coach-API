@@ -2652,6 +2652,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "allow_access_to_snippet": client.allow_access_to_snippet,
         "report_on": client.report_on,
         "show_recommendations": client.show_recommendations,
+        "ask_access_code": client.ask_access_code
 
     }
     user_info['user_id'] = user_account.uid
