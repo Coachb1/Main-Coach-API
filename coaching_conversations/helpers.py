@@ -10,8 +10,8 @@ from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
 from external_apis.coach_whisper_api import coach_whisper_api
 from tenants.models import Tenant
-from tests.choices import TestTypeChoices, InteractionModeChoices
-from tests.models import TestAttemptSession, Test, TestQuestion
+from tests.choices import TestAttemptSessionStatusChoices, TestTypeChoices, InteractionModeChoices
+from tests.models import TestAttemptSession, Test, TestQuestion, TestQuestionResponse
 from users.models import User
 from commons.openai_gpt import gpt_wishper_api
 from users.models import SignatureBot, BotAttribute, CoachCoacheeMentorMenteeProfile, CoachRecommendationsForUser
@@ -1285,6 +1285,41 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             prompt  = prompt.split('Assistant:')
             prompt.insert(-1, f"Note: Always use only Smileys and People emojis in response to make the responses lively where applicable. \n\nAssistant:")
             prompt = '\n'.join(prompt)
+
+        if signature_bot.use_latest_simualation:
+            
+                latest_attempted_scenario = TestAttemptSession.objects.filter(
+                                            deleted=False, status=TestAttemptSessionStatusChoices.completed,
+                                            participant_id=participant_id
+                                        ).exclude(finished_at=None).first()
+                logger.info(f"latest_attempted_scenario: {latest_attempted_scenario}")
+                test = Test.objects.filter(uid=latest_attempted_scenario.test_id, deleted=0).first()
+                if test:
+                    conversation = ""
+                    count = 1
+
+                    for response in TestQuestionResponse.objects.filter(deleted=False, test_attempt_session_id=latest_attempted_scenario.uid):
+
+                        question = TestQuestion.objects.get(
+                            uid=response.question_id)
+
+                        question_text = question.question
+                        response_text = response.response_text
+                        feedback_text = response.feedback_text
+
+                        conversation += f"{count}. [Question:] {question_text}\n"
+                        if not question.is_view_only:
+                            conversation += f"[Answer:] {response_text}\n\n"
+                        if feedback_text:
+                            conversation += f"[Feedback:] {feedback_text}\n\n"
+                        count += 1
+                        
+                    scenario = f"Title: {test.title}\n Descriptionn: {test.description}\n Conversation: {conversation}"
+
+                    prompt_info = prompt.split("Human:")
+                    print(prompt_info)
+
+                    prompt = prompt_info[0] + "Human:\n"+ "\n {Attempted Scenario}: " + f"{scenario}" + prompt_info[1]
 
     return prompt
 
@@ -2617,6 +2652,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "allow_access_to_snippet": client.allow_access_to_snippet,
         "report_on": client.report_on,
         "show_recommendations": client.show_recommendations,
+        "ask_access_code": client.ask_access_code
 
     }
     user_info['user_id'] = user_account.uid
