@@ -9,7 +9,7 @@ class Tenant(MyModel):
     name = models.TextField()
     subdomain_prefix = models.CharField(max_length=255, unique=True)
     subscription = models.CharField(max_length=255, choices=SubscriptionChoices, default=SubscriptionChoices.paused)
-    document_storage_bucket_name = models.TextField(default="")
+    document_storage_bucket_name = models.TextField(default="",null=True, blank=True)
     is_repeat = models.BooleanField(default=True, null=True, blank=True)
     logo = models.TextField(default="", null=True, blank=True)
     test_per_month = models.IntegerField(default=10, null=True, blank=True)

@@ -251,12 +251,33 @@ class AccountsViewSet(ApiViewSet,
 
         tenant = self.request.tenant
         participant_id = request.query_params.get("participant_id")
+        test_code = request.query_params.get("test_code")
+
+        try:
+            user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=participant_id)
+
+            client = get_client_info_from_user_detail(tenant_id=tenant.uid, user_uid=participant_id)
+        except Exception as e:
+            logger.error({"!!!!!!!!!! Error": e}, exc_info=True)
+            return Response({"error":"user not found"},status=status.HTTP_404_NOT_FOUND)
+        
+        test = None
+        if test_code:
+            try: 
+                test = Test.objects.get(deleted=False, test_code=test_code)
+            except:
+                logger.error({"!!!!!!!!!! Error": e}, exc_info=True)
+                return Response({"error":"test not found"},status=status.HTTP_404_NOT_FOUND)
 
         try:
             test_per_month = tenant.test_per_month
             current_month = timezone.now().month
             # date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
-            sessions = TestAttemptSession.objects.filter(deleted=False, participant_id = participant_id,tenant_id=tenant.uid, status=TestAttemptSessionStatusChoices.completed).exclude(finished_at=None)
+            sessions = TestAttemptSession.objects.filter(deleted=False, 
+                                                         participant_id = participant_id,
+                                                         tenant_id=tenant.uid, 
+                                                         status=TestAttemptSessionStatusChoices.completed
+                                                         ).exclude(finished_at=None)
             this_month_sessions = []
             for session in sessions:
                 if session.created.month == current_month:
@@ -266,7 +287,25 @@ class AccountsViewSet(ApiViewSet,
             logger.error({"!!!!!!!!!! Error": e}, exc_info=True)
             total_test_attempted = 0
 
-        data = {"tenant_id": tenant.uid, "is_repeat": tenant.is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted}
+        is_repeat = None
+
+        # Priority 1: Test-level
+        if test and test.is_repeat is not None:
+            is_repeat = test.is_repeat
+
+        # Priority 2: User-level
+        elif user and user.is_repeat is not None:
+            is_repeat = user.is_repeat
+
+        elif client and client.is_repeat is not None:
+            is_repeat = client.is_repeat
+            
+        # Priority 3: Tenant-level fallback
+        if is_repeat is None:
+            is_repeat = tenant.is_repeat
+
+        
+        data = {"tenant_id": tenant.uid, "is_repeat": is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted}
         return Response(data, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-user-type")

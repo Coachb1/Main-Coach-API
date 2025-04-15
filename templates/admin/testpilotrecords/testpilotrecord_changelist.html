@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:new_test_creation' %}" class="button">
+            New Test Creation
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}
