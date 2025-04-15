@@ -5,7 +5,7 @@ from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMen
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
-from coaching_conversations.helpers import shift_all_emails_to_domain_client
+from coaching_conversations.helpers import enforce_unique_emails_across_clients, shift_all_emails_to_domain_client
 from email_sender.helpers import send_welcome_email
 from tenants.admin import TenantAwareModelAdmin
 from users.choices import BotTypeChoice
@@ -214,6 +214,8 @@ def new_create_client_info_activity(sender, instance, **kwargs):
             is_active=True,
             is_temporary=False
         )
+
+    enforce_unique_emails_across_clients(instance)       
 
     print(f"================={instance.make_new_user_in_trail}===========")
     if not instance.make_new_user_in_trail and instance.demo_ids != "":

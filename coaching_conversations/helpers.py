@@ -2337,6 +2337,43 @@ def add_or_remove_emails_from_client(client, field, user_email, remove=False):
         setattr(client, field, ",".join(set(emails_list)))  # Update the field with the new list of emails
         client.save(update_fields=[field])  # Save the changes to the specified field
 
+def enforce_unique_emails_across_clients(instance):
+    """
+    Ensures each email in instance.member_emails is unique across other ClientUserInfo
+    instances with the same tenant. If found, removes the email(s) from other clients.
+    """
+    if not instance.member_emails:
+        return
+
+    # Normalize and deduplicate input emails
+    target_emails = set(e.strip().lower() for e in instance.member_emails.split(',') if e.strip())
+
+    # Find all clients that may contain any of these emails
+    matching_clients = ClientUserInfo.objects.filter(
+        deleted=False,
+        tenant_id=instance.tenant_id,
+    ).exclude(uid=instance.uid)
+
+    clients_to_update = {}
+
+    for client in matching_clients:
+        if not client.member_emails:
+            continue
+
+        client_emails = set(e.strip().lower() for e in client.member_emails.split(',') if e.strip())
+        intersecting_emails = client_emails & target_emails
+
+        print(f"client: {client.client_name} ,clientemail: {len(client_emails)}, targeted: {len(target_emails)}, intersecting: {len(intersecting_emails)}")
+        if intersecting_emails:
+            print(f"[Cleanup] Removing {intersecting_emails} from client: {client.client_name}")
+            updated_emails = client_emails - intersecting_emails
+            clients_to_update[client.uid] = (client, updated_emails)
+
+            print(f"updated emails: {len(updated_emails)} ")
+
+            client.member_emails = ",".join(sorted(updated_emails))
+            client.save(update_fields=['member_emails'])
+
 def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=None, send_email=True):
     """
     Updates the membership of a user identified by their email across client records within a specific tenant.
@@ -2395,6 +2432,8 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
     else:
         all_client_of_user = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email)
         for client in all_client_of_user:
+            if client.uid == new_client_id:
+                continue
             add_or_remove_emails_from_client(
             client=client,
             field="member_emails",
@@ -2413,49 +2452,52 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
             
     # add user_email to new_client
     new_client = ClientUserInfo.objects.get(deleted=False,tenant_id=tenant_id,uid=new_client_id)
-    add_or_remove_emails_from_client(
-        client=new_client,
-        field="member_emails",
-        user_email=user_email,
-    )
-
-    if send_email:
-        user = get_user_via_identity(
-            tenant=Tenant.objects.get(uid=tenant_id),
-            identity_type="deepchat_unique_id",
-            identity_value=user_email
+    if user_email in new_client.member_emails:
+        logger.info(f"User email {user_email} already exists in new client {new_client.client_name}.")
+    else:
+        add_or_remove_emails_from_client(
+            client=new_client,
+            field="member_emails",
+            user_email=user_email,
         )
-        user_name = user.name if user else "User"
 
-        ## sending Welcome Message to user
-        subject = f"Welcome to Coachbots - Unleash Your Potential!"
-        html_content = f"""
-                        <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-                            <div style="margin: 15px;">
-                                <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
-                                <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
-                                <p>To get started, please take a moment to:</p>
-                                <div style="margin-bottom: 10px;">
-                                    <strong>Step 1: [Join the Network]</strong>
-                                    <ul>
-                                        <li>Join as Coach</li>
-                                        <li>Join as Coachee</li>
-                                        <li>Join Feedback Network</li>
-                                    </ul>
+        if send_email:
+            user = get_user_via_identity(
+                tenant=Tenant.objects.get(uid=tenant_id),
+                identity_type="deepchat_unique_id",
+                identity_value=user_email
+            )
+            user_name = user.name if user else "User"
+
+            ## sending Welcome Message to user
+            subject = f"Welcome to Coachbots - Unleash Your Potential!"
+            html_content = f"""
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+                                <div style="margin: 15px;">
+                                    <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                    <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
+                                    <p>To get started, please take a moment to:</p>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 1: [Join the Network]</strong>
+                                        <ul>
+                                            <li>Join as Coach</li>
+                                            <li>Join as Coachee</li>
+                                            <li>Join Feedback Network</li>
+                                        </ul>
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
+                                    </div>
+                                    <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
+                                    <p>Here's to your success!</p>
                                 </div>
-                                <div style="margin-bottom: 10px;">
-                                    <strong>Step 2:</strong> As a user, you can join as a coach or coachee. You can also join a peer feedback network to demonstrate the accolades you receive and collect 360-degree peer feedback. Certain features may not work if you do not join the networks.
-                                </div>
-                                <div style="margin-bottom: 10px;">
-                                    <strong>Step 3:</strong> Connect, access, and explore the platform based on the role you have chosen. Interact with AI coaches and mentors, receive personalized recommendations, and engage in feedback loops to accelerate your growth.
-                                </div>
-                                <p>We're excited to work with you and help you unlock your full potential. If you have any questions or need assistance, don't hesitate to reach out to our friendly support team.</p>
-                                <p>Here's to your success!</p>
-                            </div>
-                        </p>
-                        """
-        
-        send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
+                            </p>
+                            """
+            
+            send_email_with_html_template(subject=subject,html_content=html_content,to_email=user_email,title=f"Dear {user_name},")
 
 
 
