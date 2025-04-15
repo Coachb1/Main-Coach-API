@@ -11,11 +11,17 @@ from io import TextIOWrapper
 
 
 class CSVUploadForm(forms.Form):
-    tenant_id = forms.ChoiceField(
-        choices=[(None, _("Select a tenant - (None)"))] + Tenant.get_tenant_choices(),  # Fetch all tenants from the database
-        required=True,  # Set this to True or False depending on your requirements
-    )
     csv_file = forms.FileField(max_length=1, required=True)
+
+    def __init__(self, *args, **kwargs):
+        show_tenant_id = kwargs.pop('show_tenant_id', True)
+        super().__init__(*args, **kwargs)
+        
+        if show_tenant_id:
+            self.fields['tenant_id'] = forms.ChoiceField(
+                choices=[(None, _("Select a tenant - (None)"))] + Tenant.get_tenant_choices(),
+                required=True,
+            )
 
     def clean_csv_file(self):
         file = self.cleaned_data.get("csv_file")

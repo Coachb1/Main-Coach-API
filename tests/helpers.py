@@ -12726,7 +12726,7 @@ def process_test_pilot_user_csv(csv, tenant_id):
             test_pilot_user.save(update_fields=updated_fields)
 
 
-def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
+def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser, scenario_type:str=None, send_email_to_user:bool=False):
 
     context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
     if test_pilot_user.objective:
@@ -12745,25 +12745,30 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                 "title": "",
                 "data": {'information': context}
             })
-    scenario_type = get_next_test(test_pilot_user)
+    
+    if not scenario_type:
+        scenario_type = get_next_test(test_pilot_user)
+
+
+    print(context,scenario_type)
 
     for i in range(3):
         try:
-            test = TestPilotRecords.object.filter(intake=intake).last()
+            # test = TestPilotRecords.objects.filter(intake=intake).last()
             
-            if test:
-                test = test.test
-            else:
-                test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
-                                                    assign_to=test_pilot_user.user.uid, 
-                                                    is_micro=True,
-                                                    flavour=scenario_type,
-                                                    by_pass_access_token=True,
-                                                    available_case = [scenario_type] # it will override
-                                                    )
-                
-                logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
-                test = Test.objects.get(test_code=test['test_code'])
+            # if test:
+            #     test = test.test
+            # else:
+            test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
+                                                assign_to=test_pilot_user.user.uid, 
+                                                is_micro=True,
+                                                flavour=scenario_type,
+                                                by_pass_access_token=True,
+                                                available_case = [scenario_type] # it will override
+                                                )
+            
+            logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
+            test = Test.objects.get(test_code=test['test_code'])
 
             record = TestPilotRecords.objects.create(
                 pilotuser = test_pilot_user,
@@ -12771,8 +12776,11 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                 scenario_case_type = scenario_type,
                 intake = intake
             )
+
+            print('record', record)
             
-            send_email_from_emailit(test_pilot_user.email,
+            if send_email_to_user:
+                send_email_from_emailit(test_pilot_user.email,
                                     subject=f"Leadership Simulation #: {test.title} 🔍",
                                     body= get_test_pilot_email_template(
                                         name=test_pilot_user.name,
@@ -12781,10 +12789,10 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                                         platform="https://www.coachots.com/",
                                         access_code="ABC"
                                     )
-            )
+                )
 
-            record.sent_email = True
-            record.save(update_fields=['sent_email'])
+                record.sent_email = True
+                record.save(update_fields=['sent_email'])
             break
         
         except Exception as e:
@@ -12803,6 +12811,29 @@ def pilot_test_creation_job(frequency):
                 send_error_notification("create_and_email_to_pilot_user", 
                                         f"Failed to call for {pilot_user.email}",
                                         {})
+
+def create_and_send_next_test(reader):
+    users = []
+    invalid = []
+    for row in reader:
+        print(row)
+        pilot_user = TestPilotuser.objects.filter(deleted=False, email=row['Email']).first()
+        print(pilot_user)
+        if not pilot_user:
+            invalid.append(f"Pilot user with email {row['Email']} not found.")
+            continue
+        users.append(pilot_user)
+
+    if not users:
+        invalid.append("Not found any valid user in csv.")
+
+    if len(invalid) > 0:
+        raise ValidationError(f"Got error: {invalid}")
+
+    for pilot_user in users:
+        create_and_email_to_pilot_user(test_pilot_user=pilot_user,
+                                        scenario_type=row['Test Type'],
+                                        send_email_to_user=row['Send Email'].lower().strip() == 'true',)
 
 def get_personality_model_prompt(personality_model:str, scenario:str):
     prompt = ""
