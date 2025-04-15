@@ -99,7 +99,7 @@ class Test(TenantAwareModel):
 
     is_single_bot = models.BooleanField(default=False, null=True, blank=True)
     is_self_created = models.BooleanField(default=False, null=True, blank=True)
-    is_repeat = models.BooleanField(default=True, null=True, blank=True)
+    is_repeat = models.BooleanField(default=None, null=True, blank=True)
     is_game_type = models.BooleanField(default=False, null=True, blank=True)
     is_immersive = models.BooleanField(default=False, null=True, blank=True)
     is_free = models.BooleanField(default=False, null=True, blank=True)
