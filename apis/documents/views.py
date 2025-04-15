@@ -128,8 +128,10 @@ class DocumentViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="get-prompt-response")
     def get_prompt_response(self, request, *args, **kwargs):
         prompt = request.query_params.get("prompt")
+        instruction = request.query_params.get("instruction")   
+
         # response_text = anthropic_completion(prompt, 500)
-        response_text = gemini_completion(prompt)
+        response_text = gemini_completion(prompt=prompt, instruction=instruction)
         return Response({"response_text": response_text})
     
     
