@@ -1220,7 +1220,7 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
         title=test_title,
         description = test_description,
         conversation = conversation,
-        skills_list = ",".join(skills_rating),
+        skills_list = skills_rating,
     )
 
     if is_free:
@@ -1919,7 +1919,7 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
         title=test_title,
         description = test_description,
         conversation = conversation,
-        skills_list = ",".join(cultural_skills),
+        skills_list = cultural_skills,
         evaluation_criteria = evaluation_criteria
     )
     if is_free:
@@ -2078,7 +2078,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         objective=objective,
         user_persona = user_persona,
         conversation = conversation,
-        cultural_skills = ",".join(cultural_skills)
+        cultural_skills = cultural_skills
     )
 
     if is_free:
@@ -2241,7 +2241,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     """
 
     prompt = Template(code_prompt).substitute(
-        skill_list = ','.join(skills_to_evaluate),
+        skill_list = skills_to_evaluate,
         user_persona = user_persona,
         conversation = conversation,
         objective = objective
