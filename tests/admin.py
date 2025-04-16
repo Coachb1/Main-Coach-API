@@ -15,7 +15,7 @@ from users.helpers import get_client_info_from_user_detail
 from users.models import UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
-from tests.helpers import format_game_json_to_string, process_test_pilot_user_csv
+from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
 from .models import PsychometricReportSection, PsychometricReportSubsection, TestRecommendation
 from django.db import models
 from django.shortcuts import render, redirect
@@ -748,7 +748,9 @@ class TestPilotRecordsAdmin(ExportActionMixin,TenantAwareModelAdmin):
     search_fields = ('pilotuser__name', 'test__name', 'pilotuser__email')
     list_filter = ('sent_email', 'test_attempted', 'active', 'created')
     ordering = ('id',)
-
+    change_list_template = (
+        "admin/testpilotrecords/testpilotrecord_changelist.html"  # Custom template for button
+    )
     fieldsets = (
         ('Pilot User & Test', {
             'fields': ('pilotuser', 'test')
@@ -767,6 +769,101 @@ class TestPilotRecordsAdmin(ExportActionMixin,TenantAwareModelAdmin):
     @admin.display(description='Pilot User Email')
     def get_pilotuser_name(self, obj):
         return obj.pilotuser.name if obj.pilotuser else None
+    
+    def get_urls(self):
+        """Add custom URL for CSV upload."""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "new-test-creation/",
+                self.admin_site.admin_view(self.new_test_creation),
+                name="new_test_creation",
+            ),
+        ]
+        return custom_urls + urls
+
+    def new_test_creation(self, request):
+        """Handles CSV file upload with proper exception handling."""
+        print('upload csv new testcalling', request.method)
+        if request.method == "POST":
+
+            try:
+                csv_file = request.FILES["csv_file"]
+             
+
+                # ✅ 3. Read and process the CSV file
+                decoded_file = io.TextIOWrapper(csv_file, encoding="utf-8")
+                reader = csv.DictReader(decoded_file)
+
+                required_fields = ["Email", "Test Type", 'Send Email']
+
+                # ✅ Check if file is empty
+                if not reader.fieldnames:
+                    messages.error(request, "CSV file is empty! Please upload a valid file.")
+                    return redirect(request.get_full_path())
+
+                # ✅ 4. Check if the CSV contains all required fields
+                if not all(field in reader.fieldnames for field in required_fields):
+                    r_fields = ",".join(required_fields)
+                    messages.error(
+                        request,
+                        f"CSV is missing required fields: {r_fields} .",
+                    )
+                    return redirect(request.get_full_path())
+                
+
+                # 5. check if TestType is valid
+                invalid_row = []
+                test_sequence = ["dynamic_game", "static_role_play_soft", "dynamic_start_with_user", 
+                    "static_hard", "static_soft", "normal_dynamic_test_hard", 
+                    "static_role_play_hard", "normal_dynamic_test_soft", "case", "checkin",
+                    "static_game"]
+                rows = list(reader)
+                for row in rows:
+                    if row['Test Type'] not in test_sequence:
+                        invalid_row.append(f"invalid Test Type detacted for email: {row['Email']} with Test Type: {row['Test Type']}")
+
+
+                if len(invalid_row) > 0:
+                    messages.error(
+                        request,
+                        f"Validation Error: {invalid_row} .",
+                    )
+                    return redirect(request.get_full_path())
+                print(f"reader: {reader}, pilot: {row['Email']}, test_type: {row['Test Type']} send email: {row['Send Email'].lower().strip() == 'true'}")
+                
+                try:
+                    create_and_send_next_test(reader=rows)
+                except Exception as e:
+                    logger.exception(e)
+                    messages.error(request, f"{e}")
+                    return redirect(request.get_full_path())
+                
+
+                messages.success(
+                    request,
+                    f"New Test created successfully!",
+                )
+                return redirect("..")
+
+            except csv.Error:
+                messages.error(
+                    request, "Error processing CSV file. Please check the file format."
+                )
+            except Exception as e:
+                logger.exception(e)
+                messages.error(request, f"An unexpected error occurred: {str(e)}")
+
+            return redirect(request.get_full_path())  # Redirect back to admin
+
+        else:
+            form = CSVUploadForm(show_tenant_id=False)
+
+        return render(
+            request,
+            "admin/testpilotrecords/csv_upload.html",
+            {"form": form, "title": "New Test Creation", "opts": self.model._meta, "popup": True},
+        )
 
 admin.site.register(TestPilotRecords, TestPilotRecordsAdmin)
 

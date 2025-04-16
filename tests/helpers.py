@@ -9334,6 +9334,59 @@ def get_scenario_creation_report_prompt(prompt_type, session_id, num_questions=3
                     
         '''
             
+        elif case == 'previous_normal_test':
+            prompt = """
+            (information: ${information})
+
+            Carefully review and analyze the provided {information}. Based on this assessment, create a rigorous, high-level simulation that serves as an extended version of in the context of the  previous scenario, diving deeper into the required skills and interactions. This new scenario must specifically address new areas for candidates to explore, ensuring a targeted approach to tackling an entirely new challenge. 
+
+            Key Requirements:
+
+            The new scenario must build upon the previous one, increasing its complexity while introducing fresh challenges.
+            Focus on areas where candidates can explore new perspectives, ensuring the simulation directly targets their strengths and weaknesses.
+            Introduce new variables, constraints, or decision points that heighten difficulty while maintaining continuity with the prior scenario.
+            Challenge candidates to apply deeper critical thinking, adaptability, and problem-solving skills under more complex conditions.
+            Avoid repeating previous instructions unless necessary for context—emphasize expanding and intensifying the situation rather than restating it.
+            Give the statement while ensuring the variables of who you are and whom you are responding to are clearly the same as in (information). 
+
+            Deliver the extended scenario accordingly
+
+            Read this {information} thoroughly. Now, based on this information and your understanding, create an advanced and detailed description to practice the skills presented in the {information}. After creating the situation, provide these:
+
+            Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.
+
+            Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
+            Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+            Questions - Develop a set of ${num_of_question} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on hard skills
+            Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
+            KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
+            KLS - With each question, add the skill(s) that are tested. And For every question choose exactly {2} skill(s) and not more or less than {2} should be chosen for each question. The skills for all the questions should be unique AND shall not repeat from (information). Each question shall have a unique skill AND shall not repeat from (information) and focus exclusively on hard skills
+            Always end the description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+            In every response, you must:
+            Clearly state your role as X as in (information).
+            Identify Y as the person asking as in (information)
+            The Question, Custom Prompt, KLP, KLS should be numbered.
+            Here the format looks like :
+            "Title",
+            "Description”,
+            “Statement",
+            "Question 1",
+            "Prompt 1",
+            "Takeaway 1" ,
+            "Skills 1" repeated for ${num_of_question} question(s). Do not include any {responder} response.
+            'The Question, Prompt, Takeaway, Skills should be numbered.'
+            
+            NOTE: Description, questions, and skills should focus exclusively on hard skills.
+            NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+            NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+            NOTE: KLS - Always each question shall have a unique skill. The skill shall be comma separated. Each skill shall only be one word AND shall not repeat from (information).
+            NOTE: "Rating" must be included.
+            NOTE : Make sure the simulation is very advanced and tough.
+            NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description] as in (information). Your intent is to achieve Z.
+            NOTE: Never miss Title, Description, Statement and other variables.
+            \n\nAssistant:
+        """
+            
         elif case == 'hard_skills':
             prompt = '''
             \n\nHuman:
@@ -9525,7 +9578,7 @@ def create_scenario_from_site_context(url,
         available_case_types = static_case_types
 
     if previous_session_id:
-        available_case_types = ['soft_skills', 'hard_skills']
+        available_case_types = ['previous_normal_test']
 
     if available_case:
         available_case_types = available_case # it will override 
@@ -12726,7 +12779,7 @@ def process_test_pilot_user_csv(csv, tenant_id):
             test_pilot_user.save(update_fields=updated_fields)
 
 
-def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
+def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser, scenario_type:str=None, send_email_to_user:bool=False):
 
     context = f"Targeted skills: {test_pilot_user.targeted_skills}\n"
     if test_pilot_user.objective:
@@ -12745,25 +12798,30 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                 "title": "",
                 "data": {'information': context}
             })
-    scenario_type = get_next_test(test_pilot_user)
+    
+    if not scenario_type:
+        scenario_type = get_next_test(test_pilot_user)
+
+
+    print(context,scenario_type)
 
     for i in range(3):
         try:
-            test = TestPilotRecords.object.filter(intake=intake).last()
+            # test = TestPilotRecords.objects.filter(intake=intake).last()
             
-            if test:
-                test = test.test
-            else:
-                test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
-                                                    assign_to=test_pilot_user.user.uid, 
-                                                    is_micro=True,
-                                                    flavour=scenario_type,
-                                                    by_pass_access_token=True,
-                                                    available_case = [scenario_type] # it will override
-                                                    )
-                
-                logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
-                test = Test.objects.get(test_code=test['test_code'])
+            # if test:
+            #     test = test.test
+            # else:
+            test = create_scenario_from_site_context(None, "", test_pilot_user.tenant_id, context, 
+                                                assign_to=test_pilot_user.user.uid, 
+                                                is_micro=True,
+                                                flavour=scenario_type,
+                                                by_pass_access_token=True,
+                                                available_case = [scenario_type] # it will override
+                                                )
+            
+            logger.info(f"created_test: {test}, {test['test_code']}, for {scenario_type}")
+            test = Test.objects.get(test_code=test['test_code'])
 
             record = TestPilotRecords.objects.create(
                 pilotuser = test_pilot_user,
@@ -12771,8 +12829,11 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                 scenario_case_type = scenario_type,
                 intake = intake
             )
+
+            print('record', record)
             
-            send_email_from_emailit(test_pilot_user.email,
+            if send_email_to_user:
+                send_email_from_emailit(test_pilot_user.email,
                                     subject=f"Leadership Simulation #: {test.title} 🔍",
                                     body= get_test_pilot_email_template(
                                         name=test_pilot_user.name,
@@ -12781,10 +12842,10 @@ def create_and_email_to_pilot_user(test_pilot_user: TestPilotuser):
                                         platform="https://www.coachots.com/",
                                         access_code="ABC"
                                     )
-            )
+                )
 
-            record.sent_email = True
-            record.save(update_fields=['sent_email'])
+                record.sent_email = True
+                record.save(update_fields=['sent_email'])
             break
         
         except Exception as e:
@@ -12803,6 +12864,29 @@ def pilot_test_creation_job(frequency):
                 send_error_notification("create_and_email_to_pilot_user", 
                                         f"Failed to call for {pilot_user.email}",
                                         {})
+
+def create_and_send_next_test(reader):
+    users = []
+    invalid = []
+    for row in reader:
+        print(row)
+        pilot_user = TestPilotuser.objects.filter(deleted=False, email=row['Email']).first()
+        print(pilot_user)
+        if not pilot_user:
+            invalid.append(f"Pilot user with email {row['Email']} not found.")
+            continue
+        users.append(pilot_user)
+
+    if not users:
+        invalid.append("Not found any valid user in csv.")
+
+    if len(invalid) > 0:
+        raise ValidationError(f"Got error: {invalid}")
+
+    for pilot_user in users:
+        create_and_email_to_pilot_user(test_pilot_user=pilot_user,
+                                        scenario_type=row['Test Type'],
+                                        send_email_to_user=row['Send Email'].lower().strip() == 'true',)
 
 def get_personality_model_prompt(personality_model:str, scenario:str):
     prompt = ""
