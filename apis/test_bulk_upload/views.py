@@ -8,6 +8,7 @@ import os
 from test_bulk_upload.filler_power_words import filler_power_word
 from django.http import JsonResponse
 from tests.models import TestQuestionResponse
+from django.views.decorators.csrf import csrf_exempt
 
 
 
@@ -105,3 +106,39 @@ def get_filler_and_powerwords(request):
 
     data = {"Power Words": list(power_word),"Filler Words": list(fill_word)}
     return JsonResponse({"data":data})
+
+@csrf_exempt
+def upload_scenarios(request):
+    if request.method == 'POST':
+        file = request.FILES.get('myfile')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        subdomain_prefix = request.POST.get('client_domain_prefix')
+        test_type = request.POST.get('test_type')
+        if test_type == 'static':
+            result = create_test_slack(file, email, password, subdomain_prefix)
+        else:
+            result = create_test_orchestrated_conversation_slack(file, email, password, subdomain_prefix)
+
+        if len(result.get('errors',[]) )> 0:
+            return JsonResponse({'success': False, 'errors': result['errors']}, status=400)
+        else:
+            file_response = result.get('file_response')
+
+            # 🛠 Convert HttpResponse content to JSON or plain text
+            if isinstance(file_response, HttpResponse):
+                content = file_response.content.decode('utf-8')  # text
+                try:
+                    parsed_content = json.loads(content)  # JSON (optional)
+                    parsed_content = {
+                        'title': parsed_content,
+                    }
+                except json.JSONDecodeError:
+                    parsed_content = content  # fallback to raw text
+            else:
+                parsed_content = file_response
+
+            return JsonResponse({
+                'success': True,
+                'file_content': parsed_content
+            }, status=200)
