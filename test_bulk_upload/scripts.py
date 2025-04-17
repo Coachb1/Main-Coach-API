@@ -104,6 +104,7 @@ CATEGORY = "Category"
 IS_SINGLE_SELECT = "Is Single Select"
 PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 PERSONALITY_MODEL = 'Personality Model'
+ASKER_UI = 'Asker UI'
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -265,7 +266,9 @@ def format_test_orchestrated_conversation(raw_data):
             output_dict['media_props'] = media_json
 
         
-
+        if ASKER_UI in input_dict:
+            if input_dict[ASKER_UI] and len(input_dict[ASKER_UI].strip()) > 0:
+                input_dict[RESPONDER] = input_dict[ASKER_UI].strip()
         
         if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
             output_dict['certificate_details'] = {}
