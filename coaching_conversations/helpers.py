@@ -2697,6 +2697,12 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "ask_access_code": client.ask_access_code
 
     }
+
+    if client.restricted_features:
+        user_info['restricted_features'] += ',Competencies'
+    else:
+        user_info['restricted_features'] = 'Competencies'
+
     user_info['user_id'] = user_account.uid
     user_info['name'] = user_account.name
     user_info['client_id'] = client.uid
