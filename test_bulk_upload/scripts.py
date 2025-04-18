@@ -105,6 +105,8 @@ IS_SINGLE_SELECT = "Is Single Select"
 PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 PERSONALITY_MODEL = 'Personality Model'
 ASKER_UI = 'Asker UI'
+SKILL_DOMAIN = "Skill Domain"
+
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -351,7 +353,9 @@ def format_test_orchestrated_conversation(raw_data):
             domain_title = input_dict.get(TITLE).split(":")
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
-
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
 
         if TED_TALK_AND_HBR_CASE in input_dict:
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
@@ -1056,6 +1060,10 @@ def format_test_data_slack(raw_data,tenant):
             domain_title = input_dict.get(TITLE).split(":")
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
+
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
 
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
