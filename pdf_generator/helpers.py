@@ -382,6 +382,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "category": test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+                "skill_domain": test.skill_domain
                 }
 
 
@@ -517,7 +518,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  "response_relevance":response_relevance, 
                  "interaction_code": test.test_code,
                  "personality_model_data": test_attempt_session.personality_model_data,
-                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria
+                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+                "skill_domain": test.skill_domain
+
                  }
 
 
@@ -575,7 +578,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "response_relevance": response_relevance, 
                 "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
-                "culture_map_evaluation_criteria": culture_map_evaluation_criteria
+                "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+                "skill_domain": test.skill_domain
+
                 }
 
 
@@ -716,7 +721,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'report_description': test.report_description,
                 'category': test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
-                "culture_map_evaluation_criteria": culture_map_evaluation_criteria
+                "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+                "skill_domain": test.skill_domain
+
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
