@@ -3,5 +3,5 @@
 
 
 
-The official Coachbots API repo
+The official Coachbot API repo
 .

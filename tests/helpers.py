@@ -10704,7 +10704,7 @@ The advice should be in the form of checklists that the user can do to solve the
 Customize the response to make it suitable to the situation. 
 Also explain how the person can implement the tips in their particular situation. 
 
-Add this line during the conversation wherever it's most suitable, "You can visit the coachbots library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
+Add this line during the conversation wherever it's most suitable, "You can visit the coachbot library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
 It doesn't need to be in every response, only give them wherever it makes sense. 
 
 NOTE: ONLY provide guidance on communication skills.
@@ -10733,7 +10733,7 @@ NOTE: Start directly with the response and only provide the response.
             bot_scenario_case= 'skill_bot',
             attributes= {"heading": f"welcome to {bot['bot_name']} bot"},
             custom_prompt = bot['prompt'],
-            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbots", "is_login_required": False, "is_strict_login_required": False},
+            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbot", "is_login_required": False, "is_strict_login_required": False},
             is_approved = True
         )
 
@@ -10741,7 +10741,7 @@ NOTE: Start directly with the response and only provide the response.
                                     tenant_id=tenant_id,
                                     bot_id=singature_bot.uid,
                                     bot_name=bot['bot_name'],
-                                    coach_name = "Coachbots",
+                                    coach_name = "Coachbot",
                                     coach_email = "mail@coachbots.com",
                                     initial_qnas = bot['intake'],
                                     about = bot['about'],
