@@ -249,7 +249,8 @@ def create_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -449,7 +450,8 @@ def create_test(tenant: Tenant,
             category=category,
             is_single_select=is_single_select,
             psychometric_report_config=psychometric_report_config,
-            personality_model=personality_model
+            personality_model=personality_model,
+            skill_domain=skill_domain
         )
 
         test_questions = []
@@ -568,7 +570,8 @@ def update_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str ) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -604,6 +607,8 @@ def update_test(tenant: Tenant,
             test.test_type = test_type
         if test.is_single_bot != is_single_bot:
             test.is_single_bot = is_single_bot
+        if test.skill_domain != skill_domain:
+            test.skill_domain = skill_domain
         if test.is_learner_path != is_learner_path:
             test.is_learner_path = is_learner_path
         if test.is_checkin_type != is_checkin_type:
