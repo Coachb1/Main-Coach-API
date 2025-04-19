@@ -106,7 +106,7 @@ PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 PERSONALITY_MODEL = 'Personality Model'
 ASKER_UI = 'Asker UI'
 SKILL_DOMAIN = "Skill Domain"
-CREATOR_PROMPT_TYPE = "Creator Prompt Type"
+CREATOR_PROMPT_TYPE = "Scenario Prompt Type"
 
 
 def format_test_orchestrated_conversation(raw_data):
