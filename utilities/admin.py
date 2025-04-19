@@ -226,15 +226,15 @@ def save_and_send_approval_email_post_save(sender, instance:DirectoryPageInfo, *
                 bot_owner_email = UserAttribute.objects.get(user_id=bot_owner.uid).attributes.get('email')
                 emails.append(bot_owner_email)
 
-                msg = 'Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbots!'
+                msg = 'Your request for creating a new profile/avatar/guide/bot is processed and is now live. You can check it listed on Coachbot!'
                 if instance.profile_type in ['knowledge_bot', 'deep_dive']:
                     bot_name = BotAttribute.objects.get(bot_id=signature_bot.first().uid).bot_name
                     if instance.profile_type == 'knowledge_bot':
                         subject = 'Your Knowledge bot has been approved'
-                        msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
+                        msg = f'Hey! Your knowledge bot titled "{bot_name}" is now approved and is available for the community to try on Coachbot. Please have a look!'
                     elif instance.profile_type == 'deep_dive':
                         subject = 'Your Deep Dive bot has been approved'
-                        msg = f'Hey! Your Deep Dive bot titled "{bot_name}" is now approved and is available for the community to try on Coachbots. Please have a look!'
+                        msg = f'Hey! Your Deep Dive bot titled "{bot_name}" is now approved and is available for the community to try on Coachbot. Please have a look!'
 
 
                 html_content = f"""

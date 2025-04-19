@@ -2470,11 +2470,11 @@ def update_member_client_id(tenant_id, new_client_id, user_email, old_client_id=
             user_name = user.name if user else "User"
 
             ## sending Welcome Message to user
-            subject = f"Welcome to Coachbots - Unleash Your Potential!"
+            subject = f"Welcome to Coachbot - Unleash Your Potential!"
             html_content = f"""
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                 <div style="margin: 15px;">
-                                    <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                    <p>Welcome to the Coachbot platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
                                     <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                     <p>To get started, please take a moment to:</p>
                                     <div style="margin-bottom: 10px;">
@@ -2527,11 +2527,11 @@ def disable_or_enable_client(email,is_disable,tenant,send_email=True):
             
             if send_email:
                 ## sending Welcome Message to user
-                subject = f"Welcome to Coachbots - Unleash Your Potential!"
+                subject = f"Welcome to Coachbot - Unleash Your Potential!"
                 html_content = f"""
                                 <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
                                     <div style="margin: 15px;">
-                                        <p>Welcome to the Coachbots platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
+                                        <p>Welcome to the Coachbot platform! We're thrilled to have you on board and can't wait to support your personal and professional development journey.</p>
                                         <p>Our mission is to empower individuals like yourself with the tools and resources you need to excel. Our AI-powered coaching and mentoring solutions are designed to help you identify your strengths, address your areas for growth, and achieve your goals.</p>
                                         <p>To get started, please take a moment to:</p>
                                         <div style="margin-bottom: 10px;">
