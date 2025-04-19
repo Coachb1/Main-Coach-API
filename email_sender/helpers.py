@@ -1280,7 +1280,8 @@ def get_html_body_learner_path(user_name,test_list):
 
 
 def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards,</p><p>The Team Coachbot</p>"):
-
+            #                                                                        <img class="adapt-img" src="https://demo.stripocdn.email/content/guids/804167b6-b3bc-4fc5-a3ae-8f7638774109/images/coachbotslogo.png" alt style="display: block;" width="305">
+    
     template = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -1359,7 +1360,21 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
                                                                         <table cellpadding="0" cellspacing="0" width="100%">
                                                                             <tbody>
                                                                                 <tr>
-                                                                                    <td align="center" class="esd-block-image" style="font-size: 0px;"><a target="_blank"><img class="adapt-img" src="https://demo.stripocdn.email/content/guids/804167b6-b3bc-4fc5-a3ae-8f7638774109/images/coachbotslogo.png" alt style="display: block;" width="305"></a></td>
+                                                                                    <td align="center" class="esd-block-image" style="font-size: 0px;"><a target="_blank">
+                                                                                    <div class="adapt-img" style="display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 16px;">
+                                                                                        <h1
+                                                                                            id="heading"
+                                                                                            style="width: fit-content; border: 2px solid #2DC092; padding: 3px; font-size: 20px; font-weight: 800; color: #2DC092; position: relative; z-index: 10;"
+                                                                                        >
+                                                                                            <span
+                                                                                            style="margin-right: 4px; background-color: #2DC092; padding: 3px; font-size: 18px; font-weight: 700; color: white;"
+                                                                                            >
+                                                                                            COACH
+                                                                                            </span>
+                                                                                            BOT
+                                                                                        </h1>
+                                                                                    </div>
+                                                                                    </a></td>
                                                                                 </tr>
                                                                             </tbody>
                                                                         </table>

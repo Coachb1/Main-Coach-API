@@ -178,6 +178,8 @@ class Test(TenantAwareModel):
     )
     personality_model = models.CharField(max_length=255, choices=PersonalityModelChoices,null=True, blank=True, default=None)
     skill_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    creator_prompt_type = models.CharField(max_length=255, null=True, blank=True, default=None)
+
     
     class Meta:
         db_table = "test"

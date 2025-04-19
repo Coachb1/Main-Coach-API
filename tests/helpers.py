@@ -250,7 +250,8 @@ def create_test(tenant: Tenant,
                 is_single_select:bool,
                 psychometric_report_config:str,
                 personality_model: str,
-                skill_domain: str) -> tuple[Test, list[TestQuestion]]:
+                skill_domain: str,
+                creator_prompt_type:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -451,7 +452,8 @@ def create_test(tenant: Tenant,
             is_single_select=is_single_select,
             psychometric_report_config=psychometric_report_config,
             personality_model=personality_model,
-            skill_domain=skill_domain
+            skill_domain=skill_domain,
+            creator_prompt_type=creator_prompt_type
         )
 
         test_questions = []
@@ -571,7 +573,8 @@ def update_test(tenant: Tenant,
                 is_single_select:bool,
                 psychometric_report_config:str,
                 personality_model: str,
-                skill_domain:str ) -> tuple[Test, list[TestQuestion]]:
+                skill_domain:str,
+                creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -609,6 +612,8 @@ def update_test(tenant: Tenant,
             test.is_single_bot = is_single_bot
         if test.skill_domain != skill_domain:
             test.skill_domain = skill_domain
+        if test.creator_prompt_type != creator_prompt_type:
+            test.creator_prompt_type = creator_prompt_type
         if test.is_learner_path != is_learner_path:
             test.is_learner_path = is_learner_path
         if test.is_checkin_type != is_checkin_type:
@@ -4021,7 +4026,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "interaction_code": test.test_code,
         "personality_model_data": test_attempt_session.personality_model_data,
         "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
-        "skill_domain": test.skill_domain
+        "skill_domain": test.skill_domain,
+        "creator_prompt_type": test.creator_prompt_type
 
     }
     
