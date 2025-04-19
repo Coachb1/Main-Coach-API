@@ -228,7 +228,7 @@ FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
 URL_SHORTENING_API_KEY = os.getenv("URL_SHORTENING_API_KEY")
 WHATSAPP_API_BASE_URL = os.getenv("WHATSAPP_API_BASE_URL")
 WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY")
-BACKEND = os.getenv("BACKEND")
+BACKEND = os.getenv("BACKEND") if ENV != 'local' else "http://localhost:8001"
 
 
 CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com','https://coach-api-gke-dev.coachbots.com','https://coach-api-gke-prod.coachbots.com']

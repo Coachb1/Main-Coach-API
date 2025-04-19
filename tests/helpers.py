@@ -249,7 +249,9 @@ def create_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain: str,
+                creator_prompt_type:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -449,7 +451,9 @@ def create_test(tenant: Tenant,
             category=category,
             is_single_select=is_single_select,
             psychometric_report_config=psychometric_report_config,
-            personality_model=personality_model
+            personality_model=personality_model,
+            skill_domain=skill_domain,
+            creator_prompt_type=creator_prompt_type
         )
 
         test_questions = []
@@ -568,7 +572,9 @@ def update_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str ) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain:str,
+                creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -604,6 +610,10 @@ def update_test(tenant: Tenant,
             test.test_type = test_type
         if test.is_single_bot != is_single_bot:
             test.is_single_bot = is_single_bot
+        if test.skill_domain != skill_domain:
+            test.skill_domain = skill_domain
+        if test.creator_prompt_type != creator_prompt_type:
+            test.creator_prompt_type = creator_prompt_type
         if test.is_learner_path != is_learner_path:
             test.is_learner_path = is_learner_path
         if test.is_checkin_type != is_checkin_type:
@@ -4015,7 +4025,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "category": test.category,
         "interaction_code": test.test_code,
         "personality_model_data": test_attempt_session.personality_model_data,
-        "culture_map_evaluation_criteria": culture_map_evaluation_criteria
+        "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+        "skill_domain": test.skill_domain,
+        "creator_prompt_type": test.creator_prompt_type
+
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -10704,7 +10717,7 @@ The advice should be in the form of checklists that the user can do to solve the
 Customize the response to make it suitable to the situation. 
 Also explain how the person can implement the tips in their particular situation. 
 
-Add this line during the conversation wherever it's most suitable, "You can visit the coachbots library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
+Add this line during the conversation wherever it's most suitable, "You can visit the coachbot library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
 It doesn't need to be in every response, only give them wherever it makes sense. 
 
 NOTE: ONLY provide guidance on communication skills.
@@ -10733,7 +10746,7 @@ NOTE: Start directly with the response and only provide the response.
             bot_scenario_case= 'skill_bot',
             attributes= {"heading": f"welcome to {bot['bot_name']} bot"},
             custom_prompt = bot['prompt'],
-            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbots", "is_login_required": False, "is_strict_login_required": False},
+            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbot", "is_login_required": False, "is_strict_login_required": False},
             is_approved = True
         )
 
@@ -10741,7 +10754,7 @@ NOTE: Start directly with the response and only provide the response.
                                     tenant_id=tenant_id,
                                     bot_id=singature_bot.uid,
                                     bot_name=bot['bot_name'],
-                                    coach_name = "Coachbots",
+                                    coach_name = "Coachbot",
                                     coach_email = "mail@coachbots.com",
                                     initial_qnas = bot['intake'],
                                     about = bot['about'],

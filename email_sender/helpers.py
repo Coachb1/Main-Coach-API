@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
-FROM_EMAIL_DISPLAY = "Coachbots Report <mail@coachbots.com>"
+FROM_EMAIL_DISPLAY = "Coachbot Report <mail@coachbots.com>"
 APP_PASSWORD = "daD4QnY3OJBGMVEj"
 
 
@@ -181,7 +181,7 @@ def send_feedbackd_email(candidate_name, test_code, test_name, session_id, ratin
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = f"{candidate_name} submitted a feedback for {test_code}:{test_name}"
-    msg['From'] = "Coachbots Feedback <mail@coachbots.com>"
+    msg['From'] = "Coachbot Feedback <mail@coachbots.com>"
     msg['To'] = FROM_EMAIL
 
 
@@ -214,7 +214,7 @@ def send_session_notes_email(to_email,mentor_email,mentor_name,mentee_email,ment
     for email in to_email:
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"{mentor_name} submitted session notes for {mentee_name}"
-        msg['From'] = "Coachbots Session Notes <mail@coachbots.com>"
+        msg['From'] = "Coachbot Session Notes <mail@coachbots.com>"
         msg['To'] = email
 
 
@@ -241,9 +241,9 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"Transcript + Summary with bot {coach_name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         if no_reply:
-            msg['From'] = "Coachbots  <NoReplyTranscript@coachbots.com>"
+            msg['From'] = "Coachbot  <NoReplyTranscript@coachbots.com>"
         else:
-            msg['From'] = "Coachbots  <mail@coachbots.com>"
+            msg['From'] = "Coachbot  <mail@coachbots.com>"
 
         if allow_reply:
             msg['To'] = ', '.join(to_email)
@@ -291,7 +291,7 @@ def send_feedback_conversation_email(candidate_name, conversation, to_email, typ
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = f"Peer Feedback for your profile"
-    msg['From'] = "Coachbots  <mail@coachbots.com>"
+    msg['From'] = "Coachbot  <mail@coachbots.com>"
     msg['To'] = to_email
 
 
@@ -328,7 +328,7 @@ def send_email_with_html_template(subject, html_content, to_email = 'coachbots@g
             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Rajan Liked Your Bot </p>
             
 
-            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
         </td>
         </tr>
     </table>
@@ -339,7 +339,7 @@ def send_email_with_html_template(subject, html_content, to_email = 'coachbots@g
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = "Coachbots Notification <mail@coachbots.com>"
+    msg['From'] = "Coachbot Notification <mail@coachbots.com>"
     msg['To'] = to_email
 
     html_body = email_body_templete(html_content=html_content,title=title)
@@ -364,7 +364,7 @@ def email_body_templete(html_content,title='Hey!'):
             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Rajan Liked Your Bot </p>
             
 
-            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
         </td>
         </tr>
     </table>
@@ -494,7 +494,7 @@ def get_generic_email_body(content):
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{content} </p>
                             
             
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
                         </td>
                         </tr>
                     </table>
@@ -510,7 +510,7 @@ def get_generic_email_body(content):
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                     <tr>
                     <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
+                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbot 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
                         <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
                     </td>
                     </tr>
@@ -718,7 +718,7 @@ def get_bot_conversation_email_body(candidate_name,conversation, summary, simula
                             </tbody>
                             </table>
             
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
                         </td>
                         </tr>
                     </table>
@@ -734,7 +734,7 @@ def get_bot_conversation_email_body(candidate_name,conversation, summary, simula
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                     <tr>
                     <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
+                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbot 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
                         <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
                     </td>
                     </tr>
@@ -889,7 +889,7 @@ def get_feedback_email_body(candidate_name,test_code,test_name, session_id, rati
                             </tbody>
                             </table>
             
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
                         </td>
                         </tr>
                     </table>
@@ -905,7 +905,7 @@ def get_feedback_email_body(candidate_name,test_code,test_name, session_id, rati
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                     <tr>
                     <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
+                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbot 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
                         <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
                     </td>
                     </tr>
@@ -1054,7 +1054,7 @@ def get_session_notes_html_body(mentor_name,mentor_email,mentee_name,mentee_emai
                                     {session_note}</div>
                                 </div>
                             </div>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
                         </td>
                         </tr>
                     </table>
@@ -1070,7 +1070,7 @@ def get_session_notes_html_body(mentor_name,mentor_email,mentee_name,mentee_emai
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                     <tr>
                     <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
+                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbot 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
                         <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
                     </td>
                     </tr>
@@ -1244,7 +1244,7 @@ def get_html_body_learner_path(user_name,test_list):
                                 {test_list_str}
                             </ul>
                             <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you! </p>
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbots Team</p>
+                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">- Coachbot Team</p>
                         </td>
                         </tr>
                     </table>
@@ -1260,7 +1260,7 @@ def get_html_body_learner_path(user_name,test_list):
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; width: 100%;" width="100%">
                     <tr>
                     <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbots 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
+                        <span class="apple-link" style="color: #999999; font-size: 14px; text-align: center;">(c) Coachbot 2023. Powered by Answer Cloud Technology Pvt Ltd </span>
                         <br>This is a transactional email received as a system user or admin. Please contact your admin or reply to this email to stop these.
                     </td>
                     </tr>
@@ -1279,8 +1279,9 @@ def get_html_body_learner_path(user_name,test_list):
 
 
 
-def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards,</p><p>The Team Coachbots</p>"):
-
+def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards,</p><p>The Team Coachbot</p>"):
+            #                                                                        <img class="adapt-img" src="https://demo.stripocdn.email/content/guids/804167b6-b3bc-4fc5-a3ae-8f7638774109/images/coachbotslogo.png" alt style="display: block;" width="305">
+    
     template = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -1359,7 +1360,21 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
                                                                         <table cellpadding="0" cellspacing="0" width="100%">
                                                                             <tbody>
                                                                                 <tr>
-                                                                                    <td align="center" class="esd-block-image" style="font-size: 0px;"><a target="_blank"><img class="adapt-img" src="https://demo.stripocdn.email/content/guids/804167b6-b3bc-4fc5-a3ae-8f7638774109/images/coachbotslogo.png" alt style="display: block;" width="305"></a></td>
+                                                                                    <td align="center" class="esd-block-image" style="font-size: 0px;"><a target="_blank">
+                                                                                    <div class="adapt-img" style="display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 16px;">
+                                                                                        <h1
+                                                                                            id="heading"
+                                                                                            style="width: fit-content; border: 2px solid #2DC092; padding: 3px; font-size: 20px; font-weight: 800; color: #2DC092; position: relative; z-index: 10;"
+                                                                                        >
+                                                                                            <span
+                                                                                            style="margin-right: 4px; background-color: #2DC092; padding: 3px; font-size: 18px; font-weight: 700; color: white;"
+                                                                                            >
+                                                                                            COACH
+                                                                                            </span>
+                                                                                            BOT
+                                                                                        </h1>
+                                                                                    </div>
+                                                                                    </a></td>
                                                                                 </tr>
                                                                             </tbody>
                                                                         </table>
@@ -1469,7 +1484,7 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td align="center" class="esd-block-text">
-                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) CoachBots Inc. 2024. Powered by Answer Cloud Technologies Pvt Ltd.</p>
+                                                                                        <p style="line-height: 150%; font-size: 12px;">(c) Coachbot Inc. 2024. Powered by Answer Cloud Technologies Pvt Ltd.</p>
                                                                                     </td>
                                                                                 </tr>
                                                                                 <tr>
@@ -1720,7 +1735,7 @@ def send_welcome_email(profile_type, user_email, user_name):
         html_content =f"""
         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
             <div style="margin: 15px;">
-                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Congratulations and welcome to the Coachbot community!</p>
                 <p>We encourage you to explore the Creator Studio, where you can create and assign tailored simulations for your coachees. This feature will empower you to curate learning experiences that address their specific needs and goals.</p>
                 <p>Additionally, you can leverage the Action Plans and Session Notes sections to document and track the progress of your coaching journeys. These tools will help you provide meaningful support and guidance to your coachees.</p>
                 <p>We're excited to embark on this journey with you. Let's unlock your coachees' full potential together!</p>
@@ -1734,7 +1749,7 @@ def send_welcome_email(profile_type, user_email, user_name):
         html_content = f"""
         <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
             <div style="margin: 15px;">
-                <p>Congratulations and welcome to the Coachbots community!</p>
+                <p>Congratulations and welcome to the Coachbot community!</p>
                 <p>Thank you for creating your profile - it will be live and ready to support your personal and professional development. You can always edit your information through the profile section.</p>
                 <p>Your profile will now appear on your directory page, so feel free to explore and get familiar with the platform. If you need any assistance, our help mode is there to guide you.</p>
                 <p>We also encourage you to try out the various simulations available in our library. These immersive experiences will help you hone your skills and prepare you for real-world challenges.</p>

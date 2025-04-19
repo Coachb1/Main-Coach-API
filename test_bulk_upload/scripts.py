@@ -105,6 +105,9 @@ IS_SINGLE_SELECT = "Is Single Select"
 PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 PERSONALITY_MODEL = 'Personality Model'
 ASKER_UI = 'Asker UI'
+SKILL_DOMAIN = "Skill Domain"
+CREATOR_PROMPT_TYPE = "Scenario Prompt Type"
+
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -352,6 +355,15 @@ def format_test_orchestrated_conversation(raw_data):
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
 
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
+
+        if CREATOR_PROMPT_TYPE in input_dict:
+            if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
+                output_dict['creator_prompt_type'] = input_dict[CREATOR_PROMPT_TYPE].strip()
+                if 'hard' in output_dict['creator_prompt_type'].lower() :
+                    output_dict['calculate_culture'] = False
 
         if TED_TALK_AND_HBR_CASE in input_dict:
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
@@ -1057,6 +1069,16 @@ def format_test_data_slack(raw_data,tenant):
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
 
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
+
+        if CREATOR_PROMPT_TYPE in input_dict:
+            if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
+                output_dict['creator_prompt_type'] = input_dict[CREATOR_PROMPT_TYPE].strip()
+                if 'hard' in output_dict['creator_prompt_type'].lower() :
+                    output_dict['calculate_culture'] = False
+
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
@@ -1606,7 +1628,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
     is_update = False
@@ -1832,7 +1854,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
     logger.info(f"create_test_orchestrated_conversation_slack: domain prefix {subdomain_prefix}")
     # List of column names to check for null or empty values
     columns_check = ['Title', 'Context', EMAIL_ADDRESS_LIST,
-                     SCENARIO_CASE ]
+                     SCENARIO_CASE, SKILL_DOMAIN ]
 
     access_token = login_slack(email, password, subdomain_prefix)
     is_update = False
