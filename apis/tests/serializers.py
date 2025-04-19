@@ -143,6 +143,8 @@ class CreateTestSerializer(serializers.Serializer):
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_prompt_type = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -230,6 +232,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "psychometric_report_config",
                   "personality_model",
                   "skill_domain",
+                  "creator_prompt_type"
                   ]
 
     def get_questions(self, instance):
