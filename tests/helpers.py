@@ -71,7 +71,7 @@ import threading
 from tests.choices import ScenarioCaseChoices
 from bs4 import BeautifulSoup
 import requests
-from test_bulk_upload.scripts import API_ENDPOINT_SLACK
+from test_bulk_upload.scripts import API_ENDPOINT_SLACK, limit_unique_skills_per_test
 from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data, get_culture_skills
 from readability import Document
 from test_bulk_upload.constants import get_skills
@@ -4385,13 +4385,13 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         
     evaluate_personality_model_data(test_attempt_session=test_attempt_session, test=test)
     
-    skills_=[]
-    for question in questions:
-        required_skills = question.key_learning_skills.split(",")
-        required_skills = [skill.strip() for skill in required_skills if skill]
-        required_skills = [skill.lower() for skill in required_skills if skill]
-        for s in required_skills:
-            skills_.append(s)
+    # skills_=[]
+    # for question in questions:
+    #     required_skills = question.key_learning_skills.split(",")
+    #     required_skills = [skill.strip() for skill in required_skills if skill]
+    #     required_skills = [skill.lower() for skill in required_skills if skill]
+    #     for s in required_skills:
+    #         skills_.append(s)
 
     user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
     difficulty_level = user_info.difficulty_level
@@ -4406,7 +4406,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if user_info.custom_skill_prompt_2:
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
-    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating = calc_skills_rating(test_attempt_session=test_attempt_session,
+                                                responses=responses, 
+                                                test=test,
+                                                user_skill_prompt=user_skill_prompt)
     response_skills_rating = {key.capitalize() : value for key, value in response_skills_rating.items()}
     for skill in response_skills_rating:
         if skill in skills_rating:
@@ -5234,7 +5237,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
 
 @timeit
-def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
+def calc_skills_rating(test_attempt_session, responses, test,user_skill_prompt):
     """
     This function calculates the skills rating for a test attempt session based on the responses provided by the user.
 
@@ -5263,7 +5266,7 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     conversation = ""
     count = 1
-
+    skills_to_evaluate = {}
     for response in responses:
 
         question = TestQuestion.objects.get(
@@ -5271,6 +5274,7 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
         question_text = question.question
         response_text = response.response_text
+        skills_to_evaluate[question.uid] = question.key_learning_skills
 
         conversation += f"{count}. [Question:] {question_text}\n"
         if not question.is_view_only:
@@ -5278,13 +5282,19 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
         count += 1
 
+    unique_skills_to_evaluate = limit_unique_skills_per_test(skills_to_evaluate)
+    all_skills = [
+        skill.strip()
+        for skills in unique_skills_to_evaluate.values()
+        for skill in skills.split(',')
+    ]
     # Evaluate conversation
     if test.is_free:
         skills_rating, is_evaluated = evaluate_response_skill(
-            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt,True)
+            test_attempt_session, conversation, test.title, test.description, test.test_code,all_skills,user_skill_prompt,True)
     else:
         skills_rating, is_evaluated = evaluate_response_skill(
-            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
+            test_attempt_session, conversation, test.title, test.description, test.test_code,all_skills,user_skill_prompt)
 
     if not is_evaluated:
         return None
@@ -13568,3 +13578,45 @@ def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, tes
         except Exception as e:
             logger.exception(f"Failed to evaluate personality modle data: {e}")
             raise e
+        
+
+
+def update_all_skills(test_code=None):
+    all_tests = Test.objects.filter(deleted=False, test_type=TestTypeChoices.test)
+    if test_code:
+        all_tests = all_tests.filter(test_code=test_code)
+    all_updated_questions = []
+
+    all_updated_test = []
+
+    for test in all_tests:
+        questions = TestQuestion.objects.filter(test_id=test.uid, deleted=False)
+
+        # Build {question_id: skills}
+        que_skills = {
+            str(question.uid): question.key_learning_skills
+            for question in questions
+        }
+
+        if not que_skills:
+            continue
+
+        # Get new skill assignments
+        new_skills = limit_unique_skills_per_test(que_skills)
+        skills_to_evalute = ""
+
+        for question in questions:
+            new_value = new_skills.get(str(question.uid), '')
+            question.key_learning_skills = new_value
+            skills_to_evalute += new_value + ','
+            all_updated_questions.append(question)
+
+        # Update test object with new skills
+        test.skills_to_evaluate = skills_to_evalute[:-1]
+        all_updated_test.append(test)
+    # Only one bulk update at the end
+    # if all_updated_questions and all_updated_questions:
+        # with transaction.atomic():
+        #     TestQuestion.objects.bulk_update(all_updated_questions, ['key_learning_skills'])
+        #     Test.objects.bulk_update(all_updated_test, ['skills_to_evaluate'])
+    logger.info(f"Updated {len(all_updated_questions)} questions and {len(all_updated_test)} tests with new skills.")

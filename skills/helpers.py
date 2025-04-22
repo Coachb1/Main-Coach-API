@@ -2143,6 +2143,9 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
     skills_to_evaluate = skills_to_evaluate.split(',') if isinstance(
         skills_to_evaluate, str) else skills_to_evaluate
 
+    if isinstance(skills_to_evaluate, list):
+        skills_to_evaluate = [skill.strip() for skill in skills_to_evaluate][:6]
+
     # prompt = f'''
     # "Objective:" {objective};
 
