@@ -2144,7 +2144,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         skills_to_evaluate, str) else skills_to_evaluate
 
     if isinstance(skills_to_evaluate, list):
-        skills_to_evaluate = [skill.strip() for skill in skills_to_evaluate][:6]
+        skills_to_evaluate = [skill.strip() for skill in skills_to_evaluate][:8]
 
     # prompt = f'''
     # "Objective:" {objective};
@@ -2203,7 +2203,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
         "Objective:" ${objective}; 
         "Conversation:" ${conversation}; 
         "user_persona": ${user_persona};
-        "skills_list:" ${skill_list};
+        "skills_list:" "${skill_list}";
 
         "Evaluation Criteria:"
 
@@ -2220,6 +2220,7 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
             - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
             - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'skills_list',ensuring that no two skills receive the same score.
             - Ensure that each skill is rated uniquely, with no repeated scores.
+            - Always evaluate only Skills within "{skills_list}".
 
         Strict Constraints:
         -   No two skills should have the same score.
