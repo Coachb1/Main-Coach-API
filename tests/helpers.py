@@ -48,7 +48,7 @@ from tests.models import Test
 from tests.models import TestAttemptSession
 from tests.models import TestInvite
 from tests.models import TestQuestion
-from tests.models import TestQuestionResponse
+from tests.models import TestQuestionResponse,TestReportConfig
 from users.db import get_user_by_id, get_user_attribute
 from users.db import get_user_display_name
 from users.models import User
@@ -80,7 +80,7 @@ from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
-from apis.accounts.serializers import clientUserInfoSerializer
+from apis.accounts.serializers import clientUserInfoSerializer,TestReportConfigSerializer
 from django.core.exceptions import ValidationError
 from commons.google_apis import gemini_chat_completion
 import csv
@@ -3835,6 +3835,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
     title = test.title
+    test_report_config= TestReportConfigSerializer(TestReportConfig.objects.all(), many=True).data
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
@@ -4084,7 +4085,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
     data["certificate_details"] = test.certificate_details
     data['ui_information'] = test.ui_information
-    
+    data['test_report_config']=test_report_config
     
 
     return data

@@ -17,7 +17,7 @@ from tenants.helpers import tenant_from_tenant_id
 from tests.db_helpers import get_test_questions_from_test
 from tests.models import (Test, TestQuestion, TestAttemptSession, 
                           TestQuestionResponse, TestAttemptSessionStatusChoices,
-                          Psychometric, PsychometricReportSection, PsychometricReportSubsection)
+                          Psychometric, PsychometricReportSection, PsychometricReportSubsection,TestReportConfig)
 from users.db import get_user_display_name, get_user_by_id
 from skills.models import CustomRating
 from test_bulk_upload.constants import updated_skills
@@ -28,9 +28,10 @@ from skills.helpers import get_competency_prompt_or_output, get_competency_promp
 import logging
 from tests.choices import ScenarioCaseChoices
 from users.helpers import get_client_info_from_user_detail
-from apis.accounts.serializers import clientUserInfoSerializer
+from apis.accounts.serializers import clientUserInfoSerializer,TestReportConfigSerializer
 from collections import defaultdict
 from commons.notifications import send_error_notification
+
 
 import matplotlib
 matplotlib.use('Agg')
@@ -212,6 +213,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     user_att = UserAttribute.objects.get(deleted=False,user_id=test_attempt_session.participant_id)
     user_email = user_att.attributes.get('email')
+    test_report_config= TestReportConfigSerializer(TestReportConfig.objects.all(), many=True).data
+
+    
+    
     # try:
     #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
     #                                                 user_uid=test_attempt_session.participant_id
@@ -382,8 +387,12 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "category": test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+<<<<<<< Updated upstream
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type
+=======
+                "test_report_config": test_report_config,
+>>>>>>> Stashed changes
                 }
 
 
@@ -520,10 +529,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  "interaction_code": test.test_code,
                  "personality_model_data": test_attempt_session.personality_model_data,
                  "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+<<<<<<< Updated upstream
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type
 
 
+=======
+                   "test_report_config": test_report_config,
+                 
+>>>>>>> Stashed changes
                  }
 
 
@@ -582,10 +596,14 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+<<<<<<< Updated upstream
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type
 
 
+=======
+                 "test_report_config": test_report_config,
+>>>>>>> Stashed changes
                 }
 
 
@@ -727,10 +745,14 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'category': test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+<<<<<<< Updated upstream
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type
 
 
+=======
+                 "test_report_config": test_report_config,
+>>>>>>> Stashed changes
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)

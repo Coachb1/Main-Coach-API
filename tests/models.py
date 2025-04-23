@@ -13,7 +13,7 @@ from tests.choices import PersonalityModelChoices
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
-
+from tests.models import Test
 
 ## psychometric section
 # class PsychometricItem(MyModel):    
@@ -513,4 +513,35 @@ class TestRecommendation(TenantAwareModel):
     class Meta:
         db_table = "test_recommendation"
         unique_together = ("recommended_test", "test_case", "origin_test")
+
+
+class TestReportConfig(MyModel):
+    test = models.OneToOneField(Test, on_delete=models.CASCADE, related_name="report_config")
+
+    # Booleans for different sections
+    skill_rating = models.BooleanField(default=True)
+    culture_rating = models.BooleanField(default=True)
+    competency_metrix = models.BooleanField(default=True)
+    feedback_summary = models.BooleanField(default=True)
+    rating_summary = models.BooleanField(default=True)
+    flash_card = models.BooleanField(default=True)
+    mindmap = models.BooleanField(default=True)
+    speech_metrix = models.BooleanField(default=True)
+    powerfiller_words = models.BooleanField(default=True)
+    skill_explanation = models.BooleanField(default=True)
+    culture_explanation = models.BooleanField(default=True)
+    psychometric_culture_rating = models.BooleanField(default=True)
+    psychometric_culture_explanation = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Test Report Config for {self.test.name}"  
+
+    def save(self, *args, **kwargs):
+        self.skill_explanation = self.skill_rating
+        self.culture_explanation = self.culture_rating
+        self.psychometric_culture_explanation = self.psychometric_culture_rating
+        if not self.skill_rating or not self.culture_rating:
+            self.rating_summary = False
+
+        super(TestReportConfig, self).save(*args, **kwargs)
 
