@@ -7,6 +7,7 @@ from tests.models import (
     PsychometricItem,
     TestAttemptSession,
     TestQuestionResponse,
+    TestReportConfig
 )
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
@@ -873,3 +874,22 @@ class TestRecommendationAdmin(admin.ModelAdmin):
     search_fields = ("recommended_test__uid", "origin_test__uid", "test_case", "session_id", "user_id")
     list_filter = ("test_case",)
     ordering = ("id",)
+
+
+@admin.register(TestReportConfig)
+class TestReportConfigAdmin(TenantAwareModelAdmin):
+    list_display = (
+        'id', 'test', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
+    )
+    list_filter = ('test', 'culture_rating',)
+    search_fields = ('test__name',)  
+    list_editable = (
+        'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
+    )
+    ordering = ('-id',)    
