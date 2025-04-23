@@ -387,12 +387,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "category": test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
-<<<<<<< Updated upstream
+       
                 "skill_domain": test.skill_domain,
-                "creator_prompt_type": test.creator_prompt_type
-=======
+                "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
->>>>>>> Stashed changes
+
                 }
 
 
@@ -529,15 +528,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                  "interaction_code": test.test_code,
                  "personality_model_data": test_attempt_session.personality_model_data,
                  "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
-<<<<<<< Updated upstream
+
                 "skill_domain": test.skill_domain,
-                "creator_prompt_type": test.creator_prompt_type
+                "creator_prompt_type": test.creator_prompt_type,
 
 
-=======
                    "test_report_config": test_report_config,
                  
->>>>>>> Stashed changes
+
+  
                  }
 
 
@@ -596,14 +595,13 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
-<<<<<<< Updated upstream
+
                 "skill_domain": test.skill_domain,
-                "creator_prompt_type": test.creator_prompt_type
+                "creator_prompt_type": test.creator_prompt_type,
+                "test_report_config": test_report_config
 
 
-=======
-                 "test_report_config": test_report_config,
->>>>>>> Stashed changes
+
                 }
 
 
@@ -745,14 +743,17 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'category': test.category, "interaction_code": test.test_code,
                 "personality_model_data": test_attempt_session.personality_model_data,
                 "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
-<<<<<<< Updated upstream
+
                 "skill_domain": test.skill_domain,
-                "creator_prompt_type": test.creator_prompt_type
+                "creator_prompt_type": test.creator_prompt_type,
 
 
-=======
+
                  "test_report_config": test_report_config,
->>>>>>> Stashed changes
+
+
+                
+
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
