@@ -109,7 +109,7 @@ SKILL_DOMAIN = "Skill Domain"
 CREATOR_PROMPT_TYPE = "Scenario Prompt Type"
 
 
-def limit_unique_skills_per_test(input_dict, max_unique_skills=6):
+def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
     """
     Enforces that exactly `max_unique_skills` unique skills are used across all questions,
     each question has at least one skill, and no skill repeats across questions.
@@ -695,8 +695,8 @@ def format_test_orchestrated_conversation(raw_data):
 
         if len(skills_list) < 6:
             return {"error": "Skills to evaluate should be more than 6"}, False
-        if len(skills_list) > 6:
-            skills_list = skills_list[:6]
+        if len(skills_list) > 8:
+            skills_list = skills_list[:8]
 
         output_dict['skills_to_evaluate'] = ",".join(skills_list)
         initial_messages = []
