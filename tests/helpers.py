@@ -3835,7 +3835,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
     title = test.title
-    test_report_config= TestReportConfigSerializer(TestReportConfig.objects.all(), many=True).data
+    test_report_config = TestReportConfig.objects.filter(deleted=False, test=test).first()
+    test_report_config= TestReportConfigSerializer(test_report_config).data if test_report_config else None
+
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 

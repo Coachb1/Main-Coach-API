@@ -13,7 +13,6 @@ from tests.choices import PersonalityModelChoices
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
-from tests.models import Test
 
 ## psychometric section
 # class PsychometricItem(MyModel):    
@@ -534,13 +533,20 @@ class TestReportConfig(MyModel):
     psychometric_culture_explanation = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"Test Report Config for {self.test.name}"  
+        return f"Test Report Config for {self.test.title} ({self.test.test_code})"
+    class Meta:
+        db_table = "test_report_config"
+        verbose_name = "Test Report Configuration"
+        verbose_name_plural = "Test Report Configurations"
+        unique_together = (
+            ('test', 'deleted')
+        )  
 
     def save(self, *args, **kwargs):
         self.skill_explanation = self.skill_rating
         self.culture_explanation = self.culture_rating
         self.psychometric_culture_explanation = self.psychometric_culture_rating
-        if not self.skill_rating or not self.culture_rating:
+        if not self.skill_rating:
             self.rating_summary = False
 
         super(TestReportConfig, self).save(*args, **kwargs)
