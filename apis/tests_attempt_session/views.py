@@ -10,7 +10,7 @@ from django.http import StreamingHttpResponse
 import time
 import anthropic
 
-from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer
+from apis.tests_attempt_session.serializers import TestAttemptSessionSerializer, TestReportConfigSerializer
 from clients.permissions import IsAuthenticatedClient
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
@@ -19,7 +19,7 @@ from tests.helpers import get_meeting_report_from_test_attempt_session, get_conv
 from tests.helpers import get_skills_tracker_data, calculate_similarity
 from tests.helpers import create_test_question_answer_session
 from pdf_generator.helpers import get_report_from_test_attempt_session, update_skill_name
-from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse
+from tests.models import TestAttemptSession, TestQuestion, TestQuestionResponse, TestReportConfig
 from tests.models import Test
 from users.db import get_user_display_name, get_user_by_id
 from tests.choices import TestAttemptSessionStatusChoices
@@ -140,6 +140,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             test_attempt_session, only_data=True)
         tenant = self.request.tenant
         data['logo'] = tenant.logo
+        
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
     
 
@@ -151,6 +152,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         tenant = self.request.tenant
         data['logo'] = tenant.logo
+        
         return Response({"data": data, "status": "completed"}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=False, url_path="get-session-id")
