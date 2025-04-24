@@ -213,7 +213,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
     user_att = UserAttribute.objects.get(deleted=False,user_id=test_attempt_session.participant_id)
     user_email = user_att.attributes.get('email')
-    test_report_config= TestReportConfigSerializer(TestReportConfig.objects.all(), many=True).data
+    test_report_config = TestReportConfig.objects.filter(deleted=False, test=test).first()
+    test_report_config= TestReportConfigSerializer(test_report_config).data if test_report_config else None
 
     
     

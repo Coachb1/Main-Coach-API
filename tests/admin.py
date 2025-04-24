@@ -877,19 +877,19 @@ class TestRecommendationAdmin(admin.ModelAdmin):
 
 
 @admin.register(TestReportConfig)
-class TestReportConfigAdmin(TenantAwareModelAdmin):
+class TestReportConfigAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'test', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
         'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
         'psychometric_culture_rating'
     )
-    list_filter = ('test', 'culture_rating',)
-    search_fields = ('test__name',)  
+    search_fields = ('test__title', 'test__test_code') 
+    autocomplete_fields = ['test']
     list_editable = (
         'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
         'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
         'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
         'psychometric_culture_rating'
     )
-    ordering = ('-id',)    
+    ordering = ('-id',)  
