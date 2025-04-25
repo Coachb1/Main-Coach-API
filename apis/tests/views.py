@@ -1738,6 +1738,8 @@ class TestViewSet(ApiViewSet,
                 except ClientUserInfo.DoesNotExist:
                     return Response({'error': f"Invalid client name: {client_name}"}, status=status.HTTP_400_BAD_REQUEST)
                 test_mapping = TestMapping.objects.filter(deleted=False, client=client)
+                if test_mapping.count() == 0:
+                    test_mapping = TestMapping.objects.filter(deleted=False, client=None)
             else:
                 test_mapping = TestMapping.objects.filter(deleted=False, client=None)
 
