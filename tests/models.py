@@ -569,6 +569,3 @@ class TestMapping(MyModel):
         verbose_name = "Test Mapping"
         verbose_name_plural = "Test Mappings"
         ordering = ("-id",)
-
-    def __str__(self):
-        return f"{self.client.name} ↔ {self.test.name}"
