@@ -551,3 +551,24 @@ class TestReportConfig(MyModel):
 
         super(TestReportConfig, self).save(*args, **kwargs)
 
+class TestMapping(MyModel):
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='client_mappings')
+    tab_category = models.CharField(max_length=255)
+    domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    client = models.ForeignKey(
+        'users.ClientUserInfo',
+        on_delete=models.CASCADE,
+        related_name="test_mappings",
+        null=True,  
+        blank=True  
+    )
+    page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "test_mapping"
+        verbose_name = "Test Mapping"
+        verbose_name_plural = "Test Mappings"
+        ordering = ("-id",)
+
+    def __str__(self):
+        return f"{self.client.name} ↔ {self.test.name}"
