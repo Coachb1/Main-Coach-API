@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestQuestion, Psychometric, TestRecommendation
+from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -264,4 +264,9 @@ class TestFromObjectiveSerializer(serializers.ModelSerializer):
 class TestRecommendationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestRecommendation
+        fields = '__all__'
+
+class TestMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestMapping
         fields = '__all__'
