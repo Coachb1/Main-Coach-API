@@ -430,7 +430,7 @@ def format_test_orchestrated_conversation(raw_data):
 
         if SKILL_DOMAIN in input_dict:
             if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
-                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip()
 
         if CREATOR_PROMPT_TYPE in input_dict:
             if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
@@ -1148,7 +1148,7 @@ def format_test_data_slack(raw_data,tenant):
 
         if SKILL_DOMAIN in input_dict:
             if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
-                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip().capitalize()
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip()
 
         if CREATOR_PROMPT_TYPE in input_dict:
             if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
