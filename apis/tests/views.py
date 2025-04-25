@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer
+from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -15,11 +15,11 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Test, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
+from tests.models import Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
-from users.models import User, UserAttribute
+from users.models import ClientUserInfo, User, UserAttribute
 from utilities.models import SpecialTypeTests
 from django.db.models import Q
 from skills.constants import skills as all_skills_present
@@ -1725,4 +1725,56 @@ class TestViewSet(ApiViewSet,
             return Response({'message': f"Test pilot creation job scheduled for every {freq}"}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Failed to [test_pilot_creation]: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(methods=['GET'],detail=False, url_path="test-mappings")
+    def test_mappings(self, request, *args, **kwargs):
+        try:
+            client_name = request.query_params.get('client_name')
+            page_name = request.query_params.get('page_name', None)
+            if client_name:
+                try:
+                    client = ClientUserInfo.objects.get(deleted=False, client_name=client_name)
+                except ClientUserInfo.DoesNotExist:
+                    return Response({'error': f"Invalid client name: {client_name}"}, status=status.HTTP_400_BAD_REQUEST)
+                test_mapping = TestMapping.objects.filter(deleted=False, client=client)
+                if test_mapping.count() == 0:
+                    test_mapping = TestMapping.objects.filter(deleted=False, client=None)
+            else:
+                test_mapping = TestMapping.objects.filter(deleted=False, client=None)
+
+            if page_name:
+                test_mapping = test_mapping.filter(page_name=page_name)
+
+            result = {}
+
+            for mapping in test_mapping:
+                category = mapping.tab_category or "Uncategorized"
+                entry = {
+                    "title": mapping.test.title,
+                    "description": mapping.test.description,
+                    "domain": mapping.domain,
+                    "test_code": mapping.test.test_code,
+                    "interaction_mode": mapping.test.interaction_mode,
+                    "test_type": mapping.test.test_type,
+                    "is_micro": mapping.test.is_micro,
+                    "is_recommended": mapping.test.is_recommended,
+                    "is_assigned": mapping.test.is_assigned,
+                    "assigned_by": mapping.test.assigned_by,
+                    "assigned_to": mapping.test.assigned_to,
+                    "creator_user_id": mapping.test.creator_user_id,
+                    "scenario_case": mapping.test.scenario_case,
+
+                }
+ 
+                
+                result.setdefault(category, []).append(entry)
+
+            data = {
+                "total_mappings": test_mapping.count(),
+                "results": result
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to [test_mappings]: {e}")
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
