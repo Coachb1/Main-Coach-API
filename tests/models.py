@@ -14,7 +14,6 @@ from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
 
-
 ## psychometric section
 # class PsychometricItem(MyModel):    
 #     # Fields for Section and Subsection
@@ -177,6 +176,9 @@ class Test(TenantAwareModel):
         default=None
     )
     personality_model = models.CharField(max_length=255, choices=PersonalityModelChoices,null=True, blank=True, default=None)
+    skill_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    creator_prompt_type = models.CharField(max_length=255, null=True, blank=True, default=None)
+
     
     class Meta:
         db_table = "test"
@@ -511,3 +513,59 @@ class TestRecommendation(TenantAwareModel):
         db_table = "test_recommendation"
         unique_together = ("recommended_test", "test_case", "origin_test")
 
+
+class TestReportConfig(MyModel):
+    test = models.OneToOneField(Test, on_delete=models.CASCADE, related_name="report_config")
+
+    # Booleans for different sections
+    skill_rating = models.BooleanField(default=True)
+    culture_rating = models.BooleanField(default=True)
+    competency_metrix = models.BooleanField(default=True)
+    feedback_summary = models.BooleanField(default=True)
+    rating_summary = models.BooleanField(default=True)
+    flash_card = models.BooleanField(default=True)
+    mindmap = models.BooleanField(default=True)
+    speech_metrix = models.BooleanField(default=True)
+    powerfiller_words = models.BooleanField(default=True)
+    skill_explanation = models.BooleanField(default=True)
+    culture_explanation = models.BooleanField(default=True)
+    psychometric_culture_rating = models.BooleanField(default=True)
+    psychometric_culture_explanation = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Test Report Config for {self.test.title} ({self.test.test_code})"
+    class Meta:
+        db_table = "test_report_config"
+        verbose_name = "Test Report Configuration"
+        verbose_name_plural = "Test Report Configurations"
+        unique_together = (
+            ('test', 'deleted')
+        )  
+
+    def save(self, *args, **kwargs):
+        self.skill_explanation = self.skill_rating
+        self.culture_explanation = self.culture_rating
+        self.psychometric_culture_explanation = self.psychometric_culture_rating
+        if not self.skill_rating:
+            self.rating_summary = False
+
+        super(TestReportConfig, self).save(*args, **kwargs)
+
+class TestMapping(MyModel):
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='client_mappings')
+    tab_category = models.CharField(max_length=255)
+    domain = models.CharField(max_length=255, null=True, blank=True, default=None)
+    client = models.ForeignKey(
+        'users.ClientUserInfo',
+        on_delete=models.CASCADE,
+        related_name="test_mappings",
+        null=True,  
+        blank=True  
+    )
+    page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+
+    class Meta:
+        db_table = "test_mapping"
+        verbose_name = "Test Mapping"
+        verbose_name_plural = "Test Mappings"
+        ordering = ("-id",)

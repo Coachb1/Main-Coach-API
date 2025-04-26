@@ -12,4 +12,6 @@ urlpatterns = [
     path('get-power-filler-words/', views.get_filler_and_powerwords, name='get-power-filler-words'),
     path('upload-coach-bots/', views.upload_coach_and_bots, name='upload-coach-bots'),
     path('process-coach-bots/', views.process_coach_and_bots, name='process-coach-bots'),
+    path('upload-scenarios/', views.upload_scenarios, name='upload-scenarios'),
+
 ]

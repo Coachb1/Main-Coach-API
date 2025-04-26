@@ -400,12 +400,17 @@ class ReportConfig(MyModel):
 
     def __str__(self):
         return f"Report Config for {self.client.client_name}"
+    
+    class Meta:
+        unique_together = (("deleted", "client"),)
+        verbose_name = "Client Report Config"
+        verbose_name_plural = "Client Report Configs"
 
     def save(self, *args, **kwargs):
         self.skill_explanation = self.skill_rating
         self.culture_explanation = self.culture_rating
         self.psychometric_culture_explanation = self.psychometric_culture_rating
-        if not self.skill_rating or not self.culture_rating:
+        if not self.skill_rating:
             self.rating_summary = False
 
         super(ReportConfig, self).save(*args, **kwargs)

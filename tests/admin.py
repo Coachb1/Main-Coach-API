@@ -7,16 +7,17 @@ from tests.models import (
     PsychometricItem,
     TestAttemptSession,
     TestQuestionResponse,
+    TestReportConfig
 )
 from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
 from django.contrib import messages
 from users.helpers import get_client_info_from_user_detail
-from users.models import UserAttribute
+from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import PsychometricReportSection, PsychometricReportSubsection, TestRecommendation
+from .models import PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -873,3 +874,111 @@ class TestRecommendationAdmin(admin.ModelAdmin):
     search_fields = ("recommended_test__uid", "origin_test__uid", "test_case", "session_id", "user_id")
     list_filter = ("test_case",)
     ordering = ("id",)
+
+
+@admin.register(TestReportConfig)
+class TestReportConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'test', 'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
+    )
+    search_fields = ('test__title', 'test__test_code') 
+    autocomplete_fields = ['test']
+    list_editable = (
+        'skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary',
+        'rating_summary', 'flash_card', 'mindmap', 'speech_metrix', 'powerfiller_words',
+        'skill_explanation', 'culture_explanation', 'psychometric_culture_explanation',
+        'psychometric_culture_rating'
+    )
+    ordering = ('-id',)  
+
+
+
+
+
+@admin.register(TestMapping)
+class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
+    list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain')
+    change_list_template = "admin/testmapping/testmapping_changelist.html"  # custom template for button
+    search_fields = ('test__title', 'test__test_code', 'client__name', 'page_name', 'tab_category', 'domain')
+    list_filter = ('test', 'client', 'page_name', 'tab_category', 'domain')
+    list_editable = ('page_name', 'tab_category', 'domain')
+    autocomplete_fields = ['test']
+    ordering = ('-id',)
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('upload-csv/', self.admin_site.admin_view(self.upload_csv), name='testmapping-upload-csv'),
+        ]
+        return custom_urls + urls
+
+    def upload_csv(self, request):
+        if request.method == "POST":
+            # form = CSVUploadForm(request.POST or None, request.FILES or None, show_tenant_id=False)
+            # if form.is_valid():
+            try:
+                csv_file = io.TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+                reader = csv.DictReader(csv_file)
+                required_fields = ["test_code"]
+
+                # ✅ Check if file is empty
+                if not reader.fieldnames:
+                    messages.error(request, "CSV file is empty! Please upload a valid file.")
+                    return redirect(request.get_full_path())
+
+                # ✅ 4. Check if the CSV contains all required fields
+                if not all(field in reader.fieldnames for field in required_fields):
+                    r_fields = ",".join(required_fields)
+                    messages.error(
+                        request,
+                        f"CSV is missing required fields: {r_fields} .",
+                    )
+                    return redirect(request.get_full_path())
+                created_count = 0
+                for index, row in enumerate(reader, start=1):
+                    try:
+                        test_name = row.get('test_code','').strip()
+                        test = Test.objects.get(test_code=test_name)
+                    except Test.DoesNotExist:
+                        messages.warning(request, f"[Row {index}] Test not found: '{row.get('test_code')}'")
+                        continue
+
+                    client = None
+                    client_name = row.get('client', '').strip()
+                    if client_name:
+                        try:
+                            client = ClientUserInfo.objects.get(client_name=client_name)
+                        except ClientUserInfo.DoesNotExist:
+                            messages.warning(request, f"[Row {index}] Client not found: '{client_name}'")
+                            continue
+
+                    try:
+                        obj, created = TestMapping.objects.get_or_create(
+                            test=test,
+                            client=client,
+                            defaults={
+                                'page_name': row.get('page_name', '').strip() or None,
+                                'tab_category': row.get('tab_category', '').strip() or None,
+                                'domain': row.get('domain', '').strip() or None
+                            }
+                        )
+                        if created:
+                            created_count += 1
+                    except Exception as e:
+                        messages.warning(request, f"[Row {index}] Error creating mapping: {e}")
+            except Exception as e:
+                messages.error(request, f"An unexpected error occurred: {str(e)}")
+                return redirect(request.get_full_path())
+            self.message_user(request, f"Successfully uploaded {created_count} test mappings.", level=messages.SUCCESS)
+            return redirect("..")
+        else:
+            form =  CSVUploadForm(show_tenant_id=False)
+
+        context = {
+            "form": form,
+            "opts": self.model._meta,
+            "title": "Upload CSV for Test Mappings",
+        }
+        return render(request, "admin/testmapping/csv_upload.html", context)

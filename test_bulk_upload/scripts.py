@@ -104,6 +104,83 @@ CATEGORY = "Category"
 IS_SINGLE_SELECT = "Is Single Select"
 PSYCHOMETRIC_REPORT_CONFIG = 'Psychometric Report Config'
 PERSONALITY_MODEL = 'Personality Model'
+ASKER_UI = 'Asker UI'
+SKILL_DOMAIN = "Skill Domain"
+CREATOR_PROMPT_TYPE = "Scenario Prompt Type"
+
+
+def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
+    """
+    Enforces that exactly `max_unique_skills` unique skills are used across all questions,
+    each question has at least one skill, and no skill repeats across questions.
+
+    Args:
+        input_dict (dict): Original dict with questions as keys and comma-separated skills as values.
+        max_unique_skills (int): Total number of unique skills allowed in the test.
+
+    Returns:
+        dict: Updated dict with cleaned skills per question.
+    """
+    # Step 1: Parse skills per question
+    question_skills = {
+        q: [s.strip() for s in skills.split(',') if s.strip()]
+        for q, skills in input_dict.items()
+    }
+
+    # Step 2: Collect all unique skills
+    all_unique_skills = list(dict.fromkeys(
+        skill for skills in question_skills.values() for skill in skills
+    ))
+
+    if len(all_unique_skills) < max_unique_skills:
+        print("⚠️ Warning: Not enough unique skills to assign. Found:", len(all_unique_skills))
+        return input_dict
+
+    # Step 3: Assign one unique skill to each question first
+    assigned_skills = set()
+    updated_dict = {}
+    skill_index = 0
+
+    for q in question_skills:
+        # Find the first unused skill from this question
+        assigned = None
+        for skill in question_skills[q]:
+            if skill not in assigned_skills:
+                assigned = skill
+                assigned_skills.add(skill)
+                break
+        if assigned is None:
+            # fallback: assign next available unused skill
+            while skill_index < len(all_unique_skills):
+                if all_unique_skills[skill_index] not in assigned_skills:
+                    assigned = all_unique_skills[skill_index]
+                    assigned_skills.add(assigned)
+                    skill_index += 1
+                    break
+        if assigned:
+            updated_dict[q] = [assigned]
+        else:
+            updated_dict[q] = []
+
+    # Step 4: Distribute remaining unique skills
+    remaining = max_unique_skills - len(assigned_skills)
+    if remaining > 0:
+        for q in updated_dict:
+            if remaining == 0:
+                break
+            for skill in question_skills[q]:
+                if skill not in assigned_skills:
+                    updated_dict[q].append(skill)
+                    assigned_skills.add(skill)
+                    remaining -= 1
+                    break
+
+    # Step 5: Final formatting
+    for q in updated_dict:
+        input_dict[q] = ', '.join(updated_dict[q])
+
+    return input_dict
+
 
 def format_test_orchestrated_conversation(raw_data):
     """
@@ -265,7 +342,9 @@ def format_test_orchestrated_conversation(raw_data):
             output_dict['media_props'] = media_json
 
         
-
+        if ASKER_UI in input_dict:
+            if input_dict[ASKER_UI] and len(input_dict[ASKER_UI].strip()) > 0:
+                input_dict[RESPONDER] = input_dict[ASKER_UI].strip()
         
         if any(key in input_dict for key in [CERTIFICATE_DESCRIPTION, CERTIFICATE_TITLE]):
             output_dict['certificate_details'] = {}
@@ -349,6 +428,15 @@ def format_test_orchestrated_conversation(raw_data):
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
 
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip()
+
+        if CREATOR_PROMPT_TYPE in input_dict:
+            if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
+                output_dict['creator_prompt_type'] = input_dict[CREATOR_PROMPT_TYPE].strip()
+                if 'hard' in output_dict['creator_prompt_type'].lower() :
+                    output_dict['calculate_culture'] = False
 
         if TED_TALK_AND_HBR_CASE in input_dict:
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict[TED_TALK_AND_HBR_CASE].strip()) > 0 :
@@ -586,11 +674,10 @@ def format_test_orchestrated_conversation(raw_data):
             candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
             output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
+        skills_list = []
         if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
             skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
-            skill_list = [skill.strip() for skill in skill_list]
-            skill_list = ','.join(skill_list)
-            output_dict["skills_to_evaluate"] = skill_list
+            skills_list = [skill.strip() for skill in skill_list]
         else:
 
             # saving skills_to_evaluate from backend only
@@ -602,11 +689,16 @@ def format_test_orchestrated_conversation(raw_data):
                 skills_list_candidate.add(item)
 
             evaluation_skill_list = [skill.strip() for skill in sorted(skills_list_candidate)]
+            skills_list = evaluation_skill_list
             evaluation_skill_list = ','.join(evaluation_skill_list)
-            output_dict["skills_to_evaluate"] = evaluation_skill_list
 
 
+        if len(skills_list) < 6:
+            return {"error": "Skills to evaluate should be more than 6"}, False
+        if len(skills_list) > 8:
+            skills_list = skills_list[:8]
 
+        output_dict['skills_to_evaluate'] = ",".join(skills_list)
         initial_messages = []
         test_main_context = input_dict['Context']
         persons = []
@@ -1054,6 +1146,16 @@ def format_test_data_slack(raw_data,tenant):
             if len(domain_title) > 1:
                 output_dict['area_domain'] = domain_title[0].strip().capitalize()
 
+        if SKILL_DOMAIN in input_dict:
+            if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
+                output_dict['skill_domain'] = input_dict[SKILL_DOMAIN].strip()
+
+        if CREATOR_PROMPT_TYPE in input_dict:
+            if input_dict[CREATOR_PROMPT_TYPE] and len(input_dict[CREATOR_PROMPT_TYPE].strip()) > 0 :
+                output_dict['creator_prompt_type'] = input_dict[CREATOR_PROMPT_TYPE].strip()
+                if 'hard' in output_dict['creator_prompt_type'].lower() :
+                    output_dict['calculate_culture'] = False
+
         if TAB_CATEGORY in input_dict:
             if input_dict[TAB_CATEGORY] and len(input_dict[TAB_CATEGORY].strip()) > 0 :
                 output_dict['tab_category'] = input_dict[TAB_CATEGORY].strip().capitalize()
@@ -1142,8 +1244,17 @@ def format_test_data_slack(raw_data,tenant):
         if unique_skill_count < 6 and not(input_dict[SCENARIO_CASE] == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
             return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
         
-        if unique_skill_count > 8:
-            skills_list = list(skills_list)[:8]
+        if unique_skill_count > 6:
+            que_skills = {key: value for key, value in input_dict.items() if key.startswith(KLS)}
+            updated_skills = []
+            if len(que_skills) > 0:
+                que_skills = limit_unique_skills_per_test(que_skills)
+                for key, value in que_skills.items():
+                    input_dict[key] = value
+                    updated_skills.extend(value.split(','))
+
+            skills_list = list(set(updated_skills)) if len(updated_skills) > 0 else list(skills_list)
+            # skills_list = list(skills_list)[:8]
 
         check_pass = True
 
@@ -1603,7 +1714,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
     logger.info(subdomain_prefix)
     # List of column names to check for null or empty values
     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]
 
     access_token = login_slack(email, password, subdomain_prefix)
     is_update = False
@@ -1853,9 +1964,9 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                 if scenario_case == 'game':
                     columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
                 elif scenario_case == 'interview':
-                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND])
+                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND, SKILL_DOMAIN])
                 else:
-                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE])
+                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, SKILL_DOMAIN])
 
                 for col in columns_check:
                     if col not in row_data:
