@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestQuestion, Psychometric, TestRecommendation
+from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -142,6 +142,9 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, default=False)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_prompt_type = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -227,7 +230,9 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "category",
                   "is_single_select",
                   "psychometric_report_config",
-                  "personality_model"
+                  "personality_model",
+                  "skill_domain",
+                  "creator_prompt_type"
                   ]
 
     def get_questions(self, instance):
@@ -259,4 +264,9 @@ class TestFromObjectiveSerializer(serializers.ModelSerializer):
 class TestRecommendationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestRecommendation
+        fields = '__all__'
+
+class TestMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestMapping
         fields = '__all__'

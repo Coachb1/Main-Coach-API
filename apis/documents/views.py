@@ -125,13 +125,18 @@ class DocumentViewSet(ApiViewSet,
         return Response({"summary": summary})
 
 
-    @action(methods=["GET"], detail=False, url_path="get-prompt-response")
+    @action(methods=["GET", "POST"], detail=False, url_path="get-prompt-response")
     def get_prompt_response(self, request, *args, **kwargs):
-        prompt = request.query_params.get("prompt")
-        instruction = request.query_params.get("instruction")   
+        # Support both query params and request body
+        prompt = request.query_params.get("prompt") or request.data.get("prompt")
+        instruction = request.query_params.get("instruction") or request.data.get("instruction")
 
-        # response_text = anthropic_completion(prompt, 500)
+        if not prompt:
+            return Response({"error": "Prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process the completion
         response_text = gemini_completion(prompt=prompt, instruction=instruction)
+        
         return Response({"response_text": response_text})
     
     

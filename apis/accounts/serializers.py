@@ -1,5 +1,5 @@
 from rest_framework import serializers
-
+from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
 from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
@@ -381,3 +381,8 @@ class CoachCoacheeRatingSerializer(serializers.ModelSerializer):
             data['total_ratings'] = 0
             
         return data
+
+class TestReportConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestReportConfig
+        fields = '__all__'

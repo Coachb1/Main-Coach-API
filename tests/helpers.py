@@ -48,7 +48,7 @@ from tests.models import Test
 from tests.models import TestAttemptSession
 from tests.models import TestInvite
 from tests.models import TestQuestion
-from tests.models import TestQuestionResponse
+from tests.models import TestQuestionResponse,TestReportConfig
 from users.db import get_user_by_id, get_user_attribute
 from users.db import get_user_display_name
 from users.models import User
@@ -71,7 +71,7 @@ import threading
 from tests.choices import ScenarioCaseChoices
 from bs4 import BeautifulSoup
 import requests
-from test_bulk_upload.scripts import API_ENDPOINT_SLACK
+from test_bulk_upload.scripts import API_ENDPOINT_SLACK, limit_unique_skills_per_test
 from skills.helpers import evaluate_rating_for_process_training , evaluate_competency_data, get_culture_skills
 from readability import Document
 from test_bulk_upload.constants import get_skills
@@ -80,7 +80,7 @@ from utilities.models import ScenarioCreationDetails
 from commons.notifications import send_error_notification
 from skills.helpers import json_extraction
 from users.helpers import get_client_info_from_user_detail
-from apis.accounts.serializers import clientUserInfoSerializer
+from apis.accounts.serializers import clientUserInfoSerializer,TestReportConfigSerializer
 from django.core.exceptions import ValidationError
 from commons.google_apis import gemini_chat_completion
 import csv
@@ -249,7 +249,9 @@ def create_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain: str,
+                creator_prompt_type:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -449,7 +451,9 @@ def create_test(tenant: Tenant,
             category=category,
             is_single_select=is_single_select,
             psychometric_report_config=psychometric_report_config,
-            personality_model=personality_model
+            personality_model=personality_model,
+            skill_domain=skill_domain,
+            creator_prompt_type=creator_prompt_type
         )
 
         test_questions = []
@@ -568,7 +572,9 @@ def update_test(tenant: Tenant,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
-                personality_model: str ) -> tuple[Test, list[TestQuestion]]:
+                personality_model: str,
+                skill_domain:str,
+                creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -604,6 +610,10 @@ def update_test(tenant: Tenant,
             test.test_type = test_type
         if test.is_single_bot != is_single_bot:
             test.is_single_bot = is_single_bot
+        if test.skill_domain != skill_domain:
+            test.skill_domain = skill_domain
+        if test.creator_prompt_type != creator_prompt_type:
+            test.creator_prompt_type = creator_prompt_type
         if test.is_learner_path != is_learner_path:
             test.is_learner_path = is_learner_path
         if test.is_checkin_type != is_checkin_type:
@@ -3825,6 +3835,9 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
     test = Test.objects.get(uid=test_attempt_session.test_id, deleted=0)
     title = test.title
+    test_report_config = TestReportConfig.objects.filter(deleted=False, test=test).first()
+    test_report_config= TestReportConfigSerializer(test_report_config).data if test_report_config else None
+
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
@@ -4015,7 +4028,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "category": test.category,
         "interaction_code": test.test_code,
         "personality_model_data": test_attempt_session.personality_model_data,
-        "culture_map_evaluation_criteria": culture_map_evaluation_criteria
+        "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
+        "skill_domain": test.skill_domain,
+        "creator_prompt_type": test.creator_prompt_type
+
     }
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:  data: {data} ###############")
@@ -4071,7 +4087,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         
     data["certificate_details"] = test.certificate_details
     data['ui_information'] = test.ui_information
-    
+    data['test_report_config']=test_report_config
     
 
     return data
@@ -4372,13 +4388,13 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
         
     evaluate_personality_model_data(test_attempt_session=test_attempt_session, test=test)
     
-    skills_=[]
-    for question in questions:
-        required_skills = question.key_learning_skills.split(",")
-        required_skills = [skill.strip() for skill in required_skills if skill]
-        required_skills = [skill.lower() for skill in required_skills if skill]
-        for s in required_skills:
-            skills_.append(s)
+    # skills_=[]
+    # for question in questions:
+    #     required_skills = question.key_learning_skills.split(",")
+    #     required_skills = [skill.strip() for skill in required_skills if skill]
+    #     required_skills = [skill.lower() for skill in required_skills if skill]
+    #     for s in required_skills:
+    #         skills_.append(s)
 
     user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
     difficulty_level = user_info.difficulty_level
@@ -4393,7 +4409,10 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
     if user_info.custom_skill_prompt_2:
         user_skill_prompt = user_skill_prompt + "\n" + user_info.custom_skill_prompt_2
 
-    response_skills_rating = calc_skills_rating(test_attempt_session, responses, test,skills_,user_skill_prompt)
+    response_skills_rating = calc_skills_rating(test_attempt_session=test_attempt_session,
+                                                responses=responses, 
+                                                test=test,
+                                                user_skill_prompt=user_skill_prompt)
     response_skills_rating = {key.capitalize() : value for key, value in response_skills_rating.items()}
     for skill in response_skills_rating:
         if skill in skills_rating:
@@ -5221,7 +5240,7 @@ def calc_culture_skills_rating(test_attempt_session, responses, test):
 
 
 @timeit
-def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_prompt):
+def calc_skills_rating(test_attempt_session, responses, test,user_skill_prompt):
     """
     This function calculates the skills rating for a test attempt session based on the responses provided by the user.
 
@@ -5250,7 +5269,7 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
     conversation = ""
     count = 1
-
+    skills_to_evaluate = {}
     for response in responses:
 
         question = TestQuestion.objects.get(
@@ -5258,6 +5277,7 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
         question_text = question.question
         response_text = response.response_text
+        skills_to_evaluate[question.uid] = question.key_learning_skills
 
         conversation += f"{count}. [Question:] {question_text}\n"
         if not question.is_view_only:
@@ -5265,13 +5285,19 @@ def calc_skills_rating(test_attempt_session, responses, test,skills,user_skill_p
 
         count += 1
 
+    unique_skills_to_evaluate = limit_unique_skills_per_test(skills_to_evaluate)
+    all_skills = [
+        skill.strip()
+        for skills in unique_skills_to_evaluate.values()
+        for skill in skills.split(',')
+    ]
     # Evaluate conversation
     if test.is_free:
         skills_rating, is_evaluated = evaluate_response_skill(
-            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt,True)
+            test_attempt_session, conversation, test.title, test.description, test.test_code,all_skills,user_skill_prompt,True)
     else:
         skills_rating, is_evaluated = evaluate_response_skill(
-            test_attempt_session, conversation, test.title, test.description, test.test_code,skills,user_skill_prompt)
+            test_attempt_session, conversation, test.title, test.description, test.test_code,all_skills,user_skill_prompt)
 
     if not is_evaluated:
         return None
@@ -10704,7 +10730,7 @@ The advice should be in the form of checklists that the user can do to solve the
 Customize the response to make it suitable to the situation. 
 Also explain how the person can implement the tips in their particular situation. 
 
-Add this line during the conversation wherever it's most suitable, "You can visit the coachbots library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
+Add this line during the conversation wherever it's most suitable, "You can visit the coachbot library to practice these." Please integrate this in the natural flow of the response and conversation. You can change the text according to the situation to make it more contextual and customized for the conversation. ONLY add these lines when it's suitable in the response.
 It doesn't need to be in every response, only give them wherever it makes sense. 
 
 NOTE: ONLY provide guidance on communication skills.
@@ -10733,7 +10759,7 @@ NOTE: Start directly with the response and only provide the response.
             bot_scenario_case= 'skill_bot',
             attributes= {"heading": f"welcome to {bot['bot_name']} bot"},
             custom_prompt = bot['prompt'],
-            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbots", "is_login_required": False, "is_strict_login_required": False},
+            bot_details ={"subject": bot["bot_name"], "coach_name": "Coachbot", "is_login_required": False, "is_strict_login_required": False},
             is_approved = True
         )
 
@@ -10741,7 +10767,7 @@ NOTE: Start directly with the response and only provide the response.
                                     tenant_id=tenant_id,
                                     bot_id=singature_bot.uid,
                                     bot_name=bot['bot_name'],
-                                    coach_name = "Coachbots",
+                                    coach_name = "Coachbot",
                                     coach_email = "mail@coachbots.com",
                                     initial_qnas = bot['intake'],
                                     about = bot['about'],
@@ -13555,3 +13581,45 @@ def evaluate_personality_model_data(test_attempt_session:TestAttemptSession, tes
         except Exception as e:
             logger.exception(f"Failed to evaluate personality modle data: {e}")
             raise e
+        
+
+
+def update_all_skills(test_code=None):
+    all_tests = Test.objects.filter(deleted=False, test_type=TestTypeChoices.test)
+    if test_code:
+        all_tests = all_tests.filter(test_code=test_code)
+    all_updated_questions = []
+
+    all_updated_test = []
+
+    for test in all_tests:
+        questions = TestQuestion.objects.filter(test_id=test.uid, deleted=False)
+
+        # Build {question_id: skills}
+        que_skills = {
+            str(question.uid): question.key_learning_skills
+            for question in questions
+        }
+
+        if not que_skills:
+            continue
+
+        # Get new skill assignments
+        new_skills = limit_unique_skills_per_test(que_skills)
+        skills_to_evalute = ""
+
+        for question in questions:
+            new_value = new_skills.get(str(question.uid), '')
+            question.key_learning_skills = new_value
+            skills_to_evalute += new_value + ','
+            all_updated_questions.append(question)
+
+        # Update test object with new skills
+        test.skills_to_evaluate = skills_to_evalute[:-1]
+        all_updated_test.append(test)
+    # Only one bulk update at the end
+    # if all_updated_questions and all_updated_questions:
+        # with transaction.atomic():
+        #     TestQuestion.objects.bulk_update(all_updated_questions, ['key_learning_skills'])
+        #     Test.objects.bulk_update(all_updated_test, ['skills_to_evaluate'])
+    logger.info(f"Updated {len(all_updated_questions)} questions and {len(all_updated_test)} tests with new skills.")

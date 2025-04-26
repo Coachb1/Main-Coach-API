@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from tests.models import TestAttemptSession, TestQuestionResponse
+from tests.models import TestAttemptSession, TestQuestionResponse, TestReportConfig
 
 
 class TestAttemptSessionSerializer(serializers.ModelSerializer):
@@ -22,4 +22,10 @@ class TestAttemptSessionSerializer(serializers.ModelSerializer):
         if que_response:
             data['next_question_text'] = que_response.question_text
         return data
+
+
+class TestReportConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestReportConfig
+        fields = ['skill_rating', 'culture_rating', 'competency_metrix', 'feedback_summary', 'rating_summary']
         
