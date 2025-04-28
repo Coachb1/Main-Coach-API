@@ -6392,31 +6392,38 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     Candidate response: {
                                     ${candidate_response}
                                     }
-                    Based on the (Candidate response), and the (main context), ask the candidate the next question. The question should continue the (candidate response) and the (Current Response) which shall always redirect to the (main context) or (candidate response) if it is not relevant. Do not provide any feedback on the response.
-                    Always ask a unique, different and specific question based on the (Candidate response), (main context), and (Current Response). The question should be relevant to the information or response given in the (Candidate response). Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
-                    Always pose the questions as for the role play, also ask questions as very specific role who is assigned to ask questions in the (main context).
-                    Always take the role of who will be asking questions from the (main context) to generate questions.
-                                    
-                    Always add name in front of the question as based from the (main context) while generating the question and which user will respond using (Format for Questions),
+                    
+                    Based on the (Candidate response) and the (main context), provide a unique mix of statements and comments continuing the (candidate response) and (Current Response), always redirecting to the (main context) or (candidate response) when not relevant. Do not provide any feedback on the response.
+
+                    Always provide a unique, different, and specific statement or comment based on the (Candidate response), (main context), and (Current Response). The response must be relevant to the information or context given in the (candidate response). Responses can help to understand the problem better, elaborate on a point, or summarize. Ensure the response is concise and flows as a conversational exchange.
+
+                    Always create these turns as if for a real role play, also responding as the very specific role assigned to continue the (main context).
+
+                    Always add name in front of the response based on the (main context) when generating the response using (Format for Responses),
                     {
-                    Format for Questions
-                    Name: Question
+                    Format for Responses
+                    Name: Response
                     }
-                                    
-                    Analyze the role of the user from the (main context) who will never ask the question, there will be always one user who will never ask the question, just respond.
-                    Never misinterpret the role of the user who will be answering only from the (main context) while generating questions. In this role of user will never ask any questions.
-                    Always stick with the role who is asking question from the (main context) while generating questions.
-                    Read the (Current response) and (Current conversation) and make sure the next question is unique and has not been repeated in the (Current response) and (Current conversation) before. Never ask a question that has been asked before. Never repeat the same response.
-                    NOTE: The question should not be more than 25 words.
-                    NOTE: There will be always one role of the user who will never ask any question, but only answer. Never generate questions for that role of the user from the (main context).
-                    NOTE: Analyse the role of the user who will never ask questions from the (main context) and never generate questions from his side.
+
+                    Analyze the role of the user from the (main context) who will never make statements or comments; there will always be one user who will never provide the next response, just answer.
+
+                    Never misinterpret the role of the user who will be answering only from the (main context) when generating responses.
+
+                    Always stick with the role who is giving the conversational turn from the (main context) while generating statements or comments.
+
+                    Read the (Current response) and (Current conversation) and ensure the next conversational turn is unique and not repeated in the (Current response) and (Current conversation) before. Never provide a response that has been given before. Never repeat the same comment or statement.
+
+                    NOTE: The response should not be more than 25 words.
+                    NOTE: There will always be one role of the user who will never respond, but only answer. Never generate responses for that role from the (main context).
+                    NOTE: Analyse the role of the user who will never give responses from the (main context) and never generate responses from his side.
                     NOTE: Do not show the word count.
-                    NOTE: Pose the questions as for the role play, also ask questions as a very specific role the person who is asking questions from the (main context) while generating the questions.
-                    NOTE: Always stick with the role of the person while generating questions from the (main context).
-                    NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
-                    NOTE: Always follow the format but never mention in the response.
-                    NOTE: Never give brackets to show the response.
-                    Note: Never ask a question that has been asked before. Never repeat the same response.
+                    NOTE: Respond in a role play style, as a very specific role making the response from the (main context).
+                    NOTE: Always stick with the correct role from the (main context) while generating statements and comments.
+                    NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
+                    NOTE: Always follow the format but never mention it in the response.
+                    NOTE: Never use brackets to show the response.
+                    NOTE: Never provide a statement or comment that has been given before. Never repeat the same response.
+                    NOTE: WE may need to run randomly for stament and questions
                     \n\nAssistant:
                 """).substitute(
                     test_main_context=main_context,
