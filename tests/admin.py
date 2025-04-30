@@ -958,8 +958,8 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
                         obj, created = TestMapping.objects.get_or_create(
                             test=test,
                             client=client,
+                            page_name=row.get('page_name', '').strip() or None,
                             defaults={
-                                'page_name': row.get('page_name', '').strip() or None,
                                 'tab_category': row.get('tab_category', '').strip() or None,
                                 'domain': row.get('domain', '').strip() or None
                             }
