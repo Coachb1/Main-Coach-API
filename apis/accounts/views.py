@@ -305,7 +305,7 @@ class AccountsViewSet(ApiViewSet,
             is_repeat = tenant.is_repeat
 
         
-        data = {"tenant_id": tenant.uid, "is_repeat": is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted}
+        data = {"tenant_id": tenant.uid, "is_repeat": is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted if user.role != 'super_admin' else 1}
         return Response(data, status=status.HTTP_200_OK)
 
     @action(methods=['GET'], detail=False, url_path="get-user-type")

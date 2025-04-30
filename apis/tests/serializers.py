@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
 from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
 
@@ -238,6 +239,11 @@ class TestDisplaySerializer(serializers.ModelSerializer):
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.description_media:
+            data["description_media"] = ",".join([format_youtube_link(media.strip()) for media in instance.description_media.split(',')])
+        return data
 
 class LearnerPathSerializer(serializers.ModelSerializer):
     objective = serializers.CharField()
