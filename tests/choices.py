@@ -60,7 +60,9 @@ class PersonalityModelChoices(DjangoChoices):
     blanchard = ChoiceItem('blanchard')
     big_5 = ChoiceItem('big_5')
 
-
+class PageNameChoices(DjangoChoices):
+    leadership_library = ChoiceItem('leadership_library')
+    domain_skills_library = ChoiceItem('domain_skills_library')
 
 class InteractionModeChoices(DjangoChoices):
     text = ChoiceItem("text")
