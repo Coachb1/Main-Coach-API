@@ -442,7 +442,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 #####################* explanation start #################
                 if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                     user_persona = test.orchestrated_conversation_details.get("test_user_persona")
-                    objective = test.orchestrated_conversation_details.get("objective")
+                    objective = test.description
 
                     chat_conversation = get_group_discussion_chat_conversation(
                         test_attempt_session, user_persona)

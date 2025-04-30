@@ -531,49 +531,51 @@ def update_test(tenant: Tenant,
                 scenario_case: str,
                 is_game_type: bool,
                 is_free: bool,
-                is_micro: bool,
+                is_micro:bool,
                 image_url: str,
-                rating: str,
-                source: str,
-                client_name: str,
+                rating : str,
+                source : str,
+                client_name : str,
                 questions: list,
                 goals: str,
                 course: str,
                 industry: str,
                 exp_level: str,
-                total_question: int,
-                certificate_details: dict,
-                ui_information: dict,
-                is_self_created: bool,
-                is_logged_in: bool,
-                is_immersive: bool,
-                media_props: dict,
-                is_transcript_only: bool,
+                total_question:int,
+                certificate_details:dict,
+                ui_information:dict,
+                is_self_created:bool,
+                is_logged_in:bool,
+                is_immersive:bool,
+                media_props:dict,
+                is_transcript_only:bool,
                 is_pitch: bool,
-                articles: str,
-                bot_name: str,
-                creator_user_id: str,
+                articles:str,
+                bot_name:str,
+                creator_user_id:str,
                 competency_group: str,
-                area_domain: str,
-                tab_category: str,
-                is_recommended: bool,
+                area_domain:str,
+                tab_category:str,
+                is_recommended:bool,
                 visual_tags: str,
                 page_name: str,
-                scenario_summary: str,
-                creator_email: str,
-                is_assigned: bool,
+                scenario_summary:str,
+                creator_email:str,
+                is_assigned:bool,
                 assigned_to: str,
                 assigned_by: str,
-                web_page_url: str,
-                sub_tab_category: str,
+                web_page_url:str,
+                sub_tab_category:str,
                 calculate_culture: bool,
                 snippet_url: str,
+                pshycometric_sections: dict,
+                psychometric:str,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
                 personality_model: str,
-                skill_domain:str,
+                skill_domain: str,
                 creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -3561,7 +3563,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
-    objective = test.orchestrated_conversation_details.get("objective")
+    objective = test.description
 
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
@@ -3841,7 +3843,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
-    objective = test.orchestrated_conversation_details.get("objective")
+    objective = test.description
 
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
@@ -4006,7 +4008,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "participant_name": participant_name,
         "date": date,
         "title": title,
-        "objective": objective,
+        "objective": test.description,
         "chat_conversation": chat_conversation_with_details,
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
