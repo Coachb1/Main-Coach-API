@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -562,10 +562,13 @@ class TestMapping(MyModel):
         null=True,  
         blank=True  
     )
-    page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
+    page_name = models.CharField(max_length=255, choices=PageNameChoices,null=True, blank=True, default=PageNameChoices.leadership_library)
 
     class Meta:
         db_table = "test_mapping"
         verbose_name = "Test Mapping"
         verbose_name_plural = "Test Mappings"
         ordering = ("-id",)
+        unique_together = (
+            ('test', 'page_name', 'client', 'deleted')
+        )
