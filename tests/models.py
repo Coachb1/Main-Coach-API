@@ -178,8 +178,11 @@ class Test(TenantAwareModel):
     personality_model = models.CharField(max_length=255, choices=PersonalityModelChoices,null=True, blank=True, default=None)
     skill_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
     creator_prompt_type = models.CharField(max_length=255, null=True, blank=True, default=None)
+    video_script = models.TextField(null=True, blank=True, default=None)
+    script_video_link = models.URLField(null=True, blank=True, default=None)
+    feedback_script_video_link = models.URLField(null=True, blank=True, default=None)
+    feedback_video_script_template = models.TextField(null=True, blank=True, default=None)
 
-    
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -282,6 +285,8 @@ class TestAttemptSession(TenantAwareModel):
             null=True, blank=True, default=False)
     pshycometric_data = models.JSONField(null=True, blank=True, default=None)
     personality_model_data = models.JSONField(null=True, blank=True, default=None)
+    feedback_video_script = models.TextField(null=True, blank=True, default=None)
+    feedback_video_link = models.URLField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
