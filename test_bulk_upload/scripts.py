@@ -107,6 +107,10 @@ PERSONALITY_MODEL = 'Personality Model'
 ASKER_UI = 'Asker UI'
 SKILL_DOMAIN = "Skill Domain"
 CREATOR_PROMPT_TYPE = "Scenario Prompt Type"
+VIDEO_SCRIPT = 'Video Script'
+SCRIPT_VIDEO_LINK = 'Script Video Link'
+FEEDBACK_SCRIPT_VIDEO_LINK = 'Feedback Video Link'
+FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
 
 
 def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
@@ -445,6 +449,19 @@ def format_test_orchestrated_conversation(raw_data):
         if REPORT_DESCRIPTION in input_dict:
             if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
                 output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
+
+        if VIDEO_SCRIPT in input_dict:
+            if input_dict[VIDEO_SCRIPT] and len(input_dict[VIDEO_SCRIPT].strip()) > 0 :
+                output_dict["video_script"] = input_dict[VIDEO_SCRIPT].strip()
+        if SCRIPT_VIDEO_LINK in input_dict:
+            if input_dict[SCRIPT_VIDEO_LINK] and len(input_dict[SCRIPT_VIDEO_LINK].strip()) > 0 :
+                output_dict["script_video_link"] = input_dict[SCRIPT_VIDEO_LINK].strip()
+        if FEEDBACK_SCRIPT_VIDEO_LINK in input_dict:
+            if input_dict[FEEDBACK_SCRIPT_VIDEO_LINK] and len(input_dict[FEEDBACK_SCRIPT_VIDEO_LINK].strip()) > 0 :
+                output_dict["feedback_script_video_link"] = input_dict[FEEDBACK_SCRIPT_VIDEO_LINK].strip()
+        if FEEDBACK_VIDEO_SCRIPT in input_dict:
+            if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
+                output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
 
         if output_dict['scenario_case'] == 'game':
             output_dict['is_game_type'] = True
@@ -1207,6 +1224,19 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[REPORT_DESCRIPTION] and len(input_dict[REPORT_DESCRIPTION].strip()) > 0 :
                 output_dict["report_description"] = input_dict[REPORT_DESCRIPTION].strip()
 
+        if VIDEO_SCRIPT in input_dict:
+            if input_dict[VIDEO_SCRIPT] and len(input_dict[VIDEO_SCRIPT].strip()) > 0 :
+                output_dict["video_script"] = input_dict[VIDEO_SCRIPT].strip()
+        if SCRIPT_VIDEO_LINK in input_dict:
+            if input_dict[SCRIPT_VIDEO_LINK] and len(input_dict[SCRIPT_VIDEO_LINK].strip()) > 0 :
+                output_dict["script_video_link"] = input_dict[SCRIPT_VIDEO_LINK].strip()
+        if FEEDBACK_SCRIPT_VIDEO_LINK in input_dict:
+            if input_dict[FEEDBACK_SCRIPT_VIDEO_LINK] and len(input_dict[FEEDBACK_SCRIPT_VIDEO_LINK].strip()) > 0 :
+                output_dict["feedback_script_video_link"] = input_dict[FEEDBACK_SCRIPT_VIDEO_LINK].strip()
+
+        if FEEDBACK_VIDEO_SCRIPT in input_dict:
+            if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
+                output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
         skills_list = set()
         for key in input_dict:
             if key.startswith(KLS):

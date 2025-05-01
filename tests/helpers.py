@@ -251,7 +251,11 @@ def create_test(tenant: Tenant,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
-                creator_prompt_type:str) -> tuple[Test, list[TestQuestion]]:
+                creator_prompt_type:str,
+                video_script:str,
+                script_video_link: str,
+                feedback_script_video_link:str,
+                feedback_video_script_template:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -453,7 +457,11 @@ def create_test(tenant: Tenant,
             psychometric_report_config=psychometric_report_config,
             personality_model=personality_model,
             skill_domain=skill_domain,
-            creator_prompt_type=creator_prompt_type
+            creator_prompt_type=creator_prompt_type,
+            feedback_script_video_link=feedback_script_video_link,
+            script_video_link=script_video_link,
+            video_script=video_script,
+            feedback_video_script_template=feedback_video_script_template
         )
 
         test_questions = []
@@ -531,50 +539,57 @@ def update_test(tenant: Tenant,
                 scenario_case: str,
                 is_game_type: bool,
                 is_free: bool,
-                is_micro: bool,
+                is_micro:bool,
                 image_url: str,
-                rating: str,
-                source: str,
-                client_name: str,
+                rating : str,
+                source : str,
+                client_name : str,
                 questions: list,
                 goals: str,
                 course: str,
                 industry: str,
                 exp_level: str,
-                total_question: int,
-                certificate_details: dict,
-                ui_information: dict,
-                is_self_created: bool,
-                is_logged_in: bool,
-                is_immersive: bool,
-                media_props: dict,
-                is_transcript_only: bool,
+                total_question:int,
+                certificate_details:dict,
+                ui_information:dict,
+                is_self_created:bool,
+                is_logged_in:bool,
+                is_immersive:bool,
+                media_props:dict,
+                is_transcript_only:bool,
                 is_pitch: bool,
-                articles: str,
-                bot_name: str,
-                creator_user_id: str,
+                articles:str,
+                bot_name:str,
+                creator_user_id:str,
                 competency_group: str,
-                area_domain: str,
-                tab_category: str,
-                is_recommended: bool,
+                area_domain:str,
+                tab_category:str,
+                is_recommended:bool,
                 visual_tags: str,
                 page_name: str,
-                scenario_summary: str,
-                creator_email: str,
-                is_assigned: bool,
+                scenario_summary:str,
+                creator_email:str,
+                is_assigned:bool,
                 assigned_to: str,
                 assigned_by: str,
-                web_page_url: str,
-                sub_tab_category: str,
+                web_page_url:str,
+                sub_tab_category:str,
                 calculate_culture: bool,
                 snippet_url: str,
+                pshycometric_sections: dict,
+                psychometric:str,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
                 psychometric_report_config:str,
                 personality_model: str,
-                skill_domain:str,
-                creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
+                skill_domain: str,
+                creator_prompt_type:str, 
+                video_script:str,
+                script_video_link: str,
+                feedback_script_video_link:str,
+                feedback_video_script_template:str
+                ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -720,6 +735,15 @@ def update_test(tenant: Tenant,
             test.psychometric_report_config = psychometric_report_config
         if test.personality_model != personality_model:
             test.personality_model = personality_model
+
+        if test.video_script != video_script:
+            test.video_script = video_script
+        if test.script_video_link != script_video_link:
+            test.script_video_link = script_video_link
+        if test.feedback_script_video_link != feedback_script_video_link:
+            test.feedback_script_video_link = feedback_script_video_link
+        if test.feedback_video_script_template != feedback_video_script_template:
+            test.feedback_video_script_template = feedback_video_script_template
 
         test.save()
 
@@ -3354,6 +3378,19 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
 
+        if test.feedback_video_script_template:
+            klps_objects =  TestQuestionResponse.objects.filter(deleted=False,test_attempt_session_id=test_attempt_session.uid).exclude(kls_klp=None) # get all klps
+            klps = []
+            for klp in klps_objects:
+                if klp.kls_klp:
+                    klps.append(klp.kls_klp.get('klp'))
+            klps = list(set(klps)) # remove duplicates
+
+            feedback_script = Template(test.feedback_video_script_template).safe_substitute(
+                klps=klps
+            )
+            test_attempt_session.feedback_video_script = feedback_script
+            test_attempt_session.save(update_fields=["feedback_video_script"])
         if test.is_free:
             report_url = generate_summary_feedback_session_report_link(test_attempt_session.test)
 
@@ -3561,7 +3598,7 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
 
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
-    objective = test.orchestrated_conversation_details.get("objective")
+    objective = test.description
 
     chat_conversation = get_group_discussion_chat_conversation(
         test_attempt_session, user_persona)
@@ -3841,7 +3878,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     
     logger.info(f"############### get_meeting_report_from_test_attempt_session:   participant_id: {participant_id}, test_attempt_session_id: {test_attempt_session_id}, test_id: {test.uid} , test_title: {test.title}, participant_name: {participant_name} ###############")
 
-    objective = test.orchestrated_conversation_details.get("objective")
+    objective = test.description
 
     user_persona = test.orchestrated_conversation_details.get(
         "test_user_persona")
@@ -4006,7 +4043,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "participant_name": participant_name,
         "date": date,
         "title": title,
-        "objective": objective,
+        "objective": test.description,
         "chat_conversation": chat_conversation_with_details,
         "meeting_summary": meeting_summary,
         "areas_of_improvement": areas_of_improvement,
@@ -4030,7 +4067,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "personality_model_data": test_attempt_session.personality_model_data,
         "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
         "skill_domain": test.skill_domain,
-        "creator_prompt_type": test.creator_prompt_type
+        "creator_prompt_type": test.creator_prompt_type,
+        'feedback_video_script': test_attempt_session.feedback_video_script,
+
+        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
 
     }
     
