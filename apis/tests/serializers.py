@@ -145,6 +145,10 @@ class CreateTestSerializer(serializers.Serializer):
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     creator_prompt_type = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    feedback_script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    video_script = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    feedback_video_script_template = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
 
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):

@@ -251,7 +251,11 @@ def create_test(tenant: Tenant,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
-                creator_prompt_type:str) -> tuple[Test, list[TestQuestion]]:
+                creator_prompt_type:str,
+                video_script:str,
+                script_video_link: str,
+                feedback_script_video_link:str,
+                feedback_video_script_template:str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -453,7 +457,11 @@ def create_test(tenant: Tenant,
             psychometric_report_config=psychometric_report_config,
             personality_model=personality_model,
             skill_domain=skill_domain,
-            creator_prompt_type=creator_prompt_type
+            creator_prompt_type=creator_prompt_type,
+            feedback_script_video_link=feedback_script_video_link,
+            script_video_link=script_video_link,
+            video_script=video_script,
+            feedback_video_script_template=feedback_video_script_template
         )
 
         test_questions = []
@@ -576,7 +584,12 @@ def update_test(tenant: Tenant,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
-                creator_prompt_type:str ) -> tuple[Test, list[TestQuestion]]:
+                creator_prompt_type:str, 
+                video_script:str,
+                script_video_link: str,
+                feedback_script_video_link:str,
+                feedback_video_script_template:str
+                ) -> tuple[Test, list[TestQuestion]]:
     
     try:
         test = Test.objects.get(tenant_id=tenant.uid, test_code=test_code)
@@ -722,6 +735,15 @@ def update_test(tenant: Tenant,
             test.psychometric_report_config = psychometric_report_config
         if test.personality_model != personality_model:
             test.personality_model = personality_model
+
+        if test.video_script != video_script:
+            test.video_script = video_script
+        if test.script_video_link != script_video_link:
+            test.script_video_link = script_video_link
+        if test.feedback_script_video_link != feedback_script_video_link:
+            test.feedback_script_video_link = feedback_script_video_link
+        if test.feedback_video_script_template != feedback_video_script_template:
+            test.feedback_video_script_template = feedback_video_script_template
 
         test.save()
 
@@ -3356,6 +3378,19 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         test_attempt_session.save()
         calc_group_discussion_report_metrics(test_attempt_session, test)
 
+        if test.feedback_video_script_template:
+            klps_objects =  TestQuestionResponse.objects.filter(deleted=False,test_attempt_session_id=test_attempt_session.uid).exclude(kls_klp=None) # get all klps
+            klps = []
+            for klp in klps_objects:
+                if klp.kls_klp:
+                    klps.append(klp.kls_klp.get('klp'))
+            klps = list(set(klps)) # remove duplicates
+
+            feedback_script = Template(test.feedback_video_script_template).safe_substitute(
+                klps=klps
+            )
+            test_attempt_session.feedback_video_script = feedback_script
+            test_attempt_session.save(update_fields=["feedback_video_script"])
         if test.is_free:
             report_url = generate_summary_feedback_session_report_link(test_attempt_session.test)
 
@@ -4032,7 +4067,10 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "personality_model_data": test_attempt_session.personality_model_data,
         "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
         "skill_domain": test.skill_domain,
-        "creator_prompt_type": test.creator_prompt_type
+        "creator_prompt_type": test.creator_prompt_type,
+        'feedback_video_script': test_attempt_session.feedback_video_script,
+
+        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
 
     }
     
