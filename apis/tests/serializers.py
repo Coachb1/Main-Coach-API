@@ -237,7 +237,11 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "psychometric_report_config",
                   "personality_model",
                   "skill_domain",
-                  "creator_prompt_type"
+                  "creator_prompt_type",
+                  "feedback_script_video_link",
+                  "script_video_link",
+                  "video_script",
+                  "feedback_video_script_template"
                   ]
 
     def get_questions(self, instance):
