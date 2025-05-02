@@ -3387,7 +3387,7 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
             klps = list(set(klps)) # remove duplicates
 
             feedback_script = Template(test.feedback_video_script_template).safe_substitute(
-                klps=klps
+                klps="\n\n".join(klps)
             )
             test_attempt_session.feedback_video_script = feedback_script
             test_attempt_session.save(update_fields=["feedback_video_script"])
