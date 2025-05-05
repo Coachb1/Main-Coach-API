@@ -393,7 +393,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
-                'feedback_video_script': test.feedback_video_script_template
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
                 }
 
 
@@ -535,7 +536,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
-                'feedback_video_script': test.feedback_video_script_template
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
 
                  }
 
@@ -599,8 +601,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
-                'feedback_video_script': test.feedback_video_script_template,
-
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
 
 
@@ -750,8 +752,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
-                'feedback_video_script': test.feedback_video_script_template,
-
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
                 }
 

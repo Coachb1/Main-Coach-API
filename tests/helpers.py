@@ -4068,7 +4068,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         "culture_map_evaluation_criteria": culture_map_evaluation_criteria,
         "skill_domain": test.skill_domain,
         "creator_prompt_type": test.creator_prompt_type,
-        'feedback_video_script': test_attempt_session.feedback_video_script,
+        'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+        'video_script': test.video_script,
 
         'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
 
