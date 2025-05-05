@@ -2207,19 +2207,19 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
         "Evaluation Criteria:"
 
-        - Relevance: Does the answer directly address the question?
+            - Relevance: Does the answer directly address the question?
 
-        - Accuracy: Is the information in the answer correct?
+            - Accuracy: Is the information in the answer correct?
 
-        - Completeness: Does the answer provide a comprehensive response to the question?
+            - Completeness: Does the answer provide a comprehensive response to the question?
 
-        - Clarity: Is the answer well-written and easy to understand?
+            - Clarity: Is the answer well-written and easy to understand?
         
 
         "REQUIRED FROM LLM:" 
-            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
+            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5 for each skill listed in {skills_list}. Use decimal values for more precision (e.g., 4.2, 7.3).
             - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'skills_list',ensuring that no two skills receive the same score.
-            - Ensure that each skill is rated uniquely, with no repeated scores.
+            - Ensure that each skill is rated uniquely, with no repeated scores, must be from "{skills_list}".
             - Always evaluate only Skills within "{skills_list}".
 
         Strict Constraints:
@@ -2277,11 +2277,16 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                              "response": response})
                 
                 skills_rating_str = json_extraction(response)
-                skills_rating = json.loads(skills_rating_str)
-                
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                
+                skills_rating_json = json.loads(skills_rating_str)
+                skills_rating = {}
+                garbage_keywords = {s.strip().lower() for s in ['Overal', 'Performance', 'Total', 'Other', 'Top']}
+
+                for skill, rating in skills_rating_json.items():
+                    if skill.strip().lower() in garbage_keywords:
+                        logger.info(f"Skill '{skill}' in {garbage_keywords}")
+                        continue
+                    skills_rating[skill] = float(rating)
+
                 is_evaluated = True
                 break
             except Exception as e:
