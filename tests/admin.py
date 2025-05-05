@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from tenants.admin import TenantAwareModelAdmin
 from django.contrib import messages
 from users.helpers import get_client_info_from_user_detail
-from users.models import ClientUserInfo, UserAttribute
+from users.models import ClientUserInfo, UserAttribute,User
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
@@ -26,6 +26,7 @@ from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdmin
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
+from django import forms
 import io
 import csv
 import json
@@ -73,8 +74,19 @@ class OnlyCompetencyFilter(admin.SimpleListFilter):
             )
         return queryset
 
+class TestAdminForm(forms.ModelForm):
+    assigned_to = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        to_field_name='uid',  
+        label='Assigned To',
+        required=False
+    )
 
-class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
+    class Meta:
+        model = Test
+        fields = '__all__'
+class TestAdmin(ExportActionMixin, admin.ModelAdmin):
+    form=TestAdminForm
     list_per_page = 10
     list_display = (
         "uid",
@@ -94,6 +106,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "start_with_user",
+        "assigned_to",
     )
     search_fields = (
         "test_code",
@@ -114,6 +127,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "tab_category",
+        "assigned_to",
     )
     list_filter = (
         "deleted",
