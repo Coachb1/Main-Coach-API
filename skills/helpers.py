@@ -1243,12 +1243,19 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 response = model_functions[model](prompt)
                 
                 skills_rating_str = json_extraction(response)
-                skills_rating = json.loads(skills_rating_str)
+                skills_rating_json = json.loads(skills_rating_str)
                 
-                if not is_skill_matched(skills, skills_rating.keys()):
-                    raise ValueError("Skills not found in the skills list.")
+                # if not is_skill_matched(skills, skills_rating.keys()):
+                #     raise ValueError("Skills not found in the skills list.")
+                skills_rating = {}
+                garbage_keywords = {s.strip().lower() for s in ['Overal', 'Performance', 'Total', 'Other', 'Top']}
+
+                for skill, rating in skills_rating_json.items():
+                    if skill.strip().lower() in garbage_keywords:
+                        logger.info(f"Skill '{skill}' in {garbage_keywords}")
+                        continue
+                    skills_rating[skill] = float(rating)
                 
-                skills_rating = {skill: float(score) for skill, score in skills_rating.items()}
                 responses.append(skills_rating)
                 response = skills_rating
                 is_evaluated = True
