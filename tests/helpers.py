@@ -9881,7 +9881,8 @@ def create_scenario_from_site_context(url,
                                 "is_micro": test.is_micro,"scenario_case": test.scenario_case,
                                 "interaction_mode": test.interaction_mode, 
                                 "scenario": scenario,'prompt': prompt,
-                                "test_id": test.uid}
+                                "test_id": test.uid,
+                                "description_media": test.description_media}
                     logger.info(f'created Test: {result}')
                     return result
                     
@@ -9924,7 +9925,7 @@ def create_scenario_from_site_context(url,
                             "is_micro": response['is_micro'],"scenario_case": response['scenario_case'],
                             "interaction_mode": response['interaction_mode'], 
                             "scenario": scenario, 'prompt': prompt
-                            , "test_id": response['uid']}
+                            , "test_id": response['uid'], "description_media": response['description_media']}
                     
                 except Exception as e:
                     logger.error(e,exc_info=True)
@@ -10018,7 +10019,8 @@ def fetch_test_codes_by_site_context(url,tenant_id,by='skills',is_micro=True):
             "test_type": test.test_type,
             "is_micro": test.is_micro,
             'interaction_mode': test.interaction_mode,
-            'scenario_case': test.scenario_case 
+            'scenario_case': test.scenario_case ,
+            "description_media": test.description_media
         })
 
     return test_list
