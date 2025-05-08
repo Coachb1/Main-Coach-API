@@ -1215,12 +1215,12 @@ class TestViewSet(ApiViewSet,
                     temp_list = []
                     for test in tests:
                         if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
-                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro,"description_media": test.description_media })
                         else:
                             questions = TestQuestion.objects.filter(test_id=test.uid)
                             is_micro = False if ((questions.count() + 1) / 2) > 3 else True
                             print(is_micro,questions.count())
-                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro,"description_media": test.description_media })
 
 
                     data[competency] = temp_list
@@ -1279,7 +1279,7 @@ class TestViewSet(ApiViewSet,
         
         tests = Test.objects.filter(query)
         tests.filter(deleted=0)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case  } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case, "description_media": test.description_media  } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1357,7 +1357,8 @@ class TestViewSet(ApiViewSet,
                             "test_type": test.test_type,
                             "is_recommended": test.is_recommended,
                             "is_micro": test.is_micro,
-                            "scenario_case": test.scenario_case
+                            "scenario_case": test.scenario_case,
+                            "description_media": test.description_media
                         })
                 # Converting defaultdict to a regular dictionary
                 test_dict = dict(test_dict)
@@ -1764,6 +1765,7 @@ class TestViewSet(ApiViewSet,
                     "assigned_to": mapping.test.assigned_to,
                     "creator_user_id": mapping.test.creator_user_id,
                     "scenario_case": mapping.test.scenario_case,
+                    "description_media": mapping.test.description_media
 
                 }
  
