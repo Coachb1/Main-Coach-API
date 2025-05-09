@@ -902,7 +902,7 @@ class TestReportConfigAdmin(admin.ModelAdmin):
 class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
     list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain')
     change_list_template = "admin/testmapping/testmapping_changelist.html"  # custom template for button
-    search_fields = ('test__title', 'test__test_code', 'client__name', 'page_name', 'tab_category', 'domain')
+    search_fields = ('test__title', 'test__test_code', 'client__client_name', 'page_name', 'tab_category', 'domain')
     list_filter = ('test', 'client', 'page_name', 'tab_category', 'domain')
     list_editable = ('page_name', 'tab_category', 'domain')
     autocomplete_fields = ['test']
