@@ -112,6 +112,10 @@ SCRIPT_VIDEO_LINK = 'Script Video Link'
 FEEDBACK_SCRIPT_VIDEO_LINK = 'Feedback Video Link'
 FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
 
+def clean_text(text):
+    BRACKETS_QUOTES_REGEX =re.compile(r'[\[\]\(\)\{\}<>\"\'’]')
+
+    return BRACKETS_QUOTES_REGEX.sub('', text).strip()
 
 def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
     """
@@ -305,7 +309,7 @@ def format_test_orchestrated_conversation(raw_data):
         output_dict = {
             "creator_id": None,
             "title": input_dict['Title'],
-            "description": input_dict['Context'],
+            "description": clean_text(input_dict['Context']),
             "interaction_mode": "text",
             "email_candidate": True,
             "test_type": "orchestrated_conversation",
@@ -905,7 +909,7 @@ def format_test_data_slack(raw_data,tenant):
         output_dict = {
             "creator_id": None,
             "title": input_dict[TITLE],
-            "description": input_dict[DESCRIPTION],
+            "description": clean_text(input_dict[DESCRIPTION]),
             "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
             "test_type": input_dict[TEST_TYPE].strip().lower(),
             "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
