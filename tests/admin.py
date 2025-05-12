@@ -900,11 +900,11 @@ class TestReportConfigAdmin(admin.ModelAdmin):
 
 @admin.register(TestMapping)
 class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
-    list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain')
+    list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain','tab_sticker')
     change_list_template = "admin/testmapping/testmapping_changelist.html"  # custom template for button
     search_fields = ('test__title', 'test__test_code', 'client__client_name', 'page_name', 'tab_category', 'domain')
     list_filter = ('test', 'client', 'page_name', 'tab_category', 'domain')
-    list_editable = ('page_name', 'tab_category', 'domain')
+    list_editable = ('page_name', 'tab_category', 'domain','tab_sticker')
     autocomplete_fields = ['test']
     ordering = ('-id',)
     def get_urls(self):
@@ -921,7 +921,7 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             try:
                 csv_file = io.TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
                 reader = csv.DictReader(csv_file)
-                required_fields = ["test_code"]
+                required_fields = ["test_code",'tab_category']
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:
@@ -961,7 +961,8 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
                             page_name=row.get('page_name', '').strip() or None,
                             defaults={
                                 'tab_category': row.get('tab_category', '').strip() or None,
-                                'domain': row.get('domain', '').strip() or None
+                                'domain': row.get('domain', '').strip() or None,
+                                'tab_sticker': row.get('tab_sticker', '').strip() or None,
                             }
                         )
                         if created:
