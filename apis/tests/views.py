@@ -1765,7 +1765,8 @@ class TestViewSet(ApiViewSet,
                     "assigned_to": mapping.test.assigned_to,
                     "creator_user_id": mapping.test.creator_user_id,
                     "scenario_case": mapping.test.scenario_case,
-                    "description_media": mapping.test.description_media
+                    "description_media": mapping.test.description_media,
+                    'tab_sticker': mapping.tab_sticker,
 
                 }
  
