@@ -568,7 +568,7 @@ class TestMapping(MyModel):
         blank=True  
     )
     page_name = models.CharField(max_length=255, choices=PageNameChoices,null=True, blank=True, default=PageNameChoices.leadership_library)
-
+    tab_sticker = models.CharField(max_length=255, null=True, blank=True, default=None)
     class Meta:
         db_table = "test_mapping"
         verbose_name = "Test Mapping"
