@@ -921,7 +921,7 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             try:
                 csv_file = io.TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
                 reader = csv.DictReader(csv_file)
-                required_fields = ["test_code",'tab_category']
+                required_fields = ["test_code",'tab_category','page_name']
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:

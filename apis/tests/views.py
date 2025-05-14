@@ -1747,32 +1747,44 @@ class TestViewSet(ApiViewSet,
             if page_name:
                 test_mapping = test_mapping.filter(page_name=page_name)
 
-            result = {}
-
+            category_mapping = defaultdict(list)
             for mapping in test_mapping:
                 category = mapping.tab_category or "Uncategorized"
-                entry = {
-                    "title": mapping.test.title,
-                    "description": mapping.test.description,
-                    "domain": mapping.domain,
-                    "test_code": mapping.test.test_code,
-                    "interaction_mode": mapping.test.interaction_mode,
-                    "test_type": mapping.test.test_type,
-                    "is_micro": mapping.test.is_micro,
-                    "is_recommended": mapping.test.is_recommended,
-                    "is_assigned": mapping.test.is_assigned,
-                    "assigned_by": mapping.test.assigned_by,
-                    "assigned_to": mapping.test.assigned_to,
-                    "creator_user_id": mapping.test.creator_user_id,
-                    "scenario_case": mapping.test.scenario_case,
-                    "description_media": mapping.test.description_media,
-                    'tab_sticker': mapping.tab_sticker,
+                category_mapping[category].append(mapping)
 
-                }
- 
-                
-                result.setdefault(category, []).append(entry)
+            # Step 2: Process each category
+            result = {}
+            for category, mappings in category_mapping.items():
+                # Step 2a: Find the tab_sticker for this category (if any)
+                tab_sticker = next((x.tab_sticker for x in mappings if x.tab_sticker), None)
+                # for m in mappings:
+                #     if m.tab_sticker:
+                #         tab_sticker = m.tab_sticker
+                #         break  # Use the first non-null tab_sticker
 
+                # Step 2b: Build the entries
+                entries = []
+                for mapping in mappings:
+                    entry = {
+                        "title": mapping.test.title,
+                        "description": mapping.test.description,
+                        "domain": mapping.domain,
+                        "test_code": mapping.test.test_code,
+                        "interaction_mode": mapping.test.interaction_mode,
+                        "test_type": mapping.test.test_type,
+                        "is_micro": mapping.test.is_micro,
+                        "is_recommended": mapping.test.is_recommended,
+                        "is_assigned": mapping.test.is_assigned,
+                        "assigned_by": mapping.test.assigned_by,
+                        "assigned_to": mapping.test.assigned_to,
+                        "creator_user_id": mapping.test.creator_user_id,
+                        "scenario_case": mapping.test.scenario_case,
+                        "description_media": mapping.test.description_media,
+                        "tab_sticker": tab_sticker  # Apply category-level sticker
+                    }
+                    entries.append(entry)
+
+                result[category] = entries
             data = {
                 "total_mappings": test_mapping.count(),
                 "results": result
