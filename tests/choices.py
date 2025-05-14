@@ -52,6 +52,7 @@ class ScenarioCaseChoices(DjangoChoices):
     psychometric = ChoiceItem('psychometric')
     game = ChoiceItem('game')
     journaling = ChoiceItem('journaling')
+    observation = ChoiceItem("observation")   # couldn't attempt this type of test just to observe
 
 class PersonalityModelChoices(DjangoChoices):
     sixteen_factor_discussion = ChoiceItem('sixteen_factor_discussion')
