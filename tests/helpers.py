@@ -11471,7 +11471,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
     return results
 
 import json
-from .models import Psychometric, PsychometricItem
+from .models import Psychometric, PsychometricItem, TestMapping
 
 def extract_section_details(json_data):
     extracted_data = []
@@ -13669,3 +13669,83 @@ def update_all_skills(test_code=None):
         #     TestQuestion.objects.bulk_update(all_updated_questions, ['key_learning_skills'])
         #     Test.objects.bulk_update(all_updated_test, ['skills_to_evaluate'])
     logger.info(f"Updated {len(all_updated_questions)} questions and {len(all_updated_test)} tests with new skills.")
+
+
+# def update_title():
+
+#     # Your JSON mapping of test_code to new title
+#     title_updates ={'QJCDSQB': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/F_QJCDSQB.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QJCDSQB.mp4'}, 'QMIVBLV': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QMIVBLV.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QMIVBLV.mp4'}, 'Q9WTCHD': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q9WTCHD.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q9WTCHD.mp4'}, 'QAZF9KD': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QAZF9KD.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QAZF9KD.mp4'}, 'QRELWH8': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QRELWH8.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QRELWH8.mp4'}, 'QE3JZHB': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QE3JZHB.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QE3JZHB.mp4'}, 'QCURL1Q': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QCURL1Q.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QCURL1Q.mp4'}, 'Q9T9EMT': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q9T9EMT.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q9T9EMT.mp4'}, 'QHQKCNZ': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QHQKCNZ.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QHQKCNZ.mp4'}, 'QTL85IU': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QTL85IU.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QTL85IU.mp4'}, 'QFT6RTL': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QFT6RTL.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QFT6RTL.mp4'}, 'QX7JEKM': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QX7JEKM.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QX7JEKM.mp4'}, 'Q5XZR06': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q5XZR06.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q5XZR06.mp4'}, 'QVP1AYJ': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QVP1AYJ.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QVP1AYJ.mp4'}, 'QH5LF15': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QH5LF15.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QH5LF15.mp4'}, 'QZHMA32': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QZHMA32.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QZHMA32.mp4'}, 'QOH52H3': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QOH52H3.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QOH52H3.mp4'}, 'QSIUW6F': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QSIUW6F.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QSIUW6F.mp4'}, 'QVHJVIS': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQVHJVIS.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QSIUW6F.mp4'}, 'Q7XM38Y': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q7XM38Y.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q7XM38Y.mp4'}, 'Q8B4R4M': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q8B4R4M.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q8B4R4M.mp4'}, 'QLR0S2M': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QLR0S2M.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QLR0S2M.mp4'}, 'QMJT2BQ': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QMJT2BQ.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QMJT2BQ.mp4'}, 'QJYGIVO': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QJYGIVO.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QJYGIVO.mp4'}, 'QF1LF9N': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QF1LF9N.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QF1LF9N.mp4'}, 'QQ1JSXE': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQ1JSXE.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQ1JSXE.mp4'}, 'QTFP87R': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QTFP87R.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QTFP87R.mp4'}, 'Q2KQGIM': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q2KQGIM.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q2KQGIM.mp4'}, 'QDY8VQR': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QDY8VQR.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QDY8VQR.mp4'}, 'Q9NHTL0': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q9NHTL0.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q9NHTL0.mp4'}, 'QQ8ZYHP': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQ8ZYHP.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQ8ZYHP.mp4'}, 'Q85YBIF': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q85YBIF.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q85YBIF.mp4'}, 'Q9T0VN8': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q9T0VN8.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q9T0VN8.mp4'}, 'QN97HR3': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QN97HR3.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QN97HR3.mp4'}, 'Q1KOYYU': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q1KOYYU.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q1KOYYU.mp4'}, 'QSA5DHO': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QSA5DHO.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QSA5DHO.mp4'}, 'QG5IKB3': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QG5IKB3.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QG5IKB3.mp4'}, 'QKAVQPK': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QKAVQPK.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QKAVQPK.mp4'}, 'Q4V56R0': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q4V56R0.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q4V56R0.mp4'}, 'QQLS9WP': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQLS9WP.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QQLS9WP.mp4'}, 'Q9O6K2J': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q9O6K2J.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q9O6K2J.mp4'}, 'QSCNQBV': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QSCNQBV.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QSCNQBV.mp4'}, 'Q38D3LD': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q38D3LD.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q38D3LD.mp4'}, 'QEF4BU3': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QEF4BU3.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QEF4BU3.mp4'}, 'QKRFU59': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QKRFU59.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QKRFU59.mp4'}, 'QN9KPPK': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QN9KPPK.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QN9KPPK.mp4'}, 'QJ3I2BM': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QJ3I2BM.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QJ3I2BM.mp4'}, 'Q458HIG': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q458HIG.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q458HIG.mp4'}, 'QVZLW4C': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQVZLW4C.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQVZLW4C.mp4'}, 'QKH8QO3': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QKH8QO3.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QKH8QO3.mp4'}, 'Q0TIEX7': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q0TIEX7.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q0TIEX7.mp4'}, 'Q7ZGITI': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q7ZGITI.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q7ZGITI.mp4'}, 'QVECGH2': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQVECGH2.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QQVECGH2.mp4'}, 'Q3GIV1E': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q3GIV1E.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q3GIV1E.mp4'}, 'QTZ8H6N': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QTZ8H6N.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QTZ8H6N.mp4'}, 'Q8VD0ED': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q8VD0ED.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q8VD0ED.mp4'}, 'Q41S2DY': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q41S2DY.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_Q41S2DY.mp4'}, 'QL46CBR': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQL46CBR.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQL46CBR.mp4'}, 'QCS18H2': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QCS18H2.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QCS18H2.mp4'}, 'QFRS201': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QFRS201.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QFRS201.mp4'}, 'Q2GNIX8': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q2GNIX8.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q2GNIX8.mp4'}, 'Q85FQW5': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_Q85FQW5.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_Q85FQW5.mp4'}, 'QQF5FYK': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QQF5FYK.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QQF5FYK.mp4'}, 'QMDIM2S': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QMDIM2S.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QMDIM2S.mp4'}, 'QIM1PMJ': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QIM1PMJ.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QIM1PMJ.mp4'}, 'QTBTDGW': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QTBTDGW.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QTBTDGW.mp4'}, 'QIMWU2R': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QIMWU2R.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/I_QIMWU2R.mp4'}, 'QM3K7IA': {'feedback_link': 'https://storage.googleapis.com/publicvid/Ashika/f_QM3K7IA.mp4', 'video_link': 'https://storage.googleapis.com/publicvid/Ashika/i_QM3K7IA.mp4'}}
+#     test_mappings  = TestMapping.objects.filter(deleted=False)
+#     # test_codes = {'Q2KQGIM', 'QT6N1Y2', 'QDVY235', 'QDYNH8A', 'Q7XM38Y', 'QZHMA32', 'QN97HR3', 'QKU2J8U', 'QPYQ2OE', 'QSA5DHO', 'QIJU0MO', 'Q94U21H', 'Q41S2DY', 'QATCZSI', 'QJCDSQB', 'QER60Z6', 'Q60SLJ5', 'Q5XZR06', 'QV7HMZX', 'Q0BJSXR', 'QJYGIVO', 'QTFP87R', 'QGD4E75', 'QHQKCNZ', 'QCURL1Q', 'QOZYZC6', 'QEOPC7H', 'QQAGCZ2', 'Q458HIG', 'QKH8QO3', 'QEWAZY3', 'QTZ8H6N', 'QMIVBLV', 'QSCNQBV', 'QDY8VQR', 'QM3K7IA', 'QN9IB6U', 'Q3GIV1E', 'QE3JZHB', 'QFT6RTL', 'QMPGZQ5', 'Q9T9EMT', 'QF1LF9N', 'Q9O6K2J', 'QM7QPDG', 'QCPEI3X', 'QWHPY0Z', 'QIXFGPI', 'QMJT2BQ', 'Q4V56R0', 'QEDZLCT', 'Q38D3LD', 'QQGB7CZ', 'Q6CS1IU', 'Q8B4R4M', 'QI922W2', 'QKK3B73', 'Q77WQBQ', 'QHTX0PM', 'Q1QF4RB', 'Q2DZ4JR', 'Q2NHNUX', 'QH5LF15', 'Q843RVX', 'Q2GNIX8', 'QSIUW6F', 'QO7NM2O', 'Q8VD0ED', 'QIMWU2R', 'Q85YBIF', 'QYM06JN', 'QG5IKB3', 'QVZLW4C', 'QQ8ZYHP', 'Q4OMUXD', 'Q19OLIF', 'QVP1AYJ', 'QIR47SR', 'QOS0OOA', 'QR2LGHP', 'QKAVQPK', 'Q8SE2B2', 'QV38N76', 'QJ3I2BM', 'QVHO7J6', 'QKLVLR5', 'Q4BK2ST', 'QVECGH2', 'Q1KOYYU', 'Q1MYNAO', 'QTNRDLL', 'QQ1JSXE', 'Q7NSN2N', 'QMLO5YK', 'QRELWH8', 'QXGDL75', 'Q9T0VN8', 'Q0EUS6V', 'Q2HHRSI', 'QKRG6UM', 'QCS18H2', 'QUSG9PM', 'QPY9YTW', 'QIM1PMJ', 'QFRS201', 'QWGB0BE', 'QBLA1YC', 'Q6FOIUZ', 'Q0EGZHM', 'QAZF9KD', 'QU2BK21', 'QX7JEKM', 'Q7ZGITI', 'QLGN9GQ', 'QLR0S2M', 'QN9KPPK', 'QOT15MM', 'QEF4BU3', 'QDE74R4', 'QZZCPLD', 'QE5YPEF', 'Q3D0112', 'QU7Y3X1', 'Q85FQW5', 'Q9NHTL0', 'QQLS9WP', 'Q68YT7P', 'QPK9H1B', 'QC0AMNN', 'QLJBIES', 'QJU4A83', 'Q8LTQIC', 'Q0TIEX7', 'Q7KS3ZG', 'QXPEZYN', 'QIRHVRI', 'QTL85IU', 'QKRFU59', 'Q8JLXDV', 'Q4C5TV5', 'QGJGLQE', 'QOH52H3', 'Q5M2AWF', 'QQOH1OY', 'QMDIM2S', 'QSIVBXI'}
+  
+#     # print(test_codes)
+#     test_deatils = []
+#     prompt = """
+#    Data: "${para}"
+
+# Please review the above data and add any missing puntaution marks and grammar correction(Do not print any introduction and special characters)
+# json output format = {
+# "updated_data" : "Updated data"
+# }
+# """
+#     with transaction.atomic():
+#         cnt = 1
+#         for test_mapping in test_mappings:
+#             test_d = {}
+#             test_d['Test code'] = test_mapping.test.test_code
+#             print(test_mapping.test.test_code)
+#             desc = " ".join(test_mapping.test.description.split('\n'))
+#             test_d['Old desc'] = desc
+#             test_d['Description'] = json.loads(json_extraction(gemini_completion(
+#                 prompt = Template(prompt).substitute(para=desc)))).get('updated_data')
+#             # if test_mapping.test.test_type == TestTypeChoices.test:
+#             #     questions = TestQuestion.objects.filter(test_id=test_mapping.test.uid, deleted=False)
+#             #     for index, question in enumerate(questions):
+#             #         test_d[f'Question {index}'] = json.loads(json_extraction(gemini_completion(
+#             #     prompt = Template(prompt).substitute(para=question.question)))).get('updated_paragraph')
+#             # elif test_mapping.test.test_type == TestTypeChoices.dynamic_discussion_thread:
+#             #     print(test_mapping.test.orchestrated_conversation_details)
+#             #     if len(test_mapping.test.orchestrated_conversation_details['initial_messages']) > 0:
+#             #         test_d['Person 0'] = json.loads(json_extraction(gemini_completion(
+#             #     prompt = Template(prompt).substitute(para=test_mapping.test.orchestrated_conversation_details['initial_messages'][0])))).get('updated_paragraph')
+
+
+#             test_deatils.append(test_d)
+
+#             # if cnt == 2:
+#             #     break
+
+
+#             cnt+=1
+            
+#     #     tests = Test.objects.filter(deleted=False)
+
+#     #     for test in tests:
+#     #         test.description = re.sub(r'(?i)\bstatement\s*:\s', '\n\n', test.description).strip()
+#     #         # data = title_updates.get(test.test_code)
+#     #         # print(test.test_code, data)
+#     #         # if data:
+#     #         #     test.description_media = data.get('video_link')
+#     #         #     test.feedback_script_video_link = data.get('feedback_link')
+
+#     #     Test.objects.bulk_update(tests, ['description'])
+
+#     # print(f"Updated {len(tests)} test titles successfully.")
+#     print(test_deatils)
+
+#     fieldnames = set()
+#     for item in test_deatils:
+#         fieldnames.update(item.keys())
+#     # fieldnames = sorted(fieldnames)
+
+#     # Write to CSV
+#     csv_file = 'output_file_2.csv'
+#     with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
+#         writer = csv.DictWriter(file, fieldnames=fieldnames)
+#         writer.writeheader()
+#         writer.writerows(test_deatils)
+
+#     print(f"CSV saved as {csv_file}")
+
+
+
