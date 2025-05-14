@@ -535,7 +535,7 @@ def format_test_orchestrated_conversation(raw_data):
                 else:
                     output_dict['is_transcript_only'] = False
 
-        if output_dict['scenario_case'] == 'journaling':
+        if output_dict['scenario_case'] in ['journaling', 'observation']:
             output_dict['is_transcript_only'] = True
 
         if IS_FREE in input_dict:
@@ -1046,7 +1046,7 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['is_transcript_only'] = False
                     is_transcript_only = False
                     
-        if output_dict['scenario_case'] == 'journaling':
+        if output_dict['scenario_case'] in ['journaling', 'observation']:
             output_dict['is_transcript_only'] = True
             is_transcript_only = True
 
@@ -1768,6 +1768,14 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
 
             # Check for null or empty data in specified columns for each row
             for row_data in all_rows:
+                scenario_case = row_data.get(SCENARIO_CASE, '').lower()
+                
+                if scenario_case == 'observation':
+                    columns_check = [TITLE, DESCRIPTION, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
+                else:
+                    columns_check = [TITLE, DESCRIPTION,
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]
+
 
                 for col in columns_check:
                     if col not in row_data:
