@@ -22,10 +22,12 @@ from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
-from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
+from .forms import BulkUpdateForm, CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+
 import io
 import csv
 import json
@@ -907,12 +909,47 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
     list_editable = ('page_name', 'tab_category', 'domain','tab_sticker')
     autocomplete_fields = ['test']
     ordering = ('-id',)
+    actions = ['bulk_update_fields']
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path('upload-csv/', self.admin_site.admin_view(self.upload_csv), name='testmapping-upload-csv'),
         ]
         return custom_urls + urls
+
+    def bulk_update_fields(self, request, queryset):
+        form = None
+
+        if 'apply' in request.POST:
+            form = BulkUpdateForm(request.POST)
+            if form.is_valid():
+                data = form.cleaned_data
+                updated = 0
+
+                for obj in queryset:
+                    if data['tab_category']:
+                        obj.tab_category = data['tab_category']
+                    if data['tab_sticker']:
+                        obj.tab_sticker = data['tab_sticker']
+                    if data['tab_difficulty']:
+                        obj.tab_difficulty = data['tab_difficulty']
+                    if data['tab_type']:
+                        obj.tab_type = data['tab_type']
+                    obj.save()
+                    updated += 1
+
+                self.message_user(request, f"Successfully updated {updated} records.")
+                return redirect(request.get_full_path())
+
+        else:
+            form = BulkUpdateForm(initial={'_selected_action': request.POST.getlist(ACTION_CHECKBOX_NAME)})
+
+        return render(request, "admin/testmapping/testmapping_bulk_update.html", {
+            'items': queryset,
+            'form': form,
+            'title': "Bulk Update TestMapping Fields"
+        })
 
     def upload_csv(self, request):
         if request.method == "POST":
@@ -963,6 +1000,8 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
                                 'tab_category': row.get('tab_category', '').strip() or None,
                                 'domain': row.get('domain', '').strip() or None,
                                 'tab_sticker': row.get('tab_sticker', '').strip() or None,
+                                'tab_difficulty': row.get('tab_difficulty', '').strip() or 'Difficuly Level : Intermediate',
+                                'tab_type': row.get('tab_type', '').strip() or 'simulation',
                             }
                         )
                         if created:
