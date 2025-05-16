@@ -1748,24 +1748,28 @@ class TestViewSet(ApiViewSet,
                 test_mapping = test_mapping.filter(page_name=page_name)
 
             category_mapping = defaultdict(list)
+            categor_info = {}
             for mapping in test_mapping:
                 category = mapping.tab_category or "Uncategorized"
-                category_mapping[category].append(mapping)
+                
+                if category not in categor_info:
+                    categor_info[category] = {
+                        'category': category,
+                    }
 
-            # Step 2: Process each category
-            result = {}
-            for category, mappings in category_mapping.items():
-                # Step 2a: Find the tab_sticker for this category (if any)
-                tab_sticker = next((x.tab_sticker for x in mappings if x.tab_sticker), None)
-                # for m in mappings:
-                #     if m.tab_sticker:
-                #         tab_sticker = m.tab_sticker
-                #         break  # Use the first non-null tab_sticker
+                    
+                if 'tab_sticker' not in categor_info[category]:
+                    tab_sticker = next((x.tab_sticker for x in test_mapping if x.tab_sticker), None)
+                    categor_info[category]['tab_sticker'] = mapping.tab_sticker
+                
+                if 'tab_type' not in categor_info[category]:
+                    categor_info[category]['tab_type'] = mapping.tab_type
 
-                # Step 2b: Build the entries
-                entries = []
-                for mapping in mappings:
-                    entry = {
+                if 'tab_difficulty' not in categor_info[category]:
+                    categor_info[category]['tab_difficulty'] = mapping.tab_difficulty
+                
+
+                category_mapping[category].append({
                         "title": mapping.test.title,
                         "description": mapping.test.description,
                         "domain": mapping.domain,
@@ -1780,14 +1784,13 @@ class TestViewSet(ApiViewSet,
                         "creator_user_id": mapping.test.creator_user_id,
                         "scenario_case": mapping.test.scenario_case,
                         "description_media": mapping.test.description_media,
-                        "tab_sticker": tab_sticker  # Apply category-level sticker
-                    }
-                    entries.append(entry)
+                        "tab_sticker": categor_info[category]['tab_sticker']  # Apply category-level sticker
+                    })
 
-                result[category] = entries
             data = {
                 "total_mappings": test_mapping.count(),
-                "results": result
+                "results": category_mapping,
+                "category_info": categor_info
             }
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
