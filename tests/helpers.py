@@ -7515,9 +7515,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
         Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
 
         Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
         Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions.
@@ -7556,6 +7556,47 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         \n\nAssistant:
 
     """
+
+    elif scenario_type == 'observation_static':
+        prompt = """
+        \n\nHuman:
+        {Information} -
+        %s -
+        Read this {information} thoroughly. Now, based on this information and your understanding, create an advanced and detailed scenario to practice the skills related to {skill_domain}. The scenario should be in the {department} department of a {industry} company. if required information not provide in {information} then analysis it generate.. After creating the situation, provide these:
+        Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails. description in markdown lang.
+        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
+        Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
+        Title must follow this Format:
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
+            Example format:
+                "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
+
+
+        Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        At the end of the scenario description please provide a short executive summary that contains the data driven background information NOT captured the situation that the user can levearge to answer any questions related to the scenario.
+        In every response, you must:
+        Clearly state your role as X.
+        Identify Y as the person asking
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        “Statement:",
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE : Based on this information {information} please evaluate this scenario provides a good practice to improve the skills that are given in the scenario. Evaluate whether the scenario is relevant and understandable. Give the scenario an overall rating out of 10. Just give the rating in the output in this format - for example: "Rating : 6". Rating Must be in output. Do not include any other explanation.
+        NOTE: "Rating" must be included.
+        NOTE : Make sure the simulation is very advanced and tough.
+        NOTE: Never miss this, Always end description with this approach and mention this in the “statement”: You are X, interacting with Y. Y will ask you questions related to [description]. Your intent is to achieve Z.
+        NOTE: Never miss Title, Description, Statement and other variables.
+        NOTE: Do not mention literal "X" or "Y", "z.
+        NOTE: must Follow the OUTPUT Format.
+        NOTE: Please review the "Descripton", Statment and add any missing puntaution marks and grammar correction.
+
+
+        \n\nAssistant:
+
+        """
+        return f"{prompt}"%(information)
+
     elif scenario_type == 'whatsapp_normal_static':
       prompt = '''
       \n\nHuman:
@@ -7564,9 +7605,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         Description - Define the situation and the problem within {50} words. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration. It shall always remain between two specific individuals, as determined by the context provided in the {information}.
         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
         Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
         Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions.
         Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
         KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
@@ -7608,9 +7649,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration. It shall always remain between two specific individuals, as determined by the context provided in the {information}.
         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
         Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
         Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions.
         Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
         KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
@@ -7651,9 +7692,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
         Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
         Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
         Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
         KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
@@ -7698,9 +7739,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
         Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
         Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
         Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
         KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
@@ -7744,9 +7785,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
           Description - Define the situation and the problem. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
           Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description related to the check-in.
           Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
           Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.
           Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide a feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
           KLP - With each question add one or two line takeaway for providing feedback. The takeaways should be related to the question it is provided with.
@@ -7792,9 +7833,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
             Description - Define the situation and the problem, and the problem focuses exclusively on hard skills. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
             Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
             Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on hard skills
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
@@ -7845,9 +7886,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
             Description - Define the situation and the problem, and the problem focuses exclusively on soft skills. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration.
             Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
             Title must follow this Format:
-              "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
-              Example format:
-                    "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
+            Example format:
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
             Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the situation. NEVER provide a response to the questions.Question shall focus exclusively on soft skills
             Custom prompt - With each question, add a prompt that would ask feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
             KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is provided with.
@@ -7891,9 +7932,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
                 Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
 
                 Title must follow this Format:
-                  "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
-                  Example format:
-                        "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                    "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
+                    Example format:
+                        "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
                 Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions. Question shall focus exclusively on soft skills
                 Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
                 KLP - With each question add one or two line takeaways for providing feedback. The takeaways should be related to the question it is supplied with.
@@ -7938,9 +7979,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
                 Description - Define the situation and the problem, and the problem focuses exclusively on hard skills. The problem should be related to the {information} provided. The description should always involve a conversation based on the context of the {information}. Make the description specific based on the information, focusing on relevant details. Provide the name of the individual in a leadership role based on the information, but never provide the name of the other person involved. The description should detail the situation that led to the issue, and it should not include dialogues. It should always be from a third-person perspective. Provide the description in 100 to 200 words. Avoid adding any conclusions. The situation should not be related to writing emails.        Always replace the terms with those relevant to the {information}, ensuring the scenario is based on the specifics of the context and is open-ended for further exploration. It shall always remain between two specific individuals, as determined by the context provided in the {information}.
                 Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
                 Title must follow this Format:
-                  "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
-                  Example format:
-                        "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                    "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
+                    Example format:
+                        "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
                 Questions - Develop a set of {%s} question(s) ONLY based on the situation. The questions should be related to the problem. NEVER respond to the questions. Question shall focus exclusively on hard skills
                 Custom prompt - With each question, add a prompt asking for feedback from Anthropic about the RESPONSE quality based on best practices. The prompt should ONLY evaluate the quality of the response. NEVER give the prompts to evaluate the questions. Example - {Please provide feedback on the manager's response if the manager focuses on making the team member understand the metrics instead of focusing on the results.}
 
@@ -7996,9 +8037,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
       Identify Y as the person asking
       Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
       Title must follow this Format:
-            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
             Example format:
-                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                  "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
 
       Prompts - As given in the output format.
 
@@ -8064,9 +8105,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
                           Identify Y as the person asking
                           Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
                           Title must follow this Format:
-                            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+                            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
                             Example format:
-                                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                                "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
                           Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Never start with any introduction sentences. Start with the question directly.
                           use this template strictly to generate Questions: ""Thank for connecting. I am looking forward to learning more about the {intent}."". Strictly follow this template structure and do not print any sentence with a question mark.
 
@@ -8132,9 +8173,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
                         Identify Y as the person asking
                         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
                         Title must follow this Format:
-                          "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
-                          Example format:
-                                "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
+                            Example format:
+                                "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
                         Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Question shall focus exclusively on hard skills. Never start with any introduction sentences. Start with the question directly.
                         use this template strictly to generate Questions: ""Thank for connecting. I am looking forward to learning more about the {intent}."". Strictly follow this template structure and do not print any sentence with a question mark.
 
@@ -8199,9 +8240,9 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
                         Identify Y as the person asking
                         Title - Give a specific and relevant title for this description. The title should NEVER be less than 8 words. The title should always be directly related to the given description. Make it very specific to the description.
                         Title must follow this Format:
-                            "[Short 3-4 word core areas] ( High Level Skill : skill1, skill2)"
+                            "➡ [Short 3-4 word core areas] (💡High Level Skill : skill1, skill2)"
                             Example format:
-                                  "AI-Powered E-commerce Chatbots (High-Level Skill: NLP, Dialogflow)"
+                                "➡ AI-Powered E-commerce Chatbots (💡High-Level Skill: NLP, Dialogflow)"
                         Questions - Give me the first question based on the situation in description .The question should be deep, thoughtful and realistic. Give the name of person asking the question. Keep it less than 35 words. NEVER provide a response to the question. Question shall focus exclusively on soft skills. Never start with any introduction sentences. Start with the question directly.
                         use this template strictly to generate Questions: ""Thank for connecting. I am looking forward to learning more about the {intent}."". Strictly follow this template structure and do not print any sentence with a question mark.
 
