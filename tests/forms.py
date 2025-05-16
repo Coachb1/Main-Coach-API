@@ -6,7 +6,7 @@ from tenants.models import Tenant
 from tests.models import Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 import csv
-from .models import PsychometricReportSection, PsychometricReportSubsection
+from .models import PsychometricReportSection, PsychometricReportSubsection, Test
 from io import TextIOWrapper
 
 
@@ -198,3 +198,11 @@ class PsychometricReportAdminForm(forms.ModelForm):
         except Exception as e:
             raise ValidationError(f"Error processing CSV: {str(e)}") 
 
+
+
+class BulkUpdateForm(forms.Form):
+    _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
+    tab_category = forms.CharField(required=False)
+    tab_type = forms.CharField(required=False)
+    tab_difficulty = forms.CharField(required=False)
+    tab_sticker = forms.CharField(required=False)

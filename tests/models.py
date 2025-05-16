@@ -569,6 +569,8 @@ class TestMapping(MyModel):
     )
     page_name = models.CharField(max_length=255, choices=PageNameChoices,null=True, blank=True, default=PageNameChoices.leadership_library)
     tab_sticker = models.CharField(max_length=255, null=True, blank=True, default=None)
+    tab_difficulty = models.CharField(max_length=255, null=True, blank=True, default="Difficuly Level : Intermediate")
+    tab_type = models.CharField(max_length=255, null=True, blank=True, default='simulation')
     class Meta:
         db_table = "test_mapping"
         verbose_name = "Test Mapping"
