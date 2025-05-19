@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer
+from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -112,10 +112,13 @@ class TestViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
-        serializer = CreateTestSerializer(data=request.data)
+        if request.data.get("test_code"):
+            serializer = UpdateTestSerializer(data=request.data)
+        else:
+            serializer = CreateTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data["creator_id"] is None:
+        if serializer.validated_data.get('creator_id') is None:
             serializer.validated_data["creator_id"] = request.auth_user.uid
 
 
@@ -139,11 +142,11 @@ class TestViewSet(ApiViewSet,
         """
         Partially updates an existing test based on the provided data.
         """
-        serializer = CreateTestSerializer(data=request.data)
+        serializer = UpdateTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         print(serializer.validated_data)
 
-        if serializer.validated_data["creator_id"] is None:
+        if serializer.validated_data.get("creator_id") is None:
             serializer.validated_data["creator_id"] = request.auth_user.uid
 
         test, test_questions = update_test(
