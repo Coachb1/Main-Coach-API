@@ -75,6 +75,23 @@ class OnlyCompetencyFilter(admin.SimpleListFilter):
             )
         return queryset
 
+class HasDescriptionMediaFilter(admin.SimpleListFilter):
+    title = 'Has Description Media'
+    parameter_name = 'has_description_media'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', 'Yes'),
+            ('no', 'No'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.exclude(description_media__isnull=True).exclude(description_media__exact='')
+        elif self.value() == 'no':
+            return queryset.filter(description_media__isnull=True) | queryset.filter(description_media__exact='')
+        return queryset
+
 
 class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
@@ -83,6 +100,8 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "test_code",
         "deleted",
         "title",
+        "description",
+        'description_media',
         "test_type",
         "scenario_case",
         "interaction_mode",
@@ -107,6 +126,9 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     )
     list_editable = (
         "deleted",
+        'title',
+        'description',
+        'description_media',
         "calculate_culture",
         "page_name",
         "client_name",
@@ -127,6 +149,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "client_name",
         StartWithUserFilter,
         OnlyCompetencyFilter,
+        HasDescriptionMediaFilter
     )
     ordering = ("-id",)
 
