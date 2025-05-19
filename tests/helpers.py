@@ -597,154 +597,149 @@ def update_test(tenant: Tenant,
         logger.exception("failed to update test, test with code %s does not exist", test_code)
         raise serializers.ValidationError("invalid test code")
 
-    try:
-        creator = User.objects.get(tenant_id=tenant.uid, uid=creator_id, deleted=0)
-    except User.DoesNotExist:
-        logger.exception("failed to update test, creator with id %s does not exist", creator_id)
-        raise serializers.ValidationError("invalid creator id")
 
     with transaction.atomic():
         # Only update fields if the new value is different from the current value
-        if test.title != title:
+        if title and test.title != title:
             test.title = title
-        if test.candidate_type != candidate_type:
+        if candidate_type and test.candidate_type != candidate_type:
             test.candidate_type = candidate_type
-        if test.email_address_list != email_address_list:
+        if email_address_list and test.email_address_list != email_address_list:
             test.email_address_list = email_address_list
-        if test.send_only_to_email != send_only_to_email:
+        if send_only_to_email and test.send_only_to_email != send_only_to_email:
             test.send_only_to_email = send_only_to_email
-        if test.email_candidate != email_candidate:
+        if email_candidate and test.email_candidate != email_candidate:
             test.email_candidate = email_candidate
-        if test.gpt_prompt_override != gpt_prompt_override:
+        if  gpt_prompt_override and test.gpt_prompt_override != gpt_prompt_override:
             test.gpt_prompt_override = gpt_prompt_override
-        if test.description != description:
+        if description and test.description != description:
             test.description = description
-        if test.interaction_mode != interaction_mode:
+        if interaction_mode and test.interaction_mode != interaction_mode:
             test.interaction_mode = interaction_mode
-        if test.test_type != test_type:
+        if test_type and test.test_type != test_type:
             test.test_type = test_type
-        if test.is_single_bot != is_single_bot:
+        if is_single_bot and test.is_single_bot != is_single_bot:
             test.is_single_bot = is_single_bot
-        if test.skill_domain != skill_domain:
+        if skill_domain and test.skill_domain != skill_domain:
             test.skill_domain = skill_domain
-        if test.creator_prompt_type != creator_prompt_type:
+        if creator_prompt_type and test.creator_prompt_type != creator_prompt_type:
             test.creator_prompt_type = creator_prompt_type
-        if test.is_learner_path != is_learner_path:
+        if is_learner_path and test.is_learner_path != is_learner_path:
             test.is_learner_path = is_learner_path
-        if test.is_checkin_type != is_checkin_type:
+        if is_checkin_type and test.is_checkin_type != is_checkin_type:
             test.is_checkin_type = is_checkin_type
-        if test.is_email_type != is_email_type:
+        if is_email_type and test.is_email_type != is_email_type:
             test.is_email_type = is_email_type
-        if test.skills_to_evaluate != skills_to_evaluate:
-            test.skills_to_evaluate = skills_to_evaluate
-        if test.tedtalk_and_hbr_case != tedtalk_and_hbr_case:
+        
+        if tedtalk_and_hbr_case and test.tedtalk_and_hbr_case != tedtalk_and_hbr_case:
             test.tedtalk_and_hbr_case = tedtalk_and_hbr_case
-        if test.test_related_context != test_related_context:
+        if test_related_context and test.test_related_context != test_related_context:
             test.test_related_context = test_related_context
-        if test.orchestrated_conversation_details != orchestrated_conversation_details:
+        if orchestrated_conversation_details and test.orchestrated_conversation_details != orchestrated_conversation_details:
             test.orchestrated_conversation_details = orchestrated_conversation_details
-        if test.description_media != description_media:
+        if description_media and test.description_media != description_media:
             test.description_media = description_media
-        if test.max_test_allowed != max_test_allowed:
+        if max_test_allowed and test.max_test_allowed != max_test_allowed:
             test.max_test_allowed = max_test_allowed
-        if test.scenario_case != scenario_case:
+        if scenario_case and test.scenario_case != scenario_case:
             test.scenario_case = scenario_case
-        if test.is_game_type != is_game_type:
+        if is_game_type and test.is_game_type != is_game_type:
             test.is_game_type = is_game_type
-        if test.is_free != is_free:
+        if is_free and test.is_free != is_free:
             test.is_free = is_free
-        if test.is_micro != is_micro:
+        if is_micro and test.is_micro != is_micro:
             test.is_micro = is_micro
-        if test.rating != rating:
+        if rating and test.rating != rating:
             test.rating = rating
-        if test.image_url != image_url:
+        if image_url and test.image_url != image_url:
             test.image_url = image_url
-        if test.source != source:
+        if source and test.source != source:
             test.source = source
-        if test.client_name != client_name:
+        if client_name and test.client_name != client_name:
             test.client_name = client_name
-        if test.goals != goals:
+        if goals and test.goals != goals:
             test.goals = goals
-        if test.course != course:
+        if course and test.course != course:
             test.course = course
-        if test.industry != industry:
+        if industry and test.industry != industry:
             test.industry = industry
-        if test.exp_level != exp_level:
+        if exp_level and test.exp_level != exp_level:
             test.exp_level = exp_level
-        if test.total_question != total_question:
+        if total_question and total_question > 0 and test.total_question != total_question:
             test.total_question = total_question
-        if test.certificate_details != certificate_details:
+        if certificate_details and test.certificate_details != certificate_details:
             test.certificate_details = certificate_details
-        if test.ui_information != ui_information:
+        if ui_information and test.ui_information != ui_information:
             test.ui_information = ui_information
-        if test.is_self_created != is_self_created:
+        if is_self_created and test.is_self_created != is_self_created:
             test.is_self_created = is_self_created
-        if test.is_logged_in != is_logged_in:
+        if is_logged_in and test.is_logged_in != is_logged_in:
             test.is_logged_in = is_logged_in
-        if test.is_immersive != is_immersive:
+        if is_immersive and test.is_immersive != is_immersive:
             test.is_immersive = is_immersive
-        if test.media_props != media_props:
+        if media_props and test.media_props != media_props:
             test.media_props = media_props
-        if test.is_transcript_only != is_transcript_only:
+        if is_transcript_only and test.is_transcript_only != is_transcript_only:
             test.is_transcript_only = is_transcript_only
-        if test.is_pitch != is_pitch:
+        if is_pitch and test.is_pitch != is_pitch:
             test.is_pitch = is_pitch
-        if test.articles != articles:
+        if articles and test.articles != articles:
             test.articles = articles
-        if test.bot_name != bot_name:
+        if bot_name and test.bot_name != bot_name:
             test.bot_name = bot_name
-        if test.creator_user_id != creator_user_id:
+        if creator_user_id and test.creator_user_id != creator_user_id:
             test.creator_user_id = creator_user_id
-        if test.competency_group != competency_group:
+        if competency_group and test.competency_group != competency_group:
             test.competency_group = competency_group
-        if test.area_domain != area_domain:
+        if area_domain and test.area_domain != area_domain:
             test.area_domain = area_domain
-        if test.tab_category != tab_category:
+        if tab_category and test.tab_category != tab_category:
             test.tab_category = tab_category
-        if test.is_recommended != is_recommended:
+        if is_recommended and test.is_recommended != is_recommended:
             test.is_recommended = is_recommended
-        if test.visual_tags != visual_tags:
+        if visual_tags and test.visual_tags != visual_tags:
             test.visual_tags = visual_tags
-        if test.page_name != page_name:
+        if page_name and test.page_name != page_name:
             test.page_name = page_name
-        if test.scenario_summary != scenario_summary:
+        if scenario_summary and test.scenario_summary != scenario_summary:
             test.scenario_summary = scenario_summary
-        if test.creator_email != creator_email:
+        if creator_email and test.creator_email != creator_email:
             test.creator_email = creator_email
-        if test.is_assigned != is_assigned:
+        if is_assigned and test.is_assigned != is_assigned:
             test.is_assigned = is_assigned
-        if test.assigned_to != assigned_to:
+        if assigned_to and test.assigned_to != assigned_to:
             test.assigned_to = assigned_to
-        if test.assigned_by != assigned_by:
+        if assigned_by and test.assigned_by != assigned_by:
             test.assigned_by = assigned_by
-        if test.web_page_url != web_page_url:
+        if web_page_url and test.web_page_url != web_page_url:
             test.web_page_url = web_page_url
-        if test.sub_tab_category != sub_tab_category:
+        if sub_tab_category and test.sub_tab_category != sub_tab_category:
             test.sub_tab_category = sub_tab_category
-        if test.calculate_culture != calculate_culture:
+        if calculate_culture and test.calculate_culture != calculate_culture:
             test.calculate_culture = calculate_culture
-        if test.snippet_url != snippet_url:
+        if snippet_url and test.snippet_url != snippet_url:
             test.snippet_url = snippet_url
-        if test.report_description != report_description:
+        if report_description and test.report_description != report_description:
             test.report_description = report_description
-        if test.category != category:
+        if category and test.category != category:
             test.category = category
-        if test.is_single_select != is_single_select:
+        if is_single_select and test.is_single_select != is_single_select:
             test.is_single_select = is_single_select
-        if test.psychometric_report_config != psychometric_report_config:
+        if psychometric_report_config and test.psychometric_report_config != psychometric_report_config:
             test.psychometric_report_config = psychometric_report_config
-        if test.personality_model != personality_model:
+        if personality_model and test.personality_model != personality_model:
             test.personality_model = personality_model
 
-        if test.video_script != video_script:
+        if video_script and test.video_script != video_script:
             test.video_script = video_script
-        if test.script_video_link != script_video_link:
+        if script_video_link and test.script_video_link != script_video_link:
             test.script_video_link = script_video_link
-        if test.feedback_script_video_link != feedback_script_video_link:
+        if feedback_script_video_link and test.feedback_script_video_link != feedback_script_video_link:
             test.feedback_script_video_link = feedback_script_video_link
-        if test.feedback_video_script_template != feedback_video_script_template:
+        if feedback_video_script_template and test.feedback_video_script_template != feedback_video_script_template:
             test.feedback_video_script_template = feedback_video_script_template
-
+        if skills_to_evaluate and test.skills_to_evaluate != skills_to_evaluate:
+            test.skills_to_evaluate = skills_to_evaluate
         test.save()
 
         # Update or create test questions
@@ -756,51 +751,50 @@ def update_test(tenant: Tenant,
                     # Only update fields if the new value is different from the current value
 
 
-                    if test_q.media_link != question.get("media_link"):
+                    if question.get("media_link") and test_q.media_link != question.get("media_link"):
                         test_q.media_link = question.get("media_link")
 
-                    if test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
+                    if question.get("gpt_prompt_override") and test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
                         test_q.gpt_prompt_override = question.get("gpt_prompt_override")
 
-                    if test_q.question != question.get("question"):
+                    if question.get("question") and test_q.question != question.get("question"):
                         test_q.question = question.get("question")
 
-                    if test_q.can_be_skipped != question.get("can_be_skipped", False):
+                    if question.get("can_be_skipped") != None and test_q.can_be_skipped != question.get("can_be_skipped", False):
                         test_q.can_be_skipped = question.get("can_be_skipped", False)
 
-                    if test_q.is_view_only != question.get("is_view_only", False):
+                    if question.get("is_view_only") != None and test_q.is_view_only != question.get("is_view_only", False):
                         test_q.is_view_only = question.get("is_view_only", False)
 
-                    if test_q.subjective_answer != question.get("subjective_answer"):
+                    if question.get("subjective_answer") and test_q.subjective_answer != question.get("subjective_answer"):
                         test_q.subjective_answer = question.get("subjective_answer")
 
-                    if test_q.objective_answer != question.get("objective_answer"):
+                    if question.get("objective_answer") and test_q.objective_answer != question.get("objective_answer"):
                         test_q.objective_answer = question.get("objective_answer")
 
-                    if test_q.mcq_options != question.get("mcq_options"):
+                    if question.get("mcq_options") and test_q.mcq_options != question.get("mcq_options"):
                         test_q.mcq_options = question.get("mcq_options")
 
-                    if test_q.mcq_answer != question.get("mcq_answer"):
+                    if question.get("mcq_answer") and test_q.mcq_answer != question.get("mcq_answer"):
                         test_q.mcq_answer = question.get("mcq_answer")
 
-                    if test_q.mcq_path != question.get('mcq_path'):
+                    if question.get('mcq_path') and test_q.mcq_path != question.get('mcq_path'):
                         test_q.mcq_path = question.get('mcq_path')
 
-                    if test_q.loader_wait_text != question.get("loader_wait_text"):
+                    if question.get("loader_wait_text") and test_q.loader_wait_text != question.get("loader_wait_text"):
                         test_q.loader_wait_text = question.get("loader_wait_text")
                         
                     if not(test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion or test.test_type == TestTypeChoices.dynamic_discussion_thread):
-                        if test_q.key_learning_point != (question.get("key_learning_point")
-                                                        or get_question_key_learning_point(test_title=title, test_question=question.get("question"))):
-                            test_q.key_learning_point = (question.get("key_learning_point")
-                                                        or get_question_key_learning_point(test_title=title, test_question=question.get("question")))
-                        if test_q.key_learning_skills != (question.get("key_learning_skills")
-                                                        or get_question_key_learning_skills(test_title=title, test_question=question.get("question"))):
-                            test_q.key_learning_skills = (question.get("key_learning_skills")
-                                                        or get_question_key_learning_skills(test_title=title, test_question=question.get("question")))
-                                                        
-                    if test_q.snippet_url != question.get('snippet_url'):
-                        test_q.snippet_url = question.get('snippet_url')
+                        klp = question.get("key_learning_point") or get_question_key_learning_point(test_title=title, test_question=question.get("question"))
+                        kls = question.get("key_learning_skills") or get_question_key_learning_skills(test_title=title, test_question=question.get("question"))
+                        if klp and test_q.key_learning_point != klp:
+                            test_q.key_learning_point = klp
+                        if test_q.key_learning_skills != kls:
+                            test_q.key_learning_skills = kls
+
+                    snippet_url = question.get('snippet_url')                         
+                    if snippet_url and  test_q.snippet_url != snippet_url :
+                        test_q.snippet_url = snippet_url
 
                     test_q.save()
                 except TestQuestion.DoesNotExist:

@@ -306,23 +306,57 @@ def format_test_orchestrated_conversation(raw_data):
             if not test:
                 return {"error": f"Test code not found to update : {input_dict[TEST_CODE].strip()}"}, False
             
-        output_dict = {
-            "creator_id": None,
-            "title": input_dict['Title'],
-            "description": clean_text(input_dict['Context']),
-            "interaction_mode": "text",
-            "email_candidate": True,
-            "test_type": "orchestrated_conversation",
-            "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
-            "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
-            "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
-            "questions": [],
-        }
-
         if test:
-            output_dict['test_code'] = test.test_code
+            output_dict = {
+                "questions": [],
 
-        if output_dict['description_media']:
+            }
+            output_dict['test_code'] = test.test_code
+            if TITLE in input_dict and (input_dict[TITLE] and len(input_dict[TITLE].strip()) > 0):
+                    output_dict['title'] = input_dict[TITLE]
+            else:
+                output_dict['title'] = test.title
+            if 'Context' in input_dict and (input_dict['Context'] and len(input_dict['Context'].strip()) > 0):
+                    output_dict['description'] = clean_text(input_dict['Context'])
+            else:
+                output_dict['description'] = test.description
+
+            
+            if SCENARIO_CASE in input_dict and (input_dict[SCENARIO_CASE] and len(input_dict[SCENARIO_CASE].strip()) > 0):
+                    output_dict['scenario_case'] = input_dict[SCENARIO_CASE].strip().lower()
+            else:
+                output_dict['scenario_case'] = test.scenario_case
+
+            if DESCRIPTION_MEDIA in input_dict and (input_dict[DESCRIPTION_MEDIA] and len(input_dict[DESCRIPTION_MEDIA].strip()) > 0):
+                    output_dict['description_media'] = input_dict[DESCRIPTION_MEDIA]
+            else:
+                output_dict['description_media'] = test.description_media
+            if TEST_CUSTUM_PROMPT in input_dict and (input_dict[TEST_CUSTUM_PROMPT] and len(input_dict[TEST_CUSTUM_PROMPT].strip()) > 0):
+                    output_dict['gpt_prompt_override'] = input_dict[TEST_CUSTUM_PROMPT]
+            else:
+                output_dict['gpt_prompt_override'] = test.gpt_prompt_override
+
+            if TEST_TYPE in input_dict and (len(input_dict[TEST_TYPE].strip()) > 0):
+                output_dict['test_type'] = input_dict[TEST_TYPE].strip().lower()
+            else:
+                output_dict['test_type'] = test.test_type
+            
+        else:
+            output_dict = {
+                "creator_id": None,
+                "title": input_dict['Title'],
+                "description": clean_text(input_dict['Context']),
+                "interaction_mode": "text",
+                "email_candidate": True,
+                "test_type": "orchestrated_conversation",
+                "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
+                "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
+                "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
+                "questions": [],
+            }
+
+
+        if output_dict.get('description_media'):
             media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
             medias = []
             for m in media:
@@ -386,7 +420,7 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[INTERACTION_MODE] and len(input_dict[INTERACTION_MODE].strip()) >0:
                 output_dict["interaction_mode"] = input_dict[INTERACTION_MODE].strip().lower()
 
-        if output_dict['scenario_case'] in ['game','psychometric'] :
+        if output_dict.get('scenario_case') in ['game','psychometric'] :
             output_dict['interaction_mode'] = 'text'
             
         if CLIENT in input_dict:
@@ -431,10 +465,7 @@ def format_test_orchestrated_conversation(raw_data):
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
                 output_dict['area_domain'] = input_dict[AREA_DOMAIN].strip().capitalize()
-        else:
-            domain_title = input_dict.get(TITLE).split(":")
-            if len(domain_title) > 1:
-                output_dict['area_domain'] = domain_title[0].strip().capitalize()
+
 
         if SKILL_DOMAIN in input_dict:
             if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
@@ -467,7 +498,7 @@ def format_test_orchestrated_conversation(raw_data):
             if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
                 output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
 
-        if output_dict['scenario_case'] == 'game':
+        if output_dict.get('scenario_case') == 'game':
             output_dict['is_game_type'] = True
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
@@ -535,7 +566,7 @@ def format_test_orchestrated_conversation(raw_data):
                 else:
                     output_dict['is_transcript_only'] = False
 
-        if output_dict['scenario_case'] in ['journaling', 'observation']:
+        if output_dict.get('scenario_case') in ['journaling', 'observation']:
             output_dict['is_transcript_only'] = True
 
         if IS_FREE in input_dict:
@@ -682,7 +713,7 @@ def format_test_orchestrated_conversation(raw_data):
 
             
 
-        if input_dict[EMAIL_ADDRESS_LIST] and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
+        if EMAIL_ADDRESS_LIST in input_dict and len(input_dict[EMAIL_ADDRESS_LIST].strip()) > 0:
 
             email_list = input_dict[EMAIL_ADDRESS_LIST].split(',')
             email_list = [email.strip() for email in email_list]
@@ -699,7 +730,7 @@ def format_test_orchestrated_conversation(raw_data):
         if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
             skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
             skills_list = [skill.strip() for skill in skill_list]
-        else:
+        elif not test:
 
             # saving skills_to_evaluate from backend only
 
@@ -713,15 +744,14 @@ def format_test_orchestrated_conversation(raw_data):
             skills_list = evaluation_skill_list
             evaluation_skill_list = ','.join(evaluation_skill_list)
 
-
-        if len(skills_list) < 6:
+        if len(skills_list) < 6 and not test:
             return {"error": "Skills to evaluate should be more than 6"}, False
         if len(skills_list) > 8:
             skills_list = skills_list[:8]
-
-        output_dict['skills_to_evaluate'] = ",".join(skills_list)
+        if len(skills_list)>0:
+            output_dict['skills_to_evaluate'] = ",".join(skills_list)
         initial_messages = []
-        test_main_context = input_dict['Context']
+        test_main_context = output_dict.get('description')
         persons = []
 
         for key in input_dict:
@@ -732,12 +762,29 @@ def format_test_orchestrated_conversation(raw_data):
                 initial_messages.append(input_dict[key])
                 test_main_context += input_dict[key]
 
-        orchestrated_conversation_details = {
-            "test_main_context": test_main_context,
-            "test_user_persona": candidate_type,
-            "objective": input_dict['Context'],
-            "initial_messages": initial_messages
-        }
+        if test:
+            orchestrated_conversation_details = test.orchestrated_conversation_details
+            if CANDIDATE_TYPE in input_dict and len(CANDIDATE_TYPE) > 0:
+                candidate_type = input_dict[CANDIDATE_TYPE].strip()
+            elif test:
+                candidate_type = test.candidate_type
+            else:
+                candidate_type = 'Manager'
+            if len(initial_messages) > 0:
+                orchestrated_conversation_details['initial_messages'] = initial_messages
+            if test_main_context:
+                orchestrated_conversation_details['test_main_context'] = test_main_context
+            if candidate_type:
+                orchestrated_conversation_details['test_user_persona'] = candidate_type
+            if output_dict.get('description'):
+                orchestrated_conversation_details['objective'] = output_dict.get('description')
+        else:
+            orchestrated_conversation_details = {
+                "test_main_context": test_main_context,
+                "test_user_persona": candidate_type,
+                "objective": output_dict.get('description'),
+                "initial_messages": initial_messages
+            }
 
         if START_WITH_USER in input_dict:
             if input_dict[START_WITH_USER] and len(input_dict[START_WITH_USER].strip()) > 0:
@@ -905,21 +952,59 @@ def format_test_data_slack(raw_data,tenant):
             if not test:
                 return {"error": f"Test code not found : {input_dict[TEST_CODE]}"}, False
             
-
-        output_dict = {
-            "creator_id": None,
-            "title": input_dict[TITLE],
-            "description": clean_text(input_dict[DESCRIPTION]),
-            "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
-            "test_type": input_dict[TEST_TYPE].strip().lower(),
-            "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
-            "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
-            "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
-            "questions": [],
-        }
-
         if test:
+            output_dict = {'questions': []}
             output_dict['test_code'] = test.test_code
+            if TITLE in input_dict and (input_dict[TITLE] and len(input_dict[TITLE].strip()) > 0):
+                    output_dict['title'] = input_dict[TITLE]
+            else:
+                output_dict['title'] = test.title
+            if DESCRIPTION in input_dict and (input_dict[DESCRIPTION] and len(input_dict[DESCRIPTION].strip()) > 0):
+                    output_dict['description'] = clean_text(input_dict[DESCRIPTION])
+            else:
+                output_dict['description'] = test.description
+            if SCENARIO_CASE in input_dict and (input_dict[SCENARIO_CASE] and len(input_dict[SCENARIO_CASE].strip()) > 0):
+                    output_dict['scenario_case'] = input_dict[SCENARIO_CASE].strip().lower()
+            else:
+                output_dict['scenario_case'] = test.scenario_case
+
+            if DESCRIPTION_MEDIA in input_dict and (input_dict[DESCRIPTION_MEDIA] and len(input_dict[DESCRIPTION_MEDIA].strip()) > 0):
+                    output_dict['description_media'] = input_dict[DESCRIPTION_MEDIA]
+            else:
+                output_dict['description_media'] = test.description_media
+        
+            if TEST_TYPE in input_dict and (len(input_dict[TEST_TYPE].strip()) > 0):
+                    output_dict['test_type'] = input_dict[TEST_TYPE].strip().lower()
+            else:
+                output_dict['test_type'] = test.test_type
+            if INTERACTION_MODE in input_dict and (len(input_dict[INTERACTION_MODE].strip()) > 0):
+                    output_dict['interaction_mode'] = input_dict[INTERACTION_MODE].strip().lower()
+            else:
+                output_dict['interaction_mode'] = test.interaction_mode
+
+            if TEST_CUSTUM_PROMPT in input_dict and (len(input_dict[TEST_CUSTUM_PROMPT].strip()) > 0):
+                    output_dict['gpt_prompt_override'] = input_dict[TEST_CUSTUM_PROMPT]
+            else:
+                output_dict['gpt_prompt_override'] = test.gpt_prompt_override
+            
+
+        else:
+
+            output_dict = {
+                "creator_id": None,
+                "title": input_dict[TITLE],
+                "description": clean_text(input_dict[DESCRIPTION]),
+                "interaction_mode": input_dict[INTERACTION_MODE].strip().lower(),
+                "test_type": input_dict[TEST_TYPE].strip().lower(),
+                "scenario_case": input_dict[SCENARIO_CASE].strip().lower(),
+                "description_media": input_dict.get(DESCRIPTION_MEDIA, None),
+                "gpt_prompt_override": input_dict.get(TEST_CUSTUM_PROMPT,""),
+                "questions": [],
+            }
+        if test:
+            test_type = test.test_type
+        else:
+            test_type = input_dict[TEST_TYPE].strip().lower()
 
         if output_dict['description_media']:
             media = [link.strip() for link in output_dict['description_media'].strip().split(',')]
@@ -1162,10 +1247,6 @@ def format_test_data_slack(raw_data,tenant):
         if AREA_DOMAIN in input_dict:
             if input_dict[AREA_DOMAIN] and len(input_dict[AREA_DOMAIN].strip()) > 0 :
                 output_dict['area_domain'] = input_dict[AREA_DOMAIN].strip().capitalize()
-        else:
-            domain_title = input_dict.get(TITLE).split(":")
-            if len(domain_title) > 1:
-                output_dict['area_domain'] = domain_title[0].strip().capitalize()
 
         if SKILL_DOMAIN in input_dict:
             if input_dict[SKILL_DOMAIN] and len(input_dict[SKILL_DOMAIN].strip()) > 0 :
@@ -1218,7 +1299,6 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[VISUAL_TAGS] and len(input_dict[VISUAL_TAGS].strip()) > 0:
                 output_dict['visual_tags'] = input_dict.get(VISUAL_TAGS,None)
 
-        test_type = input_dict[TEST_TYPE].strip().lower()
 
         if TED_TALK_AND_HBR_CASE in input_dict.keys():
             if input_dict[TED_TALK_AND_HBR_CASE] and len(input_dict(TED_TALK_AND_HBR_CASE).strip()) > 0:
@@ -1241,54 +1321,58 @@ def format_test_data_slack(raw_data,tenant):
         if FEEDBACK_VIDEO_SCRIPT in input_dict:
             if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
                 output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
-        skills_list = set()
-        for key in input_dict:
-            if key.startswith(KLS):
-                temp_skills = input_dict[key].split(',')
-                for skill in temp_skills:
-                    skills_list.add(skill.strip())
-            elif key.startswith('Skill'):    # for mcq type of test
-                temp_skills = input_dict[key].split(',')
-                for skill in temp_skills:
-                    skills_list.add(skill.strip())
-        skills_list = list(skills_list)
-
-        # mismatch skill logic
-        defined_skills_list = [ skill['name'].strip().lower() for skill in pre_defined_skills ]
-
-
-        use_skills_fron_skill_bank = False
-        if client_info:
-            use_skills_fron_skill_bank = client_info.use_skills_from_skill_bank
-
-        else:
-            use_skills_fron_skill_bank = tenant.use_skills_from_skill_bank
-
-        if use_skills_fron_skill_bank:
-            unmatched_skills = []
-            for skills in skills_list:
-                if skills.lower() not in defined_skills_list:
-                    unmatched_skills.append(skills)
-
-            if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
-                return {"unmatched_skills": unmatched_skills, "Title": input_dict['Title']}, False
-
-        unique_skill_count = len(set(skills_list))
-
-        if unique_skill_count < 6 and not(input_dict[SCENARIO_CASE] == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
-            return {"unique_skills": set(skills_list), "Title": input_dict['Title']}, False
         
-        if unique_skill_count > 6:
-            que_skills = {key: value for key, value in input_dict.items() if key.startswith(KLS)}
-            updated_skills = []
-            if len(que_skills) > 0:
-                que_skills = limit_unique_skills_per_test(que_skills)
-                for key, value in que_skills.items():
-                    input_dict[key] = value
-                    updated_skills.extend(value.split(','))
+        skills_list = set()
+        if f'{KLS} 0' in input_dict.keys() or f'Skill 0'in input_dict:
+            for key in input_dict:
+                if key.startswith(KLS):
+                    temp_skills = input_dict[key].split(',')
+                    for skill in temp_skills:
+                        skills_list.add(skill.strip())
+                elif key.startswith('Skill'):    # for mcq type of test
+                    temp_skills = input_dict[key].split(',')
+                    for skill in temp_skills:
+                        skills_list.add(skill.strip())
+            skills_list = list(skills_list)
 
-            skills_list = list(set(updated_skills)) if len(updated_skills) > 0 else list(skills_list)
-            # skills_list = list(skills_list)[:8]
+            # mismatch skill logic
+            defined_skills_list = [ skill['name'].strip().lower() for skill in pre_defined_skills ]
+
+
+            use_skills_fron_skill_bank = False
+            if client_info:
+                use_skills_fron_skill_bank = client_info.use_skills_from_skill_bank
+
+            else:
+                use_skills_fron_skill_bank = tenant.use_skills_from_skill_bank
+
+            if use_skills_fron_skill_bank:
+                unmatched_skills = []
+                for skills in skills_list:
+                    if skills.lower() not in defined_skills_list:
+                        unmatched_skills.append(skills)
+
+                if len(unmatched_skills) > 0 and test_type not in (TestTypeChoices.mcq, TestTypeChoices.dynamic_mcq):
+                    return {"unmatched_skills": unmatched_skills, "Title": output_dict.get('Title')}, False
+
+            unique_skill_count = len(set(skills_list))
+
+            if unique_skill_count < 6 and not(output_dict.get('scenario_case') == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
+                return {"unique_skills": set(skills_list), "Title": output_dict.get('Title')}, False
+            
+            if unique_skill_count > 6:
+                que_skills = {key: value for key, value in input_dict.items() if key.startswith(KLS)}
+                updated_skills = []
+                if len(que_skills) > 0:
+                    que_skills = limit_unique_skills_per_test(que_skills)
+                    for key, value in que_skills.items():
+                        input_dict[key] = value
+                        updated_skills.extend(value.split(','))
+
+                skills_list = list(set(updated_skills)) if len(updated_skills) > 0 else list(skills_list)
+                # skills_list = list(skills_list)[:8]
+
+            output_dict['skills_to_evaluate'] = ','.join(skills_list)
 
         check_pass = True
 
@@ -1310,10 +1394,8 @@ def format_test_data_slack(raw_data,tenant):
                     if sorted(skills_list_candidate) == sorted([i.lower() for i in skills_list]):
                         check_pass = True
 
-        skills_list = ','.join(skills_list)
 
-        output_dict['skills_to_evaluate'] = skills_list
-        if input_dict[SCENARIO_CASE] in ['process_training','psychometric'] or is_transcript_only:
+        if output_dict.get('scenario_case') in ['process_training','psychometric'] or is_transcript_only:
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
@@ -1412,7 +1494,7 @@ def format_test_data_slack(raw_data,tenant):
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
                     question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
 
-                if input_dict[SCENARIO_CASE] in ['process_training', 'psychometric'] or is_transcript_only:
+                if output_dict.get('scenario_case') in ['process_training', 'psychometric'] or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
@@ -1769,8 +1851,10 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             # Check for null or empty data in specified columns for each row
             for row_data in all_rows:
                 scenario_case = row_data.get(SCENARIO_CASE, '').lower()
-                
-                if scenario_case == 'observation':
+                test_code = row_data.get(TEST_CODE, '').strip()
+                if len(test_code) > 0:
+                    columns_check = []
+                elif scenario_case == 'observation':
                     columns_check = [TITLE, DESCRIPTION, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
                 else:
                     columns_check = [TITLE, DESCRIPTION,
@@ -1787,9 +1871,9 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             for row_data in all_rows:
                 for key in row_data:
                     if key.startswith(QUESTION):
-                        if not row_data[key] and (IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
+                        if not row_data[key] and (TEST_CODE not in row_data and IS_IMMERSIVE not in row_data or row_data[IS_IMMERSIVE].lower() == "false" or len(row_data[IS_IMMERSIVE]) == 0):
                             occured_errors.append(f"Column '{key}' has null or empty value in row")
-                    if key.startswith(KLS) or key.startswith(KLP):
+                    if TEST_CODE not in row_data and (key.startswith(KLS) or key.startswith(KLP)):
                         if not row_data[key]:
                             occured_errors.append(f"Column '{key}' has null or empty value in row")
                         
@@ -2000,15 +2084,20 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
             all_rows = list(csv_reader)
 
             # Check for null or empty data in specified columns for each row
+
+            
+
             for row_data in all_rows:
                 scenario_case = row_data.get(SCENARIO_CASE, '').lower()
-
-                if scenario_case == 'game':
-                    columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
-                elif scenario_case == 'interview':
-                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND, SKILL_DOMAIN])
+                if TEST_CODE in row_data:
+                    columns_check = []
                 else:
-                    columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, SKILL_DOMAIN])
+                    if scenario_case == 'game':
+                        columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
+                    elif scenario_case == 'interview':
+                        columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND, SKILL_DOMAIN])
+                    else:
+                        columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, SKILL_DOMAIN])
 
                 for col in columns_check:
                     if col not in row_data:
