@@ -1921,8 +1921,8 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                         logger.info("[Response Received]\n")
 
                         row_data = json.loads(raw_data)
-                        
-                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
+                        title = row_data[TITLE] if not is_update else row_data['Test Code']
+                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {title}"
                                                 ] = f"API call failed Details: {response.json()}" if response.status_code != 201 else response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
@@ -1944,19 +1944,21 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                                             
 
                 else:
+                    title = row_data[TITLE] if not is_update else row_data['Test Code']
+
                     if "unmatched_skills" in json_data:
                         occured_errors.append("Mismatching skills")
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                             ] = f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"
                         # return {
-                        #     "errors": [f"csv file contains Mismatching skills in test {json_data['Title']}: {', '.join(json_data['unmatched_skills'])}"],
+                        #     "errors": [f"csv file contains Mismatching skills in test {title}: {', '.join(json_data['unmatched_skills'])}"],
                         #     "exception": True,
                         # }
                     
                     elif "error" in json_data:
                         occured_errors.append(json_data["error"])
 
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                             ] = json_data["error"]
                         # return {
                         #     "errors": [json_data["error"]],
@@ -1966,11 +1968,11 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     elif "unique_skills" in json_data:
                         occured_errors.append(f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}")
 
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                             ] = f"Minimum skill count detected in test {json_data['Title']}: {', '.join(json_data['unique_skills'])}"
                                             
                     else:
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                                 ] = "Not updated For This Title Because of it is not suiatable for checkin type test" if is_update else "Not Created For This Title Because of it is not suiatable for checkin type test"
                     
                         occured_errors.append("Not updated For This Title Because of it is not suiatable for checkin type test" if is_update else "Not Created For This Title Because of it is not suiatable for checkin type test")
@@ -2144,9 +2146,11 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                             API_ENDPOINT_SLACK, data=json_data, headers=headers, verify=False)
 
                         logger.info("[Response Received]\n")
-
+                        
                         row_data = json.loads(raw_data)
-                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {row_data[TITLE]}"
+                        title = row_data[TITLE] if not is_update else row_data['Test Code']
+
+                        test_name_test_code_map[f"Test {cnt} {'updated' if is_update else ''}: {title}"
                                                 ] = f"API call failed Details: {response.json()}" if response.status_code != 201 else response.json().get('test_code')
                         row_data = json.dumps(row_data)
 
@@ -2169,9 +2173,11 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                         occured_errors.append(f"API call failed Details: {response.json()}")
                         
                 else:
+                    title = row_data[TITLE] if not is_update else row_data['Test Code']
+
                     if "last_question_for_user" in json_data:
                         occured_errors.append(json_data['last_question_for_user'])
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                                 ] = json_data['last_question_for_user']
                         # return {
                         #     "errors": [json_data['last_question_for_user']],
@@ -2180,7 +2186,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     elif "error" in json_data:
                         occured_errors.append(json_data["error"])
 
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                                 ] = json_data["error"]
                         # return {
                         #     "errors": [json_data["error"]],
@@ -2189,7 +2195,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     else:
                         occured_errors.append("Not updated For This Title, Reason: Check-in type" if is_update else "Not Created For This Title, Reason: Check-in type")
 
-                        test_name_test_code_map[f"Test {cnt}: {row_data[TITLE]}"
+                        test_name_test_code_map[f"Test {cnt}: {title}"
                                                 ] = "Not updated For This Title, Reason: Check-in type" if is_update else "Not Created For This Title, Reason: Check-in type"
                     cnt += 1
 
