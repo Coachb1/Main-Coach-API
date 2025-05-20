@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+
+<form method="get" id="typeForm">
+    <label for="type">Select Type:</label>
+    <select name="type" id="type" onchange="submitTypeOnly()">
+        <option value="">-- Select --</option>
+        <option value="tenant" {% if type == 'tenant' %}selected{% endif %}>Tenant</option>
+        <option value="client" {% if type == 'client' %}selected{% endif %}>Client</option>
+        <option value="user" {% if type == 'user' %}selected{% endif %}>User</option>
+    </select>
+
+    {% if type %}
+    <label for="id">Select {{ type|capfirst }}:</label>
+    <select name="id" id="id" onchange="this.form.submit()">
+        {% if type == 'tenant' %}
+            {% for t in tenants %}
+                <option value="{{ t.id }}" {% if object_id|default_if_none:'' == t.id|stringformat:'s' %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+        {% elif type == 'client' %}
+            {% for c in clients %}
+                <option value="{{ c.id }}" {% if object_id|default_if_none:'' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.client_name }}</option>
+            {% endfor %}
+        {% elif type == 'user' %}
+            {% for u in users %}
+                <option value="{{ u.id }}" {% if object_id|default_if_none:'' == u.id|stringformat:'s' %}selected{% endif %}>{{ u.name}}</option>
+            {% endfor %}
+        {% endif %}
+    </select>
+    {% endif %}
+</form>
+
+{% if form %}
+    <hr>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="type" value="{{ type }}">
+        <input type="hidden" name="object_id" value="{{ object_id }}">
+        {{ form.as_p }}
+        <button type="submit" class="default">Update</button>
+    </form>
+{% endif %}
+
+<script>
+function submitTypeOnly() {
+    const select = document.getElementById('type');
+    const typeValue = select.value;
+    // Redirect with only type param, removing others like id
+    window.location.href = '?type=' + encodeURIComponent(typeValue);
+}
+</script>
+
+{% endblock %}
