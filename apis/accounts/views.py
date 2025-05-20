@@ -270,7 +270,16 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"error":"test not found"},status=status.HTTP_404_NOT_FOUND)
 
         try:
-            test_per_month = tenant.test_per_month
+            test_per_month = None
+            if user and user.test_per_month is not None:
+                test_per_month = user.test_per_month
+
+            elif client and client.test_per_month is not None:
+                test_per_month = client.test_per_month
+                
+            # Priority 3: Tenant-level fallback
+            if test_per_month is None:
+                test_per_month = tenant.test_per_month
             current_month = timezone.now().month
             # date_month_ago = timezone.make_aware(date_month_ago, timezone.get_current_timezone())
             sessions = TestAttemptSession.objects.filter(deleted=False, 
