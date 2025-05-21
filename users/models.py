@@ -142,7 +142,7 @@ class User(TenantAwareModel):
     is_root = models.BooleanField(null=True, default=None)
     is_excluded = models.BooleanField(null=True,default=False)
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
-    test_per_month = models.IntegerField(default=0, null=True, blank=True)
+    test_per_month = models.IntegerField(default=None, null=True, blank=True)
 
     class Meta:
         db_table = "user"
@@ -324,7 +324,7 @@ class ClientUserInfo(TenantAwareModel):
     show_recommendations = models.BooleanField(default=True)
     ask_access_code = models.BooleanField(default=True)
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
-    test_per_month = models.IntegerField(default=0, null=True, blank=True)
+    test_per_month = models.IntegerField(default=None, null=True, blank=True)
 
     class Meta:
         db_table = "client_user_info"
