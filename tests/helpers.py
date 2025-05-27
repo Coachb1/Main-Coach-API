@@ -2161,6 +2161,15 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     user_feedback_prompt=user_feedback_prompt
             )
 
+        elif test.scenario_case == ScenarioCaseChoices.interview:
+            prompt = get_interview_feedback(
+                    title=test.title, 
+                    description=test.description, 
+                    background=None,
+                    question_text=question.question,
+                    candidate_comment=test_question_response.response_text
+                    )
+
         else:
             if question.gpt_prompt_override or test.gpt_prompt_override:
                 prompt = get_overridden_prompt(
@@ -2252,6 +2261,14 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     candidate_reply=test_question_response.response_text,
                                     user_feedback_prompt=user_feedback_prompt
                             )
+                        elif test.scenario_case == ScenarioCaseChoices.interview:
+                            prompt = get_interview_feedback(
+                                    title=test.title, 
+                                    description=test.description, 
+                                    background=None,
+                                    question_text=question.question,
+                                    candidate_comment=test_question_response.response_text
+                                    )
 
                         else:
                             if question.gpt_prompt_override or test.gpt_prompt_override:
