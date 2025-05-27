@@ -2769,7 +2769,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
         else:
-            if background is not None:
+            if test.scenario_case == ScenarioCaseChoices.interview:
                 prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
             elif test.scenario_case == ScenarioCaseChoices.journaling:
                 prompt = get_journaling_feedback_prompt(
@@ -2981,8 +2981,17 @@ def get_feedback(question, test_question_response, question_text, test):
             prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
 
     else:
-        if background is not None:
+        if test.scenario_case == ScenarioCaseChoices.interview:
             prompt = get_interview_feedback(test.title, test.description, background, question_text, test_question_response.response_text)
+        elif test.scenario_case == ScenarioCaseChoices.journaling:
+                prompt = get_journaling_feedback_prompt(
+                        prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
+                        test_title=test.title,
+                        test_description=test.description,
+                        question=question.question,
+                        candidate_reply=test_question_response.response_text,
+                        user_feedback_prompt=""
+                )
         else:
             if question.gpt_prompt_override or test.gpt_prompt_override:
                 prompt = get_overridden_prompt(
@@ -4092,7 +4101,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
             data['culture_skills_explanation'] = None
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
-        data['flashcards'] = flashcards
+        # data['flashcards'] = flashcards
         data['mindmap_data'] = {
             "test_name": test.title,
             "content": mindmap_contents
@@ -5534,7 +5543,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             Candidate Comment : ${candidate_comment}
 
-            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information provided in "background”. Please provide feedback which specifically helps the candidate in an interview. 
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information in "background” if provided. Please provide feedback which specifically helps the candidate in an interview. 
 
             ${format_prompt}
 
@@ -5544,7 +5553,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
                     description=description,
                     question_text=question_text,
                     candidate_comment= candidate_comment,
-                    background=background,
+                    background=background if background else '',
                     format_prompt=format_prompt
                 )
     return prompt
@@ -6349,7 +6358,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
     
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
 
-        if background is not None: # for interview type test
+        if test.scenario_case == ScenarioCaseChoices.interview: # for interview type test
             user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid,
                                                                 responder_type=QuestionForChoices.user,
                                                                 deleted=0).order_by('id').last()
@@ -6371,7 +6380,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 NOTE : NEVER provide the question in bullet points. Only provide the question in paragraphs.
 
 
-                NOTE : Always consider the information provided in the "background" when giving the next question.
+                NOTE : Always consider the information if provided in the "background" when giving the next question.
 
 
                 NOTE: The question should not be more than 25 words.
@@ -6383,7 +6392,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
 
                 """
             ).substitute(test_main_context=test_main_context,
-                         background=background,
+                         background=background if background else "",
                          user_comment=user_comment.response_text)
 
         else:
