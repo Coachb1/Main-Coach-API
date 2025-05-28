@@ -19,7 +19,7 @@ from tests.models import (Test, TestQuestion, TestAttemptSession,
                           TestQuestionResponse, TestAttemptSessionStatusChoices,
                           Psychometric, PsychometricReportSection, PsychometricReportSubsection,TestReportConfig)
 from users.db import get_user_display_name, get_user_by_id
-from skills.models import CustomRating
+from skills.models import CultureMapSkill, CustomRating
 from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
 from users.models import ClientUserInfo, UserAttribute, ReportConfig
@@ -248,10 +248,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     psychometric_info = None
     other_psychometric_infos = {}
 
-    culture_map_evaluation_criteria = get_culture_skills(
-                    "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
-                    only_criteria=True 
-                    )
+    cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not cul_skills.exists():
+        cul_skills = CultureMapSkill.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+
+    # culture_map_evaluation_criteria = get_culture_skills(
+    #                 "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
+    #                 only_criteria=True 
+    #                 )
+    culture_map_evaluation_criteria = cul_skills.first().evaluation_criteria if cul_skills.exists() else {}
 
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data

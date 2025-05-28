@@ -37,7 +37,7 @@ from skills.constants import skills
 from skills.helpers import evaluate_response, get_participant_info, evaluate_conversation, \
     evaluate_group_discussion_conversation, evaluate_skills_group_discussion_conversation, evaluate_response_skill, evaluate_relevacy, \
           calulate_summary_for_culture_and_normal_skill, feedback_summary
-from skills.models import SkillsRating, CompetencySkillAndClientMapping
+from skills.models import CultureMapSkill, SkillsRating, CompetencySkillAndClientMapping
 from tenants.helpers import tenant_from_tenant_id
 from tenants.models import Tenant
 from test_bulk_upload.constants import get_skills_by_candidate_type
@@ -3918,10 +3918,15 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     speech_metrics_avg = {}
     response_relevance = True
-    culture_map_evaluation_criteria = get_culture_skills(
-                    "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
-                    only_criteria=True 
-                    )
+    cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not cul_skills.exists():
+        cul_skills = CultureMapSkill.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+    # culture_map_evaluation_criteria = get_culture_skills(
+    #                 "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
+    #                 only_criteria=True 
+    #                 )
+    culture_map_evaluation_criteria = cul_skills.first().evaluation_criteria if cul_skills.exists() else {}
+
     # try:
     #     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,
     #                                                 user_uid=test_attempt_session.participant_id

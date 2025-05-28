@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CharacteristicsAndPrompts, CompetencySkillAndClientMapping
+from .models import CharacteristicsAndPrompts, CompetencySkillAndClientMapping, CultureMapSkill
 from import_export.admin import ExportActionMixin
 from users.models import ClientUserInfo
 from tenants.admin import TenantAwareModelAdmin
@@ -25,7 +25,12 @@ class CompetencySkillAndClientMappingAdmin(TenantAwareModelAdmin):
 
     client_name.short_description = 'Client Name'
         
-
+@admin.register(CultureMapSkill)
+class CultureMapSkillAdmin(TenantAwareModelAdmin):
+    list_display = ('id',"skill", "skill_type", "test_type", "description", "evaluation_criteria")
+    search_fields = ("skill", "skill_type", "test_type")
+    list_editable = ("skill", "skill_type", "test_type", "description",'evaluation_criteria')
+    list_filter = ("skill_type", "test_type")
 
 admin.site.register(CharacteristicsAndPrompts,CharacteristicsAndPromptsAdmin)
 admin.site.register(CompetencySkillAndClientMapping, CompetencySkillAndClientMappingAdmin)
