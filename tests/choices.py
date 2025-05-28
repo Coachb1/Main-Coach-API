@@ -1,3 +1,4 @@
+from click import Choice
 from djchoices import DjangoChoices, ChoiceItem
 
 class PilotTestPreferencesChoices(DjangoChoices):
@@ -53,6 +54,7 @@ class ScenarioCaseChoices(DjangoChoices):
     game = ChoiceItem('game')
     journaling = ChoiceItem('journaling')
     observation = ChoiceItem("observation")   # couldn't attempt this type of test just to observe
+    others = ChoiceItem("others")  # for any other type of test that doesn't fit in above categories
 
 class PersonalityModelChoices(DjangoChoices):
     sixteen_factor_discussion = ChoiceItem('sixteen_factor_discussion')
