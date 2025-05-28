@@ -5573,6 +5573,10 @@ def get_interview_feedback(title,description,background, question_text,candidate
 
             ${format_prompt}
 
+            NOTE: Provide feedback as if coming directly from the hiring manager for the role. 
+            NOTE: Always assume a senior executive candidate interviewing for a critical role. 
+            NOTE: When appropriate, provide feedback on executive presence and other attritbutes specific for a executive interview.
+
             \n\nAssistant
                 """).substitute(
                     title=title,
