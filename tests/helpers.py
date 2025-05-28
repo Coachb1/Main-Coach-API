@@ -2167,7 +2167,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     description=test.description, 
                     background=None,
                     question_text=question.question,
-                    candidate_comment=test_question_response.response_text
+                    candidate_comment=test_question_response.response_text,
+                    evaluation_criteria=question.gpt_prompt_override or ""
                     )
 
         else:
@@ -2267,7 +2268,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     description=test.description, 
                                     background=None,
                                     question_text=question.question,
-                                    candidate_comment=test_question_response.response_text
+                                    candidate_comment=test_question_response.response_text,
+                                    evaluation_criteria=question.gpt_prompt_override or ""
                                     )
 
                         else:
@@ -5542,7 +5544,7 @@ def get_feedback_output_format_prompt(prompt_type,test_type):
 
 
 @timeit
-def get_interview_feedback(title,description,background, question_text,candidate_comment):
+def get_interview_feedback(title,description,background, question_text,candidate_comment,evaluation_criteria=None):
     """
     to get interview feedback prompt
     """
@@ -5559,8 +5561,10 @@ def get_interview_feedback(title,description,background, question_text,candidate
             Question : ${question_text}
 
             Candidate Comment : ${candidate_comment}
+                      
+            Evaluation Criteria: ${evaluation_criteria}
 
-            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information in "background” if provided. Please provide feedback which specifically helps the candidate in an interview. 
+            Please provide interview feedback for a candidate who has provided a "Candidate Comment" for an interview as specified in the "Test Description". Provide the feedback based on the information in "background” if provided. Provide the feedback based on the information in "Evaluation Criteria" if provided. Please provide feedback which specifically helps the candidate in an interview. 
 
             ${format_prompt}
 
@@ -5571,7 +5575,8 @@ def get_interview_feedback(title,description,background, question_text,candidate
                     question_text=question_text,
                     candidate_comment= candidate_comment,
                     background=background if background else '',
-                    format_prompt=format_prompt
+                    format_prompt=format_prompt,
+                    evaluation_criteria=evaluation_criteria
                 )
     return prompt
 
