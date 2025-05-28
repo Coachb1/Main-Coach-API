@@ -8,7 +8,8 @@ from django.utils.text import slugify
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
-from skills.models import SkillsRating, SkillIndex, CompetencySkillAndClientMapping
+from skills.choices import CultureMapSkillTypeChoices
+from skills.models import CultureMapSkill, SkillsRating, SkillIndex, CompetencySkillAndClientMapping
 from users.db import get_user_display_name
 from users.models import User
 import re
@@ -1849,10 +1850,15 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
     """
     test_title = test.title
     test_description = test.description
-    cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
+    # cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
+    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not skills.exists():
+        skills = CultureMapSkill.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
-    evaluation_criteria = "\n".join([f"- {skill}: {desc}" for skill, desc in cultural_skills_and_desc.items()])
-    cultural_skills = cultural_skills_and_desc.keys()
+    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+    cultural_skills = [skill.skill for skill in skills]
+
+    logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
 
     prompt = f'''
         \n\nHuman:
