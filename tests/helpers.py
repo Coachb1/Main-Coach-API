@@ -3920,7 +3920,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
     response_relevance = True
     cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
     if not cul_skills.exists():
-        cul_skills = CultureMapSkill.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+        cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
     # culture_map_evaluation_criteria = get_culture_skills(
     #                 "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
     #                 only_criteria=True 

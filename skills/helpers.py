@@ -1853,7 +1853,7 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
     # cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
     skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
     if not skills.exists():
-        skills = CultureMapSkill.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
     evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
     cultural_skills = [skill.skill for skill in skills]
