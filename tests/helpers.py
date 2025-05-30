@@ -500,7 +500,9 @@ def create_test(tenant: Tenant,
                 loader_wait_text=question.get("loader_wait_text"),
                 key_learning_point=klp,
                 key_learning_skills=kls,
-                snippet_url=question.get('snippet_url')
+                snippet_url=question.get('snippet_url'),
+                question_insight=question.get("question_insight"),
+
             )
 
             #
@@ -753,6 +755,9 @@ def update_test(tenant: Tenant,
 
                     if question.get("media_link") and test_q.media_link != question.get("media_link"):
                         test_q.media_link = question.get("media_link")
+                    
+                    if question.get("question_insight") and test_q.question_insight != question.get("question_insight"):
+                        test_q.question_insight = question.get("question_insight")
 
                     if question.get("gpt_prompt_override") and test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
                         test_q.gpt_prompt_override = question.get("gpt_prompt_override")
@@ -826,7 +831,9 @@ def update_test(tenant: Tenant,
                         question.get("key_learning_skills")
                         or get_question_key_learning_skills(test_title=title, test_question=question.get("question"))
                     ),
-                    snippet_url=question.get('snippet_url')
+                    snippet_url=question.get('snippet_url'),
+                    question_insight=question.get("question_insight"),
+
                 )
                 test_questions.append(test_q)
 

@@ -37,6 +37,7 @@ QUESTION = "Question"
 CUSTOM_PROMPT = "Custom Prompt"
 KLP = "KLP"
 KLS = "KLS"
+QUESTION_INSIGHT = "QnA Insight"
 EMAIL_ADDRESS_LIST = "Email Address List"
 SEND_ONLY_TO_EMAIL = "Send only to email"
 EMAIL_CANDIDATE = "Email Candidate"
@@ -1490,6 +1491,9 @@ def format_test_data_slack(raw_data,tenant):
                     "key_learning_skills": input_dict.get(f"{KLS} {key[len(QUESTION) + 1:]}", None),
 
                 }
+                if f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["question_insight"] = input_dict.get(f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}", '')
+
                 if question_to_update:
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
                     question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
