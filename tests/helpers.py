@@ -5583,7 +5583,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: Provide feedback as if coming directly from the hiring manager for the role. 
             NOTE: Always assume a senior executive candidate interviewing for a critical role. 
             NOTE: When appropriate, provide feedback on executive presence and other attritbutes specific for a executive interview.
-
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant
                 """).substitute(
                     title=title,
@@ -5640,6 +5640,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. When provided, please base the feedback on the information provided in "Article". Use the information in the "Article" to further provide the feedback. Please provide feedback which specifically help enhance people skills of the responder.
                 ${format_prompt}
                 ${user_feedback_prompt}
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
                 """
             )
@@ -5665,6 +5666,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions",  "Title" , only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder. 
                 ${format_prompt}
                 ${user_feedback_prompt}
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
                 """
             )
@@ -5691,6 +5693,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 
                  
                 ${user_feedback_prompt}
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
                 """
             )
@@ -5718,6 +5721,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 
                  
                 ${user_feedback_prompt}
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
                 """
             )
@@ -5776,6 +5780,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     ${format_prompt}
                     NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+                    NOTE : Always maintain high grammar and spelling accuracy.
                     \n\nAssistant:
                 """
                         )
@@ -5800,6 +5805,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             NOTE : If the Manager Comment is a question, provide feedback on how the manager can ask better questions.
 
             NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant:
             ''')
 
@@ -5827,6 +5833,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+                    NOTE : Always maintain high grammar and spelling accuracy.
                     \n\nAssistant:
 
                 """
@@ -5852,7 +5859,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
 
             ''')
@@ -5879,7 +5886,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-                    
+                    NOTE : Always maintain high grammar and spelling accuracy.
                     \n\nAssistant:
 
                 """
@@ -5903,6 +5910,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 ${format_prompt}
                 NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
 
             ''')
@@ -5929,7 +5937,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
 
                     NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
+                    NOTE : Always maintain high grammar and spelling accuracy.
                     \n\nAssistant:
 
                 """
@@ -5954,7 +5962,7 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE: If the Customer Comment is a question, provide feedback on how the customer can ask better questions.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
-
+                NOTE : Always maintain high grammar and spelling accuracy.
                 \n\nAssistant:
 
             ''')
@@ -6590,6 +6598,7 @@ def get_email_type_prompt(test_title,
         - A counter intuitive insight : "output text"
 
         ${user_feedback_prompt}
+        NOTE : Always maintain high grammar and spelling accuracy.
         \n\nAssistant:
         """
     )
@@ -6624,6 +6633,7 @@ def get_overridden_prompt(prompt_template: str,
             Please provide communication and subject matter feedback for a candidate who has provided a "Candidate answer" as specified for the "Question". Feedback must be based on "Expert suggestions", "Title", only if they are relevant to the situation. The feedback should include whether right questions are asked for engagement. Please provide feedback which specifically help enhance people skills of the responder.
             ${format_prompt}
             ${user_feedback_prompt}
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant:            
 
             """
@@ -6651,6 +6661,7 @@ def get_overridden_prompt(prompt_template: str,
             ${format_prompt}
 
             ${user_feedback_prompt}
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant:
             """
         )
@@ -6689,6 +6700,7 @@ def get_english_support_feedback_prompt(prompt_template: str,
 
             ${format_prompt}
             ${user_feedback_prompt}
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant:
             """
         )
@@ -6724,6 +6736,7 @@ def get_journaling_feedback_prompt(prompt_template: str,
 
             ${format_prompt}
             ${user_feedback_prompt}
+            NOTE : Always maintain high grammar and spelling accuracy.
             \n\nAssistant:
             """
         )
@@ -6764,6 +6777,7 @@ def emplyee_feedback_prompt(prompt_template: str,
         NOTE : Minimum response length is 300 words. Always adhere to the same.
         
         ${user_feedback_prompt}
+        NOTE : Always maintain high grammar and spelling accuracy.
         \n\nAssistant:
         """
     )
@@ -8570,10 +8584,8 @@ def format_game_custom_prompt(is_single_select, questions, title, description, n
 # ------------Extractors ---------
 
 def clean_text(input_text):
-    # Remove all types of brackets and double quotes
-    cleaned_text = re.sub(r'[\[\]\(\)\{\}<>"]', '', input_text)
-    cleaned_text = cleaned_text.strip().replace('"',"").replace("'","").replace('[','').replace(']','').replace('{}','').replace('}','').replace('(','').replace(')','')
-    return cleaned_text
+    # Remove all types of brackets except quotation marks
+    return re.sub(r'[\[\]\(\)\{\}<>]', '', input_text).strip()
 
 def extract_text_only(input_text):
     # Remove digits from the text
