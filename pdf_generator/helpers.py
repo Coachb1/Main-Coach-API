@@ -369,7 +369,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     data["correct_answer"] = correct_answer
 
                 # Check if participant response object has speech_metrics or not
-                
+                if question.question_insight:
+                    data['question_insight'] = question.question_insight
                 qa.append(data)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
@@ -511,12 +512,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 feedback_text = participant_response.feedback_text or "Feedback couldn't be generated"
 
                 # Check if participant response object has speech_metrics or not
-                
-                qa.append({
+                d = {
                     "question_text": question_text,
                     "response_text": response_text,
                     "feedback_text": feedback_text,
-                })
+                }
+                if question.question_insight:
+                    d['question_insight'] = question.question_insight
+                
+                qa.append(d)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
 
@@ -575,13 +579,18 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             for key, value in mcq_options.items():
                 if 'opt' in value and value['opt'] == question_text:
                     mcq_skill = value.get(f'Skill {key}', None)
-            qa.append({
+
+            d = {
                 "question": question_text if test.test_type == TestTypeChoices.mcq else response.metadata['question'],
                 'response': response.response_text,
                 'comment': response.feedback_text or "Feedback couldn't be generated",
                 'skills': mcq_skill if test.test_type == TestTypeChoices.mcq else response.mcq_skill,
                 'mcq_opitons': mcq_options
-            })
+            }
+
+            if questions.get(uid=response.question_id).question_insight:
+                d['question_insight'] = questions.get(uid=response.question_id).question_insight
+            qa.append(d)
 
         focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else []
         
@@ -659,19 +668,28 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             # Add the speech_metrics to the list of all_speech_metrics
             all_speech_metrics.append(speech_metrics)
 
-            qa.append({
+            d = {
                 "question_text": question_text,
                 "response_text": response_text,
                 "feedback_text": feedback_text,
                 "speech_metrics": speech_metrics
-            })
+            }
+
+            if question.question_insight:
+                d['question_insight'] = question.question_insight
+
+            qa.append(d)
 
         else:
-            qa.append({
+            d = {
                 "question_text": question_text,
                 "response_text": response_text,
                 "feedback_text": feedback_text,
-            })
+            }
+
+            if question.question_insight:
+                d['question_insight'] = question.question_insight
+            qa.append(d)
 
     # Get the averaged speech metrics for the test attempt session
     speech_metrics_avg = {}
