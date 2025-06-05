@@ -302,33 +302,40 @@ class TestAttemptSessionViewSet(ApiViewSet,
     @action(methods=["POST"], detail=False, url_path="send-report-email")
     def send_report_email(self, request, *args, **kwargs):
         """
-            Objective: The objective of this method is to send a test report email to the participant or send whatsapp report and do some calculation like feedback_summary and all ,  for a specific test attempt session.
-            
-            Explanation:
-
-            The method first retrieves the necessary parameters from the request query parameters, such as the test_attempt_session_id, report_url, and is_whatsapp.
-            It then checks if the test is free or not.
-            If the is_whatsapp parameter is True or the report_url is empty or not provided, it uses the report_url stored in the test attempt session object.
-            If the test type is coaching, process training, dynamic MCQ, MCQ, or transcript only, it calls the send_report_link_to_email function to send the test report email.
-            If is_whatsapp is True and the test type is not interview or the scenario case is not employee feedback, it calls the send_report_link_to_whatsapp function to send the test report via WhatsApp.
-            It then calculates the skills summary and feedback summary for the test attempt session.
-            If the test is not free, it evaluates the skills explanation and culture skills explanation based on the test type and conversation data.
-            The updated fields are saved in the test attempt session object.
-            If the test type is orchestrated conversation or dynamic discussion and there is an email address list specified for the test, it calls the send_report_link_to_email_orch function to send the test report email.
-            Otherwise, if there is an email address list specified for the test, it calls the send_report_link_to_email function to send the test report email.
-            Finally, it returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.
-
-            Parameters:
-
-                request: The HTTP request object.
-                test_attempt_session_id: The ID of the test attempt session for which the report email is to be sent.
-                report_url: The URL of the test report.
-                is_whatsapp: A boolean indicating whether the report should be sent via WhatsApp.
-
-            Input: The method expects the test_attempt_session_id, report_url, and is_whatsapp parameters to be provided in the request query parameters.
-
-            Output: The method returns a response with a status of "sent" if the email was sent successfully, or a status of "error" if there was an error.             Eg {"status": "sent"}
-
+        Sends a report email or WhatsApp message based on the test attempt session details.
+        This method handles the generation and sending of report links via email or WhatsApp, 
+        along with processing feedback summaries, skill summaries, and explanations for various 
+        test types and scenarios. It also invokes a webhook if configured.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Query Parameters:
+            test_attempt_session_id (str): The unique identifier for the test attempt session.
+            report_url (str): The URL of the report to be sent.
+            is_whatsapp (str): Indicates whether the report should be sent via WhatsApp ("true"/"True").
+        Returns:
+            Response: A Response object with the status of the operation:
+                - {"status": "sent"} with HTTP 200 if the email/WhatsApp message is successfully sent.
+                - {"status": "error"} with HTTP 400 if there is an error in retrieving the test attempt session or test.
+                - {"status": "error"} with HTTP 500 if there is an unexpected server error.
+        Raises:
+            Exception: Captures and logs any unexpected errors during execution.
+        Workflow:
+            1. Retrieve test attempt session and test details.
+            2. Determine whether the test is free and handle report URL fallback.
+            3. Process feedback summaries for journaling scenarios.
+            4. Send report links via email or WhatsApp based on test type and scenario.
+            5. Generate skill and culture summaries and explanations for applicable test types.
+            6. Save updated fields to the test attempt session.
+            7. Invoke webhook if configured for the participant's client.
+        Logging:
+            - Logs detailed information about the request, processing steps, and errors.
+            - Includes elapsed time for waiting on ratings and summaries.
+        Notes:
+            - Handles special cases for orchestrated conversations, dynamic discussions, and pitch scenarios.
+            - Ensures timeout handling for rating updates.
+            - Sends error notifications for email sending failures.
         """
         try:
             logger.info("send_report_email")
@@ -858,7 +865,8 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session.conversation_summary = conversation_summary
         test_attempt_session.save(update_fields=["conversation_summary"]) # saving session summary
         
-        created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+        # created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+        created_scenarios = None
         
         logger.info({"********************* created_scenarios":created_scenarios})
 
