@@ -1533,8 +1533,14 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
     return template
 
 def get_transcript_block(conversation, summary, simulation,coach_name,bot):
-
-    simulation_block = get_simulation_block(simulation)
+    if simulation:
+        simulation_block = get_simulation_block(simulation)
+    else:
+        simulation_block = '''<tr>
+            <td align="left" class="esd-block-text">
+                <p>No Simulation Found!</p>
+            </td>
+        </tr>'''
     data = ""
     for index,i in enumerate(conversation):
         if bot.bot_type == "deep_dive":
