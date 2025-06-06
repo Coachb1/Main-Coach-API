@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # from apis.web_auth.serializers import LoginSerializer
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
-from tests.choices import TestAttemptSessionStatusChoices
+from tests.choices import TestAttemptSessionStatusChoices, TestTypeChoices
 from tests.models import TestAttemptSession, Test
 from .serializers import FrontendAuthSerializer, FrontendAccessTokenSerializer
 from .serializers import FrontendLeaderboardReportSerializer
@@ -31,7 +31,7 @@ import datetime
 import pytz
 import os
 import re
-
+from django.db.models import Q
 
 import hashlib
 import logging
@@ -304,7 +304,111 @@ class FrontendAuthViewSet(ApiViewSet):
 
         return Response(data=data, status=status.HTTP_200_OK)
 
+    @action(methods=["POST"], detail=False, url_path="get-all-reports-by-testcode")
+    def get_all_reports_by_testcode(self, request, *args, **kwargs):
+        """
+        Retrieve all report URLs for completed sessions associated with a given test code.
+        Args:
+            request (Request): The HTTP request object containing the test_code in the request data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: A Response object containing:
+                - A list of report URLs for completed sessions if found.
+                - An error message if the test_code is missing or invalid.
+                - A message if no completed sessions are found for the given test code.
+        Raises:
+            Exception: If an error occurs while fetching the test or generating report URLs.
+        Workflow:
+            1. Validate the presence of `test_code` in the request data.
+            2. Retrieve the test object associated with the given `test_code`.
+            3. Fetch all completed sessions for the test.
+            4. Determine the report type based on the test's type and scenario case.
+            5. Generate report URLs for each completed session.
+            6. Return the list of report URLs or appropriate error messages.
+        Error Handling:
+            - Returns HTTP 400 if `test_code` is missing.
+            - Returns HTTP 404 if no test or completed sessions are found.
+            - Logs errors encountered during report URL generation.
+        Example Response:
+            {
+                "report_urls": [
+                    {
+                        "session_id": "session_uid_1",
+                        "report_url": "https://frontend_base_url/report_type/refresh_token/?session_id=session_uid_1&interaction_id=test_id&backend=backend"
+                    },
+                    {
+                        "session_id": "session_uid_2",
+                        "report_url": "https://frontend_base_url/report_type/refresh_token/?session_id=session_uid_2&interaction_id=test_id&backend=backend"
+                    }
+                ]
+            }
+        """
+        test_code = request.data.get("test_code")
+        if not test_code:
+            return Response(
+                {"error": "test_code is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            test = Test.objects.get(deleted=False, test_code=test_code)
+        except Exception as e:
+            return Response(
+                {'error': f"No test found for {test_code}"},
+                status = status.HTTP_404_NOT_FOUND
+            )
 
+        # Fetch all completed sessions for the given test
+        sessions = TestAttemptSession.objects.filter(
+            Q(test_id=test.uid) & Q(deleted=False) & Q(status=TestAttemptSessionStatusChoices.completed)
+        ).exclude(finished_at=None)
+
+        if not sessions.exists():
+            return Response(
+                {"error": "No completed sessions found for the given testcode"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        report_type = ReportType.INTERACTION_SESSION_REPORT
+        if  test.test_type in [TestTypeChoices.test, TestTypeChoices.trainer, TestTypeChoices.test_thread, TestTypeChoices.trainer_thread]:
+            if test.scenario_case == 'psychometric':
+                report_type = ReportType.PERSONALITY_PSYCHOMATRIC_REPORT
+            else:
+                report_type = ReportType.INTERACTION_SESSION_REPORT
+        elif  test.test_type in [TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread]:
+            report_type = ReportType.DYNAMIC_DISCUSSOIN_REPORT
+        elif  test.test_type in [TestTypeChoices.coaching]:
+            report_type = ReportType.COACHING_SESSION_REPORT
+        elif test.test_type in [TestTypeChoices.orchestrated_conversation]:
+            report_type = ReportType.MEETING_ANALYSIS_REPORT
+        
+        tokens = create_new_tokens("user-report", "uid", sessions[0].participant_id)
+        refresh_token = tokens["refresh"]
+        report_urls = []
+        for session in sessions:
+            try:
+                url = f"{FRONTEND_BASE_URL}/{report_type}/{refresh_token}/"
+                if report_type == ReportType.INTERACTION_SESSION_REPORT:
+                    url = f"{url}?session_id={session.uid}&interaction_id={session.test_id}&backend={BACKEND}"
+                elif report_type == ReportType.COACHING_SESSION_REPORT:
+                    url = f"{url}?backend={BACKEND}&test_attempt_session_id={session.uid}&ordering=id"
+                elif report_type == ReportType.MEETING_ANALYSIS_REPORT:
+                    url = f"{url}?test_attempt_session_id={session.uid}&backend={BACKEND}"
+                elif report_type == ReportType.DYNAMIC_DISCUSSOIN_REPORT:
+                    url = f"{url}?test_attempt_session_id={session.uid}&interaction_id={session.test_id}&backend={BACKEND}"
+                elif report_type == ReportType.PERSONALITY_PSYCHOMATRIC_REPORT:
+                    url = f"{url}?session_id={session.uid}&interaction_id={session.test_id}&backend={BACKEND}"
+                report_urls.append({"session_id": session.uid, "report_url": url})
+            except Exception as e:
+                logger.error(
+                    {"error": f"Failed to generate report for session {session.uid}", "details": str(e)},
+                    exc_info=True
+                )
+
+        return Response(
+            {"report_urls": report_urls},
+            status=status.HTTP_200_OK
+        )
+    
     @action(methods=["GET"], detail=False, url_path="get-or-refresh-sid")
     def get_or_refresh_sid(self, request, *args, **kwargs):
         """
