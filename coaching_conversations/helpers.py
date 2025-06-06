@@ -1938,8 +1938,12 @@ def create_user_profile_and_bot(data,auth,tenant):
         logger.exception(f"user creation failed with error: {e}")
         exc_type, exc_value, exc_tb = sys.exc_info()
         formatted_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-
-        return False, {"email": data.get('email'),'error': f"{e}: {formatted_traceback}"}
+        user = get_user_via_identity(tenant,'deepchat_unique_id', email)
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=user.uid).last()
+        signature_bot = SignatureBot.objects.filter(deleted=False,tenant_id=tenant.uid,user_id=user.uid).last()
+        profile_id = profile.uid if profile else ""
+        bot_id = signature_bot.bot_id if signature_bot else ""
+        return False, {"email": data.get('email'),'error': f"{e}: {formatted_traceback}","user_id": user.uid,"profile_id": profile_id, "bot_id": bot_id}
 
     user_id = user.get('uid')
 
@@ -2001,8 +2005,13 @@ def create_user_profile_and_bot(data,auth,tenant):
         logger.exception(f"profile creation failed with {e}")
         exc_type, exc_value, exc_tb = sys.exc_info()
         formatted_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user.get('uid')).last()
+        
+        signature_bot = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user.get('uid')).last()
+        profile_id = profile.uid if profile else ""
+        bot_id = signature_bot.bot_id if signature_bot else ""
 
-        return False, {"email": data.get('email'),'user_id':user.get('uid'),'error': f"{e}: {formatted_traceback}"}
+        return False, {"email": data.get('email'),'user_id':user.get('uid'),"profile_id": profile_id, "bot_id": bot_id,'error': f"{e}: {formatted_traceback}"}
 
     if (coaching_level != None and coach_same_department != None and supported_outcome != None):
         qna_data = {
@@ -2165,7 +2174,10 @@ def create_user_profile_and_bot(data,auth,tenant):
             return True, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": response.get('bot_id'),'error': f"{error}"}
         except Exception as e:
             logger.exception(f"bot creation failed with error {e}")
-            return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),'error': f"{e}"}
+
+            signature_bot = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id,user_id=user.get('uid')).last()
+            bot_id = signature_bot.bot_id if signature_bot else ""
+            return False, {"email": email,'user_id':user.get('uid'),'profile_id': profile.get('uid'),"bot_id": bot_id,'error': f"{e}"}
         
     else:
         error=""
