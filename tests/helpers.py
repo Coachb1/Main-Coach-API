@@ -4594,7 +4594,7 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=participant_id,
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(deleted=False, participant_id=participant_id,
                                                                         tenant_id=test_attempt_session.tenant_id)
 
     updated_fields = []
