@@ -79,5 +79,5 @@ class CultureMapSkill(TenantAwareModel):
     class Meta:
         db_table = 'culture_map_skills'
 
-    def _str_(self):
+    def __str__(self):
         return f"{self.skill} ({self.skill_type} - {self.test_type})"

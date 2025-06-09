@@ -319,7 +319,7 @@ class TestQuestionResponse(TenantAwareModel):
     kls_klp = models.JSONField(null=True, blank=True, default=None)
     mcq_skill = models.JSONField(null=True, blank=True, default=None)
     response_rating = models.TextField(null=True, blank=True,default=None)
-    question_text = models.TextField(null=True, blank=True, default=None) # We are going to use this in case of unfixed question in dynamic (quesiton_id will be useless here)
+    question_text = models.TextField(null=True, blank=True, default=None) # We are going to use this in case of unfixed question in dynamic (quesiton_id will be useless here) like in game type
     
     class Meta:
         db_table = "test_question_response"
@@ -331,7 +331,7 @@ class TestQuestionResponse(TenantAwareModel):
 
 
 
-class UserTestConfigs(TenantAwareModel):
+class UserTestConfigs(TenantAwareModel): # not using currently
     user_email = models.EmailField(
         help_text="Enter the email address of the user. Ensure it is valid."
     )

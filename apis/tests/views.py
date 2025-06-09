@@ -859,45 +859,35 @@ class TestViewSet(ApiViewSet,
     @action(methods=['POST'], detail=False, url_path="get_or_create_test_scenarios_by_site")
     def get_or_create_test_scenarios_by_site(self, request, *args, **kwargs):
         """
-            Retrieves or creates test scenarios based on a site URL and mode.
+        Handles the creation or retrieval of test scenarios based on the provided site context.
+        Args:
+            request (Request): The HTTP request object containing headers and data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: A DRF Response object containing the generated or fetched test scenarios.
+        Functionality:
+            - Extracts necessary parameters from the request, including `url`, `mode`, `context`, and other flags.
+            - Logs the input parameters for debugging purposes.
+            - Supports two modes:
+                - Mode A: Generates test scenarios based on the provided site context or scraped article data.
+                    - If `is_fetch` is True, attempts to fetch existing scenarios.
+                    - Scrapes article data if `context` is not provided and `url` is valid.
+                    - Creates static or dynamic scenarios based on flags (`is_static`, `is_dynamic`).
+                - Mode B: Fetches existing test scenarios using the provided `url` and `tenant_id`.
+            - Handles various flags such as `is_micro`, `use_anthropic`, `regeneration`, and `is_fetch` to customize behavior.
+            - Returns appropriate HTTP responses based on success or failure of operations.
+        Notes:
+            - The function relies on external helper methods such as `fetch_test_codes_by_site_context`, 
+              `scrape_article_data`, and `create_scenario_from_site_context`.
+            - Proper error handling is implemented for cases like page extraction failure or restricted keywords.
+        """
+        
+        access_token = request.headers.get('Authorization')
 
-            Parameters:
-            - request: The HTTP request object.
-            - args: Additional positional arguments.
-            - kwargs: Additional keyword arguments.
-
-            Returns:
-            - Response: The HTTP response object containing the test scenarios data.
-
-            Raises:
-            - N/A
-
-            Example Usage:
-            - Retrieve or create test scenarios for a specific site URL and mode.
-
-            Notes:
-            - This method is used to retrieve or create test scenarios based on a site URL and mode. It takes in various parameters such as the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios. It then calls the appropriate helper functions to retrieve or create the test scenarios and returns the data in the HTTP response object.
-
-            Algorithm:
-            1. Get the tenant ID from the request object.
-            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request data.
-            3. If the mode is 'A':
-                - Create an empty list to store the test scenarios data.
-                - If the static scenario flag is True:
-                    - Call the 'create_scenario_from_site_context' helper function to create a static scenario based on the site context.
-                    - Append the static scenario data to the list.
-                - If the dynamic scenario flag is True:
-                    - Call the 'create_scenario_from_site_context' helper function to create a dynamic scenario based on the site context.
-                    - Append the dynamic scenario data to the list.
-                - Return the list of test scenarios data in the HTTP response object.
-            4. If the mode is not 'A':
-                - Call the 'fetch_test_codes_by_site_context' helper function to retrieve the test scenarios based on the site context.
-                - Return the test scenarios data in the HTTP response object.
-        """ 
         tenant_id = self.request.tenant.uid
         url = request.data.get('url')
         mode = request.data.get('mode')
-        access_token = request.data.get('access_token')
         context = request.data.get('information',None)
         source = request.data.get('source',None)
         creator_user_id = request.data.get('creator_user_id',None)
@@ -1614,6 +1604,21 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False, url_path="get-test-user-config")
     def get_test_user_config(self, request, *args, **kwargs):
+        """
+        Retrieve the test user configuration based on user_id and test_code.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: 
+                - If both `user_id` and `test_code` are provided, returns the filtered user test configuration 
+                  with HTTP status 200 (OK).
+                - If either `user_id` or `test_code` is missing, returns an error message with HTTP status 400 (Bad Request).
+                - If an exception occurs, returns an error message with HTTP status 400 (Bad Request).
+        Raises:
+            Exception: Logs the exception and returns an error response if fetching the configuration fails.
+        """
         
         try:
 
@@ -1660,6 +1665,35 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET', 'POST'],detail=False, url_path="test-recommendations")
     def test_recommendations(self, request, *args, **kwargs):
+        """
+        Handles test recommendations based on the HTTP request method.
+
+        GET:
+            Retrieves test recommendations based on query parameters.
+            Query Parameters:
+                - origin_test_id (str): UID of the origin test.
+                - test_case (str): Test case identifier.
+                - session_id (str): UID of the test session.
+                - user_id (str): UID of the user.
+            Returns:
+                - Response containing the total number of recommendations, test case, and serialized recommendation data.
+            Errors:
+                - Returns HTTP 400 if the origin_test_id is invalid.
+
+        POST:
+            Creates a new test recommendation.
+            Request Data:
+                - recommended_test_id (str): UID of the recommended test.
+                - session_id (str): UID of the test session.
+                - test_case (str): Test case identifier.
+            Returns:
+                - Response containing serialized data of the created test recommendation.
+            Errors:
+                - Returns HTTP 400 if required fields are missing or invalid test/session IDs are provided.
+
+        General:
+            Logs exceptions and returns HTTP 500 if an unexpected error occurs.
+        """
         try:
             tenant = request.tenant
 
@@ -1723,6 +1757,23 @@ class TestViewSet(ApiViewSet,
         
     @action(methods=['POST'],detail=False, url_path="test-pilot-creation")
     def test_pilot_creation(self, request, *args, **kwargs):
+        """
+        Handles the scheduling of a test pilot creation job based on the provided frequency.
+
+        Args:
+            request (Request): The HTTP request object containing the data for the job.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Response: A success response with a message indicating the job scheduling details 
+                      if the operation is successful, or an error response with details of 
+                      the failure if an exception occurs.
+
+        Raises:
+            Exception: Logs and returns an error response if an unexpected error occurs during 
+                       the scheduling process.
+        """
         try:
             freq = request.data.get('freq')
             pilot_test_creation_job(freq)
@@ -1733,6 +1784,29 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=['GET'],detail=False, url_path="test-mappings")
     def test_mappings(self, request, *args, **kwargs):
+        """
+        Handles the retrieval of test mappings based on client name and page name query parameters.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Query Parameters:
+            client_name (str): The name of the client to filter test mappings.
+            page_name (str, optional): The name of the page to further filter test mappings.
+        Returns:
+            Response: A JSON response containing:
+                - total_mappings (int): The total number of test mappings found.
+                - results (dict): A dictionary where keys are categories and values are lists of test mappings.
+                - category_info (dict): A dictionary containing metadata for each category.
+        Raises:
+            HTTP_400_BAD_REQUEST: If the provided client name is invalid.
+            HTTP_500_INTERNAL_SERVER_ERROR: If an unexpected error occurs during processing.
+        Notes:
+            - Test mappings are filtered based on the 'deleted' flag and client association.
+            - If no client name is provided, mappings associated with no client are retrieved.
+            - If no mappings are found for the specified client, mappings associated with no client are used.
+            - Category-level metadata such as 'tab_sticker', 'tab_type', and 'tab_difficulty' are applied to each test mapping.
+        """
         try:
             client_name = request.query_params.get('client_name')
             page_name = request.query_params.get('page_name', None)

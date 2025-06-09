@@ -1,3 +1,4 @@
+from skills.models import SkillsRating
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating,CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
 from utilities.models import BotQnA, DirectoryPageInfo, SessionNotesRecommendations, UserActionInfo
 from tests.models import TestAttemptSession, Test
@@ -130,6 +131,7 @@ def delete_user_resources(user_uid, remove_from_client=False,
                 if delete_session:
                     logger.info(f'====================deleting user sessions=========================')
                     TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted = True)
+                    SkillsRating.objects.filter(tenant_id=tenant_id, participant_id=user.uid).update(deleted = True)
                 if delete_session_notes:
                     logger.info(f'====================deleting user session notes=========================')
                     SessionNotesRecommendations.objects.filter(
