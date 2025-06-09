@@ -131,16 +131,30 @@ class CoachingConversationViewSet(ApiViewSet,
     @action(methods=["POST"], detail=False, url_path="initialize")
     def initialize_coaching_conversation_view(self, request, *args, **kwargs):
         """
-        Initializes a coaching conversation by calling the `initialize_coaching_conversation` function and returns the created conversation.
+        Handles the initialization of a coaching conversation view.
+
+        This method validates the incoming request data using the 
+        `InitializeCoachingConversationSerializer` and initializes a coaching 
+        conversation based on the provided data. It then returns the serialized 
+        representation of the next conversation.
 
         Args:
-            request (Request): The request object containing the POST data.
+            request (Request): The HTTP request object containing the data for 
+                initializing the coaching conversation.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
         Returns:
-            Response: The response object containing the serialized data of the created conversation.
+            Response: A Response object containing the serialized data of the 
+            initialized coaching conversation and a status code of HTTP 201 Created.
 
+        Raises:
+            ValidationError: If the provided data is invalid.
+
+        Notes:
+            - `test_attempt_session_id` is a required field in the request data.
+            - `is_signature_bot` and `initial_qna` are optional fields.
+            - Logs the `initial_qna` value for debugging purposes.
         """
         serializer = InitializeCoachingConversationSerializer(
             data=request.data)
@@ -168,16 +182,33 @@ class CoachingConversationViewSet(ApiViewSet,
     @action(methods=["POST"], detail=True, url_path="reply")
     def continue_coaching_conversation_view(self, request, *args, **kwargs):
         """
-        Handles the POST request to reply to a coaching conversation.
-
+        Handles the continuation of a coaching conversation.
+        This view processes the participant's reply to a coaching conversation and 
+        generates the next conversation step based on the provided input.
         Args:
-            request (Request): The request object containing the POST data.
-            *args (tuple): Additional positional arguments.
-            **kwargs (dict): Additional keyword arguments.
-
+            request: The HTTP request object containing the participant's reply data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
         Returns:
-            Response: The response object containing the serialized data of the updated conversation.
+            Response: A Response object containing the serialized data of the next 
+            coaching conversation step and a status code of HTTP 201 Created.
+        Raises:
+            ValidationError: If the provided data is invalid.
+        Input Data:
+            - participant_message_text (str): The text of the participant's message.
+            - participant_message_url (str): The URL associated with the participant's message.
+            - is_signature_bot (bool, optional): Indicates if the message is from a signature bot. Defaults to False.
+            - is_prompt_only (bool, optional): Indicates if the response is prompt-only. Defaults to False.
+        Logging:
+            Logs the value of `is_prompt_only` for debugging purposes.
+        Workflow:
+            1. Validates the input data using `ReplyCoachingConversationSerializer`.
+            2. Extracts relevant fields from the validated data.
+            3. Calls `continue_coaching_conversation` to generate the next conversation step.
+            4. Serializes the resulting conversation step using `CoachingConversationDisplaySerializer`.
+            5. Returns the serialized data in the response.
         """
+        
         serializer = ReplyCoachingConversationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -294,8 +325,32 @@ class CoachingConversationViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="bot-conversation-data")
     def bot_conversation_data(self, request, *args, **kwargs):
         """
-        Retrieves conversation data for bots and users based on the specified mode.
-        :return: A list of conversation data for bots and users based on the specified mode.
+        Handles bot conversation data retrieval based on the request parameters.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: A Response object containing bot conversation data or an error message.
+        Functionality:
+            - Retrieves tenant information from the request.
+            - Extracts query parameters: 'for', 'user_id', and 'bot_id'.
+            - Generates a cache key and checks for cached data.
+            - If cached data exists, returns it with a 200 status.
+            - Retrieves excluded user emails from ClientUserInfo objects.
+            - Handles two modes:
+                1. 'admin':
+                    - Fetches bots associated with the tenant and user.
+                    - Retrieves bot attributes and session data.
+                    - Filters out excluded participants based on email.
+                    - Constructs bot conversation data for each participant.
+                    - Caches the data and returns it with a 200 status.
+                2. 'user':
+                    - Fetches bot IDs based on the user or all bots.
+                    - Retrieves bot attributes and session data for the user.
+                    - Constructs bot conversation data for the user.
+                    - Caches the data and returns it with a 200 status.
+            - Returns a 400 status if the 'for' parameter is invalid.
         """
         tenant = self.request.tenant
         mode = request.query_params.get('for', None)

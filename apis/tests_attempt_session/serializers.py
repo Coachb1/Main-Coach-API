@@ -20,7 +20,7 @@ class TestAttemptSessionSerializer(serializers.ModelSerializer):
                                         deleted=False
                                     ).last()
         if que_response:
-            data['next_question_text'] = que_response.question_text
+            data['next_question_text'] = que_response.question_text # using this for game type
         return data
 
 

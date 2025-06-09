@@ -13013,6 +13013,37 @@ def get_test_pilot_email_template(name, title, code, platform, access_code ):
     return Template(template).substitute(name=name, title=title, test_code=code, platform_url=platform, access_code=access_code, next_day=get_future_date())
 
 def process_test_pilot_user_csv(csv, tenant_id):
+    """
+    Processes a CSV file containing test pilot user data and creates or updates records in the database.
+    Args:
+        csv (list of dict): A list of dictionaries representing rows in the CSV file. Each dictionary should contain
+            the following keys:
+            - "Email" (str): The email address of the user.
+            - "Name" (str): The name of the user.
+            - "Targeted Skills" (str): Skills targeted for the user.
+            - "Same Intake" (str, optional): Indicates whether the same intake should be used. Expected values: "true" or "false".
+            - "Send Email" (str, optional): Indicates whether an email should be sent to the user. Expected values: "true" or "false".
+            - Additional optional fields: "Objective", "Industry", "Department", "Key Stakeholders", "Situation", 
+              "History", "Company", "Top Skills", "Leaderboard", "Perferences", "Frequency".
+        tenant_id (str): The unique identifier for the tenant.
+    Raises:
+        ValidationError: If required fields ("Email", "Name", "Targeted Skills") are missing or empty in the CSV.
+        ValidationError: If the user or client associated with the email cannot be found.
+        Exception: If an error occurs during the creation of test scenarios.
+    Workflow:
+        1. Validates required fields in the CSV rows.
+        2. Creates or updates a TestPilotUser record based on the email and tenant_id.
+        3. Checks for updates to the record and sets the `restart` flag if necessary.
+        4. Associates the TestPilotUser with a user and client if not already linked.
+        5. Creates test scenarios based on the user's context and preferences.
+        6. Sends an email to the user if the "Send Email" field is set to true.
+        7. Saves any updates to the TestPilotUser record.
+    Notes:
+        - The function supports creating multiple test scenarios with retry logic in case of errors.
+        - Emails are sent using a predefined template and include test details such as title and access code.
+    Returns:
+        None
+    """
     test_to_create = ['simulation', 'role_play', 'games', 'dynamic', 'dynamic_user_first']
     test = None
     for row in csv:
