@@ -309,42 +309,23 @@ class FrontendAuthViewSet(ApiViewSet):
         """
         Retrieve all report URLs for completed sessions associated with a given test code.
         Args:
-            request (Request): The HTTP request object containing the test_code in the request data.
+            request (Request): The HTTP request object containing `test_code` and `participant_id`.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
         Returns:
-            Response: A Response object containing:
-                - A list of report URLs for completed sessions if found.
-                - An error message if the test_code is missing or invalid.
-                - A message if no completed sessions are found for the given test code.
+            Response: 
+                - HTTP 400 BAD REQUEST: If `test_code` is not provided in the request.
+                - HTTP 404 NOT FOUND: If no test is found for the given `test_code` or no completed sessions exist.
+                - HTTP 200 OK: A list of report URLs for the completed sessions.
         Raises:
-            Exception: If an error occurs while fetching the test or generating report URLs.
-        Workflow:
-            1. Validate the presence of `test_code` in the request data.
-            2. Retrieve the test object associated with the given `test_code`.
-            3. Fetch all completed sessions for the test.
-            4. Determine the report type based on the test's type and scenario case.
-            5. Generate report URLs for each completed session.
-            6. Return the list of report URLs or appropriate error messages.
-        Error Handling:
-            - Returns HTTP 400 if `test_code` is missing.
-            - Returns HTTP 404 if no test or completed sessions are found.
-            - Logs errors encountered during report URL generation.
-        Example Response:
-            {
-                "report_urls": [
-                    {
-                        "session_id": "session_uid_1",
-                        "report_url": "https://frontend_base_url/report_type/refresh_token/?session_id=session_uid_1&interaction_id=test_id&backend=backend"
-                    },
-                    {
-                        "session_id": "session_uid_2",
-                        "report_url": "https://frontend_base_url/report_type/refresh_token/?session_id=session_uid_2&interaction_id=test_id&backend=backend"
-                    }
-                ]
-            }
+            Exception: Logs an error if report generation fails for any session.
+        Notes:
+            - Determines the report type based on the test's `test_type` and `scenario_case`.
+            - Generates report URLs dynamically based on the session and report type.
+            - Uses `create_new_tokens` to generate authentication tokens for accessing the reports.
         """
         test_code = request.data.get("test_code")
+        user_id = request.data.get("participant_id")
         if not test_code:
             return Response(
                 {"error": "test_code is required"},
@@ -360,12 +341,12 @@ class FrontendAuthViewSet(ApiViewSet):
 
         # Fetch all completed sessions for the given test
         sessions = TestAttemptSession.objects.filter(
-            Q(test_id=test.uid) & Q(deleted=False) & Q(status=TestAttemptSessionStatusChoices.completed)
+           Q(participant_id=user_id) & Q(test_id=test.uid) & Q(deleted=False) & Q(status=TestAttemptSessionStatusChoices.completed)
         ).exclude(finished_at=None)
 
         if not sessions.exists():
             return Response(
-                {"error": "No completed sessions found for the given testcode"},
+                {"error": f"You have not attempted any session for {test_code}"},
                 status=status.HTTP_404_NOT_FOUND
             )
         report_type = ReportType.INTERACTION_SESSION_REPORT

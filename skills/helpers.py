@@ -3000,11 +3000,18 @@ def get_participant_info(participant: User):
     )
 
     logger.info(f"participant_skill_rating obj : {participant_skill_rating_object}")
+    skill_info = participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object) > 0 else {}
+    
+    for skill_key in skill_info:
+        score = skill_info[skill_key].get('score')
+        if isinstance(score, (int, float)):
+            # Keep original value but format to one decimal as a string
+            skill_info[skill_key]['score'] = "{:.1f}".format(score)
 
     participant_info = {
         "name": get_user_display_name(participant),
         "role": participant.role,
-        "skills_info": participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object)>0 else {},
+        "skills_info": skill_info,
         "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0) if len(participant_skill_rating_object)>0 else 0,
         "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0) if len(participant_skill_rating_object)>0 else 0
     }

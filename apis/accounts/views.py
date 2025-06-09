@@ -225,7 +225,7 @@ class AccountsViewSet(ApiViewSet,
             user_data = {}
             for user in users:
                 try:
-                    skills_rating = SkillsRating.objects.get(participant_id=user.user_id)
+                    skills_rating = SkillsRating.objects.get(deleted=False, participant_id=user.user_id)
                     if skills_rating.total_tests_attempted > 0:
                         user_data[f"{user.attributes['real_name']} - {user.attributes['name']}"] = user.attributes['id']
                 except:
