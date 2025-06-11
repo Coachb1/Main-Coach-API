@@ -344,9 +344,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
             is_whatsapp = request.query_params.get("is_whatsapp")
             is_whatsapp = True if is_whatsapp in ["true", "True"] else False
             is_free = False
+            send_report_to_candidate = request.query_params.get('send_report_to_candidate', None)
+            send_report_to_candidate = send_report_to_candidate.lower() in ["true", "True"] if send_report_to_candidate else None
             
             logger.info({"message":"##################################### Request Received for sending email #####################################",
-                            "test_attempt_session_id":test_attempt_session_id, "report_url":report_url, "is_whatsapp":is_whatsapp})
+                            "test_attempt_session_id":test_attempt_session_id, "report_url":report_url, "is_whatsapp":is_whatsapp, "send_report_to_candidate": send_report_to_candidate})
             
 
 
@@ -382,11 +384,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
                         test_attempt_session.save(update_fields=['feedback_summary'])
 
                     
-                send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp,send_report_to_candidate=send_report_to_candidate)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
             if test.test_type == TestTypeChoices.coaching or test.scenario_case in [ScenarioCaseChoices.process_training] or test.test_type in (TestTypeChoices.dynamic_mcq, TestTypeChoices.mcq) or test.is_transcript_only:
-                send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp, send_report_to_candidate=send_report_to_candidate)
                 return Response({"status": "sent"}, status=status.HTTP_200_OK)
 
             if is_whatsapp and test.test_type != TestTypeChoices.interview and test.scenario_case != ScenarioCaseChoices.employee_feedback:
@@ -526,13 +528,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
             if test.test_type == TestTypeChoices.orchestrated_conversation or test.test_type == TestTypeChoices.dynamic_discussion:
                 if test.email_address_list:
                     try:
-                        send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp)
+                        send_report_link_to_email_orch(test,test_attempt_session,report_url,is_whatsapp,send_report_to_candidate)
                     except Exception as e:
                         send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
             else:
                 if test.email_address_list:
                     try:
-                        send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp)
+                        send_report_link_to_email(test, test_attempt_session, report_url, is_whatsapp,send_report_to_candidate)
                     except Exception as e:
                         send_error_notification("send_report_email",f"Error in sending email: {e}",{"test_attempt_session_id":test_attempt_session_id,"report_url":report_url,"is_whatsapp":is_whatsapp})
 

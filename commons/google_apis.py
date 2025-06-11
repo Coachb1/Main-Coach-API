@@ -237,7 +237,7 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
 
     max_retry = 3
     for model_name in models:
-        if 'gemin-2.5' in model_name:
+        if 'gemini-2.5' in model_name:
             generate_content_config = genai.types.GenerateContentConfig(
                 max_output_tokens=max_output_tokens,
                 temperature=temperature,

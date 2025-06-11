@@ -5009,7 +5009,7 @@ def update_culture_skills_if_same_scores(culture_skills_rating):
 
 @timeit
 def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
-                              is_whatsapp: bool = False):
+                              is_whatsapp: bool = False, send_report_to_candidate = None):
     """
     Sends a report link via email to a participant and a list of other recipients.
 
@@ -5092,6 +5092,9 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
                                     for email in client.email_address_list.split(',') if len(email.strip())>0])
             email_address_list = list(set(email_address_list))  # removing duplicates
             logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
+    
+    if send_report_to_candidate != None:
+        report_on = send_report_to_candidate
 
 
     for to_email in email_address_list:
@@ -5119,7 +5122,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
 
 @timeit
 def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttemptSession, report_url: str,
-                              is_whatsapp: bool = False):
+                              is_whatsapp: bool = False, send_report_to_candidate=None):
     if test_attempt_session.is_report_sent_to_email:
         return
 
@@ -5176,7 +5179,9 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
             email_address_list = list(set(email_address_list))  # removing duplicates
             logger.info(f" << Client Name: {client.client_name}>> <<emails : {email_address_list}>>")
 
-
+    if send_report_to_candidate != None:
+        report_on = send_report_to_candidate
+        
     for to_email in email_address_list:
         try:
             send_email(to_email, email_subject, data=data)
