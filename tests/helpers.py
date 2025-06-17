@@ -9929,14 +9929,14 @@ def create_scenario_from_site_context(url,
 
     game_case_types = ["static_game","dynamic_game"]
 
-    static_case_types = ["checkin","interview","case", "normal","role_play","static_role_play_soft",
+    static_case_types = ["checkin_static","interview_static","case_static", "normal_static","role_play","static_role_play_soft",
     "static_role_play_hard","static_soft","static_hard"]
 
     dynamic_case_types = ["normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard"]
     dynamic_start_with_user_case_types = ["dynamic_start_with_user"]
 
     all_case_types = [
-    "checkin","interview","case", "normal","role_play","static_role_play_soft",
+    "checkin_static","interview_static","case_static", "normal_static", "role_play","static_role_play_soft",
     "static_role_play_hard","static_soft","static_hard","dynamic_start_with_user",
     "normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard",
     "static_game","dynamic_game"

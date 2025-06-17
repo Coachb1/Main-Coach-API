@@ -909,9 +909,13 @@ class TestViewSet(ApiViewSet,
         is_fetch = False if is_fetch in ['False','false',0,False] else True
         regeneration = False if regeneration in ['False','false',0,False] else True
 
+        available_case_lists = request.data.get('available_case_lists',None)
+        if available_case_lists:
+            available_case_lists = [case.strip() for case in available_case_lists.split(',')]
+
         is_fetch = False if regeneration else is_fetch
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
+        logger.info(f"{'>>>'*100}use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
@@ -951,7 +955,8 @@ class TestViewSet(ApiViewSet,
                                                              regeneration=regeneration,use_anthropic=use_anthropic,
                                                              flavour=flavour,
                                                              previous_session_id=previous_session_id,
-                                                             custom_prompt=custom_prompt
+                                                             custom_prompt=custom_prompt,
+                                                             available_case=available_case_lists
                                                              )
                 if scenario:
                     resp_data.append(scenario)
