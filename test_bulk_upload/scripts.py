@@ -112,6 +112,7 @@ VIDEO_SCRIPT = 'Video Script'
 SCRIPT_VIDEO_LINK = 'Script Video Link'
 FEEDBACK_SCRIPT_VIDEO_LINK = 'Feedback Video Link'
 FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
+TIME_LIMIT = "Time Limit"
 
 def clean_text(text):
     BRACKETS_QUOTES_REGEX =re.compile(r'[\[\]\(\)\{\}<>\"\'’]')
@@ -441,6 +442,10 @@ def format_test_orchestrated_conversation(raw_data):
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
+
+        if TIME_LIMIT in input_dict:
+            if input_dict[TIME_LIMIT] and len(input_dict[TIME_LIMIT].strip()) > 0 :
+                output_dict['time_limit'] = int(input_dict[TIME_LIMIT].strip())
 
         if PAGE_NAME in input_dict:
             if input_dict[PAGE_NAME] and len(input_dict[PAGE_NAME].strip()) > 0 :
@@ -1083,6 +1088,11 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['is_recommended'] = False
                 else:
                     output_dict['is_recommended'] = False
+
+        if TIME_LIMIT in input_dict:
+            if input_dict[TIME_LIMIT] and len(input_dict[TIME_LIMIT].strip()) > 0 :
+                output_dict['time_limit'] = int(input_dict[TIME_LIMIT].strip())
+
 
         if CALCULATE_CULTURE in input_dict:
             if input_dict[CALCULATE_CULTURE] and len(input_dict[CALCULATE_CULTURE].strip()) > 0:
