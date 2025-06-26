@@ -149,7 +149,8 @@ class UpdateTestSerializer(serializers.Serializer):
     script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     video_script = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     feedback_video_script_template = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
-
+    time_limit = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -252,7 +253,8 @@ class CreateTestSerializer(serializers.Serializer):
     script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     video_script = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     feedback_video_script_template = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
-
+    time_limit = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -345,7 +347,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "feedback_script_video_link",
                   "script_video_link",
                   "video_script",
-                  "feedback_video_script_template"
+                  "feedback_video_script_template",
+                  "time_limit"
                   ]
 
     def get_questions(self, instance):

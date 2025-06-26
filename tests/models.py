@@ -182,7 +182,7 @@ class Test(TenantAwareModel):
     script_video_link = models.URLField(null=True, blank=True, default=None)
     feedback_script_video_link = models.URLField(null=True, blank=True, default=None)
     feedback_video_script_template = models.TextField(null=True, blank=True, default=None)
-
+    time_limit = models.IntegerField(null=True, blank=True, default=0)
     class Meta:
         db_table = "test"
         ordering = ("-id",)

@@ -115,6 +115,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "start_with_user",
+        "time_limit"
     )
     search_fields = (
         "test_code",
@@ -138,6 +139,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "tab_category",
+        "time_limit"
     )
     list_filter = (
         "deleted",
