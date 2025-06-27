@@ -221,7 +221,7 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.5-flash-preview-05-20","gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001"],instruction=None):
+def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001","gemini-2.5-flash-preview-05-20"],instruction=None):
     logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models} adn \n instruction: {instruction}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
