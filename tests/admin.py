@@ -22,10 +22,12 @@ from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
-from .forms import CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
+from .forms import BulkUpdateForm, CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+
 import io
 import csv
 import json
@@ -73,6 +75,23 @@ class OnlyCompetencyFilter(admin.SimpleListFilter):
             )
         return queryset
 
+class HasDescriptionMediaFilter(admin.SimpleListFilter):
+    title = 'Has Description Media'
+    parameter_name = 'has_description_media'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', 'Yes'),
+            ('no', 'No'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.exclude(description_media__isnull=True).exclude(description_media__exact='')
+        elif self.value() == 'no':
+            return queryset.filter(description_media__isnull=True) | queryset.filter(description_media__exact='')
+        return queryset
+
 
 class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
@@ -81,6 +100,8 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "test_code",
         "deleted",
         "title",
+        "description",
+        'description_media',
         "test_type",
         "scenario_case",
         "interaction_mode",
@@ -94,6 +115,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "start_with_user",
+        "time_limit"
     )
     search_fields = (
         "test_code",
@@ -105,6 +127,9 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
     )
     list_editable = (
         "deleted",
+        'title',
+        'description',
+        'description_media',
         "calculate_culture",
         "page_name",
         "client_name",
@@ -114,6 +139,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "psychometric_report_config",
         "personality_model",
         "tab_category",
+        "time_limit"
     )
     list_filter = (
         "deleted",
@@ -125,6 +151,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "client_name",
         StartWithUserFilter,
         OnlyCompetencyFilter,
+        HasDescriptionMediaFilter
     )
     ordering = ("-id",)
 
@@ -900,19 +927,54 @@ class TestReportConfigAdmin(admin.ModelAdmin):
 
 @admin.register(TestMapping)
 class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
-    list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain')
+    list_display = ('id','test', 'client', 'page_name', 'tab_category', 'domain','tab_sticker')
     change_list_template = "admin/testmapping/testmapping_changelist.html"  # custom template for button
-    search_fields = ('test__title', 'test__test_code', 'client__name', 'page_name', 'tab_category', 'domain')
+    search_fields = ('test__title', 'test__test_code', 'client__client_name', 'page_name', 'tab_category', 'domain')
     list_filter = ('test', 'client', 'page_name', 'tab_category', 'domain')
-    list_editable = ('page_name', 'tab_category', 'domain')
+    list_editable = ('page_name', 'tab_category', 'domain','tab_sticker')
     autocomplete_fields = ['test']
     ordering = ('-id',)
+    actions = ['bulk_update_fields']
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path('upload-csv/', self.admin_site.admin_view(self.upload_csv), name='testmapping-upload-csv'),
         ]
         return custom_urls + urls
+
+    def bulk_update_fields(self, request, queryset):
+        form = None
+
+        if 'apply' in request.POST:
+            form = BulkUpdateForm(request.POST)
+            if form.is_valid():
+                data = form.cleaned_data
+                updated = 0
+
+                for obj in queryset:
+                    if data['tab_category']:
+                        obj.tab_category = data['tab_category']
+                    if data['tab_sticker']:
+                        obj.tab_sticker = data['tab_sticker']
+                    if data['tab_difficulty']:
+                        obj.tab_difficulty = data['tab_difficulty']
+                    if data['tab_type']:
+                        obj.tab_type = data['tab_type']
+                    obj.save()
+                    updated += 1
+
+                self.message_user(request, f"Successfully updated {updated} records.")
+                return redirect(request.get_full_path())
+
+        else:
+            form = BulkUpdateForm(initial={'_selected_action': request.POST.getlist(ACTION_CHECKBOX_NAME)})
+
+        return render(request, "admin/testmapping/testmapping_bulk_update.html", {
+            'items': queryset,
+            'form': form,
+            'title': "Bulk Update TestMapping Fields"
+        })
 
     def upload_csv(self, request):
         if request.method == "POST":
@@ -921,7 +983,7 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             try:
                 csv_file = io.TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
                 reader = csv.DictReader(csv_file)
-                required_fields = ["test_code"]
+                required_fields = ["test_code",'tab_category','page_name']
 
                 # ✅ Check if file is empty
                 if not reader.fieldnames:
@@ -958,10 +1020,13 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
                         obj, created = TestMapping.objects.get_or_create(
                             test=test,
                             client=client,
+                            page_name=row.get('page_name', '').strip() or None,
                             defaults={
-                                'page_name': row.get('page_name', '').strip() or None,
                                 'tab_category': row.get('tab_category', '').strip() or None,
-                                'domain': row.get('domain', '').strip() or None
+                                'domain': row.get('domain', '').strip() or None,
+                                'tab_sticker': row.get('tab_sticker', '').strip() or None,
+                                'tab_difficulty': row.get('tab_difficulty', '').strip() or 'Difficuly Level : Intermediate',
+                                'tab_type': row.get('tab_type', '').strip() or 'simulation',
                             }
                         )
                         if created:
