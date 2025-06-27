@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer
+from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -112,10 +112,13 @@ class TestViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
-        serializer = CreateTestSerializer(data=request.data)
+        if request.data.get("test_code"):
+            serializer = UpdateTestSerializer(data=request.data)
+        else:
+            serializer = CreateTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data["creator_id"] is None:
+        if serializer.validated_data.get('creator_id') is None:
             serializer.validated_data["creator_id"] = request.auth_user.uid
 
 
@@ -139,11 +142,11 @@ class TestViewSet(ApiViewSet,
         """
         Partially updates an existing test based on the provided data.
         """
-        serializer = CreateTestSerializer(data=request.data)
+        serializer = UpdateTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         print(serializer.validated_data)
 
-        if serializer.validated_data["creator_id"] is None:
+        if serializer.validated_data.get("creator_id") is None:
             serializer.validated_data["creator_id"] = request.auth_user.uid
 
         test, test_questions = update_test(
@@ -856,45 +859,35 @@ class TestViewSet(ApiViewSet,
     @action(methods=['POST'], detail=False, url_path="get_or_create_test_scenarios_by_site")
     def get_or_create_test_scenarios_by_site(self, request, *args, **kwargs):
         """
-            Retrieves or creates test scenarios based on a site URL and mode.
+        Handles the creation or retrieval of test scenarios based on the provided site context.
+        Args:
+            request (Request): The HTTP request object containing headers and data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: A DRF Response object containing the generated or fetched test scenarios.
+        Functionality:
+            - Extracts necessary parameters from the request, including `url`, `mode`, `context`, and other flags.
+            - Logs the input parameters for debugging purposes.
+            - Supports two modes:
+                - Mode A: Generates test scenarios based on the provided site context or scraped article data.
+                    - If `is_fetch` is True, attempts to fetch existing scenarios.
+                    - Scrapes article data if `context` is not provided and `url` is valid.
+                    - Creates static or dynamic scenarios based on flags (`is_static`, `is_dynamic`).
+                - Mode B: Fetches existing test scenarios using the provided `url` and `tenant_id`.
+            - Handles various flags such as `is_micro`, `use_anthropic`, `regeneration`, and `is_fetch` to customize behavior.
+            - Returns appropriate HTTP responses based on success or failure of operations.
+        Notes:
+            - The function relies on external helper methods such as `fetch_test_codes_by_site_context`, 
+              `scrape_article_data`, and `create_scenario_from_site_context`.
+            - Proper error handling is implemented for cases like page extraction failure or restricted keywords.
+        """
+        
+        access_token = request.headers.get('Authorization')
 
-            Parameters:
-            - request: The HTTP request object.
-            - args: Additional positional arguments.
-            - kwargs: Additional keyword arguments.
-
-            Returns:
-            - Response: The HTTP response object containing the test scenarios data.
-
-            Raises:
-            - N/A
-
-            Example Usage:
-            - Retrieve or create test scenarios for a specific site URL and mode.
-
-            Notes:
-            - This method is used to retrieve or create test scenarios based on a site URL and mode. It takes in various parameters such as the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios. It then calls the appropriate helper functions to retrieve or create the test scenarios and returns the data in the HTTP response object.
-
-            Algorithm:
-            1. Get the tenant ID from the request object.
-            2. Get the URL, mode, access token, context, source, creator user ID, competency, and flags for static and dynamic scenarios from the request data.
-            3. If the mode is 'A':
-                - Create an empty list to store the test scenarios data.
-                - If the static scenario flag is True:
-                    - Call the 'create_scenario_from_site_context' helper function to create a static scenario based on the site context.
-                    - Append the static scenario data to the list.
-                - If the dynamic scenario flag is True:
-                    - Call the 'create_scenario_from_site_context' helper function to create a dynamic scenario based on the site context.
-                    - Append the dynamic scenario data to the list.
-                - Return the list of test scenarios data in the HTTP response object.
-            4. If the mode is not 'A':
-                - Call the 'fetch_test_codes_by_site_context' helper function to retrieve the test scenarios based on the site context.
-                - Return the test scenarios data in the HTTP response object.
-        """ 
         tenant_id = self.request.tenant.uid
         url = request.data.get('url')
         mode = request.data.get('mode')
-        access_token = request.data.get('access_token')
         context = request.data.get('information',None)
         source = request.data.get('source',None)
         creator_user_id = request.data.get('creator_user_id',None)
@@ -916,9 +909,13 @@ class TestViewSet(ApiViewSet,
         is_fetch = False if is_fetch in ['False','false',0,False] else True
         regeneration = False if regeneration in ['False','false',0,False] else True
 
+        available_case_lists = request.data.get('available_case_lists',None)
+        if available_case_lists:
+            available_case_lists = [case.strip() for case in available_case_lists.split(',')]
+
         is_fetch = False if regeneration else is_fetch
 
-        logger.info(f"{'>>>'*100} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
+        logger.info(f"{'>>>'*100}use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
@@ -958,7 +955,8 @@ class TestViewSet(ApiViewSet,
                                                              regeneration=regeneration,use_anthropic=use_anthropic,
                                                              flavour=flavour,
                                                              previous_session_id=previous_session_id,
-                                                             custom_prompt=custom_prompt
+                                                             custom_prompt=custom_prompt,
+                                                             available_case=available_case_lists
                                                              )
                 if scenario:
                     resp_data.append(scenario)
@@ -1215,12 +1213,12 @@ class TestViewSet(ApiViewSet,
                     temp_list = []
                     for test in tests:
                         if test.test_type not in [TestTypeChoices.dynamic_discussion,TestTypeChoices.dynamic_discussion_thread, TestTypeChoices.orchestrated_conversation]:
-                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro })
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": test.is_micro,"description_media": test.description_media })
                         else:
                             questions = TestQuestion.objects.filter(test_id=test.uid)
                             is_micro = False if ((questions.count() + 1) / 2) > 3 else True
                             print(is_micro,questions.count())
-                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro })
+                            temp_list.append({"title": test.title,"description":test.description,"test_code": test.test_code, "test_type": test.test_type, "is_recommended": test.is_recommended, "is_micro": is_micro,"description_media": test.description_media })
 
 
                     data[competency] = temp_list
@@ -1279,7 +1277,7 @@ class TestViewSet(ApiViewSet,
         
         tests = Test.objects.filter(query)
         tests.filter(deleted=0)
-        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case  } for test in tests]
+        data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case, "description_media": test.description_media  } for test in tests]
 
         return Response(data,status=status.HTTP_200_OK)
     
@@ -1357,7 +1355,8 @@ class TestViewSet(ApiViewSet,
                             "test_type": test.test_type,
                             "is_recommended": test.is_recommended,
                             "is_micro": test.is_micro,
-                            "scenario_case": test.scenario_case
+                            "scenario_case": test.scenario_case,
+                            "description_media": test.description_media
                         })
                 # Converting defaultdict to a regular dictionary
                 test_dict = dict(test_dict)
@@ -1610,6 +1609,21 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False, url_path="get-test-user-config")
     def get_test_user_config(self, request, *args, **kwargs):
+        """
+        Retrieve the test user configuration based on user_id and test_code.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Returns:
+            Response: 
+                - If both `user_id` and `test_code` are provided, returns the filtered user test configuration 
+                  with HTTP status 200 (OK).
+                - If either `user_id` or `test_code` is missing, returns an error message with HTTP status 400 (Bad Request).
+                - If an exception occurs, returns an error message with HTTP status 400 (Bad Request).
+        Raises:
+            Exception: Logs the exception and returns an error response if fetching the configuration fails.
+        """
         
         try:
 
@@ -1656,6 +1670,35 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET', 'POST'],detail=False, url_path="test-recommendations")
     def test_recommendations(self, request, *args, **kwargs):
+        """
+        Handles test recommendations based on the HTTP request method.
+
+        GET:
+            Retrieves test recommendations based on query parameters.
+            Query Parameters:
+                - origin_test_id (str): UID of the origin test.
+                - test_case (str): Test case identifier.
+                - session_id (str): UID of the test session.
+                - user_id (str): UID of the user.
+            Returns:
+                - Response containing the total number of recommendations, test case, and serialized recommendation data.
+            Errors:
+                - Returns HTTP 400 if the origin_test_id is invalid.
+
+        POST:
+            Creates a new test recommendation.
+            Request Data:
+                - recommended_test_id (str): UID of the recommended test.
+                - session_id (str): UID of the test session.
+                - test_case (str): Test case identifier.
+            Returns:
+                - Response containing serialized data of the created test recommendation.
+            Errors:
+                - Returns HTTP 400 if required fields are missing or invalid test/session IDs are provided.
+
+        General:
+            Logs exceptions and returns HTTP 500 if an unexpected error occurs.
+        """
         try:
             tenant = request.tenant
 
@@ -1719,6 +1762,23 @@ class TestViewSet(ApiViewSet,
         
     @action(methods=['POST'],detail=False, url_path="test-pilot-creation")
     def test_pilot_creation(self, request, *args, **kwargs):
+        """
+        Handles the scheduling of a test pilot creation job based on the provided frequency.
+
+        Args:
+            request (Request): The HTTP request object containing the data for the job.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Response: A success response with a message indicating the job scheduling details 
+                      if the operation is successful, or an error response with details of 
+                      the failure if an exception occurs.
+
+        Raises:
+            Exception: Logs and returns an error response if an unexpected error occurs during 
+                       the scheduling process.
+        """
         try:
             freq = request.data.get('freq')
             pilot_test_creation_job(freq)
@@ -1729,6 +1789,29 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=['GET'],detail=False, url_path="test-mappings")
     def test_mappings(self, request, *args, **kwargs):
+        """
+        Handles the retrieval of test mappings based on client name and page name query parameters.
+        Args:
+            request (Request): The HTTP request object containing query parameters.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        Query Parameters:
+            client_name (str): The name of the client to filter test mappings.
+            page_name (str, optional): The name of the page to further filter test mappings.
+        Returns:
+            Response: A JSON response containing:
+                - total_mappings (int): The total number of test mappings found.
+                - results (dict): A dictionary where keys are categories and values are lists of test mappings.
+                - category_info (dict): A dictionary containing metadata for each category.
+        Raises:
+            HTTP_400_BAD_REQUEST: If the provided client name is invalid.
+            HTTP_500_INTERNAL_SERVER_ERROR: If an unexpected error occurs during processing.
+        Notes:
+            - Test mappings are filtered based on the 'deleted' flag and client association.
+            - If no client name is provided, mappings associated with no client are retrieved.
+            - If no mappings are found for the specified client, mappings associated with no client are used.
+            - Category-level metadata such as 'tab_sticker', 'tab_type', and 'tab_difficulty' are applied to each test mapping.
+        """
         try:
             client_name = request.query_params.get('client_name')
             page_name = request.query_params.get('page_name', None)
@@ -1746,33 +1829,50 @@ class TestViewSet(ApiViewSet,
             if page_name:
                 test_mapping = test_mapping.filter(page_name=page_name)
 
-            result = {}
-
+            category_mapping = defaultdict(list)
+            categor_info = {}
             for mapping in test_mapping:
                 category = mapping.tab_category or "Uncategorized"
-                entry = {
-                    "title": mapping.test.title,
-                    "description": mapping.test.description,
-                    "domain": mapping.domain,
-                    "test_code": mapping.test.test_code,
-                    "interaction_mode": mapping.test.interaction_mode,
-                    "test_type": mapping.test.test_type,
-                    "is_micro": mapping.test.is_micro,
-                    "is_recommended": mapping.test.is_recommended,
-                    "is_assigned": mapping.test.is_assigned,
-                    "assigned_by": mapping.test.assigned_by,
-                    "assigned_to": mapping.test.assigned_to,
-                    "creator_user_id": mapping.test.creator_user_id,
-                    "scenario_case": mapping.test.scenario_case,
-
-                }
- 
                 
-                result.setdefault(category, []).append(entry)
+                if category not in categor_info:
+                    categor_info[category] = {
+                        'category': category,
+                    }
+
+                    
+                if 'tab_sticker' not in categor_info[category]:
+                    tab_sticker = next((x.tab_sticker for x in test_mapping if x.tab_sticker), None)
+                    categor_info[category]['tab_sticker'] = mapping.tab_sticker
+                
+                if 'tab_type' not in categor_info[category]:
+                    categor_info[category]['tab_type'] = mapping.tab_type
+
+                if 'tab_difficulty' not in categor_info[category]:
+                    categor_info[category]['tab_difficulty'] = mapping.tab_difficulty
+                
+
+                category_mapping[category].append({
+                        "title": mapping.test.title,
+                        "description": mapping.test.description,
+                        "domain": mapping.domain,
+                        "test_code": mapping.test.test_code,
+                        "interaction_mode": mapping.test.interaction_mode,
+                        "test_type": mapping.test.test_type,
+                        "is_micro": mapping.test.is_micro,
+                        "is_recommended": mapping.test.is_recommended,
+                        "is_assigned": mapping.test.is_assigned,
+                        "assigned_by": mapping.test.assigned_by,
+                        "assigned_to": mapping.test.assigned_to,
+                        "creator_user_id": mapping.test.creator_user_id,
+                        "scenario_case": mapping.test.scenario_case,
+                        "description_media": mapping.test.description_media,
+                        "tab_sticker": categor_info[category]['tab_sticker']  # Apply category-level sticker
+                    })
 
             data = {
                 "total_mappings": test_mapping.count(),
-                "results": result
+                "results": category_mapping,
+                "category_info": categor_info
             }
             return Response(data, status=status.HTTP_200_OK)
         except Exception as e:

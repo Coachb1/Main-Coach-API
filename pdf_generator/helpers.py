@@ -19,7 +19,7 @@ from tests.models import (Test, TestQuestion, TestAttemptSession,
                           TestQuestionResponse, TestAttemptSessionStatusChoices,
                           Psychometric, PsychometricReportSection, PsychometricReportSubsection,TestReportConfig)
 from users.db import get_user_display_name, get_user_by_id
-from skills.models import CustomRating
+from skills.models import CultureMapSkill, CustomRating
 from test_bulk_upload.constants import updated_skills
 from tests.choices import TestTypeChoices, QuestionForChoices, TestQuestionResponseEvaluationStatusChoices
 from users.models import ClientUserInfo, UserAttribute, ReportConfig
@@ -248,10 +248,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
     psychometric_info = None
     other_psychometric_infos = {}
 
-    culture_map_evaluation_criteria = get_culture_skills(
-                    "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
-                    only_criteria=True 
-                    )
+    cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not cul_skills.exists():
+        cul_skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+
+    # culture_map_evaluation_criteria = get_culture_skills(
+    #                 "ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills", 
+    #                 only_criteria=True 
+    #                 )
+    culture_map_evaluation_criteria = cul_skills.first().evaluation_criteria if cul_skills.exists() else {}
 
     if test_attempt_session.pshycometric_data:
         psychometric_data = test_attempt_session.pshycometric_data
@@ -364,7 +369,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                     data["correct_answer"] = correct_answer
 
                 # Check if participant response object has speech_metrics or not
-                
+                if question.question_insight:
+                    data['question_insight'] = question.question_insight
                 qa.append(data)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
@@ -392,7 +398,9 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
                 "test_report_config": test_report_config,
-
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
                 }
 
 
@@ -504,12 +512,15 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 feedback_text = participant_response.feedback_text or "Feedback couldn't be generated"
 
                 # Check if participant response object has speech_metrics or not
-                
-                qa.append({
+                d = {
                     "question_text": question_text,
                     "response_text": response_text,
                     "feedback_text": feedback_text,
-                })
+                }
+                if question.question_insight:
+                    d['question_insight'] = question.question_insight
+                
+                qa.append(d)
 
         logger.info(f"qa: {qa}, custom_rating: {custom_rating}, scenario_case: {test.scenario_case}")
 
@@ -532,12 +543,11 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
+                "test_report_config": test_report_config,
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
 
-
-                   "test_report_config": test_report_config,
-                 
-
-  
                  }
 
 
@@ -569,13 +579,18 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             for key, value in mcq_options.items():
                 if 'opt' in value and value['opt'] == question_text:
                     mcq_skill = value.get(f'Skill {key}', None)
-            qa.append({
+
+            d = {
                 "question": question_text if test.test_type == TestTypeChoices.mcq else response.metadata['question'],
                 'response': response.response_text,
                 'comment': response.feedback_text or "Feedback couldn't be generated",
                 'skills': mcq_skill if test.test_type == TestTypeChoices.mcq else response.mcq_skill,
                 'mcq_opitons': mcq_options
-            })
+            }
+
+            if questions.get(uid=response.question_id).question_insight:
+                d['question_insight'] = questions.get(uid=response.question_id).question_insight
+            qa.append(d)
 
         focus_area = test_attempt_session.skills_explanation['mcq_skills'] if test.test_type == TestTypeChoices.dynamic_mcq else []
         
@@ -599,7 +614,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
-                "test_report_config": test_report_config
+                "test_report_config": test_report_config,
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
 
 
 
@@ -650,19 +668,28 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
             # Add the speech_metrics to the list of all_speech_metrics
             all_speech_metrics.append(speech_metrics)
 
-            qa.append({
+            d = {
                 "question_text": question_text,
                 "response_text": response_text,
                 "feedback_text": feedback_text,
                 "speech_metrics": speech_metrics
-            })
+            }
+
+            if question.question_insight:
+                d['question_insight'] = question.question_insight
+
+            qa.append(d)
 
         else:
-            qa.append({
+            d = {
                 "question_text": question_text,
                 "response_text": response_text,
                 "feedback_text": feedback_text,
-            })
+            }
+
+            if question.question_insight:
+                d['question_insight'] = question.question_insight
+            qa.append(d)
 
     # Get the averaged speech metrics for the test attempt session
     speech_metrics_avg = {}
@@ -747,14 +774,10 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
 
                 "skill_domain": test.skill_domain,
                 "creator_prompt_type": test.creator_prompt_type,
-
-
-
-                 "test_report_config": test_report_config,
-
-
-                
-
+                "test_report_config": test_report_config,
+                'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
+                'video_script': test.video_script,
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)

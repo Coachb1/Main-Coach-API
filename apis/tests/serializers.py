@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
 from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
 
@@ -30,6 +31,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     snippet_url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    question_insight = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -46,6 +48,109 @@ class testCertificateDetails(serializers.Serializer):
     title = serializers.CharField(required=False)
     description = serializers.CharField(required=False)
 
+
+class UpdateTestSerializer(serializers.Serializer):
+    test_code = serializers.CharField(required=True)
+    title = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
+    description = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
+    email_address_list = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
+    test_code = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
+    max_test_allowed = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
+    total_question = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
+    send_only_to_email = serializers.BooleanField(
+        required=False, default=False)
+    is_single_bot = serializers.BooleanField(
+        required=False, default=False)
+    is_transcript_only = serializers.BooleanField(
+        required=False, default=False)
+    is_pitch = serializers.BooleanField(required=False, default=False)
+    is_self_created = serializers.BooleanField(
+        required=False, default=False)
+    is_checkin_type = serializers.BooleanField(
+        required=False, default=False)
+    is_learner_path = serializers.BooleanField(
+        required=False, default=False)
+    is_email_type = serializers.BooleanField(
+        required=False, default=False)
+    is_game_type = serializers.BooleanField(
+        required=False, default=False)
+    is_recommended = serializers.BooleanField(
+        required=False, default=False)
+    is_immersive = serializers.BooleanField(
+        required=False, default=False)
+    is_free = serializers.BooleanField(
+        required=False, default=False)
+    is_micro = serializers.BooleanField(default=False, required=False)
+    is_logged_in = serializers.BooleanField(default=False, required=False)
+    skills_to_evaluate = serializers.CharField(required=False, default=None)
+    image_url = serializers.CharField(required=False, default=None, allow_null=True, allow_blank=True)
+    rating = serializers.CharField(required=False, default="Not Rated", allow_null=True, allow_blank=True)
+    source = serializers.CharField(required=False, default="CoachBot", allow_null=True, allow_blank=True)
+    tedtalk_and_hbr_case = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True)
+
+    interaction_mode = serializers.ChoiceField(choices=InteractionModeChoices,required=False, default=None, allow_null=True, allow_blank=True)
+    test_type = serializers.ChoiceField(choices=TestTypeChoices)
+    scenario_case = serializers.ChoiceField(
+        choices=ScenarioCaseChoices, required=False, default=None, allow_null=True, allow_blank=True)
+    test_related_context = serializers.CharField(default=None)
+    questions = CreateTestQuestionSerializer(many=True,required=False, default=[])
+    gpt_prompt_override = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    email_candidate = serializers.BooleanField(default=True, required=False)
+    candidate_type = serializers.CharField(default=None, required=False)
+    orchestrated_conversation_details = OrchestratedConversationDetails(
+        required=False, allow_null=True, default=None)
+    description_media = serializers.CharField(
+        default=None, required=False, allow_null=True, allow_blank=True)
+    client_name = serializers.CharField(
+        default="Demo", required=False, allow_null=True, allow_blank=True)
+    goals = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    course = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    industry = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    exp_level = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    certificate_details = testCertificateDetails(default=None, required=False, allow_null=True)
+    ui_information = serializers.JSONField(default=None, required=False, allow_null=True)
+    media_props = serializers.JSONField(default=None, required=False, allow_null=True)
+    articles = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    bot_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_user_id = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    competency_group = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    area_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    visual_tags = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    page_name = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    scenario_summary = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_email = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    is_assigned = serializers.BooleanField(
+        required=False, default=False)
+    assigned_to = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    assigned_by = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    web_page_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    sub_tab_category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    calculate_culture = serializers.BooleanField(
+        required=False, default=True)
+    snippet_url = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    pshycometric_sections = serializers.JSONField(default=None, required=False, allow_null=True)
+    psychometric = serializers.CharField(default=None,required=False, allow_blank=True)
+    report_description = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    is_single_select = serializers.BooleanField(
+        required=False, default=False)
+    psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
+    personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    creator_prompt_type = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    feedback_script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    video_script = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    feedback_video_script_template = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    time_limit = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -144,7 +249,12 @@ class CreateTestSerializer(serializers.Serializer):
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     creator_prompt_type = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
-
+    feedback_script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    script_video_link = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    video_script = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    feedback_video_script_template = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
+    time_limit = serializers.IntegerField(
+        required=False, allow_null=True, default=None)
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -162,7 +272,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "mcq_path",
                   "created",
                   "updated",
-                  "snippet_url"]
+                  "snippet_url",
+                  "question_insight"]
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
@@ -232,12 +343,22 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "psychometric_report_config",
                   "personality_model",
                   "skill_domain",
-                  "creator_prompt_type"
+                  "creator_prompt_type",
+                  "feedback_script_video_link",
+                  "script_video_link",
+                  "video_script",
+                  "feedback_video_script_template",
+                  "time_limit"
                   ]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.description_media:
+            data["description_media"] = ",".join([format_youtube_link(media.strip()) for media in instance.description_media.split(',')])
+        return data
 
 class LearnerPathSerializer(serializers.ModelSerializer):
     objective = serializers.CharField()

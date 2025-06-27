@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -178,8 +178,11 @@ class Test(TenantAwareModel):
     personality_model = models.CharField(max_length=255, choices=PersonalityModelChoices,null=True, blank=True, default=None)
     skill_domain = models.CharField(max_length=255, null=True, blank=True, default=None)
     creator_prompt_type = models.CharField(max_length=255, null=True, blank=True, default=None)
-
-    
+    video_script = models.TextField(null=True, blank=True, default=None)
+    script_video_link = models.URLField(null=True, blank=True, default=None)
+    feedback_script_video_link = models.URLField(null=True, blank=True, default=None)
+    feedback_video_script_template = models.TextField(null=True, blank=True, default=None)
+    time_limit = models.IntegerField(null=True, blank=True, default=0)
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -214,6 +217,7 @@ class TestQuestion(TenantAwareModel):
     loader_wait_text = models.TextField(null=True, blank=True, default=None)
     mcq_path = models.TextField(null=True, blank=True,default=None)
     snippet_url = models.TextField(null=True, blank=True,default=None)
+    question_insight = models.TextField(null=True, blank=True,default=None)
 
     class Meta:
         db_table = "test_question"
@@ -282,6 +286,8 @@ class TestAttemptSession(TenantAwareModel):
             null=True, blank=True, default=False)
     pshycometric_data = models.JSONField(null=True, blank=True, default=None)
     personality_model_data = models.JSONField(null=True, blank=True, default=None)
+    feedback_video_script = models.TextField(null=True, blank=True, default=None)
+    feedback_video_link = models.URLField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "test_attempt_session"
@@ -313,7 +319,7 @@ class TestQuestionResponse(TenantAwareModel):
     kls_klp = models.JSONField(null=True, blank=True, default=None)
     mcq_skill = models.JSONField(null=True, blank=True, default=None)
     response_rating = models.TextField(null=True, blank=True,default=None)
-    question_text = models.TextField(null=True, blank=True, default=None) # We are going to use this in case of unfixed question in dynamic (quesiton_id will be useless here)
+    question_text = models.TextField(null=True, blank=True, default=None) # We are going to use this in case of unfixed question in dynamic (quesiton_id will be useless here) like in game type
     
     class Meta:
         db_table = "test_question_response"
@@ -325,7 +331,7 @@ class TestQuestionResponse(TenantAwareModel):
 
 
 
-class UserTestConfigs(TenantAwareModel):
+class UserTestConfigs(TenantAwareModel): # not using currently
     user_email = models.EmailField(
         help_text="Enter the email address of the user. Ensure it is valid."
     )
@@ -562,10 +568,15 @@ class TestMapping(MyModel):
         null=True,  
         blank=True  
     )
-    page_name = models.CharField(max_length=255, null=True, blank=True, default=None)
-
+    page_name = models.CharField(max_length=255, choices=PageNameChoices,null=True, blank=True, default=PageNameChoices.leadership_library)
+    tab_sticker = models.CharField(max_length=255, null=True, blank=True, default=None)
+    tab_difficulty = models.CharField(max_length=255, null=True, blank=True, default="Difficuly Level : Intermediate")
+    tab_type = models.CharField(max_length=255, null=True, blank=True, default='simulation')
     class Meta:
         db_table = "test_mapping"
         verbose_name = "Test Mapping"
         verbose_name_plural = "Test Mappings"
         ordering = ("-id",)
+        unique_together = (
+            ('test', 'page_name', 'client', 'deleted')
+        )

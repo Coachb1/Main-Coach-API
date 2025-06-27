@@ -158,9 +158,15 @@ def gpt_wishper_api(url):
         response = requests.get(url)
         audio_data = response.content
         text = ''
-        suffix = '.mp3'
-        if '.m4a' in url:
-            suffix = '.m4a'
+        formats = ['.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm']
+        # Find first matching suffix
+        suffix = next((fmt for fmt in formats if fmt in url.lower()), None)
+
+        if suffix:
+            print(f"Detected format: {suffix}")
+        else:
+            print("No matching format found in URL, defaulting to .mp4")
+            suffix = '.mp4'
         random_string = ''.join(
             [str(random.choice(['A','B','C','D',1,2,3,4,5,6,7,8,9])) for _ in range(6)]
             )

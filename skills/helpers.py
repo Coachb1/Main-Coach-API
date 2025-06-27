@@ -8,7 +8,8 @@ from django.utils.text import slugify
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
-from skills.models import SkillsRating, SkillIndex, CompetencySkillAndClientMapping
+from skills.choices import CultureMapSkillTypeChoices
+from skills.models import CultureMapSkill, SkillsRating, SkillIndex, CompetencySkillAndClientMapping
 from users.db import get_user_display_name
 from users.models import User
 import re
@@ -1243,12 +1244,19 @@ def evaluate_response_skill(test_attempt_session, conversation, test_title, test
                 response = model_functions[model](prompt)
                 
                 skills_rating_str = json_extraction(response)
-                skills_rating = json.loads(skills_rating_str)
+                skills_rating_json = json.loads(skills_rating_str)
                 
-                if not is_skill_matched(skills, skills_rating.keys()):
-                    raise ValueError("Skills not found in the skills list.")
+                # if not is_skill_matched(skills, skills_rating.keys()):
+                #     raise ValueError("Skills not found in the skills list.")
+                skills_rating = {}
+                garbage_keywords = {s.strip().lower() for s in ['Overal', 'Performance', 'Total', 'Other', 'Top']}
+
+                for skill, rating in skills_rating_json.items():
+                    if skill.strip().lower() in garbage_keywords:
+                        logger.info(f"Skill '{skill}' in {garbage_keywords}")
+                        continue
+                    skills_rating[skill] = float(rating)
                 
-                skills_rating = {skill: float(score) for skill, score in skills_rating.items()}
                 responses.append(skills_rating)
                 response = skills_rating
                 is_evaluated = True
@@ -1842,10 +1850,15 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
     """
     test_title = test.title
     test_description = test.description
-    cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
+    # cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
+    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not skills.exists():
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
-    evaluation_criteria = "\n".join([f"- {skill}: {desc}" for skill, desc in cultural_skills_and_desc.items()])
-    cultural_skills = cultural_skills_and_desc.keys()
+    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+    cultural_skills = [skill.skill for skill in skills]
+
+    logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
 
     prompt = f'''
         \n\nHuman:
@@ -2207,19 +2220,19 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
 
         "Evaluation Criteria:"
 
-        - Relevance: Does the answer directly address the question?
+            - Relevance: Does the answer directly address the question?
 
-        - Accuracy: Is the information in the answer correct?
+            - Accuracy: Is the information in the answer correct?
 
-        - Completeness: Does the answer provide a comprehensive response to the question?
+            - Completeness: Does the answer provide a comprehensive response to the question?
 
-        - Clarity: Is the answer well-written and easy to understand?
+            - Clarity: Is the answer well-written and easy to understand?
         
 
         "REQUIRED FROM LLM:" 
-            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
+            - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5 for each skill listed in {skills_list}. Use decimal values for more precision (e.g., 4.2, 7.3).
             - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'skills_list',ensuring that no two skills receive the same score.
-            - Ensure that each skill is rated uniquely, with no repeated scores.
+            - Ensure that each skill is rated uniquely, with no repeated scores, must be from "{skills_list}".
             - Always evaluate only Skills within "{skills_list}".
 
         Strict Constraints:
@@ -2277,11 +2290,16 @@ def evaluate_skills_group_discussion_conversation(test_attempt_session, conversa
                              "response": response})
                 
                 skills_rating_str = json_extraction(response)
-                skills_rating = json.loads(skills_rating_str)
-                
-                for skill in skills_rating:
-                    skills_rating[skill] = float(skills_rating[skill])
-                
+                skills_rating_json = json.loads(skills_rating_str)
+                skills_rating = {}
+                garbage_keywords = {s.strip().lower() for s in ['Overal', 'Performance', 'Total', 'Other', 'Top']}
+
+                for skill, rating in skills_rating_json.items():
+                    if skill.strip().lower() in garbage_keywords:
+                        logger.info(f"Skill '{skill}' in {garbage_keywords}")
+                        continue
+                    skills_rating[skill] = float(rating)
+
                 is_evaluated = True
                 break
             except Exception as e:
@@ -2982,11 +3000,18 @@ def get_participant_info(participant: User):
     )
 
     logger.info(f"participant_skill_rating obj : {participant_skill_rating_object}")
+    skill_info = participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object) > 0 else {}
+    
+    for skill_key in skill_info:
+        score = skill_info[skill_key].get('score')
+        if isinstance(score, (int, float)):
+            # Keep original value but format to one decimal as a string
+            skill_info[skill_key]['score'] = "{:.1f}".format(score)
 
     participant_info = {
         "name": get_user_display_name(participant),
         "role": participant.role,
-        "skills_info": participant_skill_rating_object[0].get('skills_info', {}) if len(participant_skill_rating_object)>0 else {},
+        "skills_info": skill_info,
         "total_questions_attempted": participant_skill_rating_object[0].get('total_questions_attempted', 0) if len(participant_skill_rating_object)>0 else 0,
         "total_tests_attempted": participant_skill_rating_object[0].get('total_tests_attempted', 0) if len(participant_skill_rating_object)>0 else 0
     }

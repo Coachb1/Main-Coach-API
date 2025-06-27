@@ -1,3 +1,4 @@
+from click import Choice
 from djchoices import DjangoChoices, ChoiceItem
 
 class PilotTestPreferencesChoices(DjangoChoices):
@@ -52,6 +53,8 @@ class ScenarioCaseChoices(DjangoChoices):
     psychometric = ChoiceItem('psychometric')
     game = ChoiceItem('game')
     journaling = ChoiceItem('journaling')
+    observation = ChoiceItem("observation")   # couldn't attempt this type of test just to observe
+    others = ChoiceItem("others")  # for any other type of test that doesn't fit in above categories
 
 class PersonalityModelChoices(DjangoChoices):
     sixteen_factor_discussion = ChoiceItem('sixteen_factor_discussion')
@@ -60,7 +63,9 @@ class PersonalityModelChoices(DjangoChoices):
     blanchard = ChoiceItem('blanchard')
     big_5 = ChoiceItem('big_5')
 
-
+class PageNameChoices(DjangoChoices):
+    leadership_library = ChoiceItem('leadership_library')
+    domain_skills_library = ChoiceItem('domain_skills_library')
 
 class InteractionModeChoices(DjangoChoices):
     text = ChoiceItem("text")

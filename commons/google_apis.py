@@ -17,7 +17,7 @@ from vertexai import generative_models
 
 from google.api_core.exceptions import ResourceExhausted, TooManyRequests 
 from commons.notifications import send_error_notification
-
+from google import genai
 
 import json
 import requests
@@ -221,32 +221,60 @@ def gemini_competions(prompt):
 
     
 @timeit
-def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001"],instruction=None):
+def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001","gemini-2.5-flash-preview-05-20"],instruction=None):
     logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models} adn \n instruction: {instruction}")
     os.chdir(f"{Path(__file__).resolve().parent}")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     # vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     
-    generation_config={
-        "max_output_tokens": max_output_tokens,
-        "temperature": temperature,
-        "top_p": top_p
-    }
+    client = genai.Client(
+        vertexai=True,
+        project="summer-nucleus-397019", 
+        location="global"
+    )
+
+    instruction = instruction if instruction else ""
 
     max_retry = 3
     for model_name in models:
-        instruction = [instruction] if instruction else None
-        model = GenerativeModel(model_name=model_name,system_instruction=instruction)
+        if 'gemini-2.5' in model_name:
+            generate_content_config = genai.types.GenerateContentConfig(
+                max_output_tokens=max_output_tokens,
+                temperature=temperature,
+                thinking_config = genai.types.ThinkingConfig(
+                    thinking_budget=0,
+                ),
+                system_instruction=[
+                    genai.types.Part.from_text(text=instruction),
+                ]
+            )
+        else:
+            generate_content_config = genai.types.GenerateContentConfig(
+                max_output_tokens=max_output_tokens,
+                temperature=temperature,
+                system_instruction=[
+                    genai.types.Part.from_text(text=instruction),
+                ]
+            )
         retry = 0
         
         while retry < max_retry:
             try:
                 logger.info(f"{'='*50}")
                 logger.info(f"Trying gemini_completion with model {model_name} for {retry+1} time")
-                
-                responses = model.generate_content(
-                    [prompt],
-                    generation_config=generation_config,
+                contents = [
+                    genai.types.Content(
+                        role="user",
+                        parts=[
+                            genai.types.Part.from_text(text=prompt),
+                        ],
+                    )
+                ]
+                responses = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=generate_content_config,
+                    
                 )
                 logger.info(f"<<<<<<<<< gemini completion response: {responses} >>>>>>>>>>>>>")
                 logger.info(f"gemini completion text: {responses.candidates[0].content.parts[0].text}")
