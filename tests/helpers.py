@@ -256,7 +256,8 @@ def create_test(tenant: Tenant,
                 script_video_link: str,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
-                time_limit:int) -> tuple[Test, list[TestQuestion]]:
+                time_limit:int,
+                instruction_media_link: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -463,7 +464,8 @@ def create_test(tenant: Tenant,
             script_video_link=script_video_link,
             video_script=video_script,
             feedback_video_script_template=feedback_video_script_template,
-            time_limit=time_limit
+            time_limit=time_limit,
+            instruction_media_link=instruction_media_link
         )
 
         test_questions = []
@@ -593,7 +595,8 @@ def update_test(tenant: Tenant,
                 script_video_link: str,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
-                time_limit:int
+                time_limit:int,
+                instruction_media_link:str
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -747,6 +750,8 @@ def update_test(tenant: Tenant,
             test.skills_to_evaluate = skills_to_evaluate
         if time_limit and test.time_limit != time_limit:
             test.time_limit = time_limit
+        if instruction_media_link and test.instruction_media_link != instruction_media_link:
+            test.instruction_media_link = instruction_media_link
         test.save()
 
         # Update or create test questions
