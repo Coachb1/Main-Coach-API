@@ -1265,8 +1265,10 @@ def process_mcq_response(test_question_response: TestQuestionResponse, is_whatsa
         report_url = generate_session_report_link(test_attempt_session, test)
 
          # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
-                                                                            tenant_id=test_attempt_session.tenant_id)
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(
+                                                                        deleted=False,
+                                                                        participant_id=test_attempt_session.participant_id,
+                                                                        tenant_id=test_attempt_session.tenant_id)
 
         updated_fields = []
         skills_rating_object.total_questions_attempted += int(total_responses.count())
@@ -1462,7 +1464,8 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
         report_url = generate_session_report_link(test_attempt_session, test)
 
          # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-        skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+        skills_rating_object, is_created = SkillsRating.objects.get_or_create(deleted=False, 
+                                                                              participant_id=test_attempt_session.participant_id,
                                                                             tenant_id=test_attempt_session.tenant_id)
 
         updated_fields = []
@@ -2514,7 +2517,8 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
             )
 
             # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-            skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+            skills_rating_object, is_created = SkillsRating.objects.get_or_create(deleted=False,  
+                                                                                  participant_id=test_attempt_session.participant_id,
                                                                                 tenant_id=test_attempt_session.tenant_id)
 
             updated_fields = []
@@ -3802,7 +3806,8 @@ def calc_group_discussion_report_metrics(test_attempt_session: TestAttemptSessio
     test_attempt_session.save(update_fields=updated_fields)
 
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(participant_id=test_attempt_session.participant_id,
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(deleted=False, 
+                                                                          participant_id=test_attempt_session.participant_id,
                                                                           tenant_id=test_attempt_session.tenant_id)
 
     updated_fields = []
@@ -4599,8 +4604,11 @@ def _calc_score(test_attempt_session: TestAttemptSession, test: Test):
 
     
     # Get the object from SkillsRating table where participant_id = participant_id and of it doesn't exist then create it
-    skills_rating_object, is_created = SkillsRating.objects.get_or_create(deleted=False, participant_id=participant_id,
-                                                                        tenant_id=test_attempt_session.tenant_id)
+    skills_rating_object, is_created = SkillsRating.objects.get_or_create(
+                                                                        deleted=False, 
+                                                                        participant_id=participant_id,
+                                                                        tenant_id=test_attempt_session.tenant_id
+                                                                        )
 
     updated_fields = []
 
