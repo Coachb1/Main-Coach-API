@@ -1364,7 +1364,7 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
                                                                                     <div class="adapt-img" style="display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 16px;">
                                                                                         <h1
                                                                                             id="heading"
-                                                                                            style="width: fit-content; border: 2px solid #2DC092; padding: 3px; font-size: 20px; font-weight: 800; color: #2DC092; position: relative; z-index: 10;"
+                                                                                            style="width: fit-content; border: 2px solid #2DC092; padding: 4px !important; font-size: 20px; font-weight: 800; color: #2DC092; position: relative; z-index: 10;"
                                                                                         >
                                                                                             <span
                                                                                             style="margin-right: 4px; background-color: #2DC092; padding: 3px; font-size: 18px; font-weight: 700; color: white;"
