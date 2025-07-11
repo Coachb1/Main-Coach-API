@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
+from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserTestMapping
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -396,3 +396,15 @@ class TestMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestMapping
         fields = '__all__'
+
+
+class UserTestMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserTestMapping
+        fields = ['id', 'user', 'tests', 'sticker']
+        read_only_fields = ('user', 'tests')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['tests'] = ",".join([test.test_code for test in instance.tests.all()])
+        return data

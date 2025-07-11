@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer
+from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -15,7 +15,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
+from tests.models import Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -1875,6 +1875,41 @@ class TestViewSet(ApiViewSet,
                 "category_info": categor_info
             }
             return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to [test_mappings]: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+    @action(methods=['GET'],detail=False, url_path="user-test-mappings")
+    def user_test_mappings(self, request, *args, **kwargs):
+        """
+        Retrieves the test mappings for a specific user.
+
+        This view expects a 'user_id' query parameter in the request. It attempts to find a user with the given ID
+        who is not marked as deleted. If the user is found, it fetches the first UserTestMapping associated with the user,
+        serializes it, and returns the serialized data in the response.
+
+        Returns:
+            - 200 OK: Serialized UserTestMapping data for the user.
+            - 404 Not Found: If the user with the given user_id does not exist.
+            - 500 Internal Server Error: For any unexpected errors during processing.
+
+        Query Parameters:
+            user_id (str): The unique identifier of the user.
+
+        Exceptions:
+            Logs and returns appropriate error messages for user not found and unexpected errors.
+        """
+
+        try:
+            user_id = request.query_params.get('user_id')
+            try:
+                user = User.objects.get(deleted=False, uid=user_id)
+            except Exception as e:
+                logger.exception(f'{e}')
+                return Response({'error': f"User not found with user_id : {user_id}"}, status=status.HTTP_404_NOT_FOUND)
+            serializer = UserTestMappingSerializer(UserTestMapping.objects.filter(user=user).first())
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Failed to [test_mappings]: {e}")
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
