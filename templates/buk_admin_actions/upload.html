@@ -1,0 +1,150 @@
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f2f4f8;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .container {
+    max-width: 600px;
+    background: #ffffff;
+    padding: 30px 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #00b894;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 30px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  label {
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  select,
+  input[type="text"],
+  input[type="file"],
+  input[type="email"],
+  input[type="number"],
+  input[type="password"],
+  textarea {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+    font-size: 14px;
+  }
+
+  select:focus,
+  input:focus,
+  textarea:focus {
+    border-color: #00b894;
+    outline: none;
+  }
+
+  .btn {
+    width: 100%;
+    margin-top: 30px;
+    padding: 12px;
+    background-color: #00b894;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    grid-column: span 2;
+  }
+
+  .btn:hover {
+    background-color: #019875;
+  }
+
+  .message {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+  }
+
+  .message.error {
+    color: red;
+  }
+
+  .message.success {
+    color: green;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .btn {
+      grid-column: span 1;
+    }
+  }
+</style>
+
+<div class="container">
+  <h2>Create or Upload Scenario</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="form-group" style="grid-column: span 2;">
+        <label for="id_action">Choose Action</label>
+        <select name="action" id="id_action" onchange="handleActionChange(this)">
+          <option value="create_upload_test" {% if action == "create_upload_test" %}selected{% endif %}>Create/Upload/Test</option>
+          <option value="upload" {% if action == "upload" %}selected{% endif %}>Upload</option>
+          <option value="test" {% if action == "test" %}selected{% endif %}>Test</option>
+          <option value="create_scenario" {% if action == "create_scenario" %}selected{% endif %}>Create Scenario</option>
+        </select>
+      </div>
+
+      {% for field in form %}
+        {% if field.name != 'action' %}
+          <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          </div>
+        {% endif %}
+      {% endfor %}
+
+      <button type="submit" class="btn">Submit</button>
+    </div>
+
+    {% if error %}
+      <p class="message error">{{ error }}</p>
+    {% endif %}
+    {% if message %}
+      <p class="message success">{{ message }}</p>
+    {% endif %}
+  </form>
+</div>
+<script>
+  function handleActionChange(selectElement) {
+    const selectedAction = selectElement.value;
+    const url = new URL(window.location.href);
+    url.searchParams.set("action", selectedAction);
+    window.location.href = url.toString(); // Redirect using GET
+  }
+</script>
