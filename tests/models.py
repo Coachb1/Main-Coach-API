@@ -581,3 +581,21 @@ class TestMapping(MyModel):
         unique_together = (
             ('test', 'page_name', 'client', 'deleted')
         )
+
+
+class UserTestMapping(MyModel):
+    user = models.OneToOneField('users.User', on_delete=models.CASCADE)
+    tests = models.ManyToManyField(Test, related_name='user_test_mappings',null = True, blank=True)
+    sticker = models.CharField(max_length=55, null=True, blank=True)
+
+    class Meta:
+        db_table = "user_test_mappings"
+        verbose_name = "User Test Mapping"
+        verbose_name_plural = "User Test Mappings"
+        ordering = ("-id",)
+        unique_together = (
+            ('user', 'deleted')
+        )
+
+    def __str__(self):
+        return f"{self.user.name} Test Mapping"
