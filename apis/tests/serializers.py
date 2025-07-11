@@ -153,6 +153,8 @@ class UpdateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     instruction_media_link = serializers.CharField(
         required=False, allow_null=True, default=None)
+    notice_board = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -259,6 +261,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     instruction_media_link = serializers.CharField(
         required=False, allow_null=True, default=None)
+    notice_board = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -353,7 +357,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "video_script",
                   "feedback_video_script_template",
                   "time_limit",
-                  "instruction_media_link"
+                  "instruction_media_link",
+                  "notice_board",
                   ]
 
     def get_questions(self, instance):
