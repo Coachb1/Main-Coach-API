@@ -1,5 +1,7 @@
 from django.contrib import admin
 from import_export.admin import ExportActionMixin
+from identities.helpers import get_user_via_identity
+from tenants.models import Tenant
 from tests.models import (
     Test,
     TestQuestion,
@@ -17,7 +19,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation
+from .models import PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -1049,3 +1051,93 @@ class TestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             "title": "Upload CSV for Test Mappings",
         }
         return render(request, "admin/testmapping/csv_upload.html", context)
+
+
+
+@admin.register(UserTestMapping)
+class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
+    list_display = ('id', 'user', 'get_tests', 'sticker')
+    search_fields = ('user__name', 'sticker')
+    filter_horizontal = ('tests',)
+    change_list_template = "admin/usertestmapping/usertestmapping_changelist.html"  # custom template for button
+    autocomplete_fields = ['tests']
+    ordering = ('-id',)
+    
+    def get_tests(self, obj):
+        return ", ".join([t.test_code for t in obj.tests.all()])
+    get_tests.short_description = 'Tests'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('upload-csv/', self.admin_site.admin_view(self.upload_csv), name='usertestmapping-upload-csv'),
+        ]
+        return custom_urls + urls
+
+    def upload_csv(self, request):
+        if request.method == "POST":
+            try:
+                csv_file = io.TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+                reader = csv.DictReader(csv_file)
+                required_fields = ["email",'test_codes','sticker']
+
+                # ✅ Check if file is empty
+                if not reader.fieldnames:
+                    messages.error(request, "CSV file is empty! Please upload a valid file.")
+                    return redirect(request.get_full_path())
+
+                # ✅ 4. Check if the CSV contains all required fields
+                if not all(field in reader.fieldnames for field in required_fields):
+                    r_fields = ",".join(required_fields)
+                    messages.error(
+                        request,
+                        f"CSV is missing required fields: {r_fields} .",
+                    )
+                    return redirect(request.get_full_path())
+                created_count = 0
+                for index, row in enumerate(reader, start=1):
+                    test_list = [code.strip() for code in row.get('test_codes','').strip().split(',') if code.strip()]
+                    
+                    tests = Test.objects.filter(client_mappings__isnull=False, test_code__in=test_list).distinct()
+                    if tests.count == 0:
+                        messages.warning(request, f"[Row {index}] Tests not found: '{row.get('test_codes')}'")
+                        continue
+
+                    tenant = Tenant.objects.get(uid=tests.first().tenant_id)
+                    user = get_user_via_identity(
+                        tenant=tenant,
+                        identity_type="deepchat_unique_id",
+                        identity_value=row.get('email')
+                    )
+                    if not user:
+                        messages.warning(request, f"[Row {index}] Error creating mapping: User not found with {row.get('email')}")
+                        continue
+
+
+                    try:
+                        obj, created = UserTestMapping.objects.get_or_create(
+                            user=user
+                        )
+                        obj.sticker = row.get('sticker')
+                        obj.save()
+
+                        obj.tests.set(tests)
+
+                        if created:
+                            created_count += 1
+                    except Exception as e:
+                        messages.warning(request, f"[Row {index}] Error creating mapping: {e}")
+            except Exception as e:
+                messages.error(request, f"An unexpected error occurred: {str(e)}")
+                return redirect(request.get_full_path())
+            self.message_user(request, f"Successfully uploaded {created_count} user test mappings.", level=messages.SUCCESS)
+            return redirect("..")
+        else:
+            form =  CSVUploadForm(show_tenant_id=False)
+
+        context = {
+            "form": form,
+            "opts": self.model._meta,
+            "title": "Upload CSV for User Test Mappings",
+        }
+        return render(request, "admin/usertestmapping/csv_upload.html", context)
