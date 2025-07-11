@@ -118,7 +118,8 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "personality_model",
         "start_with_user",
         "time_limit",
-        "instruction_media_link"
+        "instruction_media_link",
+        "notice_board",
     )
     search_fields = (
         "test_code",
@@ -143,7 +144,8 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "personality_model",
         "tab_category",
         "time_limit",
-        "instruction_media_link"
+        "instruction_media_link",
+        "notice_board",
     )
     list_filter = (
         "deleted",

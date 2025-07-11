@@ -114,6 +114,7 @@ FEEDBACK_SCRIPT_VIDEO_LINK = 'Feedback Video Link'
 FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
 TIME_LIMIT = "Time Limit"
 INSTRUCTION_MEDIA_LINK = "Instruction Media"
+NOTICE_BOARD = "Notice Board"
 
 def clean_text(text):
     BRACKETS_QUOTES_REGEX =re.compile(r'[\[\]\(\)\{\}<>\"\'’]')
@@ -439,6 +440,9 @@ def format_test_orchestrated_conversation(raw_data):
 
         if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
             output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
+
+        if NOTICE_BOARD in input_dict and len(input_dict[NOTICE_BOARD].strip()) > 0:
+            output_dict['notice_board'] = input_dict[NOTICE_BOARD].strip()
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -1249,6 +1253,9 @@ def format_test_data_slack(raw_data,tenant):
 
         if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
             output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
+
+        if NOTICE_BOARD in input_dict and len(input_dict[NOTICE_BOARD].strip()) > 0:
+            output_dict['notice_board'] = input_dict[NOTICE_BOARD].strip()
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :

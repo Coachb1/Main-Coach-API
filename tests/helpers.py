@@ -257,7 +257,8 @@ def create_test(tenant: Tenant,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
                 time_limit:int,
-                instruction_media_link: str) -> tuple[Test, list[TestQuestion]]:
+                instruction_media_link: str,
+                notice_board: str) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -465,7 +466,8 @@ def create_test(tenant: Tenant,
             video_script=video_script,
             feedback_video_script_template=feedback_video_script_template,
             time_limit=time_limit,
-            instruction_media_link=instruction_media_link
+            instruction_media_link=instruction_media_link,
+            notice_board=notice_board,
         )
 
         test_questions = []
@@ -596,7 +598,8 @@ def update_test(tenant: Tenant,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
                 time_limit:int,
-                instruction_media_link:str
+                instruction_media_link:str,
+                notice_board: str
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -752,6 +755,8 @@ def update_test(tenant: Tenant,
             test.time_limit = time_limit
         if instruction_media_link and test.instruction_media_link != instruction_media_link:
             test.instruction_media_link = instruction_media_link
+        if notice_board and test.notice_board != notice_board:
+            test.notice_board = notice_board
         test.save()
 
         # Update or create test questions
@@ -4120,7 +4125,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
         'video_script': test.video_script,
 
-        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
+        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+        'notice_board': test.notice_board,
 
     }
     

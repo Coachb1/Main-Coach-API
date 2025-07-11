@@ -401,6 +401,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
                 'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
                 'video_script': test.video_script,
+                'notice_board': test.notice_board,
                 }
 
 
@@ -547,7 +548,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
                 'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
                 'video_script': test.video_script,
-
+                'notice_board': test.notice_board,
                  }
 
 
@@ -617,7 +618,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "test_report_config": test_report_config,
                 'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
                 'video_script': test.video_script,
-                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+                'notice_board': test.notice_board,
 
 
 
@@ -777,7 +779,8 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                 "test_report_config": test_report_config,
                 'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
                 'video_script': test.video_script,
-                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
+                'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+                'notice_board': test.notice_board,
                 }
 
     uri = get_test_attempt_session_skills_graph(test_attempt_session)
