@@ -15,7 +15,6 @@
 
     .form-container {
       max-width: 850px;
-      /* margin: 1% 0 0% 20%; */
       background: #ffffff;
       border-radius: 12px;
       padding: 40px 50px;
@@ -26,7 +25,29 @@
     h1 {
       text-align: center;
       color: #00b894;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
+    }
+
+    .message-list {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 20px;
+    }
+
+    .message-list li {
+      margin-bottom: 10px;
+      padding: 12px;
+      border-radius: 6px;
+      color: #fff;
+      background-color: #3498db; /* default blue */
+    }
+
+    .message-success {
+      background-color: #00b894;
+    }
+
+    .message-error {
+      background-color: #e74c3c;
     }
 
     .form-grid {
@@ -125,6 +146,22 @@
 <body>
   <div class="form-container">
     <h1>Get Static CSV File</h1>
+
+    <!-- Message block -->
+    {% if messages %}
+      <ul class="message-list">
+        {% for message in messages %}
+          <li class="
+            {% if message.tags == 'success' %}message-success
+            {% elif message.tags == 'error' %}message-error
+            {% else %}{% endif %}
+          ">
+            {{ message }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
     <form method="post">
       {% csrf_token %}
       <div class="form-grid">

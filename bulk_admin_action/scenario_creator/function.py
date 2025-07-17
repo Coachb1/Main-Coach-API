@@ -1,13 +1,16 @@
-from coachbots_app.automated_scenario import  AutomatedScenarios
+from bulk_admin_action.automated_scenario import  AutomatedScenarios
 import json
 import os
 import re
 
 import pandas as pd
 
-from coachbots_app.automated_scenario import append_to_csv, initialize_csv
-from coachbots_app.scenario_creator.prompts import feedback_video_script_template, format_game_custom_prompt, get_game_prompt, get_scenario_prompt, video_script_prompt
-from coachbots_app.utils.llm import anthropic_completion, gemini_completion
+from bulk_admin_action.automated_scenario import append_to_csv, initialize_csv
+from bulk_admin_action.scenario_creator.prompts import feedback_video_script_template, format_game_custom_prompt, get_game_prompt, get_scenario_prompt, video_script_prompt
+from commons.anthropic import anthropic_completion
+from commons.google_apis import gemini_completion
+
+
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
     return re.sub(r'[\[\]\(\)\{\}<>]', '', input_text).strip()
@@ -1252,15 +1255,16 @@ def scenario_create(llm_type,
                 file_name=file_name,
                 folder_path= folder_path
             )
-          dynamic_create_csv(
-              scenario_data=scenario_information_data,
-              question_count=question_count,
-              iteration=iteration,
-              scenario_type=scenario_type,
-              is_game=True,
-              information=intake,
-              folder_path= folder_path
-          )
+          else:
+            dynamic_create_csv(
+                scenario_data=scenario_information_data,
+                question_count=question_count,
+                iteration=iteration,
+                scenario_type=scenario_type,
+                is_game=True,
+                information=intake,
+                folder_path= folder_path
+            )
         elif "static" in scenario_type:
           scenario_information_data, success = extract_information_static(raw_scenario,
                                      iteration+1,
@@ -1275,9 +1279,10 @@ def scenario_create(llm_type,
           if not success:
             raise ValueError(f"Got error: {scenario_information_data.get('error')}")
 
-          create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,folder_path= folder_path)
           if file_name:
-            create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=file_name,folder_path= folder_path)
+            create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=file_name,folder_path=folder_path)
+          else:
+            create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=None,folder_path=folder_path)
 
         else:
           scenario_information_data,success = extract_information_dynamic_scenario(text=raw_scenario,
@@ -1294,7 +1299,8 @@ def scenario_create(llm_type,
 
           if file_name:
             dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=file_name,folder_path=folder_path)
-          dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,folder_path=folder_path)
+          else:
+            dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,folder_path=folder_path)
 
         print(f"iteration: {iteration+1} Ends")
         print("="*100)
@@ -1309,15 +1315,14 @@ def scenario_create(llm_type,
               if "static" in scenario_type:
                 if file_name:
                   create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=file_name,folder_path= folder_path)
-                create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=None,folder_path= folder_path)
+                else:
+                  create_csv(scenario_information_data,question_count,iteration,scenario_type,information=intake,file_name=None,folder_path= folder_path)
 
               else:
                 if file_name:
                   dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,file_name=file_name,information=intake,folder_path= folder_path)
-                dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,file_name=None,information=intake,folder_path= folder_path)
-
-
-
+                else:
+                  dynamic_create_csv(scenario_information_data,question_count,iteration,scenario_type,file_name=None,information=intake,folder_path= folder_path)
 
             initialize_csv('Failed Scenarios.csv', ['information', 'raw Scenario', 'error'])
             append_to_csv('Failed Scenarios.csv', [information, raw_scenario, f"Failed to create iter {iteration+1} for retry {index+1}, error: {e}"])

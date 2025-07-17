@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'mail_box.apps.MailBoxConfig',
     'legacybot.apps.LegacybotConfig',
     'django_celery_beat',
-    'celeryapp'
+    'celeryapp',
+    'bulk_admin_action'
     
 ]
 

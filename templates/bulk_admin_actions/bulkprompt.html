@@ -33,9 +33,6 @@
 
     input[type="text"],
     input[type="file"],
-    input[type="email"],
-    input[type="number"],
-    input[type="password"],
     select,
     textarea {
       width: 100%;
@@ -72,18 +69,29 @@
     .btn:hover {
       background-color: #019875;
     }
+
+    .message {
+      text-align: center;
+      margin-top: 10px;
+      color: #e74c3c;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
     <h2>🧠 Bulk Gemini Prompt Processor</h2>
-    <form method="POST" enctype="multipart/form-data" target="download_frame">
+
+    {# Show message if any #}
+    {% if message %}
+      <div class="message">{{ message }}</div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
       {% csrf_token %}
       {{ form.as_p }}
       <button type="submit" class="btn">Start Processing</button>
     </form>
-    <iframe name="download_frame" style="display:none;"></iframe>
   </div>
 
 </body>
