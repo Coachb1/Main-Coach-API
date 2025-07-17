@@ -1,15 +1,24 @@
+import io
 import os
 from django.core.files.storage import FileSystemStorage
 from django.http import FileResponse, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import requests
-from bulk_admin_action.views import CleanupFileStream, create_scenario_view
-from .forms import CreateScenarioForm, TestForm, UploadCsvForm, UploadFileForm
-from .tasks import process_create_upload_test_task, process_report_task, upload_scenario_task
+from bulk_admin_action.llm_playground.helper import process_files
+from bulk_admin_action.utils import CleanupFileStream, create_scenario_view, get_dynamic_csv, validate_file
+from test_bulk_upload.scripts import login_slack
+from .forms import BulkGeminiPromptProcessor, CreateScenarioForm, DynamicCsvForm, NormalCSVForm, TestForm, UploadCsvForm, UploadFileForm
+from .tasks import process_bulk_prompt_task, process_create_upload_test_task, process_report_task, upload_scenario_task
 import pandas as pd
+from celery.result import AsyncResult
+
+from django.views.decorators.csrf import csrf_exempt
 
 from django.conf import settings
-base_url = settings.BASE_URL
+from django.contrib import messages
+
+
+base_url = "https://coach-api-gke-dev.coachbots.com"
 
 
 def upload_view(request):
@@ -45,19 +54,20 @@ def upload_view(request):
             # Check if file is actually uploaded
              
             if not uploaded_file and action !='test':
-                return render(request, 'upload.html', {
+                return render(request, 'bulk_admin_actions/upload.html', {
                     'form': form,
                     'error': '❌ No file was uploaded. Please choose a file.'
                 })
             
             auth = None
             if action != 'create_scenario':
-                auth = webauth_login(domain, email, password, base_url)
+                auth = login_slack(subdomain_prefix=domain, email=email, password=password)
                 if not auth:
-                    return render(request, 'upload.html', {
+                    return render(request, 'bulk_admin_actions/upload.html', {
                     'form': form,
                     'error': '❌ Invalid credentials. Please check your email, domain, and password.'
                 })
+                auth = f"Bearer {auth}"
             if uploaded_file:
                 fs = FileSystemStorage()
                 filename = fs.save(uploaded_file.name, uploaded_file)
@@ -69,7 +79,7 @@ def upload_view(request):
                 try:
                     df = pd.read_csv(file_path)
                 except Exception:
-                    return render(request, 'upload.html', {
+                    return render(request, 'bulk_admin_actions/upload.html', {
                         'form': form,
                         'error': '❌ Unable to read CSV file.'
                     })
@@ -80,15 +90,35 @@ def upload_view(request):
             if action == 'create_upload_test':
                 validated = validate_file(df)
                 if not validated:
-                    return render(request, 'upload.html', {
+                    return render(request, 'bulk_admin_actions/upload.html', {
                     'form': form,
                     'error': '❌ Invalid file format. Please upload a CSV file.'
                     })
-                process_create_upload_test_task.delay(uploaded_df, llm_type, email, password, domain, auth)
+                task = process_create_upload_test_task.delay(uploaded_df, llm_type, email, password, domain, auth)
                 message = '✅ Create/Upload/Test processing started.'
+                task_id = task.id
+
+                if not task_id:
+                    message = "❗ Task ID missing."
+                    return render(request, 'bulk_admin_actions/bulk_task_status.html', {'message': message})
+
+                return render(request, 'bulk_admin_actions/bulk_task_status.html', {
+                    'task_id': task_id,
+                    'message': 'File uploaded successfully. Processing started!',
+                })
             elif action == 'upload':
-                upload_scenario_task(file_path, llm_type, email, password, domain,test_type)
+                success, files = upload_scenario_task(file_path, llm_type, email, password, domain,test_type)
+
+                if not success:
+                    return render(request, 'bulk_admin_actions/upload.html', {
+                        'form': form,
+                        'error': f"❌ Upload failed"
+                    })
+                print("✅ Upload successful:", files)
+                zip_stream = CleanupFileStream(files)
+                response = FileResponse(zip_stream, as_attachment=True, filename=os.path.basename(files))
                 message = '✅ Upload scenario task started.'
+                return response
             elif action == 'create_scenario':
                 uploaded_df['df'] = df 
                 zipfile_name = create_scenario_view(llm_type, uploaded_df)
@@ -99,8 +129,17 @@ def upload_view(request):
                 message = '✅ Create Scenario started.'
                 return response
             elif action == 'test':
-                process_report_task.delay(auth, test_codes)
+                task = process_report_task.delay(auth, test_codes)
+                task_id = task.id
                 message = 'Test Report Started'
+                if not task_id:
+                    message = "❗ Task ID missing."
+                    return render(request, 'bulk_admin_actions/bulk_task_status.html', {'message': message})
+
+                return render(request, 'bulk_admin_actions/bulk_task_status.html', {
+                    'task_id': task_id,
+                    'message': 'File uploaded successfully. Processing started!',
+                })
                 # process_report_task.delay(auth,test_codes,uploaded_df,llm_type, email, password, domain)
                 # message='Test Report Started'
                 # csv_file = r'media\report\Bulk_Report.csv'
@@ -110,17 +149,214 @@ def upload_view(request):
                 # return response
             else:
             # Form is not valid: show errors
-                return render(request, 'upload.html', {
+                return render(request, 'bulk_admin_actions/upload.html', {
                 'form': form,
                 'error': '❌ Unknown action selected.'
                 })
-            return render(request, 'upload.html', {
+            return render(request, 'bulk_admin_actions/upload.html', {
                 'form': sub_form(),  # Reset form
                 'message': message
             })
             # form = UploadFileForm()
 
-        return render(request, 'upload.html', {'form': form,'error': '❌ Please correct the form errors.'})
+        return render(request, 'bulk_admin_actions/upload.html', {'form': form,'error': '❌ Please correct the form errors.'})
     form = sub_form(initial={'action': action})
-    return render(request, 'upload.html', {'form': form,'action':action})
+    return render(request, 'bulk_admin_actions/upload.html', {'form': form,'action':action})
+
+
+def upload_and_process_llm(request):
+    message = ''
+    if request.method == 'POST':
+        form = BulkGeminiPromptProcessor(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = form.cleaned_data['csv_file']
+            llm_type = form.cleaned_data['llm_type']
+            try:
+                # Your processing...
+                filename = csv_file.name
+                task = process_bulk_prompt_task.delay(csv_file.read().decode('utf-8'),filename,llm_type)
+                task_id = task.id
+
+                if not task_id:
+                    message = "❗ Task ID missing."
+                    return render(request, 'bulk_admin_actions/bulk_task_status.html', {'message': message})
+
+                return render(request, 'bulk_admin_actions/bulk_task_status.html', {
+                    'task_id': task_id,
+                    'message': 'File uploaded successfully. Processing started!',
+                })
+            except Exception as e:
+                message = f"❗ Error: {e}"
+    else:
+        form = BulkGeminiPromptProcessor()  # 👈 you MUST define form here for GET
+
+    return render(request, 'bulk_admin_actions/bulkprompt.html', {
+        'form': form,
+        'message': message,
+    })
+
+
+def check_task_status(request, task_id):
+    result = AsyncResult(task_id)
+
+    if result.state == 'SUCCESS':
+        print(result,"result:", result.result)
+        filepath = result.result
+        if os.path.exists(filepath):
+            response = FileResponse(open(filepath, 'rb'), as_attachment=True, filename=os.path.basename(filepath))
+            os.remove(filepath)  # Clean up the zip file after download
+            return response
+        else:
+            return HttpResponse("❗ file not found.", status=404)
+    elif result.state == 'FAILURE':
+        return HttpResponse("❗ Task failed. Please try again later.", status=500)
+    else:
+        return HttpResponse(f"⏳ Task state: {result.state}. Please refresh.", status=200)
+
+
+@csrf_exempt
+def get_csv_view(request):
+    if request.method == 'POST':
+        form = NormalCSVForm(request.POST)
+
+        if form.is_valid():
+            data = form.cleaned_data
+            access_token = login_slack(
+                subdomain_prefix=data['subdomain_prefix'],
+                email=data['email'],
+                password=data['password']
+            )
+            if access_token:
+                access_token = f"Bearer {access_token}"
+                url = f"{base_url}/api/v1/tests/get_normal_test_csv/"
+                params = {}
+
+                for key in ['title', 'test_type', 'interaction_mode', 'scenario_case',
+                            'num_questions', 'candidate_type', 'test_codes',
+                            'page_name', 'competency_skills', 'tab_category',
+                            'client_name', 'creator_email']:
+                    value = data.get(key)
+                    if value not in [None, '']:
+                        params[key] = value
+
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': access_token
+                }
+
+                try:
+                    response = requests.get(url, params=params, headers=headers)
+                    if response.status_code == 200:
+                        json_data = response.json()
+                        test_list = json_data.get('test_list', [])
+                        if len(test_list) == 0:
+                            messages.warning(request, "No tests found for the given criteria.")
+                            return redirect(request.path)
+                        heading = json_data.get('heading', '')
+
+                        csv_data = heading + "\n"
+                        for test in test_list:
+                            df = pd.DataFrame([test])
+                            csv_row = df.to_csv(index=False, header=False)
+                            csv_data += csv_row
+
+                        # Create response to download
+                        csv_response = HttpResponse(csv_data, content_type='text/csv')
+                        csv_response['Content-Disposition'] = 'attachment; filename=bulk_test_data.csv'
+                        messages.success(request, "CSV fetched successfully!")
+                        return csv_response
+
+                    else:
+                        messages.error(request, "Failed to fetch CSV. Server responded with an error.")
+                        return redirect(request.path)
+
+                except Exception as e:
+                    messages.error(request, f"Exception occurred: {str(e)}")
+                    return redirect(request.path)
+
+            else:
+                messages.error(request, "❗ Invalid credentials. Please check your email, password, and subdomain.")
+                return redirect(request.path)
+
+        else:
+            messages.error(request, "Please correct the errors in the form.")
+            return redirect(request.path)
+
+    else:
+        form = NormalCSVForm()
+
+    return render(request, 'bulk_admin_actions/normal_csv_dw.html', {'form': form})
+
+
+@csrf_exempt
+def get_dynamic_csv_view(request):
+    if request.method == 'POST':
+        form = DynamicCsvForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+
+            access_token = login_slack(
+                subdomain_prefix=data['subdomain_prefix'],
+                email=data['email'],
+                password=data['password']
+            )
+
+            if not access_token:
+                messages.error(request, "❗ Invalid credentials. Please check your email, password, and subdomain.")
+                return redirect(request.path)
+
+            auth_header = f"Bearer {access_token}"
+
+            try:
+                response_data = get_dynamic_csv(
+                    test_type=data.get('test_type'),
+                    interaction_mode=data.get('interaction_mode'),
+                    scenario_case=data.get('scenario_case'),
+                    num_questions=data.get('num_questions'),
+                    candidate_type=data.get('candidate_type'),
+                    test_codes=data.get('test_codes'),
+                    page_name=data.get('page_name'),
+                    competency_skills=data.get('competency_skills'),
+                    tab_category=data.get('tab_category'),
+                    auth=auth_header,
+                    bots=data.get('bots'),
+                    is_start_with_user=data.get('is_start_with_user')
+                )
+
+                if response_data:
+                    
+                    test_list = response_data.get('test_list', [])
+                    if len(test_list) == 0:
+                        messages.warning(request, "No tests found for the given criteria.")
+                        return redirect(request.path)
+                    heading = response_data.get('heading', '')
+
+                    csv_data = heading + "\n"
+                    for test in test_list:
+                        df = pd.DataFrame([test])
+                        csv_row = df.to_csv(index=False, header=False)
+                        csv_data += csv_row
+
+                    csv_response = HttpResponse(csv_data, content_type='text/csv')
+                    csv_response['Content-Disposition'] = 'attachment; filename=dynamic_test_data.csv'
+                    messages.success(request, "Dynamic CSV fetched successfully!")
+                    return csv_response
+
+                else:
+                    messages.error(request, "Failed to fetch CSV. Server responded with an error.")
+                    return redirect(request.path)
+
+            except Exception as e:
+                messages.error(request, f"Exception occurred: {str(e)}")
+                return redirect(request.path)
+
+        else:
+            messages.error(request, "Please correct the errors in the form.")
+            return redirect(request.path)
+
+    else:
+        form = DynamicCsvForm()
+
+    return render(request, 'bulk_admin_actions/dynamic_csv_dw.html', {'form': form})
+
 
