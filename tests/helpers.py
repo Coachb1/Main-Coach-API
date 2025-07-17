@@ -1013,17 +1013,22 @@ def create_test_question_answer_session(tenant: Tenant,
 
     if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
-
-        first_question_text = gemini_chat_completion(
-                                prompt=test.gpt_prompt_override,
-                                previous_conv=[{
-                                    "role": "user",
-                                    "text": "START"
-                                }],
-                                temperature=0,
-                                top_p=0,
-                                # models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
-                            )
+        first_question_text = ''
+        for i in range(3):
+            logger.info("generating first question for test %s, attempt %d", test_id, i+1)
+            first_question_text = gemini_chat_completion(
+                                    prompt=test.gpt_prompt_override,
+                                    previous_conv=[{
+                                        "role": "user",
+                                        "text": "START"
+                                    }],
+                                    temperature=0,
+                                    top_p=0,
+                                )
+            if not validate_llm_output_minimal(first_question_text):
+                logger.warning("LLM output did not meet minimal requirements")
+                continue
+            break
 
         TestQuestionResponse.objects.create(
             tenant_id=test_attempt_session.tenant_id,
@@ -3148,6 +3153,59 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
     except Exception as e:
         logger.error(f"@@@@@@@@@@@!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
 
+@timeit
+def validate_llm_output_minimal(output: dict) -> bool:
+    required_fields = {
+        "context": {
+            "section": str
+        },
+        "details": {
+            "question": str
+        },
+        "content": {
+            "instruction": str,
+            "options": {
+                "A": str,
+                "B": str,
+                "C": str,
+                "D": str
+            }
+        }
+    }
+
+    def check_min_required(obj, required):
+        if not isinstance(obj, dict):
+            try:
+                obj = json.loads(obj)
+            except (ValueError, TypeError):
+                return False
+        for key, expected in required.items():
+            if key not in obj:
+                return False
+            if isinstance(expected, dict):
+                if not isinstance(obj[key], dict):
+                    return False
+                if not check_min_required(obj[key], expected):
+                    return False
+            elif not isinstance(obj[key], expected):
+                return False
+        return True
+
+    return check_min_required(output, required_fields)
+
+def sanitize_llm_output(output: dict) -> dict:
+    """
+    Removes the 'options' key from 'details' if it exists.
+    """
+    if not isinstance(output, dict):
+        try:
+            output = json.loads(output)
+        except (ValueError, TypeError):
+            return output
+    if isinstance(output, dict) and "details" in output:
+        if isinstance(output["details"], dict) and "options" in output["details"]:
+            del output["details"]["options"]
+    return json.dumps(output)
 
 @timeit
 def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
@@ -3197,17 +3255,29 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
             "text": question_response.response_text,
             "role": "user"
         })
+    next_question = ''
+    for i in range(3):
+        logger.info(f"Attempt {i+1} to generate next question")
+        next_question = gemini_chat_completion(
+            prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
+            previous_conv=previous_conversation,
+            temperature=0,
+            top_p=0,
+        )
+        score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
 
+        if not score_match and not validate_llm_output_minimal(next_question):
+            logger.error(f"Invalid LLM output: {next_question}")
+            continue
 
-    next_question = gemini_chat_completion(
-        prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
-        previous_conv=previous_conversation,
-        temperature=0,
-        top_p=0,
-        # models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
-    )
+        if not score_match:
+            next_question = sanitize_llm_output(next_question)
 
-    print(next_question)
+        break
+
+    print(next_question, type(next_question))
+    
+    
     # now checking if the next_question is last/end conversation with score
 
     score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
