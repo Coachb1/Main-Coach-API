@@ -16,44 +16,91 @@ from external_apis.slack_alert_api import send_slack_message
 # from commons.notifications import send_error_notification
 
 import logging
+import os
 
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 
-def send_email_from_emailit(receiver_email,subject,body):
-# Email details
-    sender_email = "Coach Bot <mail@coachbots.com>"
+logger = logging.getLogger(__name__)
+
+
+def send_email_from_emailit(receiver_email, subject, body, attachment_path=None):
+    # Email details
+    sender_email = "mail@coachbots.com"  # actual email address (not the display name)
+    display_name = "Coach Bot"
     password = "em_smtp_1Pe2EoMFxmatBWlVTTVBHEo3YDwzxxH9"
-
     # Set up the MIME
     message = MIMEMultipart()
-    message["From"] = sender_email
+    message["From"] = f"{display_name} <{sender_email}>"
     message["To"] = receiver_email
     message["Subject"] = subject
 
-    # Email body
+    # Attach the email body (HTML)
     message.attach(MIMEText(body, "html"))
 
+    # Optional: Add attachment
+    if attachment_path and os.path.isfile(attachment_path):
+        try:
+            with open(attachment_path, "rb") as file:
+                part = MIMEApplication(file.read(), Name=os.path.basename(attachment_path))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment_path)}"'
+                message.attach(part)
+        except Exception as e:
+            logger.exception(f"Error attaching file: {e}")
+            raise e
+
+    # Send email
     try:
-        # Connect to the server
         with smtplib.SMTP("smtp.emailit.com", 587) as server:
-            server.starttls()  # Start TLS encryption
-            server.login(sender_email, password)  # Login to the email server
-            server.sendmail(sender_email, receiver_email, message.as_string())  # Send the email
-            print("Email sent successfully!")
+            server.starttls()
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+            logger.info("✅ Email sent successfully!")
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.exception(f"Email sending failed: {e}")
         raise e
 
-
-logger = logging.getLogger(__name__)
 
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"
 FROM_EMAIL_DISPLAY = "Coachbot Report <mail@coachbots.com>"
 APP_PASSWORD = "daD4QnY3OJBGMVEj"
+
+
+def send_emailv2(to_email, subject, body, attachment_path=None):
+    try:
+        from_password = APP_PASSWORD
+        from_email = FROM_EMAIL
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = FROM_EMAIL_DISPLAY
+        msg['To'] = to_email
+
+        msg.attach(MIMEText(body, 'html'))
+
+        # Attach the file
+        if attachment_path and os.path.isfile(attachment_path):
+            print(f"📎 Attaching file: {attachment_path}")
+            with open(attachment_path, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(attachment_path))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment_path)}"'
+                msg.attach(part)
+
+        msg_str = msg.as_string()
+
+        # login to server
+        server = smtplib.SMTP('smtp-relay.sendinblue.com', 587)
+        server.starttls()
+        server.login(LOGIN_EMAIL, from_password)
+        server.sendmail(from_email, to_email, msg_str)
+        server.quit()
+    except Exception as e:
+        logger.exception(f"❌ Error sending email: {e}")
+        raise
 
 
 def send_email(to_email, subject, data):

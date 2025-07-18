@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Check Task Status</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f1f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .status-card {
+      background: #ffffff;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      animation: fadeIn 0.6s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .status-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    .status-text {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #00b894;
+      color: white;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      border-radius: 8px;
+      transition: background-color 0.3s, transform 0.2s;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background-color: #019875;
+      transform: translateY(-2px);
+    }
+
+    .btn.retry {
+      background-color: #d63031;
+    }
+
+    .btn.retry:hover {
+      background-color: #b71c1c;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="status-card">
+    {% if task_state == 'SUCCESS' %}
+      <div class="status-icon">✅</div>
+      <div class="status-text">Your file is ready!</div>
+      <div class="message">Click the button below to download.</div>
+      <a href="{% url 'task_status' task_id %}" class="btn">Download File</a>
+
+    {% elif task_state == 'FAILURE' %}
+      <div class="status-icon">❌</div>
+      <div class="status-text">Task failed</div>
+      <div class="message">
+        {{ error|default:"Something went wrong. Please try again later." }}
+      </div>
+      <a href="/" class="btn retry">Go Back</a>
+
+    {% elif task_state == 'PENDING' or task_state == 'STARTED' %}
+      <div class="status-icon">⏳</div>
+      <div class="status-text">Processing your file...</div>
+      <div class="message">Please wait while we prepare your download.</div>
+      <button class="btn" onclick="location.reload()">Refresh</button>
+
+    {% else %}
+      <div class="status-icon">⚠️</div>
+      <div class="status-text">Unknown Status</div>
+      <div class="message">Please check back later or contact support.</div>
+      <a href="/" class="btn retry">Home</a>
+    {% endif %}
+  </div>
+
+</body>
+</html>

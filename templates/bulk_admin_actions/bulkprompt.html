@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bulk Gemini Prompt Processor</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f2f4f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 8% auto;
+      background: #ffffff;
+      padding: 30px 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #00b894;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin: 12px 0 5px;
+    }
+
+    input[type="text"],
+    input[type="file"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 14px;
+      transition: border-color 0.3s;
+      margin-bottom: 15px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #00b894;
+      outline: none;
+    }
+
+    .btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      background-color: #00b894;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #019875;
+    }
+
+    .message {
+      text-align: center;
+      margin-top: 10px;
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>🧠 Bulk Gemini Prompt Processor</h2>
+
+    {# Show message if any #}
+    {% if message %}
+      <div class="message">{{ message }}</div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Start Processing</button>
+    </form>
+  </div>
+
+</body>
+</html>
