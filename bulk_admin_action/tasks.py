@@ -112,14 +112,15 @@ def process_report_task(auth, test_codes):
         """
 
         # Send email with attachment
-        send_email_from_emailit(
-            receiver_email='bagoriarajan@gmail.com',
+        send_emailv2(
+            to_email='bagoriarajan@gmail.com',
             subject="Bulk Report Ready",
             body=email_body,
             attachment_path=file_path
         )
 
         print("📨 Email sent with attachment.")
+        file_path = os.path.relpath(file_path, start=settings.BASE_DIR)
         return file_path
 
     except Exception as e:

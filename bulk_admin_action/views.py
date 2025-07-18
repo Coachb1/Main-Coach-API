@@ -230,7 +230,7 @@ def check_task_status(request, task_id):
         else:
             return render(request, "bulk_admin_actions/check_status.html", {
                 "task_state": "FAILURE",
-                "error": "File not found. It may have been deleted."
+                "error": "File not found. It may have been deleted. please check the email."
             })
 
     elif task_state == 'FAILURE':
