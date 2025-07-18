@@ -8,8 +8,10 @@ from django.utils.text import slugify
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
+from identities.models import Identity
 from skills.choices import CultureMapSkillTypeChoices
 from skills.models import CultureMapSkill, SkillsRating, SkillIndex, CompetencySkillAndClientMapping
+from tests.models import TestAttemptSession
 from users.db import get_user_display_name
 from users.models import User
 import re
@@ -21,7 +23,7 @@ from pathlib import Path
 import pandas as pd
 from string import Template
 import json5
-from tests.choices import TestTypeChoices, ScenarioCaseChoices
+from tests.choices import TestAttemptSessionStatusChoices, TestTypeChoices, ScenarioCaseChoices
 
 
 
@@ -3296,3 +3298,262 @@ The feedback should be structured in the following format:
 
     print(result)
 
+def categorize_skill_scores(skills, leaderboard):
+    # Extract skill names
+    skill_names = [skill["skill"] for skill in skills]
+
+    # Initialize result dictionary
+    result = {skill: {"1-5": 0, "6-8": 0, "9-10": 0} for skill in skill_names}
+
+    # Categorize scores per skill
+    for user in leaderboard:
+        scores = user.get("scores", {})
+        for skill in skill_names:
+            if skill in scores:
+                score = scores[skill]
+                if 1 <= score <= 5:
+                    result[skill]["1-5"] += 1
+                elif 6 <= score <= 8:
+                    result[skill]["6-8"] += 1
+                elif 9 <= score <= 10:
+                    result[skill]["9-10"] += 1
+    
+
+    return result
+
+def evaluate_skills_data_client(client_users, tenant_id):
+    try:
+           
+            user_emails = client_users.member_emails
+            client_list = list(user_emails.split(","))
+            skill_data = {}
+
+            user_identities = Identity.objects.filter(
+                tenant_id=tenant_id,
+                identity_type="deepchat_unique_id",
+                value__in=client_list,
+                deleted=False
+            )
+
+            user_ids = list(user_identities.values_list('user_id', flat=True))
+            users = User.objects.filter(
+                tenant_id=tenant_id,
+                uid__in=user_ids,
+                deleted=False
+            )
+
+            user_leaderboard = []
+            user_score_distribution = {
+                "1-5": 0,
+                "5-8": 0,
+                "8-10": 0
+            }
+
+            for user in users:
+                total_score = 0
+                total_skills = 0
+                total_skills_score = {}
+
+                user_email = user_identities.filter(user_id=user.uid).values_list("value", flat=True).first()
+                user_ratings = SkillsRating.objects.filter(participant_id=user.uid)
+
+                for rating in user_ratings:
+                    skill_dict = rating.skills_info
+                    if not skill_dict:
+                        continue
+
+                    for skill_name, details in skill_dict.items():
+                        avg_score = details.get("average_score", 0)
+                        total_skills_score[skill_name] = avg_score
+                        
+
+                        if skill_name not in skill_data:
+                            skill_data[skill_name] = {
+                                "scores": []
+                            }
+
+                        skill_data[skill_name]["scores"].append(avg_score)
+                        total_score += avg_score
+                        total_skills += 1
+
+                if total_skills:
+                    user_avg = round(total_score / total_skills, 2)
+                    user_leaderboard.append({
+                        "user_id": str(user.uid),
+                        "email": user_email,
+                        "scores": total_skills_score,
+                    })
+
+                    if 1 <= user_avg <= 5:
+                        user_score_distribution["1-5"] += 1
+                    elif 5 < user_avg <= 8:
+                        user_score_distribution["5-8"] += 1
+                    elif 8 < user_avg <= 10:
+                        user_score_distribution["8-10"] += 1
+
+            
+            # user_leaderboard.sort(key=lambda x: x["average_score"], reverse=True)
+
+            response_skills = []
+            for skill, data in skill_data.items():
+                scores = data["scores"]
+                avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+
+                response_skills.append({
+                    "skill": skill,
+                    "average_score": avg_score
+                })
+
+            skill_category_distribution = categorize_skill_scores(response_skills, user_leaderboard)
+
+            return {
+                "client_users": client_list,
+                "skills": response_skills,
+                "leaderboard": user_leaderboard,
+                "user_score_distribution": user_score_distribution,
+                "skill_category_distribution": skill_category_distribution
+            }
+    except Exception as e:
+        logger.error(f"Error in evaluate_skills_data_client: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to evaluate skills data for client users."
+        }
+    
+def evaluate_culture_skills_data_client(client_users, tenant_id):
+    try:
+            user_emails = client_users.member_emails
+            client_list = list(user_emails.split(","))
+            skill_data = {}
+        
+
+            user_id = Identity.objects.filter(
+            tenant_id=tenant_id,
+            identity_type="deepchat_unique_id",
+            value__in = client_list,
+            deleted=0
+            )
+
+            user_ids = list(user_id.values_list('user_id', flat=True))
+            users = User.objects.filter(
+                tenant_id=tenant_id,    
+                uid__in=user_ids,
+                deleted=0
+            )
+            print(user_ids)
+
+            user_leaderboard = []
+            user_skill_info = {}
+
+            user_score_distribution = {
+                "1-5": 0,
+                "5-8": 0,
+                "8-10": 0
+            }
+
+            for user in users:
+                total_score = 0
+                total_skills = 0
+                temp_user_skill_info = {}
+                culture_score_distribution = {}
+
+                test_attempt_sessions = TestAttemptSession.objects.filter(
+                    participant_id=user.uid,
+                    status=TestAttemptSessionStatusChoices.completed
+                ).exclude(finished_at=None)
+
+                for session in test_attempt_sessions:
+                    skill_dict = session.culture_skills_rating
+                    if not skill_dict:
+                        continue
+                    
+                    total_score += sum(skill_dict.values())
+                    total_skills += len(skill_dict)
+
+                    for skill_name, avg_score in skill_dict.items():
+                        # avg_score = details.get("average_score", 0)
+                        # temp_user_skill_info[skill_name] = temp_user_skill_info.get(skill_name, []).append(avg_score)
+                        if not isinstance(avg_score, (int, float)):
+                            continue  # or raise error if unexpected
+
+                        if skill_name not in temp_user_skill_info:
+                            temp_user_skill_info[skill_name] = []
+
+                        temp_user_skill_info[skill_name].append(avg_score)
+                        print("Skill_name:",skill_name, avg_score)
+                    
+                        if skill_name not in skill_data:
+                            skill_data[skill_name] = {
+                                "scores": [],                              
+                            }
+
+                        skill_data[skill_name]["scores"].append(avg_score)
+
+                        if skill_name not in culture_score_distribution:
+                            culture_score_distribution[skill_name] = {
+                                "1-5": 0,
+                                "6-8": 0,
+                                "9-10": 0
+                            }
+
+                        # Categorize
+                        if isinstance(avg_score, (int, float)):
+                            if 1 <= avg_score <= 5:
+                                culture_score_distribution[skill_name]["1-5"] += 1
+                            elif 6 <= avg_score <= 8:
+                                culture_score_distribution[skill_name]["6-8"] += 1
+                            elif 9 <= avg_score <= 10:
+                                culture_score_distribution[skill_name]["9-10"] += 1
+                        
+
+                if total_skills:
+                    user_email = user_id.filter(user_id=user.uid).values_list("value", flat=True).first()
+                    user_avg = round(total_score / total_skills, 2)
+                    user_leaderboard.append({
+                        "user_id": str(user.uid),
+                        "email": user_email,
+                        "average_score": user_avg,
+                        "scores": {skill : round(sum(ratings)/len(ratings),2)  for skill, ratings in temp_user_skill_info.items()}
+                    })
+                    if isinstance(user_avg, (int, float)):
+                        if 1 <= user_avg <= 5:
+                            user_score_distribution["1-5"] += 1
+                        elif 5 < user_avg <= 8:
+                            user_score_distribution["5-8"] += 1
+                        elif 8 < user_avg <= 10:
+                            user_score_distribution["8-10"] += 1
+
+            # user_skill_inf0[user_id] = {skill : sum(ratings)/len(ratings)  for skill, ratings in temp_user_skill_info.items()}
+            user_skill_info[str(user.uid)] = {
+                    skill: round(sum(ratings) / len(ratings), 2)
+                    for skill, ratings in temp_user_skill_info.items()
+                }  
+
+            # user_leaderboard.sort(key=lambda x: x["average_score"], reverse=True)
+
+
+            response_skills = []
+            for skill, data in skill_data.items():
+                scores = data["scores"]
+                avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+
+                response_skills.append({
+                    "skill": skill,
+                    "average_score": avg_score,                    
+                })
+
+            culture_category_distribution = categorize_skill_scores(response_skills, user_leaderboard)
+
+            return {
+                "client_users": client_list,
+                "skills": response_skills,
+                "leaderboard": user_leaderboard,
+                "user_score_distribution": user_score_distribution,
+                "culture_category_distribution": culture_category_distribution,
+            }
+    except Exception as e:
+        logger.error(f"Error in evaluate_culture_skills_data_client: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to evaluate culture skills data for client users."
+        }
