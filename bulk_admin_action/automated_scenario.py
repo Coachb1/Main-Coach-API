@@ -10,7 +10,9 @@ import time
 
 from django.conf import settings
 import requests
-base_url = "https://coach-api-gke-dev.coachbots.com"
+from settings import BACKEND
+
+base_url = BACKEND
 
 
 key = os.getenv("dev_key")

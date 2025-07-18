@@ -1,7 +1,7 @@
 from django import forms
 
 class UploadFileForm(forms.Form):
-    llm_type = forms.ChoiceField(choices=[('anthropic', 'Anthropic'), ('gemini', 'Gemini')])
+    llm_type = forms.ChoiceField(choices=[('gemini', 'Gemini'),('anthropic', 'Anthropic')])
     email = forms.EmailField(label='Your Email')
     domain = forms.CharField(label='Domain')
     password = forms.CharField(widget=forms.PasswordInput(), label='Password')
@@ -12,11 +12,10 @@ class UploadFileForm(forms.Form):
         })
     )
 class UploadCsvForm(forms.Form):
-    llm_type = forms.ChoiceField(choices=[('anthropic', 'Anthropic'), ('gemini', 'Gemini')])
     email = forms.EmailField(label='Email')
     domain = forms.CharField(label='Domain')
-    test_type=forms.ChoiceField(choices=[('static', 'Static'), ('dynamic', 'Dynamic')])
     password = forms.CharField(widget=forms.PasswordInput(), label='Password')
+    test_type=forms.ChoiceField(choices=[('static', 'Static'), ('dynamic', 'Dynamic')])
     file = forms.FileField(
         label="Upload CSV",
         widget=forms.ClearableFileInput(attrs={
@@ -24,13 +23,13 @@ class UploadCsvForm(forms.Form):
         })
     )
 class TestForm(forms.Form):
-    llm_type = forms.ChoiceField(choices=[('anthropic', 'Anthropic'), ('gemini', 'Gemini')])
+    # llm_type = forms.ChoiceField(choices=[('gemini', 'Gemini'),('anthropic', 'Anthropic')])
     email = forms.EmailField(label='Email')
     domain = forms.CharField(label='Domain')
     password = forms.CharField(widget=forms.PasswordInput(), label='Password')
     test_code = forms.CharField(label='TestCode')
 class CreateScenarioForm(forms.Form):
-    llm_type = forms.ChoiceField(choices=[('anthropic', 'Anthropic'), ('gemini', 'Gemini')])
+    llm_type = forms.ChoiceField(choices=[('gemini', 'Gemini'),('anthropic', 'Anthropic')])
     file = forms.FileField(
         label="Upload CSV",
         widget=forms.ClearableFileInput(attrs={

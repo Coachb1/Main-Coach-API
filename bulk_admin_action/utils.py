@@ -6,10 +6,11 @@ import os
 import zipfile
 
 import requests
-
+from django.conf import settings
 from bulk_admin_action.scenario_creator.function import get_candidate_type, scenario_create
+from settings import BACKEND
 
-base_url = "https://coach-api-gke-dev.coachbots.com"
+base_url = BACKEND
 
 def validate_file(df):
   required_columns = [
@@ -28,97 +29,118 @@ def validate_file(df):
 
 
 def create_scenario_view(llm_type, uploaded_df):
-    
+    try:
+        df = uploaded_df.get('df')
+        file_name = uploaded_df.get('filename')
+        results = []
+        if 'Status' not in df.columns:
+            df['Status'] = ''
+        if 'Errors' not in df.columns:
+            df['Errors'] = ''
+        df['Status'] = df['Status'].astype(str)
+        df['Errors'] = df['Errors'].astype(str)
+
+        for i, row in df.iterrows():
+            row = row.to_dict()
+            print(f"Processing row {i + 1}: {row}")
+
             try:
-                df = uploaded_df.get('df')
-                file_name = uploaded_df.get('filename')
-                results = []
-                for index, row in df.iterrows():
-                    print(row)
-                    index = index + 1
-                    # Simulate processing for each row
-                    row = row.to_dict()
-                    print(f"Processing row {index}: {row}")
-                    objective = row['Objective']
-                    industry = row['Industry']
-                    department = row['Department']
-                    asker = row['Asker']
-                    responder = row['Responder']
-                    situation = row['Situation']
-                    targeted_skills = row['Targeted Skills'] if row['Targeted Skills'] else ""
-                    skill_domain = row['Skill Domain']
-                    generate_video_script = str(row.get('Generate Video Script')).lower() == 'true' if row.get('Generate Video Script') else False
+                objective = row.get('Objective', '')
+                industry = row.get('Industry', '')
+                department = row.get('Department', '')
+                asker = row.get('Asker', '')
+                responder = row.get('Responder', '')
+                situation = row.get('Situation', '')
+                targeted_skills = row.get('Targeted Skills') or ''
+                skill_domain = row.get('Skill Domain', '')
+                generate_video_script = str(row.get('Generate Video Script')).lower() == 'true'
+                video_script = row.get('Video Script', '')
+                scenario_type = row.get('Test Type', '')
+                personality_model = row.get('Pesonality Model') or None
+                start_with_user = row.get('start with user')
+                is_single_select = row.get('Is single select')
 
-                    video_script = row['Video Script']
-                    custom_information = ""
-                    scenario_type = row['Test Type']
-                    question_count = 6
-                    try:
-                        iterations = int(row['Iterations']) if row['Iterations'] else 1
-                    except:
-                        iterations = 1
-                    question_type = ""
-                    skill_count = 2
+                try:
+                    iterations = int(row.get('Iterations', 1))
+                except:
+                    iterations = 1
 
-                    # if targeted_skills and len(targeted_skills.split(',')) < 8:
-                    #   message_label.value += f"<span style='color:red;'>Row {index}: Skills must have at least 8. Got:  {len(targeted_skills.split(','))}, {targeted_skills}</span><br>"
-                    #   continue
-                    personality_model = row['Pesonality Model'] if row['Pesonality Model'] else None
+                question_type = ""
+                if "game" in scenario_type:
+                    if not is_single_select:
+                        print(f"Row {i+1}: Missing 'Is single select' for game scenario.")
+                        df.at[i, 'Status'] = 'Failed'
+                        df.at[i, 'Errors'] = "'Is single select' required for game scenario."
+                        continue
+                    question_type = 'single' if is_single_select else "multiple"
 
-                    if scenario_type == "dynamic_start_with_user":
-                        if not row['start with user']:
-                        # message_label.value += f"<span style='color:red;'>Row {index}: For {scenario_type}, field 'start with user' required.</span><br>"
-                            print(f"Row {index}: For {scenario_type}, field 'start with user required.")
-                            continue
-                    if "game" in scenario_type:
-                        if not row['Is single select']:
-                        # message_label.value += f"<span style='color:red;'>Row {index}: For {scenario_type}, field 'Is single select' required.</span><br>"
-                            print(f"Row {index}: For {scenario_type}, field 'Is single select' required.")
-                            continue
-                        question_type = 'single' if row['Is single select'] else "multiple"
+                if scenario_type == "dynamic_start_with_user":
+                    if not start_with_user:
+                        print(f"Row {i+1}: Missing 'start with user' for dynamic scenario.")
+                        df.at[i, 'Status'] = 'Failed'
+                        df.at[i, 'Errors'] = "'start with user' required for dynamic scenario."
+                        continue
 
-                    startwithuser_type = row['start with user'] if scenario_type == "dynamic_start_with_user" else ""
-                    candidate_type = get_candidate_type(row['start with user']) if scenario_type == "dynamic_start_with_user" else "Manager"
-                    success, errors = scenario_create(
-                        llm_type=llm_type,
-                        scenario_type=scenario_type,
-                        question_count=question_count,
-                        iterations=iterations,
-                        skill_count=skill_count,
-                        question_type=question_type,
-                        personality_model=personality_model,
-                        startwithuser_type=startwithuser_type,
-                        candidate_type=candidate_type,
-                        objective=objective,
-                        industry=industry,
-                        department=department,
-                        responder=responder,
-                        asker=asker,
-                        situation=situation,
-                        targeted_skills=targeted_skills,
-                        custom_information=custom_information,
-                        skill_domain=skill_domain,
-                        generate_video_script=generate_video_script,
-                        video_script = video_script,
-                        file_name=None,
-                        folder_path= 'media\scenario_creator'
-                    )
-                    df.at[index, 'Status'] = 'Success' if success else 'Failed'
-                    df.at[index, 'Errors'] = errors if errors else ''
-                    
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    zip_filename = f"Scenario Creator_bundle_{timestamp}.zip"
-                    with zipfile.ZipFile(zip_filename, 'w') as zipf:
-                        for root, _, files_list in os.walk('media\scenario_creator'):
-                            for file in files_list:
-                                file_path = os.path.join(root, file)
-                                zipf.write(file_path, arcname=file)
-                    print(f"📦 ZIP created: {zip_filename}")                   
-                    return zip_filename
+                startwithuser_type = start_with_user if scenario_type == "dynamic_start_with_user" else ""
+                candidate_type = get_candidate_type(start_with_user) if scenario_type == "dynamic_start_with_user" else "Manager"
 
-            except Exception as e:
-                print(f"error: {e}")
+                success, errors = scenario_create(
+                    llm_type=llm_type,
+                    scenario_type=scenario_type,
+                    question_count=6,
+                    iterations=iterations,
+                    skill_count=2,
+                    question_type=question_type,
+                    personality_model=personality_model,
+                    startwithuser_type=startwithuser_type,
+                    candidate_type=candidate_type,
+                    objective=objective,
+                    industry=industry,
+                    department=department,
+                    responder=responder,
+                    asker=asker,
+                    situation=situation,
+                    targeted_skills=targeted_skills,
+                    custom_information="",
+                    skill_domain=skill_domain,
+                    generate_video_script=generate_video_script,
+                    video_script=video_script,
+                    file_name=None,
+                    folder_path='media/scenario_creator'
+                )
 
+                df.at[i, 'Status'] = 'Success' if success else 'Failed'
+                df.at[i, 'Errors'] = errors if errors else ''
+
+            except Exception as row_error:
+                print(f"❌ Error processing row {i + 1}: {row_error}")
+                df.at[i, 'Status'] = 'Failed'
+                df.at[i, 'Errors'] = str(row_error)
+
+        # Create zip from generated scenarios
+        print("📦 Creating ZIP file from generated scenarios...")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"media/scenario_creator/Scenario_Creator_bundle_{timestamp}.zip"
+
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for root, _, files in os.walk('media/scenario_creator'):
+                for file in files:
+                    print(f"Adding file to ZIP: {file}")
+                    file_path = os.path.join(root, file)
+                    # avoid including the zip file itself
+                    if file_path != zip_filename:
+                        arcname = os.path.relpath(file_path, 'media/scenario_creator')
+                        zipf.write(file_path, arcname=arcname)
+
+            print(f"📄 CSV saved: {file_name}")
+
+        print(f"📦 ZIP created: {zip_filename}")
+        zip_filename = os.path.relpath(zip_filename, start=settings.BASE_DIR)
+        return zip_filename
+
+    except Exception as e:
+        print(f"❌ Error in create_scenario_view: {e}")
+        raise 
 
 def get_dynamic_csv(
     test_type,

@@ -8,7 +8,7 @@ from bulk_admin_action.llm_playground.helper import process_files
 from bulk_admin_action.utils import CleanupFileStream, create_scenario_view, get_dynamic_csv, validate_file
 from test_bulk_upload.scripts import login_slack
 from .forms import BulkGeminiPromptProcessor, CreateScenarioForm, DynamicCsvForm, NormalCSVForm, TestForm, UploadCsvForm, UploadFileForm
-from .tasks import process_bulk_prompt_task, process_create_upload_test_task, process_report_task, upload_scenario_task
+from .tasks import process_bulk_prompt_task, process_create_scenario, process_create_upload_test_task, process_report_task, upload_scenario_task
 import pandas as pd
 from celery.result import AsyncResult
 
@@ -16,9 +16,14 @@ from django.views.decorators.csrf import csrf_exempt
 
 from django.conf import settings
 from django.contrib import messages
+import logging
+from settings import BACKEND
 
 
-base_url = "https://coach-api-gke-dev.coachbots.com"
+logger = logging.getLogger(__name__)
+
+
+base_url = BACKEND
 
 
 def upload_view(request):
@@ -107,27 +112,44 @@ def upload_view(request):
                     'message': 'File uploaded successfully. Processing started!',
                 })
             elif action == 'upload':
-                success, files = upload_scenario_task(file_path, llm_type, email, password, domain,test_type)
-
+                success, uploaded_test = upload_scenario_task(file_path, llm_type, email, password, domain,test_type)
+                print("Upload success:", success, "uploaded_test:", uploaded_test)
                 if not success:
                     return render(request, 'bulk_admin_actions/upload.html', {
                         'form': form,
-                        'error': f"❌ Upload failed"
+                        'error': f"❌ Failed to upload scenario."
                     })
-                print("✅ Upload successful:", files)
-                zip_stream = CleanupFileStream(files)
-                response = FileResponse(zip_stream, as_attachment=True, filename=os.path.basename(files))
-                message = '✅ Upload scenario task started.'
-                return response
+                message = '✅ Scenario uploaded successfully.'
+                if 'file_content' in uploaded_test:
+                    response = HttpResponse(uploaded_test['file_content'], content_type='text/csv')
+                    response['Content-Disposition'] = 'attachment; filename="scenario_output.csv"'
+                    return response
+                else:
+                    return render(request, 'bulk_admin_actions/upload.html', {
+                        'form': form,
+                        'error': '❌ Failed to upload scenario.'
+                    })
             elif action == 'create_scenario':
-                uploaded_df['df'] = df 
-                zipfile_name = create_scenario_view(llm_type, uploaded_df)
-                if not os.path.exists(zipfile_name):
-                    return HttpResponse("❗ ZIP file not found.", status=500)
-                zip_stream = CleanupFileStream(zipfile_name)
-                response = FileResponse(zip_stream, as_attachment=True, filename=os.path.basename(zipfile_name))
-                message = '✅ Create Scenario started.'
-                return response
+                task = process_create_scenario.delay(llm_type, uploaded_df)
+                task_id = task.id
+                message = 'Scenario Creation Started'
+                if not task_id:
+                    message = "❗ Task ID missing."
+                    return render(request, 'bulk_admin_actions/bulk_task_status.html', {'message': message})
+
+                return render(request, 'bulk_admin_actions/bulk_task_status.html', {
+                    'task_id': task_id,
+                    'message': 'File uploaded successfully. Processing started!',
+                })
+                # uploaded_df['df'] = df 
+                # zipfile_name = create_scenario_view(llm_type, uploaded_df)
+                # if not os.path.exists(zipfile_name):
+                #     return HttpResponse("❗ ZIP file not found.", status=500)
+                # zip_stream = CleanupFileStream(zipfile_name)
+                # response = FileResponse(zip_stream, as_attachment=True, filename=os.path.basename(zipfile_name))
+                # message = '✅ Create Scenario started.'
+                # return response
+
             elif action == 'test':
                 task = process_report_task.delay(auth, test_codes)
                 task_id = task.id
@@ -140,24 +162,11 @@ def upload_view(request):
                     'task_id': task_id,
                     'message': 'File uploaded successfully. Processing started!',
                 })
-                # process_report_task.delay(auth,test_codes,uploaded_df,llm_type, email, password, domain)
-                # message='Test Report Started'
-                # csv_file = r'media\report\Bulk_Report.csv'
-                # print(os.getcwd())
-                # response=FileResponse(open(csv_file, 'rb'), as_attachment=True, filename='Bulk_report.csv')
-                # print(open(csv_file, 'rb'))
-                # return response
             else:
-            # Form is not valid: show errors
                 return render(request, 'bulk_admin_actions/upload.html', {
                 'form': form,
                 'error': '❌ Unknown action selected.'
                 })
-            return render(request, 'bulk_admin_actions/upload.html', {
-                'form': sub_form(),  # Reset form
-                'message': message
-            })
-            # form = UploadFileForm()
 
         return render(request, 'bulk_admin_actions/upload.html', {'form': form,'error': '❌ Please correct the form errors.'})
     form = sub_form(initial={'action': action})
@@ -198,21 +207,49 @@ def upload_and_process_llm(request):
 
 def check_task_status(request, task_id):
     result = AsyncResult(task_id)
+    task_state = result.state
+    print("Checking task status for ID:", task_id, "State:", task_state)
 
-    if result.state == 'SUCCESS':
-        print(result,"result:", result.result)
+
+    if task_state == 'SUCCESS':
         filepath = result.result
-        if os.path.exists(filepath):
-            response = FileResponse(open(filepath, 'rb'), as_attachment=True, filename=os.path.basename(filepath))
-            os.remove(filepath)  # Clean up the zip file after download
-            return response
-        else:
-            return HttpResponse("❗ file not found.", status=404)
-    elif result.state == 'FAILURE':
-        return HttpResponse("❗ Task failed. Please try again later.", status=500)
-    else:
-        return HttpResponse(f"⏳ Task state: {result.state}. Please refresh.", status=200)
+        print("Task completed successfully. File path:", filepath)
+     
 
+        if filepath and os.path.exists(filepath):
+            try:
+                response = FileResponse(open(filepath, 'rb'), as_attachment=True, filename=os.path.basename(filepath))
+                os.remove(filepath)  # Optional: clean up after sending
+                return response
+            except Exception as e:
+                logger.error(f"Error while sending file: {e}")
+                return render(request, "bulk_admin_actions/check_status.html", {
+                    "task_state": "FAILURE",
+                    "error": "Error while sending file."
+                })
+        else:
+            return render(request, "bulk_admin_actions/check_status.html", {
+                "task_state": "FAILURE",
+                "error": "File not found. It may have been deleted."
+            })
+
+    elif task_state == 'FAILURE':
+        logger.error(f"Task {task_id} failed: {result.result}")
+        return render(request, "bulk_admin_actions/check_status.html", {
+            "task_state": "FAILURE",
+            "error": str(result.result)
+        })
+
+    elif task_state in ['PENDING', 'RETRY', 'STARTED']:
+        return render(request, "bulk_admin_actions/check_status.html", {
+            "task_state": task_state,
+            "task_id": task_id,
+        })
+
+    else:
+        return render(request, "bulk_admin_actions/check_status.html", {
+            "task_state": "UNKNOWN"
+        })
 
 @csrf_exempt
 def get_csv_view(request):
@@ -360,3 +397,5 @@ def get_dynamic_csv_view(request):
     return render(request, 'bulk_admin_actions/dynamic_csv_dw.html', {'form': form})
 
 
+def admin_dashboard(request):
+    return render(request, 'bulk_admin_actions/admin_dashboard.html')
