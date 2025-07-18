@@ -131,7 +131,7 @@ class SkillsViewSet(ApiViewSet,
         to retrieve client skills list 
         """
         client = request.query_params.get("client_id")
-        tenant_id = request.tenant.uid
+        tenant_id = self.request.tenant.uid
         try:
             client_users = ClientUserInfo.objects.filter(uid=client, tenant_id=tenant_id, deleted=False).first()
             if not client_users:
@@ -153,7 +153,7 @@ class SkillsViewSet(ApiViewSet,
         to retrive client culture list 
         """
         client = request.query_params.get("client_id")
-        tenant_id = request.tenant.uid
+        tenant_id = self.request.tenant.uid
         try:
             client_users = ClientUserInfo.objects.filter(uid = client, tenant_id = tenant_id, deleted=False).first()
             if not client_users:
