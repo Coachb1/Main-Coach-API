@@ -61,7 +61,7 @@ def process_create_upload_test_task(uploaded_df_dict, llm_type, email, password,
         logs, result_file_name = process_create_upload_test(uploaded_df_dict, llm_type, email, password, domain, auth)
 
         send_emailv2(
-            to_email='bagoriarajan@gmail.com',
+            to_email='mail@coachbots.com',
             subject="Bulk Report Ready",
             body="Your requested report is attached.",
             attachment_path=report_file_name
@@ -113,7 +113,7 @@ def process_report_task(auth, test_codes):
 
         # Send email with attachment
         send_emailv2(
-            to_email='bagoriarajan@gmail.com',
+            to_email='mail@coachbots.com',
             subject="Bulk Report Ready",
             body=email_body,
             attachment_path=file_path
