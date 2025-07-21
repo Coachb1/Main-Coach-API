@@ -130,20 +130,24 @@ class SkillsViewSet(ApiViewSet,
         """
         to retrieve client skills list 
         """
-        client = request.query_params.get("client_id")
+        client = self.request.query_params.get("client_id")
         tenant_id = self.request.tenant.uid
+        logger.info(f"Client ID: {client}, Tenant ID: {tenant_id}")
         try:
             client_users = ClientUserInfo.objects.filter(uid=client, tenant_id=tenant_id, deleted=False).first()
             if not client_users:
                 return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
             if not client_users.member_emails:
                 return Response({"error": "No users found for this client"}, status=status.HTTP_404_NOT_FOUND)
-
             result = evaluate_skills_data_client(client_users, tenant_id)
+
+            if 'error' in result:
+                return Response({'error': str(result['error'])}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response(result, status=status.HTTP_200_OK)
 
         except Exception as e:
+            logger.exception("Error in get_client_skill_info: %s", str(e))
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         
@@ -154,6 +158,7 @@ class SkillsViewSet(ApiViewSet,
         """
         client = request.query_params.get("client_id")
         tenant_id = self.request.tenant.uid
+        logger.info(f"[culture] Client ID: {client}, Tenant ID: {tenant_id}")
         try:
             client_users = ClientUserInfo.objects.filter(uid = client, tenant_id = tenant_id, deleted=False).first()
             if not client_users:
@@ -162,6 +167,9 @@ class SkillsViewSet(ApiViewSet,
                 return Response({"error": "No users found for this client"}, status=status.HTTP_404_NOT_FOUND)
             
             result = evaluate_culture_skills_data_client(client_users, tenant_id)
+            if 'error' in result:
+                return Response({'error': str(result['error'])}, status=status.HTTP_400_BAD_REQUEST)
+
             return Response(result, status=status.HTTP_200_OK)
         
         except Exception as e:

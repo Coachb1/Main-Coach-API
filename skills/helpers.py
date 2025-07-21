@@ -3414,7 +3414,7 @@ def evaluate_skills_data_client(client_users, tenant_id):
                 "skill_category_distribution": skill_category_distribution
             }
     except Exception as e:
-        logger.error(f"Error in evaluate_skills_data_client: {e}")
+        logger.exception(f"Error in evaluate_skills_data_client: {e}")
         return {
             "error": str(e),
             "message": "Failed to evaluate skills data for client users."
@@ -3552,7 +3552,7 @@ def evaluate_culture_skills_data_client(client_users, tenant_id):
                 "culture_category_distribution": culture_category_distribution,
             }
     except Exception as e:
-        logger.error(f"Error in evaluate_culture_skills_data_client: {e}")
+        logger.exception(f"Error in evaluate_culture_skills_data_client: {e}")
         return {
             "error": str(e),
             "message": "Failed to evaluate culture skills data for client users."
