@@ -1,4 +1,4 @@
-FROM asia-south1-docker.pkg.dev/summer-nucleus-397019/coachbots-reg/library/python:3.11-buster
+FROM python:3.11-bookworm as builder
 
 RUN apt-get update
 
