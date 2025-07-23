@@ -16,14 +16,17 @@ RUN apt-get install -y --no-install-recommends \
     xz-utils
 
 
-RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.bookworm_amd64.deb
+RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bookworm_amd64.deb
 
-RUN dpkg -i wkhtmltox_0.12.6-1.bookworm_amd64.deb || true && \
+
+RUN dpkg -i wkhtmltox_0.12.6.1-3.bookworm_amd64.deb || true && \
     apt-get update && \
     apt-get install -y --no-install-recommends -f
-RUN rm wkhtmltox_0.12.6-1.bookworm_amd64.deb && \
+
+RUN rm wkhtmltox_0.12.6.1-3.bookworm_amd64.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
 
 ENV PYTHONUNBUFFERED 1
 
