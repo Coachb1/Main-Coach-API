@@ -27,12 +27,13 @@ class MailBoxAdmin(admin.ModelAdmin):
                     'welcome_email_template', 'intake_reminder_email_template',
                     'intake_required',
                     'intake_url',
+                    'knowledge_base',
                     'created', 'updated', 'deleted')
     search_fields = ('email', 'prompt', 'grant_id')
     list_filter = ('created', 'updated', 'deleted', 'email')
     list_editable = ('email', 'prompt','followup_prompt','followup_prompt2', 'reward_prompt1', 'reward_prompt2', 
                      'welcome_email_template', 'intake_reminder_email_template',
-                    'intake_required', 'bot_name',
+                    'intake_required', 'knowledge_base', 'bot_name',
                     'intake_url','deleted')
 
 @admin.register(AuthorizedEmails)
