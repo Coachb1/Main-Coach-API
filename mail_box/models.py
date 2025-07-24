@@ -19,6 +19,7 @@ class MailBox(MyModel):
     bot_name = models.CharField(max_length=255,default=None)
     intake_url = models.CharField(max_length=255,null=True,blank=True,default='https://chat.coachbots.com/66dc18ab01ef84e231427f7b')
     grant_id = models.CharField(max_length=255,default=None)
+    knowledge_base = models.TextField(null=True, blank=True, default=None, help_text="Knowledge base for the mailbox, can be used to store pdf and docx url can be comma separated.")
 
     @staticmethod
     def get_mailbox_choices():
