@@ -12,7 +12,7 @@ class MailBoxViewSerializer(serializers.ModelSerializer):
                    'reward_prompt1', 'reward_prompt2',
                    'welcome_email_template', 'intake_reminder_email_template',
                     'intake_required', 'bot_name',
-                    'intake_url','created', 'updated']
+                    'intake_url','created', 'updated','knowledge_base']
         
         read_only_fields = ['uid', 'created', 'updated']
 
