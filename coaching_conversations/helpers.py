@@ -1824,6 +1824,7 @@ def create_user_profile_and_bot(data,auth,tenant):
     journey_and_background = data.get("Backstory".lower().strip(),None)
     voice_sample = data.get('Do you want to provide a voice sample, if you want an audio avatar?'.strip().lower(),None)
     discussion_topic = data.get("Discussion Topic".lower().strip(),None)
+    custom_prompt = data.get("custom_prompt",None)
 
 
 
@@ -2127,6 +2128,8 @@ def create_user_profile_and_bot(data,auth,tenant):
             'is_approved': True,
             'bot_scenario_case': profile.get('profile_type') if profile.get('profile_type') == 'icons_by_ai' else 'general'
         }
+        if custom_prompt:
+            avatar_bot_creation_form_data['custom_prompt'] = custom_prompt
 
         try:
             response = requests.request(
