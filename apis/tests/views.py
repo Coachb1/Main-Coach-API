@@ -743,9 +743,10 @@ class TestViewSet(ApiViewSet,
             questions = TestQuestion.objects.filter(test_id=test.uid)
 
 
-            num_questions = int(num_questions)
-            if questions.count() == num_questions :
-                
+            question_count = int((int(questions.count()) + int(bots)) / 2)
+            print(f"question count: {question_count}, num_questions: {num_questions}, test_code: {test.test_code}")
+            if question_count == int(num_questions) :
+                print(f"test_code: {test.test_code}, question count: {question_count}, num_questions: {num_questions}")
                 temp["Test Code"] = test.test_code
                 temp["Title"] = test.title
                 temp["Context"] = test.description
