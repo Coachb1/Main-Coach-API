@@ -1381,6 +1381,52 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
     })
     return data
 
+@timeit
+def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id):
+    """
+    For each session, fetch summary and ordered conversations.
+
+    Args:
+        sessions (QuerySet[TestAttemptSession]): Test attempt sessions for the user.
+        tenant (Tenant): Current tenant.
+        bot_id (str): Bot identifier.
+
+    Returns:
+        List[Dict]: List of session summaries with ordered conversations.
+    """
+    session_data = []
+    sessions = sessions.order_by('-created')
+
+    for session in sessions:
+        conversations = CoachingConversation.objects.filter(
+            deleted=0,
+            test_attempt_session_id=session.uid,
+            tenant_id=tenant.uid,
+        ).order_by("created")
+
+        if not conversations.exists():
+            continue
+
+        session_info = {
+            "session_id": session.uid,
+            "uid": session.uid,  # if conversation uid is not unique per session
+            "summary": session.conversation_summary,
+            "conversations": [
+                {
+                    "uid": conv.uid,
+                    "participant_message_text": conv.participant_message_text,
+                    "coach_message_text": conv.coach_message_text,
+                    "status": conv.status,
+                    "created": conv.created,
+                    "updated": conv.updated,
+                }
+                for conv in conversations
+            ]
+        }
+
+        session_data.append(session_info)
+
+    return session_data
 
 
 def signature_bot_default_prompt(bot_type=BotTypeChoice.avatar_bot):
