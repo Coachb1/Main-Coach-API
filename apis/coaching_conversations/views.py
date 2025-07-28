@@ -8,7 +8,7 @@ from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
-from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
+from coaching_conversations.helpers import get_bot_chat_history, initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
 from coaching_conversations.models import CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
@@ -426,6 +426,32 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_conv['bot_type'] = signature_bot.bot_type
                     data_conv['bot_scenario_case'] = signature_bot.bot_scenario_case
                     data.append(data_conv)
+            set_cache(cache_key,data)
+            return Response(data, status=status.HTTP_200_OK)
+        elif mode == 'user-chat-history':
+            data = []
+            bot_ids = []
+            if user_bot_id:
+                bot_ids = [SignatureBot.objects.get(deleted=False,bot_id=user_bot_id).uid]
+            else:
+                bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
+            
+            for b_id in bot_ids:
+                
+                sessions = TestAttemptSession.objects.filter(deleted=0, tenant_id=tenant.uid, test_id=b_id,
+                                                              participant_id=user_id)
+                if sessions.count() == 0:
+                    continue
+
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                signature_bot = SignatureBot.objects.get(deleted=False,uid=b_id)
+                data = get_bot_chat_history(sessions, tenant, b_id)
+                # if len(data_conv) > 0:
+                #     data_conv['bot_name'] = bot_att.bot_name
+                #     data_conv['bot_id'] = signature_bot.bot_id
+                #     data_conv['bot_type'] = signature_bot.bot_type
+                #     data_conv['bot_scenario_case'] = signature_bot.bot_scenario_case
+                #     data.append(data_conv)
             set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)
 
