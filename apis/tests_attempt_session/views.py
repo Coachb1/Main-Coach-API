@@ -777,9 +777,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         """
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
-        access_token = request.headers.get('Authorization')
         session_qna_data = request.data.get('session_qna_data')
         submitted_name = request.query_params.get('submitted_name')
+        send_email = request.query_params.get('send_email','true')
+        send_email =  True if send_email in  [ True, 'true', 1] else False
+
         
         logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
@@ -867,8 +869,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session.conversation_summary = conversation_summary
         test_attempt_session.save(update_fields=["conversation_summary"]) # saving session summary
         
-        # created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
         created_scenarios = None
+        if send_email:
+            created_scenarios = None
+            # created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+
         
         logger.info({"********************* created_scenarios":created_scenarios})
 
@@ -896,18 +901,19 @@ class TestAttemptSessionViewSet(ApiViewSet,
             candidate_name = submitted_name if (submitted_name is not None and len(submitted_name.strip()) > 0 ) else candidate_name
             if candidate_name.lower().strip() != "anonymous user" and submitted_email:
                 candidate_name = f"{candidate_name} ({submitted_email})"
-            send_bot_conversation_email( 
-                candidate_name=candidate_name, 
-                conversation=conv, 
-                to_email=list(set(recepients)), 
-                summary=conversation_summary, 
-                simulation=created_scenarios, 
-                signature_bot=signature_bot, 
-                coach_name=coach_name,
-                bot_name=bot_att.bot_name,
-                allow_reply=True if signature_bot.bot_type != 'deep_dive' else False, 
-                no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False
-                )
+            if send_email:
+                send_bot_conversation_email( 
+                    candidate_name=candidate_name, 
+                    conversation=conv, 
+                    to_email=list(set(recepients)), 
+                    summary=conversation_summary, 
+                    simulation=created_scenarios, 
+                    signature_bot=signature_bot, 
+                    coach_name=coach_name,
+                    bot_name=bot_att.bot_name,
+                    allow_reply=True if signature_bot.bot_type != 'deep_dive' else False, 
+                    no_reply=True if (signature_bot.bot_scenario_case == 'icons_by_ai' or signature_bot.bot_type == 'deep_dive') else False
+                    )
             test_attempt_session.status = 'completed'
             test_attempt_session.save(update_fields=['status'])
         except Exception as e:
