@@ -1263,6 +1263,7 @@ class AccountsViewSet(ApiViewSet,
                 try:
             
                     bot_type = data.get('bot_type')
+                    custom_prompt = data.get('custom_prompt')
                     if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                         return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                     
@@ -1468,7 +1469,10 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append("faqs")
 
                     if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
-                        signature_bot.custom_prompt = signature_bot_default_prompt(bot_type=bot_type)
+                        prompt = signature_bot_default_prompt(bot_type=bot_type)
+                        if custom_prompt: 
+                            prompt = custom_prompt
+                        signature_bot.custom_prompt = prompt
                         updated_fields.append("custom_prompt")
 
                     if bot_type == BotTypeChoice.deep_dive:
