@@ -920,7 +920,8 @@ def create_test_question_answer_session(tenant: Tenant,
                                         participant_id: str,
                                         is_signature_bot: bool,
                                         is_idp_discussion_opted:bool,
-                                        intake_id: str) -> TestAttemptSession:
+                                        intake_id: str,
+                                        signature_session_id: str) -> TestAttemptSession:
     """
     Creates a test question answer session for a participant.
 
@@ -995,19 +996,24 @@ def create_test_question_answer_session(tenant: Tenant,
     if is_signature_bot:
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, bot_id=test_id, deleted=0)
         test_id = signature_bot.uid
-    
-    test_attempt_session = TestAttemptSession.objects.create(
-        tenant_id=tenant.uid,
-        test_id=test_id,
-        participant_id=participant_id,
-        test_invite_id=test_invite_id,
-        started_at=now,
-        expires_at=now + datetime.timedelta(minutes=30),
-        is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
-        is_idp_discussion_opted=is_idp_discussion_opted,
-        intake_id=intake_id,
-        is_signature_bot=is_signature_bot
-    )
+
+        
+    test_attempt_session = None
+    if signature_session_id:
+        test_attempt_session = TestAttemptSession.objects.filter(deleted=False, uid=signature_session_id).first()
+    if not test_attempt_session:
+        test_attempt_session = TestAttemptSession.objects.create(
+            tenant_id=tenant.uid,
+            test_id=test_id,
+            participant_id=participant_id,
+            test_invite_id=test_invite_id,
+            started_at=now,
+            expires_at=now + datetime.timedelta(minutes=30),
+            is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
+            is_idp_discussion_opted=is_idp_discussion_opted,
+            intake_id=intake_id,
+            is_signature_bot=is_signature_bot
+        )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
 

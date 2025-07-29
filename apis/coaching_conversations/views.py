@@ -218,6 +218,8 @@ class CoachingConversationViewSet(ApiViewSet,
             "participant_message_url")
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
         is_prompt_only = serializer.validated_data.get("is_prompt_only", False)
+        only_current_session = serializer.validated_data.get("only_current_session", False)
+
         
         logger.info("************************** is_prompt_only: {}".format(is_prompt_only))
 
@@ -227,7 +229,8 @@ class CoachingConversationViewSet(ApiViewSet,
             participant_message_text=participant_message_text,
             participant_message_url=participant_message_url,
             is_signature_bot=is_signature_bot,
-            is_prompt_only = is_prompt_only
+            is_prompt_only = is_prompt_only,
+            only_current_session=only_current_session
         )
 
         return Response(
@@ -356,11 +359,13 @@ class CoachingConversationViewSet(ApiViewSet,
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
         user_bot_id = request.query_params.get('bot_id', None)
+        refresh = request.query_params.get('refresh', False)
         
         cache_key = generate_cache_key("bot-conversation-data",tenant_id=tenant.uid, mode=mode, user_id=user_id, user_bot_id=user_bot_id)
         cached_data = get_cache(cache_key)
         
-        if cached_data:
+        if cached_data and not refresh:
+            logger.info(f"got cached data:  {cached_data}")
             return Response(cached_data, status=status.HTTP_200_OK)
         
         client_infos = ClientUserInfo.objects.all()
