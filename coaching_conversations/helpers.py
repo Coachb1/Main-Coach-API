@@ -478,7 +478,16 @@ def initialize_coaching_conversation(tenant: Tenant,
                 signature_bot_question = anthropic_completion(custom_prompt,50000)
 
 
-
+    # fallback if there is already a coversation in session 
+    last_conversation = CoachingConversation.objects.filter(
+                                                        deleted=False,
+                                                        tenant_id=tenant.uid,
+                                                        test_attempt_session_id=test_attempt_session_id,
+                                                        ).order_by('-created').first()
+    
+    if last_conversation:
+        return last_conversation
+    
     next_conversation = CoachingConversation.objects.create(
         tenant_id=tenant.uid,
         test_attempt_session_id=test_attempt_session_id,
@@ -495,7 +504,8 @@ def continue_coaching_conversation(tenant: Tenant,
                                    participant_message_text: str,
                                    participant_message_url: str,
                                    is_signature_bot: bool,
-                                   is_prompt_only: bool) -> CoachingConversation:
+                                   is_prompt_only: bool,
+                                   only_current_session: bool) -> CoachingConversation:
     """
     Continues a coaching conversation by saving the participant's message, retrieving the test and session information,
     processing the participant's message based on the interaction mode, generating a response using OpenAI GPT-3.5,
@@ -629,7 +639,7 @@ def continue_coaching_conversation(tenant: Tenant,
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
 
-        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid)
+        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid,only_current_session)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
     else:
@@ -683,7 +693,7 @@ def continue_coaching_conversation(tenant: Tenant,
 
 
 
-def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot,test_attempt_session_id):
+def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, participant_id, signature_bot,test_attempt_session_id, only_current_session=False):
     """
     Generates a prompt for the Signature Bot based on the provided inputs.
 
@@ -868,8 +878,9 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             
 
             conv_history_data = ""
-            # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
-            conv_history_data += f"{rel_previous_conv_summary}\n"
+            if not only_current_session:  # if only currect conversation false then no previous session summery passed
+                # implementing v2 where we are passing previous conv summeries and current conversation without precheck/intake summery
+                conv_history_data += f"{rel_previous_conv_summary}\n"
             # conv_history_data += f"Current Conversation: \n {current_conv}\n"
             
             coachee_info = ""
