@@ -116,10 +116,9 @@ TIME_LIMIT = "Time Limit"
 INSTRUCTION_MEDIA_LINK = "Instruction Media"
 NOTICE_BOARD = "Notice Board"
 
-def clean_text(text):
-    BRACKETS_QUOTES_REGEX =re.compile(r'[\[\]\(\)\{\}<>\"\'’]')
-
-    return BRACKETS_QUOTES_REGEX.sub('', text).strip()
+def clean_text(input_text):
+    # Remove all types of brackets except quotation marks
+    return re.sub(r'[\[\]\(\)\{\}<>]', '', input_text).strip()
 
 def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
     """
