@@ -663,7 +663,7 @@ def continue_coaching_conversation(tenant: Tenant,
             "prompt": prompt,
         }
         
-    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] and signature_bot.bot_scenario_case != "ai_agent":
+    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] and signature_bot.bot_scenario_case != "icons_by_ai":
         response_style = None
         try:
             user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=test_attempt_session.participant_id,deleted=False)
@@ -774,7 +774,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     prompt = new_coaching_prompt if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] else generic_prompt 
     user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=participant_id,deleted=False)
     user_preferences = user_attributes.preferences
-    response_style = user_preferences.get('response_style', 'base_prompt') if user_preferences else "base_prompt"
+    response_style = user_preferences.get('response_style', 'base_prompt') if user_preferences else None
     if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
@@ -914,8 +914,9 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # except Exception as e:
             #     logger.exception(f"global prompt not defined: {e}")
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                if signature_bot.bot_scenario_case == "ai_agent" or signature_bot.bot_id == "avatar-bot-36f8d-emphasizing-luxury--confidence-the-radiance-edit":
-                    prompt = get_response_style(response_style) 
+                if signature_bot.bot_scenario_case == "icons_by_ai" or signature_bot.bot_id == "avatar-bot-36f8d-emphasizing-luxury--confidence-the-radiance-edit":
+                    if response_style:
+                        prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
                 else:
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
@@ -1100,8 +1101,12 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
         logger.info(f"custom Prompt: {prompt}")
         
     else:
-        if signature_bot.bot_scenario_case == "ai_agent":
-            prompt = get_response_style(response_style)
+
+        if signature_bot.bot_scenario_case == "icons_by_ai":
+            if not response_style:
+                response_style = "base_prompt"
+            prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
+
         else:
             prompt = signature_bot_default_prompt(bot_type=bot_type)
         try:
@@ -1244,7 +1249,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             #     logger.exception(f"global prompt not defined: {e}")
                 
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                if signature_bot.bot_scenario_case != "ai_agent":
+                if signature_bot.bot_scenario_case != "icons_by_ai":
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
                         conversation_history = conv_history_data,
@@ -3679,7 +3684,7 @@ def get_response_style(style):
         """,
 
 
-    "prompt1_icf": """
+    "icf_aligned_coach": """
         Persona & Identity
         You are an ICF-certified professional coach operating exclusively within the GROW framework. 
         Your mission is to foster client self-discovery and autonomy through powerful, non-directive 
@@ -3795,7 +3800,7 @@ def get_response_style(style):
         """,
 
 
-    "prompt2_mentor": """
+    "solution_focused_mentor": """
         Persona & Identity
         You are a seasoned executive mentor with 20+ years of leadership experience across multiple 
         industries. You are direct, pragmatic, and action-oriented, providing battle-tested strategies and 
@@ -3897,7 +3902,7 @@ def get_response_style(style):
         """,
 
 
-    "prompt3_cbt": """
+    "cbt_aligned_mindset": """
         Persona & Identity
         You are a skilled mindset coach trained in Cognitive Behavioral Therapy principles. 
         You help clients identify and restructure unhelpful thought patterns that create unnecessary 
