@@ -13,3 +13,4 @@ class BotScenarioCaseChoice(DjangoChoices):
     general = ChoiceItem('general')
     icons_by_ai = ChoiceItem('icons_by_ai')
     customer_avatar = ChoiceItem('customer_avatar')
+    ai_agent = ChoiceItem('ai_agent') # In this type of bot no databsase user, bot anything you will not pass
