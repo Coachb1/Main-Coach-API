@@ -1350,6 +1350,8 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     NOTE : Always provide the output in the given format.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : Always detact language of the conversation and entire output must be in same language.
+
     \n\nAssistant:
     """%(top_skill,low_skill,high_cult,low_cult)
 
@@ -1512,7 +1514,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     prompt= """
     \n\nHuman:
-    {feedback} : %s
+    {feedbacks} : %s
 
     {Summary} : Summarize the entire feedback in a small single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
@@ -1525,6 +1527,7 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     Always follow this output format in this exact manner. DO NOT add words or any other sentence on your own.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : Always (must) detact language of the feedbacks context only and entire output must be in same language.
 
     \n\nAssistant:
     """%(feedbacks)
@@ -2350,6 +2353,9 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+
+        NOTE : Always(must) detect language of the TITLE only and provide explanation in same language.
+
         \n\nAssistant:
     '''
 
@@ -2491,6 +2497,8 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        
+        NOTE : Always(must) detect language of the  TITLE only and provide explanation in same language.
         \n\nAssistant:
         '''
 
@@ -2621,6 +2629,8 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
         NOTE : Output format should be Json example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        NOTE : Always(must) detect language of the Objective only and provide explanation in same language.
+
         \n\nAssistant:
     '''
 
@@ -2759,6 +2769,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        NOTE : Always(must) detect language of the Objective only and provide explanation in same language.
         \n\nAssistant:
     '''
 
