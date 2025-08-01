@@ -3128,7 +3128,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         test_question_response.relevance = relevance
         update_fields.append("relevance")
 
-        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence.         NOTE : Always detact language of the question and entire output must be in same language."
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
         kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
         
@@ -3139,6 +3139,8 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
             Question: {question_text}
 
             For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+                    NOTE : Always detact language of the TestTitle and entire output must be in same language.
+
             """
 
         logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
@@ -5689,6 +5691,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: Always assume a senior executive candidate interviewing for a critical role. 
             NOTE: When appropriate, provide feedback on executive presence and other attritbutes specific for a executive interview.
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
             \n\nAssistant
                 """).substitute(
                     title=title,
@@ -5746,6 +5749,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 ${format_prompt}
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5772,6 +5776,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 ${format_prompt}
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5799,6 +5804,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                  
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5827,6 +5833,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                  
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5886,6 +5893,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+                    NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
                 """
                         )
@@ -5911,6 +5920,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
             \n\nAssistant:
             ''')
 
@@ -5939,6 +5950,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -5965,6 +5978,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -5992,6 +6007,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -6016,6 +6033,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -6043,6 +6062,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -6068,6 +6089,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -6105,6 +6128,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6133,6 +6158,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6163,6 +6190,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6194,6 +6223,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6224,6 +6255,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6255,6 +6288,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6282,6 +6317,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
 
                 '''
@@ -6311,6 +6348,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                    NOTE : Always detact language of the context and entire output must be in same language.
+
                 \n\nAssistant:
 
                 '''
@@ -6539,6 +6578,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                
+                    NOTE : Always detact language of the context and entire output must be in same language.
                 \n\nAssistant
 
                 """
@@ -6614,6 +6655,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     NOTE: Always follow the format but never mention in the response.
                     NOTE: Never give brackets to show the response.
                     Note: Never ask a question that has been asked before. Never repeat the same response.
+                    NOTE : Always detact language of the context and entire output must be in same language.
+
                     \n\nAssistant:
                 """).substitute(
                     test_main_context=main_context,
@@ -6645,6 +6688,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                         NOTE: Do not show the word count.
 
                         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                            NOTE : Always detact language of the context and entire output must be in same language.
+
                         \n\nAssistant:
                         '''
                     ).substitute(test_main_context=test_main_context,
@@ -6666,6 +6711,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
             NOTE: Always directly start responding without name in front.
+            NOTE : Always detact language of the context and entire output must be in same language.
+
             \n\nAssistant:
             """
         ).substitute(test_main_context=test_main_context,
@@ -6739,6 +6786,8 @@ def get_overridden_prompt(prompt_template: str,
             ${format_prompt}
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
+
             \n\nAssistant:            
 
             """
@@ -6767,6 +6816,8 @@ def get_overridden_prompt(prompt_template: str,
 
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
+
             \n\nAssistant:
             """
         )
@@ -6842,6 +6893,7 @@ def get_journaling_feedback_prompt(prompt_template: str,
             ${format_prompt}
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
             \n\nAssistant:
             """
         )
@@ -6883,6 +6935,7 @@ def emplyee_feedback_prompt(prompt_template: str,
         
         ${user_feedback_prompt}
         NOTE : Always maintain high grammar and spelling accuracy.
+        NOTE : Always(must) detect language of the Title only and provide feedback in same language.
         \n\nAssistant:
         """
     )
@@ -6919,6 +6972,7 @@ def get_question_key_learning_point(test_title,
         Question: ${question_text}
 
         For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
+        NOTE : Always detact language of the TestTitle and entire output must be in same language.
 
         Output:
         \n\nAssistant:
@@ -6972,6 +7026,8 @@ For given "Question" for the "TestTitle" extract skills that can be learned from
 Choose skills from this list only: ${skills_name_list}
 NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
 NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
+        NOTE : Always detact language of the TestTitle and entire output must be in same language.
+
 Output:
 \n\nAssistant:
 """
