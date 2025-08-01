@@ -2004,6 +2004,16 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             "Long term focus",
             "Value Placed on Independence"
         ]
+    
+    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+    if not skills.exists():
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+
+    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+    cultural_skills = [skill.skill for skill in skills]
+
+    logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
+
     # prompt = f'''
     # "Objective:" {objective};
 
@@ -2056,15 +2066,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         "user_persona": ${user_persona};
 
         "Evaluation Criteria:"
-                - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
-                - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
-                - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
-                - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
-                - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
-                - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
-                - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
-
-
+                ${evaluation_criteria}
         "REQUIRED FROM LLM:" 
             - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
             - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'cultural_list',ensuring that no two skills receive the same score.
@@ -2096,7 +2098,8 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         objective=objective,
         user_persona = user_persona,
         conversation = conversation,
-        cultural_skills = cultural_skills
+        cultural_skills = cultural_skills,
+        evaluation_criteria = evaluation_criteria
     )
 
     if is_free:
