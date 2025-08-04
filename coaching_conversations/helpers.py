@@ -914,9 +914,8 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # except Exception as e:
             #     logger.exception(f"global prompt not defined: {e}")
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                if signature_bot.bot_scenario_case == "icons_by_ai" or signature_bot.bot_id == "avatar-bot-36f8d-emphasizing-luxury--confidence-the-radiance-edit":
-                    if response_style:
-                        prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
+                if signature_bot.bot_scenario_case == "icons_by_ai" and response_style:
+                    prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
                 else:
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
