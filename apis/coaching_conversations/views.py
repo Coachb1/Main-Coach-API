@@ -9,7 +9,7 @@ from apis.coaching_conversations.serializers import CoachingConversationDisplayS
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
 from coaching_conversations.helpers import get_bot_chat_history, initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
-from coaching_conversations.models import CoachingConversation
+from coaching_conversations.models import BotResponsePrompt, CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
@@ -1067,3 +1067,23 @@ class CoachingConversationViewSet(ApiViewSet,
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'msg': f'failed with error {e}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'], detail=False, url_path='get-response-style-list')
+    def get_response_style_list(self, request, *args, **kwargs):
+        try:
+            names = BotResponsePrompt.objects.filter(
+                deleted=False,
+                tenant_id=request.tenant.uid
+            ).values_list('name', 'normalized_name')
+
+            data = {name: normalized for name, normalized in names}
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception("Error in get_response_style_list")
+            return Response(
+                {'msg': f'failed with error {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

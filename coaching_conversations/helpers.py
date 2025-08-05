@@ -5,7 +5,7 @@ from rest_framework import serializers
 from commons.google_search import get_searched_links_contents, scrape_article_data
 
 from coaching_conversations.choices import CoachingConversationChoices
-from coaching_conversations.models import CoachingConversation
+from coaching_conversations.models import BotResponsePrompt, CoachingConversation
 from commons.openai_gpt import gpt3_completion
 from commons.timeit import timeit
 from external_apis.coach_whisper_api import coach_whisper_api
@@ -774,7 +774,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     prompt = new_coaching_prompt if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] else generic_prompt 
     user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=participant_id,deleted=False)
     user_preferences = user_attributes.preferences
-    response_style = user_preferences.get('response_style', 'base_prompt') if user_preferences else None
+    response_style = user_preferences.get('response_style', "standard") if user_preferences else None
     if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
@@ -916,7 +916,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 if signature_bot.bot_scenario_case == "icons_by_ai" or signature_bot.bot_id == "avatar-bot-36f8d-emphasizing-luxury--confidence-the-radiance-edit":
                     if response_style:
-                        prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
+                        prompt = f'Current conversation : {current_conv}' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
                 else:
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
@@ -1104,19 +1104,19 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         if signature_bot.bot_scenario_case == "icons_by_ai":
             if not response_style:
-                response_style = "base_prompt"
-            prompt = f'Current conversation : {current_conv}' + '\n\n' + get_response_style(response_style)
+                response_style = "standard"
+            prompt = f'Current conversation : {current_conv} ' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
 
         else:
             prompt = signature_bot_default_prompt(bot_type=bot_type)
-        try:
-            global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type=bot_type)
-            global_bot_prompt = global_prompt.prompt
-            logger.info(f"global prompt defined: {global_bot_prompt}")
-            prompt = global_bot_prompt
-        except Exception as e:
-            logger.exception(f"global prompt not defined: {e}")
-            prompt = signature_bot_default_prompt(bot_type=bot_type)
+            try:
+                global_prompt = GlobalPrompts.objects.get(tenant_id=tenant.uid, resourse_type=bot_type)
+                global_bot_prompt = global_prompt.prompt
+                logger.info(f"global prompt defined: {global_bot_prompt}")
+                prompt = global_bot_prompt
+            except Exception as e:
+                logger.exception(f"global prompt not defined: {e}")
+                prompt = signature_bot_default_prompt(bot_type=bot_type)
 
 
 
@@ -3373,6 +3373,27 @@ def generate_title_and_objective_for_deep_dive(context, additional_prompt=None):
     }
 
 
+def get_bot_response_prompt(normalized_style: str, tenant_id):
+    """Optimized DB lookup using precomputed normalized_name."""
+    if not normalized_style:
+        return None
+
+    try:
+        return BotResponsePrompt.objects.get(
+            deleted=False,
+            tenant_id=tenant_id,
+            normalized_name=normalized_style
+        ).prompt
+
+    except Exception as e:
+        logger.exception(f"Error fetching BotResponsePrompt: {e}")
+
+        return BotResponsePrompt.objects.get(
+            deleted=False,
+            tenant_id=tenant_id,
+            normalized_name="standard"
+        ).prompt
+
 def get_response_style(style):
     
     response_styles = {
@@ -3450,7 +3471,7 @@ def get_response_style(style):
 
         NOTE: DO NOT MENTION THE WORD "CO-CREATOR" IN THE RESPONSE""",
 
-    "base_prompt": """
+    "standard": """
         Persona & Identity
         You are a Socratic coaching assistant who operates through questions only. Your core belief is 
         that people have their own answers and insights—your role is to help them discover these 
