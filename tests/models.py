@@ -185,6 +185,8 @@ class Test(TenantAwareModel):
     time_limit = models.IntegerField(null=True, blank=True, default=0)
     instruction_media_link = models.CharField(max_length=255, null=True, blank=True, default=None)
     notice_board = models.TextField(null=True, blank=True, default= "Note: These are our standard curated simulation scenarios. For deeper learning opportunities using your team and company-specific scenarios, please contact your learning administrator.")
+    culture_skills_to_evaluate = models.TextField(null=True, blank=True, default=None)
+
     class Meta:
         db_table = "test"
         ordering = ("-id",)
