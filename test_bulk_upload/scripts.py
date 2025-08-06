@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from io import TextIOWrapper
 import logging
 from django.http import HttpResponse
+
+from skills.helpers import generate_culture_map
 from .constants import get_skills
 from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
@@ -115,6 +117,7 @@ FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
 TIME_LIMIT = "Time Limit"
 INSTRUCTION_MEDIA_LINK = "Instruction Media"
 NOTICE_BOARD = "Notice Board"
+CULTURE_SKILLS =  "Culture Skills"
 
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
@@ -740,6 +743,10 @@ def format_test_orchestrated_conversation(raw_data):
             candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
             output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
 
+        if CULTURE_SKILLS in input_dict and len(input_dict[CULTURE_SKILLS]) > 0:
+            culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
+            output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
+
         skills_list = []
         if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
             skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
@@ -1347,6 +1354,11 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
                 output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
         
+
+        if CULTURE_SKILLS in input_dict and len(input_dict[CULTURE_SKILLS]) > 0:
+            culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
+            output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
+
         skills_list = set()
         if f'{KLS} 0' in input_dict.keys() or f'Skill 0'in input_dict:
             for key in input_dict:
