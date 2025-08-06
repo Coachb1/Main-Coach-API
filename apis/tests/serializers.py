@@ -155,6 +155,8 @@ class UpdateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     notice_board = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
+    culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
+    
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -263,6 +265,8 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     notice_board = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
+    culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
+
     
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -359,6 +363,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "time_limit",
                   "instruction_media_link",
                   "notice_board",
+                "culture_skills_to_evaluate"
                   ]
 
     def get_questions(self, instance):
