@@ -1856,12 +1856,16 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
     test_title = test.title
     test_description = test.description
     # cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
-    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
-    if not skills.exists():
-        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+    if test.culture_skills_to_evaluate:
+        evaluation_criteria = test.culture_skills_to_evaluate
+        cultural_skills = test.culture_skills_to_evaluate.keys()
+    else:
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+        if not skills.exists():
+            skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
-    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
-    cultural_skills = [skill.skill for skill in skills]
+        evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+        cultural_skills = [skill.skill for skill in skills]
 
     logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
 
@@ -2005,12 +2009,17 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             "Value Placed on Independence"
         ]
     
-    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
-    if not skills.exists():
-        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+    if test.culture_skills_to_evaluate:
+        evaluation_criteria = test.culture_skills_to_evaluate
+        cultural_skills = test.culture_skills_to_evaluate.keys()
+    else:
+    
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+        if not skills.exists():
+            skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
-    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
-    cultural_skills = [skill.skill for skill in skills]
+        evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+        cultural_skills = [skill.skill for skill in skills]
 
     logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
 
@@ -3571,3 +3580,46 @@ def evaluate_culture_skills_data_client(client_users, tenant_id):
             "error": str(e),
             "message": "Failed to evaluate culture skills data for client users."
         }
+    
+
+def get_culture_map_prompt(culture_map):
+  prompt =  '''
+    Culture Map: ${culture_map}
+    For the given list of cultural map or dimensions, generate a JSON object where:
+
+    The key is the cultural dimension name.
+
+    The value is a concise evaluative question describing the scoring scale.
+
+    Always make highest score of 10 mean the strongest presence of that trait, and score of 0 mean the opposite extreme.
+
+    Format the text as:
+    "Dimension": "Does the conversation look like the participants [description of high score 10] (highest score of 10) or [description of score 0] (score of 0)?"
+
+    Keep it short, clear, and focused on observable aspects of the conversation.
+
+    Example:
+
+    {
+      "Hierarchy": "Does the conversation look like the participants have a strict hierarchical relationship (highest score of 10) or a casual professional relationship (score of 0)?"
+    }
+    '''
+
+  return Template(prompt).substitute(culture_map=culture_map)
+
+
+def generate_culture_map(culture_map, llm_type='gemini'):
+    prompt = get_culture_map_prompt(culture_map)
+
+    if llm_type == 'gemini':
+        raw_response = gemini_completion(prompt)
+    else:
+        raw_response = anthropic_completion(prompt)
+
+    # Extract JSON from fenced code block
+    if "```json" in raw_response:
+        json_str = raw_response.split("```json")[1].split("```")[0].strip()
+    else:
+        json_str = raw_response.strip()
+
+    return json.loads(json_str)
