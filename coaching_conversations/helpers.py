@@ -774,7 +774,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     prompt = new_coaching_prompt if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot] else generic_prompt 
     user_attributes = UserAttribute.objects.get(tenant_id=tenant.uid,user_id=participant_id,deleted=False)
     user_preferences = user_attributes.preferences
-    response_style = user_preferences.get('response_style', "standard") if user_preferences else None
+    response_style = user_preferences.get('response_style', "icf_aligned_coach") if user_preferences else None
     if signature_bot.custom_prompt and len(signature_bot.custom_prompt)>0:
         prompt = signature_bot.custom_prompt
         session = TestAttemptSession.objects.filter(tenant_id=tenant.uid,
@@ -1104,7 +1104,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
         if signature_bot.bot_scenario_case == "icons_by_ai":
             if not response_style:
-                response_style = "standard"
+                response_style = "icf_aligned_coach"
             prompt = f'Current conversation : {current_conv} ' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
 
         else:
@@ -3391,7 +3391,7 @@ def get_bot_response_prompt(normalized_style: str, tenant_id):
         return BotResponsePrompt.objects.get(
             deleted=False,
             tenant_id=tenant_id,
-            normalized_name="standard"
+            normalized_name="icf_aligned_coach"
         ).prompt
 
 def get_response_style(style):
