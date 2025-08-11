@@ -3,6 +3,7 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter
+import json
 
 from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
@@ -1087,3 +1088,40 @@ class CoachingConversationViewSet(ApiViewSet,
                 {'msg': f'failed with error {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+    @action(methods=['GET', 'POST'], detail=False, url_path='coaching-intake')
+    def coaching_intake(self, request, *args, **kwargs):
+        try:
+            # here we will consider intake for a participant 
+            if request.method == 'GET':
+                user_id = request.query_params.get('user_id')
+                if not user_id:
+                    return Response(f"user_id required.", status=status.HTTP_400_BAD_REQUEST)
+
+                qna = BotQnA.objects.filter(deleted=False, participant_id=user_id, qna_type='coaching_intake').first()
+                if not qna:
+                    return Response(f"Intake not found for the user- {user_id}!", status=status.HTTP_404_NOT_FOUND)
+                data={
+                    'qna': qna.participant_qna,
+                    'intake_summary': qna.intake_summary,
+                    'qna_type': 'coaching_intake'
+                }
+                return Response(data, status=status.HTTP_200_OK)
+            elif request.method == 'POST':
+                user_id = request.data.get('user_id')
+                qna = request.data.get('qna')
+                qna = BotQnA.objects.create(
+                    tenant_id=request.tenant.uid,
+                    participant_id=user_id,
+                    qna_type='coaching_intake',
+                    participant_qna=qna
+                )
+                return Response(f"coaching intake submitted!", status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.exception("Error in coaching_intake")
+            return Response(
+                {'msg': f'failed with error {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
