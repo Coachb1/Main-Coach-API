@@ -914,9 +914,13 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             # except Exception as e:
             #     logger.exception(f"global prompt not defined: {e}")
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
-                if signature_bot.bot_scenario_case == "icons_by_ai" or signature_bot.bot_id == "avatar-bot-36f8d-emphasizing-luxury--confidence-the-radiance-edit":
-                    if response_style:
-                        prompt = f'Current conversation : {current_conv}' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
+                if signature_bot.bot_scenario_case == "icons_by_ai" and response_style:
+                    prompt = f'Current conversation : {current_conv}' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
+                    intake_qna = BotQnA.objects.filter(deleted=False, participant_id=participant_id, qna_type='coaching_intake').first()
+                    if intake_qna:
+                        qna = [f"{que}: {ans} \n" for que, ans in intake_qna.participant_qna.items()]
+                        qna = "\n".join(qna)
+                        prompt = prompt + f"User Information: {qna} "
                 else:
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
