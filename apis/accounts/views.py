@@ -45,7 +45,7 @@ import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from email_sender.helpers import send_generic_email, send_email_with_html_template
-from utilities.helpers import extract_fields
+from utilities.helpers import extract_fields, get_llm_order
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
@@ -464,6 +464,8 @@ class AccountsViewSet(ApiViewSet,
         llms = LLMMappingTable.objects.filter(deleted=False, bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id).first()
         if llms:
             data['selected_llms'] = LLMMappingSerializer(llms).data
+        data['llm_order'] = get_llm_order(bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id)
+        
 
         if client:
             data["allowed_ips"] = client.allowed_ips
