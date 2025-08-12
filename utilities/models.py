@@ -1,4 +1,5 @@
 from django.db import models
+from commons.db.model import MyModel
 from tenants.models import TenantAwareModel
 from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice, LLMChoice
 from utilities.choices import UserCanJoinAsChoices
@@ -212,16 +213,70 @@ class EmailSentDetails(TenantAwareModel):
 
 # Table to store llm name to be used in different sections
 class LLMMappingTable(TenantAwareModel):
-    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
-    llm1 = models.CharField(max_length=255,null=True,blank=True,choices=LLMChoice,default=LLMChoice.gemini)
-    llm2 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.anthropic)
-    llm3 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.gpt)
+    bot_type = models.CharField(
+        max_length=255,
+        choices=BotTypeChoice,
+        help_text="Select the bot type this mapping applies to."
+    )
+
+    llm1 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.gemini,
+        help_text="First preference LLM provider."
+    )
+    llm2 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.anthropic,
+        help_text="Second preference LLM provider."
+    )
+    llm3 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.gpt,
+        help_text="Third preference LLM provider."
+    )
 
     class Meta:
         db_table = "llm_mapping_table"
-        unique_together = ('bot_type', 'tenant_id')
+        unique_together = ("bot_type", "tenant_id")
+
+    def __str__(self):
+        return f"{self.bot_type} (Tenant: {self.tenant_id})"
 
 
+class LLMMappingModels(MyModel):
+    mapping = models.ForeignKey(
+        LLMMappingTable,
+        related_name="models",
+        on_delete=models.CASCADE,
+        help_text="Link to the LLM Mapping Table entry."
+    )
+    llm_type = models.CharField(
+        max_length=55,
+        choices=LLMChoice,
+        default=LLMChoice.gemini
+    )
+    model_order = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        default="gpt-4o-mini",
+        help_text="Model names (comma separated, in order)"
+    )
+
+    class Meta:
+        db_table = "llm_mapping_models"
+
+    def __str__(self):
+        return f"{self.llm_type} Models for {self.mapping.bot_type}"
 
 class GlobalPrompts(TenantAwareModel):
     resourse_id = models.CharField(max_length=64, null=True,blank=True)
