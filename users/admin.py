@@ -286,6 +286,8 @@ class UserMindmapAdmin(TenantAwareModelAdmin):
     search_fields = ('user__username', 'mindmap_links')
     list_editable = ('mindmap_links',)
 
+    autocomplete_fields = ['user']
+
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
     form = SnippetAccessCodeForm
