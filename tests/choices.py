@@ -56,6 +56,10 @@ class ScenarioCaseChoices(DjangoChoices):
     observation = ChoiceItem("observation")   # couldn't attempt this type of test just to observe
     others = ChoiceItem("others")  # for any other type of test that doesn't fit in above categories
 
+
+class TagChoices(DjangoChoices):
+    assessment = ChoiceItem("assessment")
+    general = ChoiceItem("general")
 class PersonalityModelChoices(DjangoChoices):
     sixteen_factor_discussion = ChoiceItem('sixteen_factor_discussion')
     disc_parameter_discussion = ChoiceItem('disc_parameter_discussion')

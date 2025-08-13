@@ -291,11 +291,12 @@ post_save.connect(save_and_send_approval_email_post_save, sender=DirectoryPageIn
 
 class LLMMappingModelsInline(admin.TabularInline):
     model = LLMMappingModels
-    extra = 1
+    extra = 0
+    fields = ("llm_type", "model_order")
 
 
 @admin.register(LLMMappingTable)
-class LLMMappingTableAdmin(admin.ModelAdmin):
+class LLMMappingTableAdmin(TenantAwareModelAdmin):
     list_display = ("bot_type", "tenant_id", "llm1", "llm2", "llm3")
     list_filter = ("bot_type", "tenant_id")
     search_fields = ("bot_type",)

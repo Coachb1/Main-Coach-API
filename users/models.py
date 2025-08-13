@@ -157,7 +157,12 @@ class User(TenantAwareModel):
         return self.can_login
     
     def __str__(self):
-        return f"{self.name} -({self.role})"
+        from identities.models import Identity  # avoid circular import
+
+        identity = Identity.objects.filter(deleted=False, user_id=self.uid).first()
+        identity_value = identity.value if identity else ""
+
+        return f"{self.name} ({self.role}) - {identity_value}"
 
 
 class UserAttribute(TenantAwareModel):
