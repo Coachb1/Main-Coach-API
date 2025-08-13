@@ -28,7 +28,7 @@ from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account, sync_user_low_high_skills
-from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
+from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection, UserMindmap
 from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
 from tests.choices import TestAttemptSessionStatusChoices
@@ -4635,3 +4635,30 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f'Error in increase_test_attempts_in_accesscode: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    @action(methods=['GET'], detail=False, url_path='mindmap-link')
+    def mindmap_link(self, request, *args, **kwargs):
+        try:
+            user_id = request.query_params.get('user_id')
+            if not user_id:
+                return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f'data: request.data: {request.data}')
+            try:
+                user = User.objects.get(uid=user_id)
+            except User.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            mindmap_entry = UserMindmap.objects.filter(user=user).first()
+            if not mindmap_entry:
+                return Response({'error': 'Mindmap link not found for this user'}, status=status.HTTP_404_NOT_FOUND)
+            
+            links = mindmap_entry.get_links_list()
+            return Response({
+                'user': user.name,
+                'links': links  
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f'Error in mindmap_link: {e}')
+            return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
