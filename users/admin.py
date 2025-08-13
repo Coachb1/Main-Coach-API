@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from tenants.models import Tenant
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog)
+                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import enforce_unique_emails_across_clients, shift_all_emails_to_domain_client
@@ -280,6 +280,11 @@ class SnippetAccessCodeResource(resources.ModelResource):
     def dehydrate_is_temporary(self, snippet):
         return "Temporary" if snippet.is_temporary else "Permanent"
 
+@admin.register(UserMindmap)
+class UserMindmapAdmin(TenantAwareModelAdmin):
+    list_display = ('id','user', 'mindmap_links')
+    search_fields = ('user__username', 'mindmap_links')
+    list_editable = ('mindmap_links',)
 
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
