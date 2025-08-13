@@ -1507,6 +1507,75 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
 
 #*********************** Process Dynamic MCQ response end *******************************
 
+def process_static_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """This function processes the response of a static multiple-choice question (MCQ) in a test session.
+    The function retrieves the related test question and test attempt session from the database. It checks if the test session is already completed, and if so, it returns the test question response without further processing.
+    The function then updates the metadata of the test question response with the question from the test attempt session's feedback summary. It also retrieves the related test from the database.
+    The function generates a comment on the user's decision using the `generic_completion` function and updates the test question response with this comment. It also sets the `mcq_skill` field to 'NA' and the `evaluation_status` field to 'success'.
+    If the current question is the last question in the test, the function marks the test session as completed and generates a summary of the user's decisions throughout the test. It also generates a list of skills using the `get_dynamic_mcq_skills_prompt` and `generic_completion` functions.
+    The function then generates a session report link and updates the `SkillsRating` object related to the participant with the total number of questions attempted and total tests attempted.
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object to be processed.
+    is_whatsapp (bool, optional): A flag indicating whether the test is conducted on WhatsApp. Defaults to False.
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+    Example:
+    >>> process_static_mcq_response(test_question_response_obj)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """     
+    
+    test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
+
+    logger.info(f"[process_static_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+    
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(f"Static MCQ Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    # Check if it's the last question
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = test.total_question == total_responses.count()
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.finished_at = timezone.now()
+
+        # Summarize attempt
+        decision_map = ""
+        for response in total_responses:
+            q = TestQuestion.objects.get(uid=response.question_id)
+            decision_map += f"Q: {q.question}\nA: {response.response_text}\n\n"
+
+        prompt = f"""
+            \n\nHuman:
+            conversation: {decision_map}
+
+            Evaluate the user's choice. Was it correct or not? Comment briefly on what the correct choice is, why it's correct, and what learning the user should take away. Keep it under 100 words.
+            
+
+            Return the response as a JSON with two keys:
+            "congratulations" → Congratulation. You have completed the [Title]. You have achieved a score of [x out of 100].
+            "feedback" → Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better.
+            \n\nAssistant:
+            """
+
+        session_summary_json = generic_completion(prompt, 400)
+        try:
+            # import json
+            session_summary_data = json.loads(session_summary_json)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON returned from generic_completion")
+            session_summary_data = {
+                "congratulations": "",
+                "feedback": session_summary_json
+            }
+
+        test_attempt_session.mcq_summary = json.dumps(session_summary_data)
+        test_attempt_session.save(update_fields=["status", "finished_at", "mcq_summary", "updated"])
+
+    return test_question_response
+
 
 
 @timeit
@@ -1932,6 +2001,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test.test_type == TestTypeChoices.dynamic_mcq:
         return process_dynamic_mcq_response(test_question_response)
+    
+    if test.scenario_case == 'game':
+        return process_static_mcq_response(test_question_response)
 
     test_attempt_session.current_question_idx = question.question_number
 
