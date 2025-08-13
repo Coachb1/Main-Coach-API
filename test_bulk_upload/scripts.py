@@ -118,6 +118,9 @@ TIME_LIMIT = "Time Limit"
 INSTRUCTION_MEDIA_LINK = "Instruction Media"
 NOTICE_BOARD = "Notice Board"
 CULTURE_SKILLS =  "Culture Skills"
+MCQ_OPTIONS = "Option"
+# QUESTION_PREFIX = "Question"
+# OPTION_PREFIX = "Option"
 
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
@@ -1529,6 +1532,21 @@ def format_test_data_slack(raw_data,tenant):
                 }
                 if f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["question_insight"] = input_dict.get(f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}", '')
+                
+                options_for_question = {}
+                q_number = key[len(QUESTION):].strip()
+                mcq_key = f"{MCQ_OPTIONS} {q_number}"
+                for k, value in input_dict.items():
+                    print(f"DEBUG: Looking for keys starting with '{mcq_key}', checking key '{k}'")
+                    if k.startswith(mcq_key):
+                        options_for_question[k.strip()[-1]] = value.strip()
+
+                if options_for_question:
+                    question["mcq_options"] = options_for_question
+
+                print(f"options_for_question: {options_for_question} for key: {key} and question: {question}")
+                # if f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}"]) > 0:
+                #     question["mcq_options"] = input_dict.get(f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}", '')
 
                 if question_to_update:
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
