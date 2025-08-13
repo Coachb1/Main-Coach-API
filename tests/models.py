@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -186,7 +186,9 @@ class Test(TenantAwareModel):
     instruction_media_link = models.CharField(max_length=255, null=True, blank=True, default=None)
     notice_board = models.TextField(null=True, blank=True, default= "Note: These are our standard curated simulation scenarios. For deeper learning opportunities using your team and company-specific scenarios, please contact your learning administrator.")
     culture_skills_to_evaluate = models.JSONField(null=True, blank=True, default=None)
-
+    tag = models.CharField(
+        max_length=55, null=True, blank=True, choices=TagChoices, default=TagChoices.general)
+    
     class Meta:
         db_table = "test"
         ordering = ("-id",)

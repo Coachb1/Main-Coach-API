@@ -31,7 +31,7 @@ from users.helpers import upsert_user_attributes, get_client_info_from_user_deta
 from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection, UserMindmap
 from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
-from tests.choices import TestAttemptSessionStatusChoices
+from tests.choices import TagChoices, TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating, SnippetAccessCode, AccessCodeLog
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
 from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
@@ -4635,9 +4635,9 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f'Error in increase_test_attempts_in_accesscode: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    @action(methods=['GET'], detail=False, url_path='mindmap-link')
-    def mindmap_link(self, request, *args, **kwargs):
+
+    @action(methods=['GET'], detail=False, url_path='get-mindmap-and-assessments-report')
+    def get_mindmap_and_assessments_report(self, request, *args, **kwargs):
         try:
             user_id = request.query_params.get('user_id')
             if not user_id:
@@ -4649,15 +4649,33 @@ class AccountsViewSet(ApiViewSet,
             except User.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
             
+            data = {
+                "mindmaps" : [],
+                "assessments": []
+            }
+
             mindmap_entry = UserMindmap.objects.filter(user=user).first()
-            if not mindmap_entry:
-                return Response({'error': 'Mindmap link not found for this user'}, status=status.HTTP_404_NOT_FOUND)
-            
-            links = mindmap_entry.get_links_list()
-            return Response({
-                'user': user.name,
-                'links': links  
-            }, status=status.HTTP_200_OK)
+            tests = Test.objects.filter(
+                    deleted=False,
+                    tenant_id=request.tenant.uid,
+                    tag=TagChoices.assessment
+                ).values_list('uid', flat=True)
+
+            sessions = TestAttemptSession.objects.filter(
+                deleted=False,
+                participant_id=user.uid,
+                test_id__in=tests,
+                tenant_id=request.tenant.uid,
+                status=TestAttemptSessionStatusChoices.completed
+            ).exclude(
+                finished_at=None
+            ).values_list('report_url', flat=True)
+
+            if mindmap_entry:
+                data['mindmaps'] = [{"name":f"Mindmap {index+1}", "link": mindmap} for index, mindmap in enumerate(mindmap_entry.get_links_list() or [])]
+
+            data['assessments'] = [{"name":f"Assessment {index+1}", "link": report} for index, report in enumerate(list(sessions))]
+            return Response(data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f'Error in mindmap_link: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
