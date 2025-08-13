@@ -529,3 +529,13 @@ class CoachCoacheeConnection(TenantAwareModel):
         db_table = "coach_coachee_connection"
 
         unique_together = (("tenant_id", "coach_id", "coachee_id"), ("tenant_id", "mentor_id", "mentee_id"))
+
+class UserMindmap(TenantAwareModel):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  
+    mindmap_links = models.TextField(help_text="Enter links separated by commas")
+
+    def get_links_list(self):
+        return [link.strip() for link in self.mindmap_links.split(",") if link.strip()]
+
+    def __str__(self):
+        return f"{self.user.name} - Mindmap"
