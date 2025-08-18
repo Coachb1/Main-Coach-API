@@ -1,4 +1,5 @@
 
+import json
 from rest_framework import status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +9,8 @@ import logging
 
 from commons.utils import generic_completion
 from commons.viewset import ApiViewSet
+from email_sender.helpers import send_email_from_emailit, send_emailv2
+from jobaid.helpers import extract_feedback_block
 from jobaid.models import JobAid, JobAidSession
 
 
@@ -23,8 +26,11 @@ class JobAidViewSet(ApiViewSet,
     """
     ViewSet for JobAid related APIs
     """
-    queryset = JobAid.objects.all()
+    queryset = JobAid.objects.filter(deleted=False)
     serializer_class = JobAidSerializer
+    lookup_field = 'uid'  # Assuming you want to use 'uid' as the lookup field
+
+
     @action(methods=['GET'], detail=False, url_path='get-job-aid')
     def get_job_aid(self, request):
         """
@@ -59,36 +65,24 @@ class JobAidViewSet(ApiViewSet,
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
 
-            prompt = "QNA : " + str(qna) + "\n\n" + jobaid.validation_prompt
+            if not isinstance(qna, dict):
+                try:
+                    qna = json.loads(qna)  # Attempt to parse if it's a string
+                except json.JSONDecodeError:
+                    return Response({'error': 'Invalid qna format, must be a JSON object'}, status=status.HTTP_400_BAD_REQUEST)
+
+            prompt = "\n".join([f"Q: {q}\nA: {ans}" for q, ans in qna.items()]) + "\n" + jobaid.validation_prompt
             # Run your LLM or validation logic here
             validation_result = generic_completion(prompt)
 
-            response_data = {
-            "status": "hard_block",  # "acceptable" | "soft_suggestion" | "hard_block"
-            "message": "",
-            "suggestions": []
-        }
-            return Response({'is_valid': validation_result}, status=status.HTTP_200_OK) 
-        except Exception as e: 
-            logger.exception(f'Error in validate_job_aid: {e}') 
+            response_data = extract_feedback_block(validation_result)
+
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f'Error in validate_job_aid: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        #     if "NOT ACCEPTABLE" in validation_result:
-        #         response_data["status"] = "hard_block"
-        #         response_data["message"] = validation_result
-        #     elif "ACCEPTABLE" in validation_result and "ENHANCEMENT" in validation_result:
-        #         response_data["status"] = "soft_suggestion"
-        #         response_data["message"] = "Answer is acceptable but can be improved."
-        #         response_data["suggestions"] = validation_result.split("ENHANCEMENT SUGGESTIONS:")[-1].strip().split("\n")
-        #     else:
-        #         response_data["status"] = "acceptable"
-        #         response_data["message"] = "Answer accepted."
-
-        #     return Response(response_data, status=status.HTTP_200_OK)
-
-        # except Exception as e:
-        #     logger.exception(f'Error in validate_job_aid: {e}')
-        #     return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(methods=['POST'], detail=False, url_path='generate-report')
     def generate_report(self, request):
@@ -122,6 +116,14 @@ class JobAidViewSet(ApiViewSet,
                 report_url=f"{settings.FRONTEND_BASE_URL}/jobAidReport?sessionid={jobaid.uid}"
             )
 
+
+            # send email to admin
+            send_email_from_emailit(
+                receiver_email="mail@coachbots.com",
+                subject=f"Job Aid QnA for {jobaid.title}",
+                body=f"QnA for job aid: {session.qna}",
+            )
+
             return Response({
                 'session_id': session.id,
                 'report_url': session.report_url
@@ -131,18 +133,7 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in generate_report: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # --- Utility functions ---
-
-
-    def run_report_generation_prompt(self, prompt, qna):
-        """
-        Placeholder: Add your LLM integration here for report generation
-        Return generated report data
-        """
-        return {
-            "summary": "Generated report summary here",
-            "details": qna
-        }
+    
     @action(methods=['GET'], detail=False, url_path='get-session-report')
     def get_session_report(self, request):
         """

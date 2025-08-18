@@ -57,5 +57,5 @@ class JobAidSession(MyModel):
         verbose_name_plural = "Job Aid Sessions"
     
     def __str__(self):
-        return f"{self.job_aid.title} - {self.full_name or 'Anonymous'} ({self.status})"
+        return f"{self.job_aid.title} - {self.email} ({self.status})"
 
