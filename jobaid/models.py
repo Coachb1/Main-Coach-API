@@ -5,12 +5,17 @@ from commons.db.model import MyModel
 # Create your models here.
 
 class JobAid(MyModel):
+    JOB_TYPE_CHOICES = [
+        ('job_aid', 'Job Aid'),
+        ('form', 'Form'),
+    ]
     title = models.CharField(max_length=255, verbose_name="Title")
     description = models.TextField(verbose_name="Description", blank=True, null=True)
     validation_prompt = models.TextField(verbose_name="Validation Prompt")
     report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt")
-    report_header = models.TextField(verbose_name="Report Header", blank=True, null=True)
-    report_footer = models.TextField(verbose_name="Report Footer", blank=True, null=True)
+    report_header = models.TextField(verbose_name="Report Header", blank=True, null=True, default=None)
+    report_footer = models.TextField(verbose_name="Report Footer", blank=True, null=True, default=None)
+    job_aid_type = models.CharField(max_length=50, verbose_name="Job Aid Type", blank=True, null=True, default='job_aid', choices=JOB_TYPE_CHOICES)
 
     class Meta:
         verbose_name = "Job Aid"
