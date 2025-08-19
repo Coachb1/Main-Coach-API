@@ -22,6 +22,8 @@ class JobAidSerializer(serializers.ModelSerializer):
             "validation_prompt",
             "report_generation_prompt",
             "questions",
+            "report_header",
+            "report_footer",
         ]
 
 
