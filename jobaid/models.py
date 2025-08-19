@@ -9,6 +9,8 @@ class JobAid(MyModel):
     description = models.TextField(verbose_name="Description", blank=True, null=True)
     validation_prompt = models.TextField(verbose_name="Validation Prompt")
     report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt")
+    report_header = models.TextField(verbose_name="Report Header", blank=True, null=True)
+    report_footer = models.TextField(verbose_name="Report Footer", blank=True, null=True)
 
     class Meta:
         verbose_name = "Job Aid"
