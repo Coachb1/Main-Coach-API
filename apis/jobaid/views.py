@@ -10,8 +10,8 @@ import logging
 from commons.utils import generic_completion
 from commons.viewset import ApiViewSet
 from email_sender.helpers import send_email_from_emailit, send_emailv2
-from jobaid.helpers import extract_feedback_block
-from jobaid.models import JobAid, JobAidSession
+from jobaid.helpers import extract_feedback_block, format_qna_body
+from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 
 from .serializers import JobAidSerializer, JobAidSessionSerializer
@@ -58,12 +58,11 @@ class JobAidViewSet(ApiViewSet,
         """
         try:
             qna = request.data.get('qna')
-            jobaid_id = request.data.get('jobaid')
+            question_id = request.data.get('question_id') 
+            if not qna or not question_id:
+                return Response({'error': 'qna and question_id are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not qna or not jobaid_id:
-                return Response({'error': 'qna and jobaid are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-            jobaid = get_object_or_404(JobAid, uid=jobaid_id)
+            question = get_object_or_404(JobAidQuestion, uid=question_id)
 
             if not isinstance(qna, dict):
                 try:
@@ -71,7 +70,7 @@ class JobAidViewSet(ApiViewSet,
                 except json.JSONDecodeError:
                     return Response({'error': 'Invalid qna format, must be a JSON object'}, status=status.HTTP_400_BAD_REQUEST)
 
-            prompt = "\n".join([f"Q: {q}\nA: {ans}" for q, ans in qna.items()]) + "\n" + jobaid.validation_prompt
+            prompt = "\n".join([f"Q: {q}\nA: {ans}" for q, ans in qna.items()]) + "\n" + question.validation_prompt
             # Run your LLM or validation logic here
             validation_result = generic_completion(prompt)
 
@@ -94,6 +93,7 @@ class JobAidViewSet(ApiViewSet,
         try:
             qna = request.data.get('qna')
             user_email = request.data.get('useremail')
+            user_name = request.data.get('name')  # Optional, if available
             jobaid_id = request.data.get('jobaid')
 
             if not qna or not user_email or not jobaid_id:
@@ -101,7 +101,7 @@ class JobAidViewSet(ApiViewSet,
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
 
-            prompt = "QNA : " + str(qna) + "\n\n" + jobaid.validation_prompt
+            prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
             # Run your LLM or report generation logic here
             generated_report_data = generic_completion(prompt)
 
@@ -110,18 +110,19 @@ class JobAidViewSet(ApiViewSet,
                 job_aid=jobaid,
                 email=user_email,
                 qna=qna,
-                full_name="",  # If available
+                full_name=user_name,
                 status="completed",
                 generated_report_data=generated_report_data,
-                report_url=f"{settings.FRONTEND_BASE_URL}/jobAidReport?sessionid={jobaid.uid}"
             )
 
+            session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
+            session.save(update_fields=['report_url'])
 
             # send email to admin
             send_email_from_emailit(
                 receiver_email="mail@coachbots.com",
-                subject=f"Job Aid QnA for {jobaid.title}",
-                body=f"QnA for job aid: {session.qna}",
+                subject=f"Job Aid - {jobaid.title}",
+                body=format_qna_body(jobaid, session.qna),
             )
 
             return Response({

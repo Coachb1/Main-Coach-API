@@ -1,6 +1,7 @@
 from django.db import models
 
 from commons.db.model import MyModel
+from jobaid.helpers import get_prompt
 
 # Create your models here.
 
@@ -10,11 +11,11 @@ class JobAid(MyModel):
         ('form', 'Form'),
     ]
     title = models.CharField(max_length=255, verbose_name="Title")
-    description = models.TextField(verbose_name="Description", blank=True, null=True)
-    validation_prompt = models.TextField(verbose_name="Validation Prompt")
-    report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt")
-    report_header = models.TextField(verbose_name="Report Header", blank=True, null=True, default=None)
-    report_footer = models.TextField(verbose_name="Report Footer", blank=True, null=True, default=None)
+    description = models.TextField(verbose_name="Description")
+    report_header = models.TextField(verbose_name="Report Header")
+    report_footer = models.TextField(verbose_name="Report Footer")
+    validation_prompt = models.TextField(verbose_name="Validation Prompt", null=True, blank=True, default=get_prompt("validation"))
+    report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt", null=True, blank=True, default=get_prompt("report_generation"))
     job_aid_type = models.CharField(max_length=50, verbose_name="Job Aid Type", blank=True, null=True, default='job_aid', choices=JOB_TYPE_CHOICES)
 
     class Meta:
@@ -36,7 +37,7 @@ class JobAidQuestion(MyModel):
     section = models.CharField(max_length=255, blank=True, null=True, verbose_name="Section")
     description = models.TextField(blank=True, null=True)
     dropdowns = models.TextField(blank=True, null=True, help_text="Comma-separated values (only if type is dropdown)")
-
+    validation_prompt = models.TextField(verbose_name="Validation Prompt", default=get_prompt("validation"))
     class Meta:
         verbose_name = "Job Aid Question"
         verbose_name_plural = "Job Aid Questions"
