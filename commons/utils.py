@@ -1,3 +1,4 @@
+import json
 import logging
 
 from commons.timeit import timeit
@@ -51,11 +52,19 @@ def generic_completion(prompt, tokens=1200, fallback_text=None, is_free=False, l
         try:
             response_text = call_llm(llm, prompt, tokens)
             if response_text and len(response_text.strip()) > 0:
+                try :
+                    if "```json" in response_text:
+                        response_text = response_text.split("```json")[1].split("```")[0].strip()
+                        response_text = json.loads(response_text)
+                    else:
+                        response_text = response_text.strip()
+                except Exception as e:
+                    response_text = response_text.strip()
                 break
         except Exception as e:
             logger.exception(f"Failed with {llm}: {e}")
 
-    return response_text if response_text and len(response_text.strip()) > 0 else fallback_text
+    return response_text if response_text else fallback_text
 
 
 # @timeit
