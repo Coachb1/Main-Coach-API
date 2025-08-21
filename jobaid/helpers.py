@@ -146,6 +146,59 @@ The execution challenge identified
 
 Secondary Recommendation: Identify which coaching flavor would serve as an effective complement to the primary approach, with a brief explanation of how they work together.*
 Implementation Sequence: Provide a 3-phase rollout plan showing how to sequence the coaching interventions for maximum impact.
+
+The JSON structure must look like this:  
+
+```json
+{
+  "section1_core_objectives": {
+    "section_name": "Core Objective",
+    "behavioral_objective": "...",
+    "business_objective": "..."
+  },
+  "section2_behavioral_map": {
+    "fear_or_risk": "...",
+    "mission_or_goal_behavior": "...",
+    "commentary": "..."
+  },
+  "section3_high_stakes_conversation_map": {
+    "step1_acknowledge": "...",
+    "step2_reframe": "...",
+    "step3_propose": "..."
+  },
+  "section4_recommended_micro_learning": {
+    "youtube_video": {
+      "title": "...",
+      "url": "..."
+    },
+    "article": {
+      "title": "...",
+      "url": "..."
+    }
+  },
+  "section5_mental_or_solution_model": {
+    "model": "...",
+    "explanation": "..."
+  },
+  "section6_data_insights_and_path_forward": {
+    "insight": "...",
+    "proprietary_stat": "..."
+  },
+  "section7_recommended_coaching_strategy": {
+    "primary_recommendation": {
+      "flavor": "...",
+      "justification": "..."
+    },
+    "secondary_recommendation": {
+      "flavor": "...",
+      "explanation": "..."
+    },
+    "implementation_sequence": {
+      "phases": [list of phases]
+    }
+  }
+
+
         """
     else:
         raise ValueError(f"Unknown job aid type: {type}")
