@@ -1,3 +1,4 @@
+import html
 import json
 import re
 
@@ -71,11 +72,11 @@ CONTEXT:
 You are creating a professional, one-page "Intervention Blueprint" (in Markdown format) for a user. The user's goal is to solve a specific business challenge.
 USER'S RAW INPUTS:
 
-Program Goal: [USER_INPUT_1]*
-Audience: [USER_INPUT_2]*
-Anti-Pattern (The Mistake): [USER_INPUT_3]*
-Success Pattern (The Ideal): [USER_INPUT_4]*
-Primary Execution Challenge: [USER_INPUT_5]*
+Program Goal: [USER_INPUT]*
+Audience: [USER_INPUT]*
+Anti-Pattern (The Mistake): [USER_INPUT]*
+Success Pattern (The Ideal): [USER_INPUT]*
+Primary Execution Challenge: [USER_INPUT]*
 
 TASK:
 Generate a complete, seven-part "Intervention Blueprint" based on the user's inputs. You must follow the structure and instructions for each section without deviation. The output must be in clean Markdown.
@@ -89,7 +90,7 @@ Section 2: Your Behavioral Map
 
 Use the user's [Anti-Pattern] as the "Fear" or "Risk to Avoid."*
 Use the user's [Success Pattern] as the "Mission" or "Goal Behavior."*
-Add one sentence of expert commentary explaining the psychological driver behind the anti-pattern.*
+Add one sentence of expert commentary/Premise explaining the psychological driver behind the anti-pattern.*
 
 Section 3: High-Stakes Conversation Map
 
@@ -146,27 +147,27 @@ The execution challenge identified
 
 Secondary Recommendation: Identify which coaching flavor would serve as an effective complement to the primary approach, with a brief explanation of how they work together.*
 Implementation Sequence: Provide a 3-phase rollout plan showing how to sequence the coaching interventions for maximum impact.
+NOTE: Always provide explanation of acronym.
 
 The JSON structure must look like this:  
 
 ```json
 {
-  "section1_core_objectives": {
-    "section_name": "Core Objective",
-    "behavioral_objective": "...",
-    "business_objective": "..."
+  "1_core_objectives": {
+    "1_behavioral_objective": "...",
+    "2_business_objective": "..."
   },
-  "section2_behavioral_map": {
-    "fear_or_risk": "...",
-    "mission_or_goal_behavior": "...",
-    "commentary": "..."
+  "2_behavioral_map": {
+    "1_fear_or_risk": "...",
+    "2_mission_or_goal_behavior": "...",
+    "3_premise": "..."
   },
-  "section3_high_stakes_conversation_map": {
-    "step1_acknowledge": "...",
-    "step2_reframe": "...",
-    "step3_propose": "..."
+  "3_high_stakes_conversation_map": {
+    "step_1_acknowledge": "...",
+    "step_2_reframe": "...",
+    "step_3_propose": "..."
   },
-  "section4_recommended_micro_learning": {
+  "4_recommended_micro_learning": {
     "youtube_video": {
       "title": "...",
       "url": "..."
@@ -176,24 +177,13 @@ The JSON structure must look like this:
       "url": "..."
     }
   },
-  "section5_mental_or_solution_model": {
-    "model": "...",
-    "explanation": "..."
-  },
-  "section6_data_insights_and_path_forward": {
-    "insight": "...",
-    "proprietary_stat": "..."
-  },
-  "section7_recommended_coaching_strategy": {
-    "primary_recommendation": {
-      "flavor": "...",
-      "justification": "..."
-    },
-    "secondary_recommendation": {
-      "flavor": "...",
-      "explanation": "..."
-    },
-    "implementation_sequence": {
+  "5_mental_or_solution_model": "[Model explanation]",
+
+  "6_data_insights": "[ Insights..]",
+  "7_recommended_coaching_strategy": {
+    "1_primary_recommendation": "[Provide flavour justification]",
+    "2_secondary_recommendation": "[Provide flavour explanation]",
+    "3_implementation_sequence": {
       "phases": [list of phases]
     }
   }
@@ -205,29 +195,40 @@ The JSON structure must look like this:
     
 
 
-
-def format_qna_body(jobaid, qna_json):
+def format_qna_body(jobaid, session):
+    qna_json = session.qna
     qna_data = json.loads(qna_json) if isinstance(qna_json, str) else qna_json
-    
-    # Build rows
+
     qna_rows = ""
-    for idx, (question, answer) in enumerate(qna_data.items(), start=1):
-        qna_rows += f"""
+    if qna_data:
+        for idx, (question, answer) in enumerate(qna_data.items(), start=1):
+            qna_rows += f"""
+            <tr>
+                <td style="padding:8px; border:1px solid #e5e7eb; font-weight:600;">Q{idx}</td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">{html.escape(str(question))}</td>
+                <td style="padding:8px; border:1px solid #e5e7eb; color:#374151;">{html.escape(str(answer))}</td>
+            </tr>
+            """
+    else:
+        qna_rows = """
         <tr>
-            <td style="padding:8px; border:1px solid #e5e7eb; font-weight:600;">Q{idx}</td>
-            <td style="padding:8px; border:1px solid #e5e7eb;">{question}</td>
-            <td style="padding:8px; border:1px solid #e5e7eb; color:#374151;">{answer}</td>
+            <td colspan="3" style="padding:8px; text-align:center; border:1px solid #e5e7eb; color:#6b7280;">
+                No questions or answers available.
+            </td>
         </tr>
         """
 
-    # Final HTML body
     body = f"""
-    <div style="font-family: Arial, sans-serif; max-width:700px; margin:auto; color:#111;">
-      <h2 style="color:#00c193; margin-bottom:16px;">Job Aid Report</h2>
-      <p><b>Title:</b> {jobaid.title}</p>
-      <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px;">
+    <div style="font-family: Arial, sans-serif; max-width:700px; margin:auto; color:#111; background-color:#ffffff; padding:20px; border-radius:8px;" bgcolor="#ffffff">
+      
+      <h1 style="color:#00c193; margin:20px 0 16px;">Job Aid Report</h2>
+      <p><b>Title:</b> {html.escape(getattr(jobaid, "title", "Untitled"))}</p>
+      <p><b>User:</b> {html.escape(getattr(session, "full_name", "Unknown"))}</p>
+      <p><b>Email:</b> {html.escape(getattr(session, "email", "Not Provided"))}</p>
+
+      <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; background:#ffffff;" bgcolor="#ffffff">
         <thead>
-          <tr style="background:#f3f4f6; text-align:left;">
+          <tr style="background:#f3f4f6; text-align:left; color:#111;">
             <th style="padding:8px; border:1px solid #e5e7eb;">#</th>
             <th style="padding:8px; border:1px solid #e5e7eb;">Question</th>
             <th style="padding:8px; border:1px solid #e5e7eb;">Answer</th>
@@ -237,6 +238,7 @@ def format_qna_body(jobaid, qna_json):
           {qna_rows}
         </tbody>
       </table>
+
       <p style="margin-top:30px; font-size:12px; color:#6b7280;">
         Generated automatically from Job Aid system.
       </p>
