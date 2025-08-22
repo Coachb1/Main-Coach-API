@@ -122,7 +122,7 @@ class JobAidViewSet(ApiViewSet,
             send_email_from_emailit(
                 receiver_email="mail@coachbots.com",
                 subject=f"Job Aid - {jobaid.title}",
-                body=format_qna_body(jobaid, session.qna),
+                body=format_qna_body(jobaid, session),
             )
 
             return Response({
