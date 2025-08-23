@@ -119,8 +119,7 @@ INSTRUCTION_MEDIA_LINK = "Instruction Media"
 NOTICE_BOARD = "Notice Board"
 CULTURE_SKILLS =  "Culture Skills"
 MCQ_OPTIONS = "Option"
-# QUESTION_PREFIX = "Question"
-# OPTION_PREFIX = "Option"
+IS_ASSESSMENT = "Is Assessment"
 
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
@@ -750,6 +749,10 @@ def format_test_orchestrated_conversation(raw_data):
             culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
             output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
 
+
+        if IS_ASSESSMENT in input_dict and len(input_dict[IS_ASSESSMENT]) > 0:
+            output_dict["tag"] = 'assessment' if input_dict[IS_ASSESSMENT].strip().lower() == "true" else None
+
         skills_list = []
         if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
             skill_list = input_dict[SKILLS_TO_EVALUATE].split(',')
@@ -1361,6 +1364,9 @@ def format_test_data_slack(raw_data,tenant):
         if CULTURE_SKILLS in input_dict and len(input_dict[CULTURE_SKILLS]) > 0:
             culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
             output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
+
+        if IS_ASSESSMENT in input_dict and len(input_dict[IS_ASSESSMENT]) > 0:
+            output_dict["tag"] = 'assessment' if input_dict[IS_ASSESSMENT].strip().lower() == "true" else None
 
         skills_list = set()
         if f'{KLS} 0' in input_dict.keys() or f'Skill 0'in input_dict:

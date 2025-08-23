@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from tenants.models import Tenant
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog)
+                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import enforce_unique_emails_across_clients, shift_all_emails_to_domain_client
@@ -43,10 +43,10 @@ class SignaturebotAttributeAdmin(TenantAwareModelAdmin):
 
 class SignatureBotAdmin(TenantAwareModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
+    list_display = ('id','uid','bot_id','bot_type','page_informations','send_bot_transcript','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private','allow_public_access')
     search_fields = ('bot_id','bot_type','uid')
-    list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
+    list_editable = ('page_informations','send_bot_transcript','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
     ordering = ('-id',)
 
 class BotAndUserMappingAdmin(TenantAwareModelAdmin):
@@ -280,6 +280,13 @@ class SnippetAccessCodeResource(resources.ModelResource):
     def dehydrate_is_temporary(self, snippet):
         return "Temporary" if snippet.is_temporary else "Permanent"
 
+@admin.register(UserMindmap)
+class UserMindmapAdmin(TenantAwareModelAdmin):
+    list_display = ('id','user', 'mindmap_links')
+    search_fields = ('user__username', 'mindmap_links')
+    list_editable = ('mindmap_links',)
+
+    autocomplete_fields = ['user']
 
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):
