@@ -1033,28 +1033,38 @@ def create_test_question_answer_session(tenant: Tenant,
     if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
         first_question_text = ''
-        for i in range(3):
-            logger.info("generating first question for test %s, attempt %d", test_id, i+1)
-            first_question_text = gemini_chat_completion(
-                                    prompt=test.gpt_prompt_override,
-                                    previous_conv=[{
-                                        "role": "user",
-                                        "text": "START"
-                                    }],
-                                    temperature=0,
-                                    top_p=0,
-                                )
-            if not validate_llm_output_minimal(first_question_text):
-                logger.warning("LLM output did not meet minimal requirements")
-                continue
-            break
+        if test.test_type == TestTypeChoices.test:
+            question = TestQuestion.objects.filter(deleted=False, test_id=test.uid).first()
+            first_question_text = format_game_next_que(test, question)
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=question.uid,
+                question_text = first_question_text
+            )
+        else:
+            for i in range(3):
+                logger.info("generating first question for test %s, attempt %d", test_id, i+1)
+                first_question_text = gemini_chat_completion(
+                                        prompt=test.gpt_prompt_override,
+                                        previous_conv=[{
+                                            "role": "user",
+                                            "text": "START"
+                                        }],
+                                        temperature=0,
+                                        top_p=0,
+                                    )
+                if not validate_llm_output_minimal(first_question_text):
+                    logger.warning("LLM output did not meet minimal requirements")
+                    continue
+                break
 
-        TestQuestionResponse.objects.create(
-            tenant_id=test_attempt_session.tenant_id,
-            test_attempt_session_id=test_attempt_session.uid,
-            question_id=str(test_attempt_session.uid) + f'-1',
-            question_text = first_question_text
-        )
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=str(test_attempt_session.uid) + f'-1',
+                question_text = first_question_text
+            )
 
     return test_attempt_session
 
@@ -1118,7 +1128,6 @@ def create_test_question_answer(tenant: Tenant,
         if not test_question_response:
             raise serializers.ValidationError("no question response found for this test attempt session")
         # saving response text or response file
-
         test_question_response.response_file = response_file
         test_question_response.response_text = response_text
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1129,7 +1138,7 @@ def create_test_question_answer(tenant: Tenant,
         test_question_response.refresh_from_db()
 
         print(test_question_response.response_text)
-        return process_dynamic_game(
+        return process_game(
             test=test,
             test_question_response=test_question_response,
             test_attempt_session=test_attempt_session
@@ -3301,7 +3310,7 @@ def sanitize_llm_output(output: dict) -> dict:
     return json.dumps(output)
 
 @timeit
-def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
+def process_game(test_question_response:TestQuestionResponse, test:Test
                          ,test_attempt_session:TestAttemptSession):
     
     logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic game thred $$$$$$$$$$$")
@@ -3334,39 +3343,101 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
                                     "role": "user",
                                     "text": "START"
                                 }]
-    for question_response in TestQuestionResponse.objects.filter(
+    
+    test_question_responses = TestQuestionResponse.objects.filter(
         test_attempt_session_id=test_attempt_session.uid,
         deleted=False
-    ):
-        print(question_response.question_text)
-        print(question_response.response_text)
-        previous_conversation.append({
-            "text": question_response.question_text,
-            "role": "model"
-        })
-        previous_conversation.append({
-            "text": question_response.response_text,
-            "role": "user"
-        })
+    )
+    
     next_question = ''
-    for i in range(3):
-        logger.info(f"Attempt {i+1} to generate next question")
-        next_question = gemini_chat_completion(
-            prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
-            previous_conv=previous_conversation,
-            temperature=0,
-            top_p=0,
-        )
-        score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+    score_match = ''
+    question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+    if test.test_type == TestTypeChoices.test:
+        previous_question = TestQuestion.objects.get(uid=test_question_response.question_id)
+        next_qu_instance = TestQuestion.objects.filter(deleted=False, test_id=test.uid, question_number = previous_question.question_number + 1).first()
+        is_last_question = test.total_question == test_question_responses.count()
+        if is_last_question:
+            qna = ''
+            for response in test_question_responses:
+                q = TestQuestion.objects.get(uid=response.question_id)
+                qna += f"""
+                Que: {q.question}\n
+                Options: {q.mcq_options}\n
+                Ans: {response.response_text}\n\n"""
 
-        if not score_match and not validate_llm_output_minimal(next_question):
-            logger.error(f"Invalid LLM output: {next_question}")
-            continue
+            prompt = """
+                \n\nHuman:
+                Title: ${title}
+                Description: ${description}
+                conversation: ${qna}
 
-        if not score_match:
-            next_question = sanitize_llm_output(next_question)
+                ## End Game Message:
+                Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
 
-        break
+                ## Feedback:
+                Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better."
+
+
+                Output must be in a valid json:
+
+                {
+                 "end_message" : [End Game Message],
+                 "feedback": [Feedback]
+                }
+
+                \n\nAssistant:
+                """
+            for i in range(3):
+                logger.info(f"Attempt {i+1} to generate last question")
+                next_question = generic_completion(
+                    prompt = Template(prompt).substitute(
+                        title=test.title,
+                        description=test.description,
+                        qna=qna
+                    )
+                )
+                next_question = json.dumps(next_question)
+                score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+
+                if not score_match:
+                    next_question = sanitize_llm_output(next_question)
+
+                break
+        else: 
+            next_question = format_game_next_que(test, next_qu_instance)
+            if next_qu_instance:
+                question_id = next_qu_instance.uid
+            
+    else:
+        for question_response in test_question_responses:
+            print(question_response.question_text)
+            print(question_response.response_text)
+            previous_conversation.append({
+                "text": question_response.question_text,
+                "role": "model"
+            })
+            previous_conversation.append({
+                "text": question_response.response_text,
+                "role": "user"
+            })
+        for i in range(3):
+            logger.info(f"Attempt {i+1} to generate next question")
+            next_question = gemini_chat_completion(
+                prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
+                previous_conv=previous_conversation,
+                temperature=0,
+                top_p=0,
+            )
+            score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+
+            if not score_match and not validate_llm_output_minimal(next_question):
+                logger.error(f"Invalid LLM output: {next_question}")
+                continue
+
+            if not score_match:
+                next_question = sanitize_llm_output(next_question)
+
+            break
 
     print(next_question, type(next_question))
     
@@ -3417,7 +3488,7 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
     new_test_question_response = TestQuestionResponse.objects.create(
         tenant_id=test_attempt_session.tenant_id,
         test_attempt_session_id=test_attempt_session.uid,
-        question_id=str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}',
+        question_id=question_id,
         question_text = next_question
     )
     
@@ -14381,3 +14452,26 @@ def update_ti_des():
 
         Test.objects.bulk_update(updated_test, ['description', 'orchestrated_conversation_details'])
         TestQuestion.objects.bulk_update(updated_question, ['question'])
+
+
+def format_game_next_que(test:Test, question: TestQuestion):
+    is_single_select = test.is_single_select
+    instruction = 'Choose one or more options from A, B, C or D'
+    if is_single_select:
+        instrunction = 'Choose one option from A, B, C or D'
+        
+
+    question_info = {
+          "context": {
+            'section': f'Level {question.question_number}'
+          },
+          'details': {
+            'question': question.question
+          },
+          'content': {
+            'instruction': instruction ,
+            'options': question.mcq_options
+          }
+        }
+
+    return json.dumps(question_info)
