@@ -1,3 +1,4 @@
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -296,7 +297,7 @@ def send_bot_conversation_email(candidate_name, conversation, to_email,summary, 
             msg['To'] = ', '.join(to_email)
 
         # html_body = get_bot_conversation_email_body(candidate_name, conversation, f"summary: {summary}", f"simulation: {simulation}")
-        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name,bot=signature_bot)
+        transcript_block = get_transcript_block(conversation=conversation,summary=summary,simulation=simulation,coach_name=coach_name,bot=signature_bot, candidate_name=candidate_name)
         email_wrapper = ""
         if no_reply:
             email_wrapper = get_email_wrapper(html_content=transcript_block,title=f'Hey {candidate_name}!',note='(NOTE : Please be advised that replies to this email will not be monitored or responded to.)')
@@ -1579,15 +1580,76 @@ def get_email_wrapper(html_content,title='Hey!',note="", footer="<p>Best regards
 
     return template
 
-def get_transcript_block(conversation, summary, simulation,coach_name,bot):
+
+def build_summary_block(summary: str) -> str:
+    # Split into non-empty, cleaned lines
+    lines = [line.strip() for line in summary.split("\n") if line.strip()]
+
+    summary_points = ""
+    in_list = False
+
+    for line in lines:
+        if re.match(r"^[-•*]\s+", line):  # bullet line
+            if not in_list:
+                summary_points += '<ul style="margin: 12px 0 0; padding-left: 20px; text-align: left;">'
+                in_list = True
+            clean_line = line.lstrip("-•* ").strip()
+            summary_points += f'<li style="margin-bottom: 8px; font-family: sans-serif; font-size: 14px; line-height: 20px;">{clean_line}</li>'
+        elif line.endswith(":"):  # section header
+            if in_list:
+                summary_points += "</ul>"
+                in_list = False
+            summary_points += f'<p style="font-family: sans-serif; font-size: 15px; font-weight: bold; margin: 16px 0 6px; text-align: left;">{line}</p>'
+        else:  # normal text
+            if in_list:
+                summary_points += "</ul>"
+                in_list = False
+            summary_points += f'<p style="font-family: sans-serif; font-size: 14px; margin: 0 0 12px; text-align: left;">{line}</p>'
+
+    if in_list:  # close any open list
+        summary_points += "</ul>"
+
+    return f"""
+        <td align="center" class="esd-block-text">
+            <br>
+            <div style="font-size: 12px; font-weight: bold; background-color: #1cac88; color: white; padding: 4px 8px; border-radius: 4px; width: fit-content; margin: 0 auto;">
+                Summary
+            </div>
+            <div style="margin-top: 10px; text-align: left;">
+                {summary_points}
+            </div>
+        </td>
+    """
+
+
+def get_transcript_block(conversation, summary, simulation,coach_name,bot,candidate_name='User'):
+    simulation_block = ''
     if simulation:
         simulation_block = get_simulation_block(simulation)
-    else:
-        simulation_block = '''<tr>
-            <td align="left" class="esd-block-text">
-                <p>No Simulation Found!</p>
+        simulation_block = '''
+        <tr>
+            <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
+        </tr>
+        <tr>
+            <td align="center" class="esd-block-text">
+                <br><div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Simulation</div><br>
+                ${simulation_block}
             </td>
-        </tr>'''
+        </tr>
+        '''
+    # Split into non-empty lines, strip whitespace, and remove leading "-" if present
+    # lines = [line.lstrip("-").strip() for line in summary.split("\n") if line.strip()]
+
+    # # Create styled bullet list
+    # summary_points = "\n".join(
+    #     f'<li style="margin-bottom: 8px; font-family: sans-serif; font-size: 14px; line-height: 20px; text-align: left;">{line}</li>'
+    #     for line in lines
+    # )
+
+    # Wrap in block
+    summary_block = build_summary_block(summary)
+
+    
     data = ""
     for index,i in enumerate(conversation):
         if bot.bot_type == "deep_dive":
@@ -1649,7 +1711,7 @@ def get_transcript_block(conversation, summary, simulation,coach_name,bot):
             data += f'''
             <tr>
                 <td style="font-family: sans-serif; font-size: 14px; vertical-align: top; border-radius: 5px; text-align: left; background-color: #f2f2f2;" valign="top" align="left" bgcolor="#f2f2f2">
-                    <p style="color: #000000; padding: 10px 15px; margin: 0;">User: {i['user']}</p>
+                    <p style="color: #000000; padding: 10px 15px; margin: 0;">{candidate_name.split('(')[0]}: {i['user']}</p>
                 </td>
             </tr>
             <tr>
@@ -1681,20 +1743,12 @@ def get_transcript_block(conversation, summary, simulation,coach_name,bot):
                                                         </table>
                                                     </td>
                                                 </tr>
-                                                <td align="center" class="esd-block-text">
-                                                    <br>
-                                                    <div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Summary</div><br>
-                                                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px; text-align: left;">${summary}</p>
-                                                </td>
-                                                <tr>
-                                                    <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td align="center" class="esd-block-text">
-                                                        <br><div style="font-size : 12px; font-weight: bold; background-color : #1cac88;color: white; padding: 4px; border-radius:4px; width: fit-content;">Simulation</div><br>
-                                                        ${simulation_block}
-                                                    </td>
-                                                </tr>
+
+                                                ${summary}
+
+                                                
+                                                
+                                                ${simulation_block}
                                                 
                                                 <tr>
                                                     <td style="border-bottom: 2px solid rgba(0, 0, 0, 0.74); background: unset; height: 1px; width: 100%; margin: 0px;"></td>
@@ -1730,7 +1784,7 @@ def get_transcript_block(conversation, summary, simulation,coach_name,bot):
     </td>
         """
 
-    template = Template(template).substitute(bot_conversation=data,summary=summary,simulation_block=simulation_block)        
+    template = Template(template).substitute(bot_conversation=data,summary=summary_block,simulation_block=simulation_block)        
     return template
 
 def get_simulation_block(simulation):

@@ -157,7 +157,12 @@ class User(TenantAwareModel):
         return self.can_login
     
     def __str__(self):
-        return f"{self.name} -({self.role})"
+        from identities.models import Identity  # avoid circular import
+
+        identity = Identity.objects.filter(deleted=False, user_id=self.uid).first()
+        identity_value = identity.value if identity else ""
+
+        return f"{self.name} ({self.role}) - {identity_value}"
 
 
 class UserAttribute(TenantAwareModel):
@@ -224,6 +229,8 @@ class SignatureBot(TenantAwareModel):
     allow_public_access = models.BooleanField(null=True,default=False)
     integratable_widget_snippet = models.TextField(null=True, blank=True, default=None)
     use_latest_simualation = models.BooleanField(null=True,default=False)
+    send_bot_transcript = models.BooleanField(blank=True,default=True)
+    email_address_list = models.TextField(null=True, blank=True, default=None)
     
 
     class Meta:
@@ -529,3 +536,13 @@ class CoachCoacheeConnection(TenantAwareModel):
         db_table = "coach_coachee_connection"
 
         unique_together = (("tenant_id", "coach_id", "coachee_id"), ("tenant_id", "mentor_id", "mentee_id"))
+
+class UserMindmap(TenantAwareModel):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  
+    mindmap_links = models.TextField(help_text="Enter links separated by commas")
+
+    def get_links_list(self):
+        return [link.strip() for link in self.mindmap_links.split(",") if link.strip()]
+
+    def __str__(self):
+        return f"{self.user.name} - Mindmap"
