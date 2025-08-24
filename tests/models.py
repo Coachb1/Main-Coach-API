@@ -14,6 +14,8 @@ from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
 
+from users.models import ClientUserInfo, User
+
 ## psychometric section
 # class PsychometricItem(MyModel):    
 #     # Fields for Section and Subsection
@@ -604,3 +606,43 @@ class UserTestMapping(MyModel):
 
     def __str__(self):
         return f"{self.user.name} Test Mapping"
+    
+
+class Course(TenantAwareModel):
+    title = models.CharField(max_length=255)
+    sub_title = models.CharField(max_length=255)
+    client = models.ForeignKey(ClientUserInfo, related_name='clients', on_delete=models.CASCADE, blank=True,default=None)
+    def __str__(self):
+        return self.title
+    
+class Module(MyModel):
+    module_name = models.CharField(max_length=30)
+    CHAPTER_TYPE_CHOICES = models.CharField(max_length=20,choices=[
+        ('ASSESSMENT', 'Assessment'),
+        ('VIDEO', 'Video Lesson'),
+        ('TEXT', 'Text Lesson'),
+        ('CHATBOT', 'Chatbot'),
+        ('IMAGE', 'Image'),
+    ], default='ASSESSMENT')
+    test = models.ForeignKey(Test, related_name='tests', on_delete=models.CASCADE,blank=True,default=None)
+    course = models.ForeignKey(Course,related_name='course', on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    video_url = models.URLField(blank=True, null=True)
+    embed_link = models.URLField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.course.title})"
+    
+
+    
+class UserProgress(MyModel):
+    user = models.ForeignKey(User, related_name='users', on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    modules_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.name} - {self.course.title} Progress"
+

@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
+from apis.tests.serializers import CourseSerializer, CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -15,7 +15,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation, UserTestMapping
+from tests.models import Course, Module, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -1914,3 +1914,103 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Failed to [test_mappings]: {e}")
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class CourseViewSet(ApiViewSet,
+                  mixins.ListModelMixin,
+                  mixins.RetrieveModelMixin,
+                  mixins.UpdateModelMixin):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    @action(methods=['GET'], detail=False, url_path='fetch-courses')
+    def fetch_courses(self, request, *args, **kwargs):
+        """
+        Unified endpoint to fetch:
+        - Courses by client name
+        - A specific course by UID
+        - All courses with no client (default)
+        """
+        client_name = request.query_params.get('client_name')
+        course_uid = request.query_params.get('course_uid')
+
+        try:
+            # 1. Fetch by course_uid (highest priority)
+            if course_uid:
+                course = Course.objects.filter(uid=course_uid).first()
+                if not course:
+                    return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+                assessments = course.course.filter(module_name= Module.CHAPTER_TYPE_CHOICES)
+                data = {
+                    'id': course.id,
+                    'uid': course.uid,
+                    'title': course.title,
+                    'sub_title': course.sub_title,
+                    'client': course.client.client_name if course.client else None
+                }
+                return Response({'course': data}, status=status.HTTP_200_OK)
+
+            # 2. Fetch all courses by client_name
+            elif client_name:
+                client = ClientUserInfo.objects.filter(name__iexact=client_name).first()
+                if not client:
+                    return Response({'error': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
+                courses = Course.objects.filter(client=client)
+
+            # 3. Default: courses without any client
+            else:
+                courses = Course.objects.filter(client__isnull=True)
+
+            course_list = [
+                {
+                    'id': c.id,
+                    'uid': c.uid,
+                    'title': c.title,
+                    'sub_title': c.sub_title,
+                } for c in courses
+            ]
+            return Response({'courses': course_list}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in fetch_courses: {e}")
+            return Response({'error': 'Unexpected server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+    @action(methods=['GET'], detail=False, url_path='fetch-user-progress')
+    def fetch_user_progress(self, request, *args, **kwargs):
+        user_uid = request.query_params.get('user_uid')
+        course_id = request.query_params.get('course_id')
+
+        if not user_uid or not course_id:
+            return Response(
+                {'error': 'Both user_uid and course_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.filter(uid=user_uid).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            course = Course.objects.filter(id=course_id).first()
+            if not course:
+                return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            progress = UserProgress.objects.filter(user=user, course=course).first()
+            if not progress:
+                return Response({'message': 'No progress found for this user-course pair'}, status=status.HTTP_404_NOT_FOUND)
+
+            data = {
+                'user': user.name,
+                'course': course.title,
+                'start_time': progress.start_time,
+                'end_time': progress.end_time,
+                'modules_completed': progress.modules_completed
+            }
+
+            return Response({'progress': data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in fetch_user_progress: {e}")
+            return Response({'error': 'Unexpected server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
