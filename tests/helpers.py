@@ -1033,28 +1033,38 @@ def create_test_question_answer_session(tenant: Tenant,
     if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
         first_question_text = ''
-        for i in range(3):
-            logger.info("generating first question for test %s, attempt %d", test_id, i+1)
-            first_question_text = gemini_chat_completion(
-                                    prompt=test.gpt_prompt_override,
-                                    previous_conv=[{
-                                        "role": "user",
-                                        "text": "START"
-                                    }],
-                                    temperature=0,
-                                    top_p=0,
-                                )
-            if not validate_llm_output_minimal(first_question_text):
-                logger.warning("LLM output did not meet minimal requirements")
-                continue
-            break
+        if test.test_type == TestTypeChoices.test:
+            question = TestQuestion.objects.filter(deleted=False, test_id=test.uid).first()
+            first_question_text = format_game_next_que(test, question)
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=question.uid,
+                question_text = first_question_text
+            )
+        else:
+            for i in range(3):
+                logger.info("generating first question for test %s, attempt %d", test_id, i+1)
+                first_question_text = gemini_chat_completion(
+                                        prompt=test.gpt_prompt_override,
+                                        previous_conv=[{
+                                            "role": "user",
+                                            "text": "START"
+                                        }],
+                                        temperature=0,
+                                        top_p=0,
+                                    )
+                if not validate_llm_output_minimal(first_question_text):
+                    logger.warning("LLM output did not meet minimal requirements")
+                    continue
+                break
 
-        TestQuestionResponse.objects.create(
-            tenant_id=test_attempt_session.tenant_id,
-            test_attempt_session_id=test_attempt_session.uid,
-            question_id=str(test_attempt_session.uid) + f'-1',
-            question_text = first_question_text
-        )
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=str(test_attempt_session.uid) + f'-1',
+                question_text = first_question_text
+            )
 
     return test_attempt_session
 
@@ -1118,7 +1128,6 @@ def create_test_question_answer(tenant: Tenant,
         if not test_question_response:
             raise serializers.ValidationError("no question response found for this test attempt session")
         # saving response text or response file
-
         test_question_response.response_file = response_file
         test_question_response.response_text = response_text
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1129,7 +1138,7 @@ def create_test_question_answer(tenant: Tenant,
         test_question_response.refresh_from_db()
 
         print(test_question_response.response_text)
-        return process_dynamic_game(
+        return process_game(
             test=test,
             test_question_response=test_question_response,
             test_attempt_session=test_attempt_session
@@ -1514,6 +1523,75 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
         
 
 #*********************** Process Dynamic MCQ response end *******************************
+
+def process_static_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """This function processes the response of a static multiple-choice question (MCQ) in a test session.
+    The function retrieves the related test question and test attempt session from the database. It checks if the test session is already completed, and if so, it returns the test question response without further processing.
+    The function then updates the metadata of the test question response with the question from the test attempt session's feedback summary. It also retrieves the related test from the database.
+    The function generates a comment on the user's decision using the `generic_completion` function and updates the test question response with this comment. It also sets the `mcq_skill` field to 'NA' and the `evaluation_status` field to 'success'.
+    If the current question is the last question in the test, the function marks the test session as completed and generates a summary of the user's decisions throughout the test. It also generates a list of skills using the `get_dynamic_mcq_skills_prompt` and `generic_completion` functions.
+    The function then generates a session report link and updates the `SkillsRating` object related to the participant with the total number of questions attempted and total tests attempted.
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object to be processed.
+    is_whatsapp (bool, optional): A flag indicating whether the test is conducted on WhatsApp. Defaults to False.
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+    Example:
+    >>> process_static_mcq_response(test_question_response_obj)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """     
+    
+    test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
+
+    logger.info(f"[process_static_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+    
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(f"Static MCQ Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    # Check if it's the last question
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = test.total_question == total_responses.count()
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.finished_at = timezone.now()
+
+        # Summarize attempt
+        decision_map = ""
+        for response in total_responses:
+            q = TestQuestion.objects.get(uid=response.question_id)
+            decision_map += f"Q: {q.question}\nA: {response.response_text}\n\n"
+
+        prompt = f"""
+            \n\nHuman:
+            conversation: {decision_map}
+
+            Evaluate the user's choice. Was it correct or not? Comment briefly on what the correct choice is, why it's correct, and what learning the user should take away. Keep it under 100 words.
+            
+
+            Return the response as a JSON with two keys:
+            "congratulations" → Congratulation. You have completed the [Title]. You have achieved a score of [x out of 100].
+            "feedback" → Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better.
+            \n\nAssistant:
+            """
+
+        session_summary_json = generic_completion(prompt, 400)
+        try:
+            # import json
+            session_summary_data = json.loads(session_summary_json)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON returned from generic_completion")
+            session_summary_data = {
+                "congratulations": "",
+                "feedback": session_summary_json
+            }
+
+        test_attempt_session.mcq_summary = json.dumps(session_summary_data)
+        test_attempt_session.save(update_fields=["status", "finished_at", "mcq_summary", "updated"])
+
+    return test_question_response
 
 
 
@@ -1940,6 +2018,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test.test_type == TestTypeChoices.dynamic_mcq:
         return process_dynamic_mcq_response(test_question_response)
+    
+    if test.scenario_case == 'game':
+        return process_static_mcq_response(test_question_response)
 
     test_attempt_session.current_question_idx = question.question_number
 
@@ -3229,7 +3310,7 @@ def sanitize_llm_output(output: dict) -> dict:
     return json.dumps(output)
 
 @timeit
-def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
+def process_game(test_question_response:TestQuestionResponse, test:Test
                          ,test_attempt_session:TestAttemptSession):
     
     logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic game thred $$$$$$$$$$$")
@@ -3262,39 +3343,104 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
                                     "role": "user",
                                     "text": "START"
                                 }]
-    for question_response in TestQuestionResponse.objects.filter(
+    
+    test_question_responses = TestQuestionResponse.objects.filter(
         test_attempt_session_id=test_attempt_session.uid,
         deleted=False
-    ):
-        print(question_response.question_text)
-        print(question_response.response_text)
-        previous_conversation.append({
-            "text": question_response.question_text,
-            "role": "model"
-        })
-        previous_conversation.append({
-            "text": question_response.response_text,
-            "role": "user"
-        })
+    )
+    
     next_question = ''
-    for i in range(3):
-        logger.info(f"Attempt {i+1} to generate next question")
-        next_question = gemini_chat_completion(
-            prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
-            previous_conv=previous_conversation,
-            temperature=0,
-            top_p=0,
-        )
-        score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+    score_match = ''
+    question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+    if test.test_type == TestTypeChoices.test:
+        previous_question = TestQuestion.objects.get(uid=test_question_response.question_id)
+        next_qu_instance = TestQuestion.objects.filter(deleted=False, test_id=test.uid, question_number = previous_question.question_number + 1).first()
+        is_last_question = test.total_question == test_question_responses.count()
+        if is_last_question:
+            qna = ''
+            for response in test_question_responses:
+                q = TestQuestion.objects.get(uid=response.question_id)
+                qna += f"""
+                Que: {q.question}\n
+                Options: {q.mcq_options}\n
+                Ans: {response.response_text}\n\n"""
 
-        if not score_match and not validate_llm_output_minimal(next_question):
-            logger.error(f"Invalid LLM output: {next_question}")
-            continue
+            prompt = """
+                \n\nHuman:
+                Title: ${title}
+                Description: ${description}
+                conversation: ${qna}
 
-        if not score_match:
-            next_question = sanitize_llm_output(next_question)
+                ## End Game Message:
+                Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
 
-        break
+                ## Feedback:
+                Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better."
+
+
+                Output must be in a valid json:
+
+                {
+                 "end_message" : [End Game Message],
+                 "feedback": [Feedback]
+                }
+
+                \n\nAssistant:
+                """
+            for i in range(3):
+                logger.info(f"Attempt {i+1} to generate last question")
+                next_question = generic_completion(
+                    prompt = Template(prompt).substitute(
+                        title=test.title,
+                        description=test.description,
+                        qna=qna
+                    )
+                )
+                next_question = json.dumps(next_question)
+                score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+
+                if not score_match:
+                    next_question = sanitize_llm_output(next_question)
+
+                break
+        else: 
+            next_question = format_game_next_que(test, next_qu_instance)
+            if next_qu_instance:
+                question_id = next_qu_instance.uid
+            
+    else:
+        for question_response in test_question_responses:
+            print(question_response.question_text)
+            print(question_response.response_text)
+            previous_conversation.append({
+                "text": question_response.question_text,
+                "role": "model"
+            })
+            previous_conversation.append({
+                "text": question_response.response_text,
+                "role": "user"
+            })
+
+        question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+        
+        for i in range(3):
+            logger.info(f"Attempt {i+1} to generate next question")
+            next_question = gemini_chat_completion(
+                prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
+                previous_conv=previous_conversation,
+                temperature=0,
+                top_p=0,
+            )
+            score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+
+            if not score_match and not validate_llm_output_minimal(next_question):
+                logger.error(f"Invalid LLM output: {next_question}")
+                continue
+
+            if not score_match:
+                next_question = sanitize_llm_output(next_question)
+
+            break
 
     print(next_question, type(next_question))
     
@@ -3345,7 +3491,7 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
     new_test_question_response = TestQuestionResponse.objects.create(
         tenant_id=test_attempt_session.tenant_id,
         test_attempt_session_id=test_attempt_session.uid,
-        question_id=str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}',
+        question_id=question_id,
         question_text = next_question
     )
     
@@ -14309,3 +14455,26 @@ def update_ti_des():
 
         Test.objects.bulk_update(updated_test, ['description', 'orchestrated_conversation_details'])
         TestQuestion.objects.bulk_update(updated_question, ['question'])
+
+
+def format_game_next_que(test:Test, question: TestQuestion):
+    is_single_select = test.is_single_select
+    instruction = 'Choose one or more options from A, B, C or D'
+    if is_single_select:
+        instrunction = 'Choose one option from A, B, C or D'
+        
+
+    question_info = {
+          "context": {
+            'section': f'Level {question.question_number}'
+          },
+          'details': {
+            'question': question.question
+          },
+          'content': {
+            'instruction': instruction ,
+            'options': question.mcq_options
+          }
+        }
+
+    return json.dumps(question_info)
