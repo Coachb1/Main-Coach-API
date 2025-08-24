@@ -3420,6 +3420,9 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
                 "text": question_response.response_text,
                 "role": "user"
             })
+
+        question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+        
         for i in range(3):
             logger.info(f"Attempt {i+1} to generate next question")
             next_question = gemini_chat_completion(
