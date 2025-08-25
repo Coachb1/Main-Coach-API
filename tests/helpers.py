@@ -513,6 +513,7 @@ def create_test(tenant: Tenant,
                 key_learning_skills=kls,
                 snippet_url=question.get('snippet_url'),
                 question_insight=question.get("question_insight"),
+                que_explanation=question.get("que_explanation")
 
             )
 
@@ -787,6 +788,9 @@ def update_test(tenant: Tenant,
                     if question.get("question_insight") and test_q.question_insight != question.get("question_insight"):
                         test_q.question_insight = question.get("question_insight")
 
+                    if question.get("que_explanation") and test_q.que_explanation != question.get("que_explanation"):
+                        test_q.que_explanation = question.get("que_explanation")
+
                     if question.get("gpt_prompt_override") and test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
                         test_q.gpt_prompt_override = question.get("gpt_prompt_override")
 
@@ -861,6 +865,7 @@ def update_test(tenant: Tenant,
                     ),
                     snippet_url=question.get('snippet_url'),
                     question_insight=question.get("question_insight"),
+                    que_explanation=question.get('que_explanation'),
 
                 )
                 test_questions.append(test_q)
@@ -3351,58 +3356,32 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
     
     next_question = ''
     score_match = ''
-    question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+    question_id = ''
     if test.test_type == TestTypeChoices.test:
         previous_question = TestQuestion.objects.get(uid=test_question_response.question_id)
         next_qu_instance = TestQuestion.objects.filter(deleted=False, test_id=test.uid, question_number = previous_question.question_number + 1).first()
         is_last_question = test.total_question == test_question_responses.count()
         if is_last_question:
-            qna = ''
+            qna = []
             for response in test_question_responses:
                 q = TestQuestion.objects.get(uid=response.question_id)
-                qna += f"""
-                Que: {q.question}\n
-                Options: {q.mcq_options}\n
-                Ans: {response.response_text}\n\n"""
+                qna.append({
+                    'question': q.question,
+                    'correct_answer': q.mcq_answer,
+                    'user_answer': response.response_text,
+                    'que_explanation': q.que_explanation
+                })
+            
+            score, feedback = generate_endgame_result(test.title, qna)
+            test_attempt_session.test_score = score
+            test_attempt_session.finished_at = timezone.now()
+            test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-            prompt = """
-                \n\nHuman:
-                Title: ${title}
-                Description: ${description}
-                conversation: ${qna}
+            test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
+            print("Test completed")
 
-                ## End Game Message:
-                Congratulations 🎉. You have completed the [Game Name]. You have achieved a score of [x out of 100].
-
-                ## Feedback:
-                Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better."
-
-
-                Output must be in a valid json:
-
-                {
-                 "end_message" : [End Game Message],
-                 "feedback": [Feedback]
-                }
-
-                \n\nAssistant:
-                """
-            for i in range(3):
-                logger.info(f"Attempt {i+1} to generate last question")
-                next_question = generic_completion(
-                    prompt = Template(prompt).substitute(
-                        title=test.title,
-                        description=test.description,
-                        qna=qna
-                    )
-                )
-                next_question = json.dumps(next_question)
-                score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
-
-                if not score_match:
-                    next_question = sanitize_llm_output(next_question)
-
-                break
+            next_question = json.dumps(feedback)
+            
         else: 
             next_question = format_game_next_que(test, next_qu_instance)
             if next_qu_instance:
@@ -3442,49 +3421,49 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
 
             break
 
-    print(next_question, type(next_question))
-    
-    
-    # now checking if the next_question is last/end conversation with score
+        print(next_question, type(next_question))
+        
+        
+        # now checking if the next_question is last/end conversation with score
 
-    score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
-    if score_match:
-        score = int(score_match.group(1))  # Extract the achieved score
-        # total_score = int(score_match.group(2))  # Extract the total score
-        test_attempt_session.test_score = score
-        test_attempt_session.finished_at = timezone.now()
-        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+        if score_match:
+            score = int(score_match.group(1))  # Extract the achieved score
+            # total_score = int(score_match.group(2))  # Extract the total score
+            test_attempt_session.test_score = score
+            test_attempt_session.finished_at = timezone.now()
+            test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-        test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
-        print("Test completed")
+            test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
+            print("Test completed")
 
-        start_time = time.time()
-        while True:
-            end_time = time.time()
-            if end_time - start_time > 92:
-                logger.error(
-                    f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
-                raise ValueError("unable to evaluate response: %s",
-                                 test_question_response.uid)
+            start_time = time.time()
+            while True:
+                end_time = time.time()
+                if end_time - start_time > 92:
+                    logger.error(
+                        f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
+                    raise ValueError("unable to evaluate response: %s",
+                                    test_question_response.uid)
 
-            time.sleep(4)
+                time.sleep(4)
 
-            not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
-                test_attempt_session_id=test_attempt_session.uid,
-                deleted=0
-            ).exclude(
-                uid=test_question_response.uid
-            ).exclude(
-                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
-            ).count()
+                not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=test_attempt_session.uid,
+                    deleted=0
+                ).exclude(
+                    uid=test_question_response.uid
+                ).exclude(
+                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
+                ).count()
 
-            if not_evaluated_test_responses_count == 0:
-                end = time.time()
-                logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
-                break
+                if not_evaluated_test_responses_count == 0:
+                    end = time.time()
+                    logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
+                    break
 
 
-            return test_question_response
+                return test_question_response
 
 
 
@@ -14478,3 +14457,56 @@ def format_game_next_que(test:Test, question: TestQuestion):
         }
 
     return json.dumps(question_info)
+
+
+def generate_endgame_result(game_name, questions_with_answers):
+    """
+    questions_with_answers: list of dicts in format:
+    [
+      {
+        "question": "What is the purpose of a Project Charter?",
+        "correct_answer": "To formally authorize a project or a phase",
+        "user_answer": "To manage stakeholder expectations",
+        "que_explanation": "The Project Charter formally authorizes the project and gives the project manager authority to use resources."
+      },
+      ...
+    ]
+    """
+
+    total = len(questions_with_answers)
+    correct = sum(1 for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+    score = int((correct / total) * 100) if total > 0 else 0
+
+    # Collect only incorrect ones
+    incorrect = [
+        {
+            "question": q["question"],
+            "correct_answer": q["correct_answer"],
+            "user_answer": q["user_answer"],
+            "que_explanation": q["que_explanation"]
+        }
+        for q in questions_with_answers if q["user_answer"] != q["correct_answer"]
+    ]
+
+    # End Game Message
+    end_message = f"""Congratulations 🎉. You have completed the {game_name}. \
+You have achieved a score of {score} out of 100."""
+
+    # Feedback with incorrect Qs inside
+    if len(incorrect) == 0:
+        feedback = ("Outstanding performance! You answered all questions correctly, showing excellent conceptual clarity and precision. "
+                    "This demonstrates strong preparation and confidence in applying project management knowledge. "
+                    "Continue practicing advanced scenarios to further refine your skills and ensure readiness for any real-world challenge.")
+    else:
+        feedback_intro = (f"You answered {correct} out of {total} correctly. "
+                          "Review the following incorrect answers with explanations to improve your understanding:\n\n")
+        feedback_details = "\n".join(
+            f"❌ Question: {q['question']}\n   Your Answer: {q['user_answer']}\n   Correct Answer: {q['correct_answer']}\n   Explanation: {q['que_explanation']}\n"
+            for q in incorrect
+        )
+        feedback = feedback_intro + feedback_details
+
+    return score, {
+        "end_message": end_message,
+        "feedback": feedback
+    }
