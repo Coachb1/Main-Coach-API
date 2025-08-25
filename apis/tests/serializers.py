@@ -32,7 +32,8 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     snippet_url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_insight = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-
+    que_explanation = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    
 
 class OrchestratedConversationDetails(serializers.Serializer):
     test_main_context = serializers.CharField()
@@ -288,7 +289,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "created",
                   "updated",
                   "snippet_url",
-                  "question_insight"]
+                  "question_insight",
+                  "que_explanation"]
 
 
 class TestDisplaySerializer(serializers.ModelSerializer):
