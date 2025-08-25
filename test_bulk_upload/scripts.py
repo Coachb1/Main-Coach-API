@@ -15,7 +15,6 @@ from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
-from tests.models import Test, TestQuestion, Psychometric, PsychometricReportSection
 from commons.youtube_utils import format_youtube_link
 
 load_dotenv()
@@ -120,6 +119,7 @@ NOTICE_BOARD = "Notice Board"
 CULTURE_SKILLS =  "Culture Skills"
 MCQ_OPTIONS = "Option"
 IS_ASSESSMENT = "Is Assessment"
+QUE_EXPLANATION = 'Q Explanation'
 
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
@@ -1084,7 +1084,7 @@ def format_test_data_slack(raw_data,tenant):
                 if key.startswith(QUESTIONUI):
                     output_dict['ui_information'][f"Question {key[len(QUESTIONUI) + 1:]}"] = input_dict.get(f"{QUESTIONUI} {key[len(QUESTIONUI) + 1:]}",None)
         
-        if output_dict['scenario_case'] in ['psychometric'] :
+        if output_dict['scenario_case'] in ['psychometric', 'game'] :
             output_dict['interaction_mode'] = 'text'
             
         
@@ -1402,6 +1402,7 @@ def format_test_data_slack(raw_data,tenant):
                     return {"unmatched_skills": unmatched_skills, "Title": output_dict.get('Title')}, False
 
             unique_skill_count = len(set(skills_list))
+            print('skillist', unique_skill_count)
 
             if unique_skill_count < 6 and not(output_dict.get('scenario_case') == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
                 return {"unique_skills": set(skills_list), "Title": output_dict.get('Title')}, False
@@ -1441,7 +1442,7 @@ def format_test_data_slack(raw_data,tenant):
                         check_pass = True
 
 
-        if output_dict.get('scenario_case') in ['process_training','psychometric'] or is_transcript_only:
+        if output_dict.get('scenario_case') in ['process_training','psychometric', 'game'] or is_transcript_only:
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
@@ -1538,6 +1539,8 @@ def format_test_data_slack(raw_data,tenant):
                 }
                 if f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["question_insight"] = input_dict.get(f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}", '')
+                if f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["que_explanation"] = input_dict.get(f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}", '')
                 
                 options_for_question = {}
                 q_number = key[len(QUESTION):].strip()
@@ -1558,7 +1561,7 @@ def format_test_data_slack(raw_data,tenant):
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
                     question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
 
-                if output_dict.get('scenario_case') in ['process_training', 'psychometric'] or is_transcript_only:
+                if len(question.get('key_learning_point', '').strip()) == 0 and output_dict.get('scenario_case') in ['process_training', 'psychometric', 'game'] or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
