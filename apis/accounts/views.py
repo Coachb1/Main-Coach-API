@@ -22,7 +22,7 @@ from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMento
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
                                         CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer, LLMMappingSerializer)
 from clients.permissions import IsAuthenticatedClient
-from tests.models import TestAttemptSession, Test
+from tests.models import TestAttemptSession, Test, TestQuestionResponse
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
@@ -4642,41 +4642,62 @@ class AccountsViewSet(ApiViewSet,
             user_id = request.query_params.get('user_id')
             if not user_id:
                 return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            logger.info(f'data: request.data: {request.data}')
-            try:
-                user = User.objects.get(uid=user_id)
-            except User.DoesNotExist:
+
+            logger.info(f"Request data: {request.query_params}")
+
+            user = User.objects.filter(uid=user_id).first()
+            if not user:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-            
-            data = {
-                "mindmaps" : [],
-                "assessments": []
-            }
 
+            # Prepare base response
+            data = {"mindmaps": [], "assessments": []}
+
+            # Mindmaps
             mindmap_entry = UserMindmap.objects.filter(user=user).first()
-            tests = Test.objects.filter(
-                    deleted=False,
-                    tenant_id=request.tenant.uid,
-                    tag=TagChoices.assessment
-                ).values_list('uid', flat=True)
+            if mindmap_entry:
+                links = mindmap_entry.get_links_list() or []
+                data["mindmaps"] = [
+                    {"name": f"Mindmap {i+1}", "link": link} for i, link in enumerate(links)
+                ]
 
-            sessions = TestAttemptSession.objects.filter(
+            # Assessments
+            tests = Test.objects.filter(
+                deleted=False,
+                tenant_id=request.tenant.uid,
+                tag=TagChoices.assessment
+            ).values_list("uid", flat=True)
+
+
+            sessions = list(TestAttemptSession.objects.filter(
                 deleted=False,
                 participant_id=user.uid,
                 test_id__in=tests,
                 tenant_id=request.tenant.uid,
                 status=TestAttemptSessionStatusChoices.completed
-            ).exclude(
-                finished_at=None
-            ).values_list('report_url', flat=True)
+            ).exclude(finished_at=None))
 
-            if mindmap_entry:
-                data['mindmaps'] = [{"name":f"Mindmap {index+1}", "link": mindmap} for index, mindmap in enumerate(mindmap_entry.get_links_list() or [])]
+            # Prefetch all responses in one query
+            responses = TestQuestionResponse.objects.filter(
+                test_attempt_session_id__in=[s.uid for s in sessions],
+                relevance=False,
+            ).values_list("test_attempt_session_id", flat=True)
 
-            data['assessments'] = [{"name":f"Assessment {index+1}", "link": report} for index, report in enumerate(list(sessions))]
+            # Build lookup of "session_id -> has_irrelevant_response"
+            irrelevant_map = {sid: True for sid in responses}
+
+            # Collect only sessions without irrelevant responses
+            report_urls = [
+                session.report_url for session in sessions if session.uid not in irrelevant_map
+            ]
+
+
+
+            data["assessments"] = [
+                {"name": f"Assessment {i+1}", "link": url} for i, url in enumerate(report_urls)
+            ]
+
             return Response(data, status=status.HTTP_200_OK)
+
         except Exception as e:
-            logger.exception(f'Error in mindmap_link: {e}')
-            return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+            logger.exception("Error in get_mindmap_and_assessments_report")
+            return Response({'error': f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
