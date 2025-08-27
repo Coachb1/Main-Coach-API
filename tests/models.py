@@ -166,6 +166,8 @@ class Test(TenantAwareModel):
     report_description = models.TextField(null=True, blank=True, default=None)
     category = models.CharField(max_length=255, null=True, blank=True, default=None)
     is_single_select = models.BooleanField(default=False, null=True, blank=True)
+    score_visible = models.BooleanField(default=True, null=True)
+    explanation_visible = models.BooleanField(default=True, null=True)
     psychometric_report_config= models.ForeignKey(
         'PsychometricReportSection',
         related_name='tests',
@@ -188,6 +190,7 @@ class Test(TenantAwareModel):
     culture_skills_to_evaluate = models.JSONField(null=True, blank=True, default=None)
     tag = models.CharField(
         max_length=55, null=True, blank=True, choices=TagChoices, default=TagChoices.general)
+    score_config = models.JSONField(null=True, blank=True, default=None)
     
     class Meta:
         db_table = "test"

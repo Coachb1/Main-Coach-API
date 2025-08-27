@@ -248,6 +248,8 @@ def create_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
+                score_visible:bool,
+                explanation_visible:bool,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
@@ -260,7 +262,8 @@ def create_test(tenant: Tenant,
                 instruction_media_link: str,
                 notice_board: str,
                 culture_skills_to_evaluate:dict,
-                tag: str) -> tuple[Test, list[TestQuestion]]:
+                tag: str,
+                score_config:dict) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -459,6 +462,8 @@ def create_test(tenant: Tenant,
             report_description=report_description,
             category=category,
             is_single_select=is_single_select,
+            score_visible=score_visible,
+            explanation_visible=explanation_visible,
             psychometric_report_config=psychometric_report_config,
             personality_model=personality_model,
             skill_domain=skill_domain,
@@ -472,6 +477,7 @@ def create_test(tenant: Tenant,
             notice_board=notice_board,
             culture_skills_to_evaluate=culture_skills_to_evaluate,
             tag=tag,
+            score_config=score_config
 
         )
 
@@ -595,6 +601,8 @@ def update_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
+                score_visible:bool,
+                explanation_visible:bool,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
@@ -607,7 +615,8 @@ def update_test(tenant: Tenant,
                 instruction_media_link:str,
                 notice_board: str,
                 culture_skills_to_evaluate: dict,
-                tag: str
+                tag: str,
+                score_config:dict
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -744,6 +753,10 @@ def update_test(tenant: Tenant,
             test.category = category
         if is_single_select and test.is_single_select != is_single_select:
             test.is_single_select = is_single_select
+        if score_visible and test.score_visible != score_visible:
+            test.score_visible = score_visible
+        if explanation_visible and test.explanation_visible != explanation_visible:
+            test.explanation_visible = explanation_visible
         if psychometric_report_config and test.psychometric_report_config != psychometric_report_config:
             test.psychometric_report_config = psychometric_report_config
         if personality_model and test.personality_model != personality_model:
@@ -770,6 +783,8 @@ def update_test(tenant: Tenant,
 
         if tag and test.tag != tag:
             test.tag = tag
+        if score_config and test.score_config != score_config:
+            test.score_config = score_config
             
         test.save()
 
