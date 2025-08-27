@@ -433,6 +433,12 @@ class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
         fields = '__all__'
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.test:
+            data["test"] = TestDisplaySerializer(instance.test).data
+        return data
 
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
