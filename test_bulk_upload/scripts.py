@@ -123,6 +123,11 @@ QUE_EXPLANATION = 'Q Explanation'
 SCORE_VISIBLE = "Score Visible"
 EXPLANATION_VISIBLE = "Explanation Visible"
 
+# range and feedback associated with the range score it generally for game but can be used for all test
+
+RANGE = "Range"
+RANGE_FEEDBACK = "Feedback"
+
 
 
 def clean_text(input_text):
@@ -545,27 +550,6 @@ def format_test_orchestrated_conversation(raw_data):
                 else:
                     output_dict['is_single_select'] = False
 
-        if SCORE_VISIBLE in input_dict:
-            if input_dict[SCORE_VISIBLE] and len(input_dict[SCORE_VISIBLE].strip()) > 0:
-                score_visible = input_dict[SCORE_VISIBLE].strip().lower()
-
-                if score_visible == "true":
-                    output_dict['score_visible'] = True
-                elif score_visible == "false":
-                    output_dict['score_visible'] = False
-                else:
-                    output_dict['score_visible'] = False
-
-        if EXPLANATION_VISIBLE in input_dict:
-            if input_dict[EXPLANATION_VISIBLE] and len(input_dict[EXPLANATION_VISIBLE].strip()) > 0:
-                explanation_visible = input_dict[EXPLANATION_VISIBLE].strip().lower()
-
-                if explanation_visible == "true":
-                    output_dict['explanation_visible'] = True
-                elif explanation_visible == "false":
-                    output_dict['explanation_visible'] = False
-                else:
-                    output_dict['explanation_visible'] = False
 
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
@@ -1546,13 +1530,45 @@ def format_test_data_slack(raw_data,tenant):
                 output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
             else:
                 output_dict['max_test_allowed'] = None
+        
+        if SCORE_VISIBLE in input_dict:
+            if input_dict[SCORE_VISIBLE] and len(input_dict[SCORE_VISIBLE].strip()) > 0:
+                score_visible = input_dict[SCORE_VISIBLE].strip().lower()
+
+                if score_visible == "true":
+                    output_dict['score_visible'] = True
+                elif score_visible == "false":
+                    output_dict['score_visible'] = False
+                else:
+                    output_dict['score_visible'] = False
+
+        if EXPLANATION_VISIBLE in input_dict:
+            if input_dict[EXPLANATION_VISIBLE] and len(input_dict[EXPLANATION_VISIBLE].strip()) > 0:
+                explanation_visible = input_dict[EXPLANATION_VISIBLE].strip().lower()
+
+                if explanation_visible == "true":
+                    output_dict['explanation_visible'] = True
+                elif explanation_visible == "false":
+                    output_dict['explanation_visible'] = False
+                else:
+                    output_dict['explanation_visible'] = False
 
         question_to_update = None
         if test:
             question_to_update = TestQuestion.objects.filter(test_id=test.uid).order_by('question_number').values_list('question_number','uid')
             question_to_update = {str(question_number): uid for question_number, uid in question_to_update}
 
+        score_config = {}
         for key in input_dict:
+            if key.startswith(RANGE):
+
+                score_range = str(input_dict.get(f"{RANGE} {key[len(RANGE) + 1:]}", ''))
+                feedback = str(input_dict.get(f"{RANGE_FEEDBACK} {key[len(RANGE) + 1:]}", ''))
+                score_config[score_range] = {
+                    'score': [r.strip() for r in score_range.split('-')],
+                    'feedback': feedback
+                }
+                
             if key.startswith(QUESTION):
                 question = {
                     "question": input_dict[key],
@@ -1707,6 +1723,9 @@ def format_test_data_slack(raw_data,tenant):
             output_dict["questions"][-1]["is_view_only"] = False
 
         output_dict['total_question'] = int(len(output_dict['questions']))
+
+        if score_config:
+            output_dict['score_config'] = score_config
 
         if test_type == TestTypeChoices.dynamic_mcq:
             print(f"********************** total questions **********************: {input_dict}")
@@ -1945,10 +1964,14 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             for row_data in all_rows:
                 scenario_case = row_data.get(SCENARIO_CASE, '').lower()
                 test_code = row_data.get(TEST_CODE, '').strip()
+                columns_check = []
                 if len(test_code) > 0:
                     columns_check = []
                 elif scenario_case == 'observation':
                     columns_check = [TITLE, DESCRIPTION, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
+                elif scenario_case == 'game':
+                    columns_check = [TITLE, DESCRIPTION,
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN, SCORE_VISIBLE, EXPLANATION_VISIBLE]
                 else:
                     columns_check = [TITLE, DESCRIPTION,
                      INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]

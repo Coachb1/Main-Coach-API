@@ -262,7 +262,8 @@ def create_test(tenant: Tenant,
                 instruction_media_link: str,
                 notice_board: str,
                 culture_skills_to_evaluate:dict,
-                tag: str) -> tuple[Test, list[TestQuestion]]:
+                tag: str,
+                score_config:dict) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -476,6 +477,7 @@ def create_test(tenant: Tenant,
             notice_board=notice_board,
             culture_skills_to_evaluate=culture_skills_to_evaluate,
             tag=tag,
+            score_config=score_config
 
         )
 
@@ -613,7 +615,8 @@ def update_test(tenant: Tenant,
                 instruction_media_link:str,
                 notice_board: str,
                 culture_skills_to_evaluate: dict,
-                tag: str
+                tag: str,
+                score_config:dict
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -780,6 +783,8 @@ def update_test(tenant: Tenant,
 
         if tag and test.tag != tag:
             test.tag = tag
+        if score_config and test.score_config != score_config:
+            test.score_config = score_config
             
         test.save()
 
