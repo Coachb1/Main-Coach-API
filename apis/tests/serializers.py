@@ -258,8 +258,8 @@ class CreateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
-    score_visible = serializers.BooleanField(required=True, default=False)
-    explanation_visible = serializers.BooleanField(required=True, default=False)
+    score_visible = serializers.BooleanField(required=False, default=True)
+    explanation_visible = serializers.BooleanField(required=False, default=True)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
