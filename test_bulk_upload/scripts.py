@@ -120,6 +120,10 @@ CULTURE_SKILLS =  "Culture Skills"
 MCQ_OPTIONS = "Option"
 IS_ASSESSMENT = "Is Assessment"
 QUE_EXPLANATION = 'Q Explanation'
+SCORE_VISIBLE = "Score Visible"
+EXPLANATION_VISIBLE = "Explanation Visible"
+
+
 
 def clean_text(input_text):
     # Remove all types of brackets except quotation marks
@@ -540,6 +544,28 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['is_single_select'] = False
                 else:
                     output_dict['is_single_select'] = False
+
+        if SCORE_VISIBLE in input_dict:
+            if input_dict[SCORE_VISIBLE] and len(input_dict[SCORE_VISIBLE].strip()) > 0:
+                score_visible = input_dict[SCORE_VISIBLE].strip().lower()
+
+                if score_visible == "true":
+                    output_dict['score_visible'] = True
+                elif score_visible == "false":
+                    output_dict['score_visible'] = False
+                else:
+                    output_dict['score_visible'] = False
+
+        if EXPLANATION_VISIBLE in input_dict:
+            if input_dict[EXPLANATION_VISIBLE] and len(input_dict[EXPLANATION_VISIBLE].strip()) > 0:
+                explanation_visible = input_dict[EXPLANATION_VISIBLE].strip().lower()
+
+                if explanation_visible == "true":
+                    output_dict['explanation_visible'] = True
+                elif explanation_visible == "false":
+                    output_dict['explanation_visible'] = False
+                else:
+                    output_dict['explanation_visible'] = False
 
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
@@ -2162,7 +2188,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     columns_check = []
                 else:
                     if scenario_case == 'game':
-                        columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
+                        columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT,SCORE_VISIBLE,EXPLANATION_VISIBLE])
                     elif scenario_case == 'interview':
                         columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND, SKILL_DOMAIN])
                     else:

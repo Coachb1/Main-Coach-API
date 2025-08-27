@@ -142,6 +142,8 @@ class UpdateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
+    score_visible = serializers.BooleanField(required=False, default=False)
+    explanation_visible = serializers.BooleanField(required=False, default=False)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -254,6 +256,8 @@ class CreateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
+    score_visible = serializers.BooleanField(required=False, default=False)
+    explanation_visible = serializers.BooleanField(required=False, default=False)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -357,6 +361,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "report_description",
                   "category",
                   "is_single_select",
+                  "score_visible",
+                  "explanation_visible",
                   "psychometric_report_config",
                   "personality_model",
                   "skill_domain",
