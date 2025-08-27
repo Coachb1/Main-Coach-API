@@ -190,6 +190,7 @@ class Test(TenantAwareModel):
     culture_skills_to_evaluate = models.JSONField(null=True, blank=True, default=None)
     tag = models.CharField(
         max_length=55, null=True, blank=True, choices=TagChoices, default=TagChoices.general)
+    score_config = models.JSONField(null=True, blank=True, default=None)
     
     class Meta:
         db_table = "test"

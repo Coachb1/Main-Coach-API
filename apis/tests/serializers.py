@@ -142,8 +142,8 @@ class UpdateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
-    score_visible = serializers.BooleanField(required=False, default=False)
-    explanation_visible = serializers.BooleanField(required=False, default=False)
+    score_visible = serializers.BooleanField(required=False, default=True)
+    explanation_visible = serializers.BooleanField(required=False, default=True)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -161,6 +161,8 @@ class UpdateTestSerializer(serializers.Serializer):
     culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
     tag = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
+    score_config = serializers.JSONField(required=False, default=None)
+
     
 
 class CreateTestSerializer(serializers.Serializer):
@@ -256,8 +258,8 @@ class CreateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
-    score_visible = serializers.BooleanField(required=False, default=False)
-    explanation_visible = serializers.BooleanField(required=False, default=False)
+    score_visible = serializers.BooleanField(required=True, default=False)
+    explanation_visible = serializers.BooleanField(required=True, default=False)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -275,7 +277,9 @@ class CreateTestSerializer(serializers.Serializer):
     culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
     tag = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
+    score_config = serializers.JSONField(required=False, default=None)
     
+
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
         model = TestQuestion
@@ -296,7 +300,11 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "question_insight",
                   "que_explanation"]
 
-
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.media_link:
+            data["media_link"] = ",".join([format_youtube_link(media.strip()) for media in instance.media_link.split(',')])
+        return data
 class TestDisplaySerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField(
         method_name="get_questions", read_only=True)
@@ -374,9 +382,10 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "time_limit",
                   "instruction_media_link",
                   "notice_board",
-                "culture_skills_to_evaluate",
-                "tag"
-                  ]
+                  "culture_skills_to_evaluate",
+                  "tag",
+                  "score_config"
+                    ]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
