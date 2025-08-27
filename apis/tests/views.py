@@ -5,7 +5,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CourseSerializer, CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
+from apis.tests.serializers import CourseSerializer, CreateTestSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -1945,7 +1945,8 @@ class CourseViewSet(ApiViewSet,
                     'uid': course.uid,
                     'title': course.title,
                     'sub_title': course.sub_title,
-                    'client': course.client.client_name if course.client else None
+                    'client': course.client.client_name if course.client else None,
+                    "modules": [ModuleSerializer(module).data for module in course.course.filter(deleted=False) if module]
                 }
                 return Response({'course': data}, status=status.HTTP_200_OK)
 
@@ -1966,6 +1967,7 @@ class CourseViewSet(ApiViewSet,
                     'uid': c.uid,
                     'title': c.title,
                     'sub_title': c.sub_title,
+                    "modules": [ModuleSerializer(module).data for module in c.course.filter(deleted=False) if module]
                 } for c in courses
             ]
             return Response({'courses': course_list}, status=status.HTTP_200_OK)
