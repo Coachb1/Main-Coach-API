@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 @timeit
-def anthropic_completion(prompt, max_tokens,temp=1 ,models="claude-3-haiku-20240307"):
+def anthropic_completion(prompt, max_tokens,temp=1 ,models="claude-sonnet-4-20250514"):
     """
     Generate completions for a given prompt using the Anthropic API.
 

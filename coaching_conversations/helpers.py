@@ -3,6 +3,7 @@ import logging
 from django.utils import timezone
 from rest_framework import serializers
 from commons.google_search import get_searched_links_contents, scrape_article_data
+from django.db.models import Q
 
 from coaching_conversations.choices import CoachingConversationChoices
 from coaching_conversations.models import BotResponsePrompt, CoachingConversation
@@ -1411,7 +1412,7 @@ def get_bot_conversation_data_user(sessions:TestAttemptSession,tenant:Tenant,use
     return data
 
 @timeit
-def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id):
+def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id, filtered_history = False):
     """
     For each session, fetch summary and ordered conversations.
 
@@ -1425,6 +1426,8 @@ def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id):
     """
     session_data = []
     sessions = sessions.order_by('-created')
+    if filtered_history:
+        sessions = sessions.exclude(Q(conversation_summary__isnull=True) | Q(conversation_summary=""))
 
     for session in sessions:
         conversations = CoachingConversation.objects.filter(
