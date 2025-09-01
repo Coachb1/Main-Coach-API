@@ -435,6 +435,7 @@ class CoachingConversationViewSet(ApiViewSet,
             set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)
         elif mode == 'user-chat-history':
+            filtered_history = request.query_params.get('filtered_history', False)
             data = []
             bot_ids = []
             if user_bot_id:
@@ -451,7 +452,7 @@ class CoachingConversationViewSet(ApiViewSet,
 
                 bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
                 signature_bot = SignatureBot.objects.get(deleted=False,uid=b_id)
-                data = get_bot_chat_history(sessions, tenant, b_id)
+                data = get_bot_chat_history(sessions, tenant, b_id, filtered_history=filtered_history)
                 # if len(data_conv) > 0:
                 #     data_conv['bot_name'] = bot_att.bot_name
                 #     data_conv['bot_id'] = signature_bot.bot_id

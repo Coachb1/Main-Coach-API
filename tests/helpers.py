@@ -7926,6 +7926,28 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
 
     """
 
+    elif scenario_type == 'normal_transcript_static':
+        prompt = """
+        \n\nHuman:
+        Analyze the Coaching session summary below between a user and an AI Coach. 
+        {Summary} -
+        %s -
+
+        Based on the summary above, create a 50-100-word scenario, Title, and %s associated questions that can test the skills, OR the limiting the beliefs of the user.   
+
+
+        The Question should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        "Question 1:",
+        'The Question should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE: must Follow the OUTPUT Format.
+        \n\nAssistant:
+        """
+        return prompt % (information, question_count)
+
     elif scenario_type == 'observation_static':
         prompt = """
         \n\nHuman:
@@ -8908,6 +8930,100 @@ def extract_text_only(input_text):
     # Remove extra whitespaces
     cleaned_text = ' '.join([st.replace("-","").strip().capitalize()  for st in text_without_digits.replace("."," ").strip().split()])
     return cleaned_text
+
+def extract_transcript_test(text):
+    text = text.replace("KLS", "Skills")
+    text = text.replace("KLP", "Takeaway")
+    text = text.replace("Custom prompt", "Prompt")
+    text = text.replace("*","")
+
+    title_pattern = re.compile(r'Title\s*:\s*(.+)')
+    description_pattern = re.compile(r'Description\s*:\s*(.+)')
+    statement_pattern = re.compile(r'Statement\s*:\s*(.+)')
+    # background_pattern = re.compile(r'Background\s*:\s*(.+)')
+
+    question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
+    prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
+    takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
+    skills_pattern = re.compile(r'Skills\s*(\d*)\s*:\s*(.+)')
+    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
+
+    # Extracting information using regular expressions
+    title_match = title_pattern.search(text)
+    description_match = description_pattern.search(text)
+    rating_match = rating_pattern.search(text)
+    statement_match = statement_pattern.search(text)
+    # background_match = background_pattern.search(text)
+
+
+
+
+    # If title_pattern doesn't match, try to find the title as the first line before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            # Extract title (first quoted string or first line before description)
+            title_match = re.search(r'^"([^"]+)"', text)
+            title = title_match.group(1) if title_match else None
+            if not title:
+                raise ValueError("Invalid format. Unable to extract the title.")
+
+
+    if not (title_match and description_match and  question_pattern.findall(text)):
+        invalid_fields = []
+
+        if not title_match:
+            invalid_fields.append("title")
+
+        if not description_match:
+            invalid_fields.append("description")
+        if not question_pattern.findall(text):
+            invalid_fields.append("question pattern")
+
+        raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
+
+    title = title_match.group(1) if title_match.group(1) else title_match.group()
+    description = f'{clean_text(description_match.group(1))}'
+    questions = []
+    for match in question_pattern.finditer(text):
+        question_number = match.group(1) if match.group(1) else len(questions) + 1
+        question_text = clean_text(match.group(2))
+        question_data = {
+            'text': question_text,
+            'prompt': "",
+        }
+        questions.append(question_data)
+
+    informations = {
+        'title': title,
+        'description': description,
+        'questions': questions
+    }
+
+    title = informations['title']
+
+    question_info = []
+    skill_to_evaluate = set()
+
+    for que in informations['questions']:
+        question_info.append({
+            "question": que["text"],
+            "question_type": "subjective",
+            "gpt_prompt_override": clean_text(que["prompt"]),
+            "subjective_answer": "",
+            "key_learning_point": "no key learning point for this",
+            "key_learning_skills": 'communication skills'
+        })
+
+    
+
+    skill_to_evaluate = ', '.join(['communication skills'])
+
+    informations['skill_to_evaluate'] = skill_to_evaluate
+    informations['is_transcript_only'] = True
+ 
+    return title, description, question_info, skill_to_evaluate, 8, informations
 
 # for static scenarios
 def extract_information(text):
@@ -10280,9 +10396,12 @@ def create_scenario_from_site_context(url,
     elif type_of_test == TestTypeChoices.test:
         available_case_types = static_case_types
 
+
     if previous_session_id:
         available_case_types = ['previous_normal_test']
 
+    if flavour == 'normal_transcript_static':
+        available_case_types = ['normal_transcript_static']
     if available_case:
         available_case_types = available_case # it will override 
 
@@ -10376,10 +10495,12 @@ def create_scenario_from_site_context(url,
                     elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
                         title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_information_dynamic_scenario(text=scenario, 
                                                                                                                                                                    num_questions=3 if is_micro else 6,
-                                                                                                                                                                   start_with_user=start_with_user 
-                                                                                                                                                                   )
+                                                                                                                                                                   start_with_user=start_with_user )
                     else:
-                        title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
+                        if case_type == 'normal_transcript_static':
+                            title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
+                        else:
+                            title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
 
                 except Exception as e:
                     logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
@@ -10431,10 +10552,14 @@ def create_scenario_from_site_context(url,
                             title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
                                                                                                                                                                     num_questions=3 if is_micro else 6,
                                                                                                                                                                     start_with_user=start_with_user
-                                                                                                                                                                    )
+                                                                                                                                                              )
+
                         else:
-                            title, description, question_info, skill_to_evalaute,rating,scenario_information = extract_information(scenario)
-                    
+                            if case_type == 'normal_transcript_static':
+                                title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
+                            else:
+                                title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
+
 
                     except Exception as e:
                         garbage_scenarios.append(scenario)
@@ -10481,6 +10606,10 @@ def create_scenario_from_site_context(url,
                 'is_micro': is_micro,
                 'candidate_type': scenario_information.get("candidate_type","Manager"),
             }
+
+            if scenario_information.get('is_transcript_only') != None:
+                test_json['is_transcript_only'] = scenario_information.get('is_transcript_only')
+
             if scenario_information.get('custom_prompt'):
                 test_json['gpt_prompt_override'] = scenario_information.get('custom_prompt')
 
