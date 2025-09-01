@@ -7965,6 +7965,27 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
 
         """
         return f"{prompt}"%(information)
+    elif scenario_type == 'transcript_only':
+      prompt = """
+        \n\nHuman:
+        Analyze the Coaching session summary below between a user and an AI Coach. 
+        {Summary} -
+        %s -
+
+        Based on the summary above, create a 50-100-word scenario, Title, and 6 associated questions that can test the skills, OR the limiting the beliefs of the user.   
+
+
+        The Question should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        "Question 1:",
+        'The Question should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE: must Follow the OUTPUT Format.
+        \n\nAssistant:
+
+      """
 
     elif scenario_type == 'whatsapp_normal_static':
       prompt = '''
@@ -10238,14 +10259,14 @@ def create_scenario_from_site_context(url,
 
     game_case_types = ["static_game","dynamic_game"]
 
-    static_case_types = ["checkin_static","interview_static","case_static", "normal_static","role_play","static_role_play_soft",
+    static_case_types = ["checkin_static","static_transcript_only","interview_static","case_static", "normal_static","role_play","static_role_play_soft",
     "static_role_play_hard","static_soft","static_hard"]
 
     dynamic_case_types = ["normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard"]
     dynamic_start_with_user_case_types = ["dynamic_start_with_user"]
 
     all_case_types = [
-    "checkin_static","interview_static","case_static", "normal_static", "role_play","static_role_play_soft",
+    "checkin_static","static_transcript_only","interview_static","case_static", "normal_static", "role_play","static_role_play_soft",
     "static_role_play_hard","static_soft","static_hard","dynamic_start_with_user",
     "normal_dynamic_test","normal_dynamic_test_soft","normal_dynamic_test_hard",
     "static_game","dynamic_game"
@@ -10464,11 +10485,11 @@ def create_scenario_from_site_context(url,
                 "description": description,
                 "email_address_list":'coachbots@googlegroups.com',
                 "questions": question_info,
-                "skills_to_evaluate": skill_to_evalaute,
+                "skills_to_evaluate": 'comunication skill',
                 "creator_id": admin_user.uid,
-                "scenario_case": 'pms' if competency is not None else scenario_case,
-                "interaction_mode":'text' if scenario_case == ScenarioCaseChoices.game else 'any',
-                "test_type":type_of_test,
+                "scenario_case": 'simulation' if competency is not None else scenario_case,
+                "interaction_mode":'any' if scenario_case == ScenarioCaseChoices.game else 'any',
+                "test_type":'test',
                 "email_candidate":True,
                 "gpt_prompt_override":"",
                 "is_self_created": True,
@@ -10480,6 +10501,7 @@ def create_scenario_from_site_context(url,
                 'assigned_by': assigned_by,
                 'is_micro': is_micro,
                 'candidate_type': scenario_information.get("candidate_type","Manager"),
+                'is_transript_only' : True,
             }
             if scenario_information.get('custom_prompt'):
                 test_json['gpt_prompt_override'] = scenario_information.get('custom_prompt')
