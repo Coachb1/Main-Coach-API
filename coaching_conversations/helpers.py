@@ -1426,8 +1426,8 @@ def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id, filtered_h
     """
     session_data = []
     sessions = sessions.order_by('-created')
-    if filtered_history:
-        sessions = sessions.exclude(Q(conversation_summary__isnull=True) | Q(conversation_summary=""))
+    # if filtered_history:
+    #     sessions = sessions.exclude(Q(conversation_summary__isnull=True) | Q(conversation_summary=""))
 
     for session in sessions:
         conversations = CoachingConversation.objects.filter(
@@ -1438,7 +1438,6 @@ def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id, filtered_h
 
         if not conversations.exists():
             continue
-        print(session.created)
         session_info = {
             "session_id": session.uid,
             "uid": session.uid,  # if conversation uid is not unique per session
