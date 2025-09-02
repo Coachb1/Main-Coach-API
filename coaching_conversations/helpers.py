@@ -1438,11 +1438,12 @@ def get_bot_chat_history(sessions:TestAttemptSession, tenant, bot_id, filtered_h
 
         if not conversations.exists():
             continue
-
+        print(session.created)
         session_info = {
             "session_id": session.uid,
             "uid": session.uid,  # if conversation uid is not unique per session
             "summary": session.conversation_summary,
+            "attempt_datetime": session.created,
             "conversations": [
                 {
                     "uid": conv.uid,
