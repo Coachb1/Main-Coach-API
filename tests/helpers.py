@@ -10317,7 +10317,8 @@ def create_scenario_from_site_context(url,
                                       previous_session_id=None,
                                       by_pass_access_token=False,
                                       game_single_select=False,
-                                      available_case=None
+                                      available_case=None,
+                                      llm_order = ['gemini', 'anthropic', 'gpt']
                                       ):
     """
     This function generates a scenario based on the meta information of a given URL.
@@ -10475,13 +10476,17 @@ def create_scenario_from_site_context(url,
             title, description, question_info, skill_to_evalaute, scenario_information = "","","","", {}
             orchestrated_details = ""
             rating = 0 
-            for j in range(1):
+            for j, llm in enumerate(llm_order):
+                if j != 0:
+                    case_type = select_other_element(available_case_types,case_type)
                 try:
-
                     logger.info(f"============================flavour:  {case_type} ===================================")
-                    if use_anthropic:
+                    if llm == 'anthropic':
                         logger.info(f'trying scenario creation anthropic for {i +1} time')
                         scenario = anthropic_completion(prompt,5000)
+                    elif llm == 'gpt':
+                        logger.info(f'trying scenario creation gpt for {i +1} time')
+                        scenario = gpt3_completion(prompt=prompt, stop=['User', "coachbots"]).text
                     else:
                         logger.info(f'trying scenario creation gemini for {i +1} time')
                         scenario = gemini_completion(prompt)
@@ -10503,76 +10508,80 @@ def create_scenario_from_site_context(url,
                             title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
 
                 except Exception as e:
-                    logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
+                    garbage_scenarios.append(scenario)
+                    rating = 0
+                    logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                        
+                    # logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
                     scd = ScenarioCreationDetails.objects.create(
                             tenant_id=tenant_id,
                             creator_id = creator_user_id if creator_user_id else "system",
                             input = f"{title} : {des}",
                             output = scenario,
                             status = "failed",
-                            reason_of_failure = f"failed to extract information from bison. Reason : {e}"
+                            reason_of_failure = f"failed to extract information from {llm}. Reason : {e}"
                         )
-                    logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
-                    try:
-                        case_type = select_other_element(available_case_types,case_type)
-                        logger.info(f"============================flavour 2:  {case_type} ===================================")
-                        if start_with_user:
-                            site_information += f'\nStart With User: {start_with_user}'
-                        elif case_type == 'dynamic_start_with_user':
-                            start_with_user = random.choice(start_with_user_opt)
-                            site_information += f'\nStart With User: {start_with_user}'
+                    # logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
+                    # try:
+                    #     case_type = select_other_element(available_case_types,case_type)
+                    #     logger.info(f"============================flavour 2:  {case_type} ===================================")
+                    #     if start_with_user:
+                    #         site_information += f'\nStart With User: {start_with_user}'
+                    #     elif case_type == 'dynamic_start_with_user':
+                    #         start_with_user = random.choice(start_with_user_opt)
+                    #         site_information += f'\nStart With User: {start_with_user}'
 
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
-                            prompt = get_game_prompt(
-                                industry=industry,
-                                information=site_information,
-                                num_of_questions=10,
-                                question_type= 'single' if game_single_select else 'multiple',
-                                candidate_type='manager'
-                                )
-                        else:
-                            prompt = get_scenario_prompt(
-                                information=site_information,
-                                scenario_type=case_type,
-                                question_count=3 if is_micro else 6,
-                            )
-                        if use_anthropic:
-                            logger.info(f'**retrying scenario creation anthropic for {i +1} time')
-                            scenario = anthropic_completion(prompt,5000)
-                        else:
-                            logger.info(f'**retrying scenario creation gemini for {i +1} time')
-                            scenario = gemini_completion(prompt)
+                    #     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                    #         prompt = get_game_prompt(
+                    #             industry=industry,
+                    #             information=site_information,
+                    #             num_of_questions=10,
+                    #             question_type= 'single' if game_single_select else 'multiple',
+                    #             candidate_type='manager'
+                    #             )
+                    #     else:
+                    #         prompt = get_scenario_prompt(
+                    #             information=site_information,
+                    #             scenario_type=case_type,
+                    #             question_count=3 if is_micro else 6,
+                    #         )
+                    #     if use_anthropic:
+                    #         logger.info(f'**retrying scenario creation anthropic for {i +1} time')
+                    #         scenario = anthropic_completion(prompt,5000)
+                    #     else:
+                    #         logger.info(f'**retrying scenario creation gemini for {i +1} time')
+                    #         scenario = gemini_completion(prompt)
                         
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
-                                                                                                                                                    case_type=case_type,
-                                                                                                                                                    question_count=10,
-                                                                                                                                                    candidate_type='Manager')
-                        elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
-                                                                                                                                                                    num_questions=3 if is_micro else 6,
-                                                                                                                                                                    start_with_user=start_with_user
-                                                                                                                                                              )
+                    #     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                    #         title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
+                    #                                                                                                                                 case_type=case_type,
+                    #                                                                                                                                 question_count=10,
+                    #                                                                                                                                 candidate_type='Manager')
+                    #     elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                    #         title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
+                    #                                                                                                                                                 num_questions=3 if is_micro else 6,
+                    #                                                                                                                                                 start_with_user=start_with_user
+                    #                                                                                                                                           )
 
-                        else:
-                            if case_type == 'normal_transcript_static':
-                                title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
-                            else:
-                                title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
+                    #     else:
+                    #         if case_type == 'normal_transcript_static':
+                    #             title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
+                    #         else:
+                    #             title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
 
 
-                    except Exception as e:
-                        garbage_scenarios.append(scenario)
-                        rating = 0
-                        logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
-                        scd = ScenarioCreationDetails.objects.create(
-                                tenant_id=tenant_id,
-                                creator_id = creator_user_id if creator_user_id else "system",
-                                input = f"{title} : {des}",
-                                output = scenario,
-                                status = "failed",
-                                reason_of_failure = f"failed to generate scenario for following reason : {e}"
-                            )
+                    # except Exception as e:
+                    #     garbage_scenarios.append(scenario)
+                    #     rating = 0
+                    #     logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                    #     scd = ScenarioCreationDetails.objects.create(
+                    #             tenant_id=tenant_id,
+                    #             creator_id = creator_user_id if creator_user_id else "system",
+                    #             input = f"{title} : {des}",
+                    #             output = scenario,
+                    #             status = "failed",
+                    #             reason_of_failure = f"failed to generate scenario for following reason : {e}"
+                    #         )
 
                 if scenario == 'failed to generate scenario':
                     continue
@@ -11415,7 +11424,6 @@ def test_scenario(scenario_case,test_type):
                                                                                                  access_token="",
                                                                                                 tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",
                                                                                                 context='{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }',
-                                                                                                use_anthropic=False,
                                                                                                 type_of_test=test_type,
                                                                                                 flavour=scenario_case,
                                                                                                 available_case = [scenario_case] ,# it will override
