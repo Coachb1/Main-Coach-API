@@ -39,3 +39,8 @@ class CoachingConversationDisplaySerializer(serializers.ModelSerializer):
 
 class CoachingConversationReportDataSerializer(serializers.ModelSerializer):
     test_attempt_session_id = serializers.CharField()
+
+class GeminiPromptSerializer(serializers.Serializer):
+    prompt = serializers.CharField(required=True)
+    model = serializers.CharField(required=False)
+    instruction = serializers.CharField(required=False, allow_blank=True, allow_null=True)    
