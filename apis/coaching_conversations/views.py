@@ -6,7 +6,7 @@ from rest_framework.filters import OrderingFilter
 import json
 
 from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
-from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
+from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, GeminiPromptSerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
 from coaching_conversations.helpers import get_bot_chat_history, initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
@@ -1125,4 +1125,86 @@ class CoachingConversationViewSet(ApiViewSet,
                 {'msg': f'failed with error {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+    
+    def gemini_streaming_completion(prompt, model="gemini-2.0-flash-001",
+                                    max_output_tokens=2048, temperature=0.9,
+                                    top_p=1, instruction=None):
+        """
+        Calls Google Gemini API with streaming content.
+        """
+        try:
+            client = genai.Client(api_key=google_api_key)
+            instruction = instruction or ""
 
+            if 'gemini-2.5' in model:
+                generate_content_config = genai.types.GenerateContentConfig(
+                    max_output_tokens=max_output_tokens,
+                    temperature=temperature,
+                    thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
+                    system_instruction=[genai.types.Part.from_text(text=instruction)]
+                )
+            else:
+                generate_content_config = genai.types.GenerateContentConfig(
+                    max_output_tokens=max_output_tokens,
+                    temperature=temperature,
+                    system_instruction=[genai.types.Part.from_text(text=instruction)]
+                )
+
+            contents = [
+                genai.types.Content(
+                    role="user",
+                    parts=[genai.types.Part.from_text(text=prompt)],
+                )
+            ]
+
+            responses = client.models.generate_content_stream(
+                model=model,
+                contents=contents,
+                config=generate_content_config
+            )
+
+            output_text = ""
+            for r in responses:
+                for part in r.response.parts:
+                    output_text += part.text if part.text else ""
+
+            return output_text
+
+        except Exception as e:
+            logger.error(f"Google API Error: {str(e)}")
+            return f"Google API Error: {str(e)}"    
+
+
+    @action(methods=["POST"], detail=False, url_path="generate")
+    def generate_gemini_response(self, request, *args, **kwargs):
+        """
+        Generates a response from the Gemini API based on the user's prompt.
+
+        Expects the following fields in the request data:
+        - `prompt` (str, required): The text prompt to send to Gemini.
+        - `model` (str, optional): The model to use (default "gemini-2.0-flash-001").
+        - `instruction` (str, optional): Any system instruction to guide the model.
+
+        Returns:
+            Response: A JSON response containing the generated text.
+        """
+        serializer = GeminiPromptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        prompt = serializer.validated_data["prompt"]
+        model = serializer.validated_data.get("model", "gemini-2.0-flash-001")
+        instruction = serializer.validated_data.get("instruction", None)
+
+        logger.info(f"Generating Gemini response for prompt: {prompt}")
+
+        response_text = gemini_streaming_completion(
+            prompt=prompt,
+            model=model,
+            instruction=instruction
+        )
+
+        return Response(
+            data={"response": response_text},
+            status=status.HTTP_201_CREATED
+        )
