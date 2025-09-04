@@ -905,6 +905,11 @@ class TestViewSet(ApiViewSet,
         previous_session_id = request.data.get('previous_session_id',None)
         custom_prompt = request.data.get('custom_prompt',None)
         llm_order = request.data.get('llm_order', None)
+        model_order = request.data.get('model_order', {})
+
+        if model_order and isinstance(model_order, str):
+            model_order = json.loads(model_order)
+
 
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
@@ -916,7 +921,7 @@ class TestViewSet(ApiViewSet,
             available_case_lists = [case.strip() for case in available_case_lists.split(',')]
 
         is_fetch = False if regeneration else is_fetch
-        logger.info(f'LLM: {llm_order}, {use_anthropic}')
+        logger.info(f'LLM: {llm_order}, {model_order}, {use_anthropic}')
         if llm_order:
             llm_order = [llm.strip() for llm in llm_order.split(',')]
             if use_anthropic:
@@ -924,7 +929,7 @@ class TestViewSet(ApiViewSet,
         else:
             llm_order = ['anthropic', 'gemini', 'gpt']
 
-        logger.info(f"{'>>>'*100}llmorder: {llm_order} use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
+        logger.info(f"{'>>>'*100}llmorder: {llm_order}- {model_order} use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
@@ -966,7 +971,8 @@ class TestViewSet(ApiViewSet,
                                                              previous_session_id=previous_session_id,
                                                              custom_prompt=custom_prompt,
                                                              available_case=available_case_lists,
-                                                             llm_order=llm_order
+                                                             llm_order=llm_order,
+                                                             model_order=model_order
                                                              )
                 if scenario:
                     resp_data.append(scenario)
@@ -982,7 +988,8 @@ class TestViewSet(ApiViewSet,
                                                                         previous_session_id=previous_session_id,
                                                                         custom_prompt=custom_prompt,
                                                                         available_case=available_case_lists,
-                                                                        llm_order=llm_order)
+                                                                        llm_order=llm_order,
+                                                                        model_order=model_order)
                 if scenario:
                     resp_data.append(dynamic_discussion)
                 else:
