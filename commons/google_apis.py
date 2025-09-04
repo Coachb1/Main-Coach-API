@@ -1,3 +1,4 @@
+from django.http import StreamingHttpResponse
 from google.cloud import speech
 import os
 from pathlib import Path
@@ -23,7 +24,7 @@ import json
 import requests
 
 logger = logging.getLogger(__name__)
-
+GEMINI_API_KEY='AIzaSyCbIHgcFaWTzco8ahKqaKBh-7olarJ1iyo'
 
 def remove_garbage_characters(text):
     return text.replace("*","").replace("#","").replace(">","").replace("<","")
@@ -371,3 +372,55 @@ def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temp
     
     raise Exception("All models failed to generate a response.")
 
+def gemini_streaming_completion(prompt, model="gemini-2.0-flash-001",
+                                    max_output_tokens=2048, temperature=0.9,
+                                    top_p=1, instruction=None):
+        """
+        Calls Google Gemini API with streaming content.
+        """
+        try:
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            instruction = instruction or ""
+
+            if 'gemini-2.5' in model:
+                generate_content_config = genai.types.GenerateContentConfig(
+                    max_output_tokens=max_output_tokens,
+                    temperature=temperature,
+                    thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
+                    system_instruction=[genai.types.Part.from_text(text=instruction)]
+                )
+            else:
+                generate_content_config = genai.types.GenerateContentConfig(
+                    max_output_tokens=max_output_tokens,
+                    temperature=temperature,
+                    system_instruction=[genai.types.Part.from_text(text=instruction)]
+                )
+
+            contents = [
+                genai.types.Content(
+                    role="user",
+                    parts=[genai.types.Part.from_text(text=prompt)],
+                )
+            ]
+
+            responses = client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    )
+
+            def stream_generator():
+                for chunk in responses:
+                    if hasattr(chunk, "text") and chunk.text:
+                        yield chunk.text
+                    elif hasattr(chunk, "candidates"):
+                        for candidate in chunk.candidates:
+                            if candidate.content.parts:
+                                for part in candidate.content.parts:
+                                    if part.text:
+                                        yield part.text
+
+            return StreamingHttpResponse(stream_generator(), content_type="text/plain")
+
+        except Exception as e:
+            return StreamingHttpResponse(f"Error: {str(e)}", status=500)
