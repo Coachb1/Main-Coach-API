@@ -112,7 +112,7 @@ class Test(TenantAwareModel):
     tedtalk_and_hbr_case = models.TextField(
         null=True, blank=True, default=None)
 
-    email_candidate = models.BooleanField(default=True, null=True, blank=True)
+    email_candidate = models.BooleanField(default=True, null=True, blank=True,help_text='Report at End and Email candidate')
     candidate_type = models.CharField(
         null=True, blank=True, max_length=255, default=None)
     orchestrated_conversation_details = models.JSONField(
