@@ -479,7 +479,7 @@ def get_report_from_test_attempt_session(test_attempt_session: TestAttemptSessio
                         else:
                             data_q[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                     data_q["response"] = test_response.response_text.strip('" \'')
-                    data_q["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
+                    data_q["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "")
                     qa.append(data_q)
                     count += 1
                     data_q = {}

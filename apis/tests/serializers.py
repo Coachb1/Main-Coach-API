@@ -162,6 +162,8 @@ class UpdateTestSerializer(serializers.Serializer):
     tag = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
     score_config = serializers.JSONField(required=False, default=None)
+    generate_feedback = serializers.BooleanField(
+        required=False, default=True)
 
     
 
@@ -278,6 +280,8 @@ class CreateTestSerializer(serializers.Serializer):
     tag = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None)
     score_config = serializers.JSONField(required=False, default=None)
+    generate_feedback = serializers.BooleanField(
+        required=False, default=True)
     
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -384,7 +388,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "notice_board",
                   "culture_skills_to_evaluate",
                   "tag",
-                  "score_config"
+                  "score_config",
+                  "generate_feedback"
                     ]
 
     def get_questions(self, instance):
