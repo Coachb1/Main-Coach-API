@@ -70,11 +70,34 @@ def gpt3_completion(prompt,
     retry = 0
     prompt = prompt.encode(encoding='ASCII', errors='ignore').decode()
     is_error_noti_sent = False
+    if isinstance(engine, str):
+        engine = [model.strip() for model in engine.split(',')]
+
     while True:
-        try:
-            logger.info({"**** gpt3_completion":f"trying gpt for {retry} time"})
+        for model in engine:
             try:
-                response = openai.chat.completions.create(
+                logger.info({"**** gpt3_completion":f"trying gpt for {retry} time for {model}"})
+                try:
+                    response = openai.chat.completions.create(
+                        model=model,
+                        messages=[{
+                        "role": "user",
+                        "content": [
+                            {
+                            "type": "text",
+                            "text": prompt
+                            }
+                        ]
+                        }],
+                        temperature=temp,
+                        max_tokens=max_tokens - prompt_tokens,
+                        top_p=top_p,
+                        frequency_penalty=freq_pen,
+                        presence_penalty=pres_pen,
+                        stop=stop)
+                except Exception as e:
+                    logger.exception(f"{e}")
+                    response = openai.chat.completions.create(
                     model=engine,
                     messages=[{
                     "role": "user",
@@ -85,56 +108,37 @@ def gpt3_completion(prompt,
                         }
                     ]
                     }],
-                    temperature=temp,
-                    max_tokens=max_tokens - prompt_tokens,
-                    top_p=top_p,
-                    frequency_penalty=freq_pen,
-                    presence_penalty=pres_pen,
                     stop=stop)
-            except Exception as e:
-                logger.exception(f"{e}")
-                response = openai.chat.completions.create(
-                model=engine,
-                messages=[{
-                "role": "user",
-                "content": [
-                    {
-                    "type": "text",
-                    "text": prompt
-                    }
-                ]
-                }],
-                stop=stop)
-            text = response.choices[0].message.content.strip()
-            text = re.sub('[\r\n]+', '\n', text)
-            text = re.sub('[\t ]+', ' ', text)
+                text = response.choices[0].message.content.strip()
+                text = re.sub('[\r\n]+', '\n', text)
+                text = re.sub('[\t ]+', ' ', text)
 
-            logger.info(f"text: {text}")
-            return GPTResponse(raw=response.to_json(), text=text)
-        
-        except openai.RateLimitError as e:
-            logger.error({"****gpt3_completion ":f"failed gpt for {retry} time reason 429"})
-            logger.exception('Error communicating with OpenAI err: %s', e)
-
-            if not is_error_noti_sent:
-                send_error_notification("gpt completion", "429 error occured", e.args)
-                is_error_noti_sent = True
-
-            retry += 1
-            if retry >= max_retry:
-                raise e
-
-            time.sleep(random.randint(1,3))
+                logger.info(f"text: {text}")
+                return GPTResponse(raw=response.to_json(), text=text)
             
-        except Exception as e:
-            logger.error({"****gpt3_completion ":f"failed gpt for {retry} time"})
-            logger.exception('Error communicating with OpenAI err: %s', e)
+            except openai.RateLimitError as e:
+                logger.error({"****gpt3_completion ":f"failed gpt for {retry} time reason 429"})
+                logger.exception('Error communicating with OpenAI err: %s', e)
 
-            retry += 1
-            if retry >= max_retry:
-                raise e
+                if not is_error_noti_sent:
+                    send_error_notification("gpt completion", "429 error occured", e.args)
+                    is_error_noti_sent = True
 
-            time.sleep(random.randint(1,3))
+                retry += 1
+                if retry >= max_retry:
+                    raise e
+
+                time.sleep(random.randint(1,3))
+                
+            except Exception as e:
+                logger.error({"****gpt3_completion ":f"failed gpt for {retry} time"})
+                logger.exception('Error communicating with OpenAI err: %s', e)
+
+                retry += 1
+                if retry >= max_retry:
+                    raise e
+
+                time.sleep(random.randint(1,3))
 
 
 
