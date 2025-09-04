@@ -128,6 +128,8 @@ EXPLANATION_VISIBLE = "Explanation Visible"
 RANGE = "Range"
 RANGE_FEEDBACK = "Feedback"
 
+GENERATE_FEEDBACK = "Generate Feedback"
+
 
 
 def clean_text(input_text):
@@ -572,6 +574,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['calculate_culture'] = False
                 else:
                     output_dict['calculate_culture'] = True 
+
+        if GENERATE_FEEDBACK in input_dict:
+            if input_dict[GENERATE_FEEDBACK] and len(input_dict[GENERATE_FEEDBACK].strip()) > 0:
+                generate_feedback = input_dict[GENERATE_FEEDBACK].strip().lower()
+
+                if generate_feedback == "true":
+                    output_dict['generate_feedback'] = True
+                elif generate_feedback == "false":
+                    output_dict['generate_feedback'] = False
+                else:
+                    output_dict['generate_feedback'] = True 
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -1138,6 +1151,17 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['calculate_culture'] = False
                 else:
                     output_dict['calculate_culture'] = True
+                    
+        if GENERATE_FEEDBACK in input_dict:
+            if input_dict[GENERATE_FEEDBACK] and len(input_dict[GENERATE_FEEDBACK].strip()) > 0:
+                generate_feedback = input_dict[GENERATE_FEEDBACK].strip().lower()
+
+                if generate_feedback == "true":
+                    output_dict['generate_feedback'] = True
+                elif generate_feedback == "false":
+                    output_dict['generate_feedback'] = False
+                else:
+                    output_dict['generate_feedback'] = True 
 
         if IS_PITCH in input_dict:
             if input_dict[IS_PITCH] and len(input_dict[IS_PITCH].strip()) > 0:

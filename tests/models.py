@@ -191,6 +191,7 @@ class Test(TenantAwareModel):
     tag = models.CharField(
         max_length=55, null=True, blank=True, choices=TagChoices, default=TagChoices.general)
     score_config = models.JSONField(null=True, blank=True, default=None)
+    generate_feedback = models.BooleanField(blank=True,default=True)
     
     class Meta:
         db_table = "test"

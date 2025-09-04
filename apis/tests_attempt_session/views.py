@@ -439,7 +439,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if response.feedback_text:
                     feedbacks += response.feedback_text + '\n'
 
-            if len(feedbacks.strip()) >0:
+            if len(feedbacks.strip()) >0 and test.generate_feedback:
                 feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
                 logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
                 if len(feedbacks_summary) > 0:
