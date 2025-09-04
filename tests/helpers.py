@@ -8996,7 +8996,7 @@ def extract_transcript_test(text):
         questions.append(question_data)
 
     informations = {
-        'title': title,
+        'title': title.replace('"',''),
         'description': description,
         'questions': questions
     }
@@ -9130,7 +9130,7 @@ def extract_information(text):
         questions.append(question_data)
 
     informations = {
-        'title': title,
+        'title': title.replace('"',''),
         'description': description,
         'rating': rating,
         'questions': questions
@@ -9233,7 +9233,7 @@ def extract_information_dynamic_scenario(text,candidate_type="Manager",num_quest
             orchestrated_conversation_details['start_with_user'] = start_with_user
 
       infomation = {
-        'title': title,
+        'title': title.replace('"',''),
         'description': description,
         'question_info': question_info,
         "candidate_type": data['Candidate Type'].capitalize(),
@@ -10318,7 +10318,8 @@ def create_scenario_from_site_context(url,
                                       by_pass_access_token=False,
                                       game_single_select=False,
                                       available_case=None,
-                                      llm_order = ['gemini', 'anthropic', 'gpt']
+                                      llm_order = ['gemini', 'anthropic', 'gpt'],
+                                      model_order= {}
                                       ):
     """
     This function generates a scenario based on the meta information of a given URL.
@@ -10477,19 +10478,31 @@ def create_scenario_from_site_context(url,
             orchestrated_details = ""
             rating = 0 
             for j, llm in enumerate(llm_order):
+                
                 if j != 0:
                     case_type = select_other_element(available_case_types,case_type)
                 try:
                     logger.info(f"============================flavour:  {case_type} ===================================")
                     if llm == 'anthropic':
                         logger.info(f'trying scenario creation anthropic for {i +1} time')
-                        scenario = anthropic_completion(prompt,5000)
+                        models = model_order.get('anthropic', 'claude-sonnet-4-20250514')
+                        scenario = anthropic_completion(prompt,5000,models=models)
                     elif llm == 'gpt':
                         logger.info(f'trying scenario creation gpt for {i +1} time')
-                        scenario = gpt3_completion(prompt=prompt, stop=['User', "coachbots"]).text
+                        models = model_order.get('gpt', 'gpt-4.1-mini')
+
+                        scenario = gpt3_completion(prompt=prompt, 
+                                                   stop=['User', "coachbots"],
+                                                   engine=models).text
                     else:
                         logger.info(f'trying scenario creation gemini for {i +1} time')
-                        scenario = gemini_completion(prompt)
+                        models = model_order.get('gemini', None)
+                        if models:
+                            models  = [model.strip() for model in models.split(',')]
+                            scenario = gemini_completion(prompt, models=models)
+                        else:
+                            scenario = gemini_completion(prompt)
+
                         scenario = re.sub(r'[#*]', '', scenario)
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:

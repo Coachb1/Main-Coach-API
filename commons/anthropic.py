@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 ANTHROPIC_KEY = settings.ANTHROPIC_KEY
 
 @timeit
-def anthropic_completion(prompt, max_tokens,temp=1 ,models="claude-sonnet-4-20250514"):
+def anthropic_completion(prompt, max_tokens,temp=1 ,models=["claude-sonnet-4-20250514"]):
     """
     Generate completions for a given prompt using the Anthropic API.
 
@@ -33,59 +33,63 @@ def anthropic_completion(prompt, max_tokens,temp=1 ,models="claude-sonnet-4-2025
     max_retries = 10
     error_notification_sent = False
 
+    if isinstance(models, str):
+        models = [model.strip() for model in models.split(',')]
+
     while True:
-        try:
-            logger.info({"****evaluate_response ":f"trying anthropic for {10 - max_retries + 1} time"})
-            # response = client.completions.create(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
-            #                              model='claude-2', max_tokens_to_sample=max_tokens,
-            #                              stop_sequences=[anthropic.HUMAN_PROMPT])
-            response = client.messages.create(
-                        model=models,
-                        max_tokens=4096,
-                        temperature=temp,
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "text",
-                                        "text": prompt
-                                    }
-                                ]
-                            }
-                        ]
-                    )
-            logger.info("anthropic_completion response %s", response)
+        for model in models:
+            try:
+                logger.info({"****evaluate_response ":f"trying anthropic for {10 - max_retries + 1} time"})
+                # response = client.completions.create(prompt=f'{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}',
+                #                              model='claude-2', max_tokens_to_sample=max_tokens,
+                #                              stop_sequences=[anthropic.HUMAN_PROMPT])
+                response = client.messages.create(
+                            model=model,
+                            max_tokens=4096,
+                            temperature=temp,
+                            messages=[
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": prompt
+                                        }
+                                    ]
+                                }
+                            ]
+                        )
+                logger.info("anthropic_completion response %s", response)
+                
+                return response.content[0].text
             
-            return response.content[0].text
-        
-        except anthropic.APIError as e:
-            logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
-            if max_retries <= 0:
-                logger.error("anthropic_completion error %s", e)
-                raise e
-            else:
-                max_retries -= 1
+            except anthropic.APIError as e:
+                logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
+                if max_retries <= 0:
+                    logger.error("anthropic_completion error %s", e)
+                    raise e
+                else:
+                    max_retries -= 1
 
-            if e.status_code == 429:  # Handling quota exceeded or rate limit error
-                logger.error("Quota exceeded or too many requests, retrying after delay...")
-                if not error_notification_sent:
-                    send_error_notification('anthropic_completion', "429 error", e.args)
-                    error_notification_sent = True
-                time.sleep(2 ** (10 - max_retries + 1))  # Exponential backoff
-            else:
+                if e.status_code == 429:  # Handling quota exceeded or rate limit error
+                    logger.error("Quota exceeded or too many requests, retrying after delay...")
+                    if not error_notification_sent:
+                        send_error_notification('anthropic_completion', "429 error", e.args)
+                        error_notification_sent = True
+                    time.sleep(2 ** (10 - max_retries + 1))  # Exponential backoff
+                else:
+                    time.sleep(random.randint(1,3))
+
+            except Exception as e:
+                logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
+                if max_retries <= 0:
+                    logger.error("anthropic_completion error %s", e)
+                    raise e
+                    break
+                else:
+                    max_retries -= 1
+
                 time.sleep(random.randint(1,3))
-
-        except Exception as e:
-            logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
-            if max_retries <= 0:
-                logger.error("anthropic_completion error %s", e)
-                raise e
-                break
-            else:
-                max_retries -= 1
-
-            time.sleep(random.randint(1,3))
 
 
 prompt1 = '''
