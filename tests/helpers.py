@@ -263,7 +263,8 @@ def create_test(tenant: Tenant,
                 notice_board: str,
                 culture_skills_to_evaluate:dict,
                 tag: str,
-                score_config:dict) -> tuple[Test, list[TestQuestion]]:
+                score_config:dict,
+                generate_feedback:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -477,7 +478,8 @@ def create_test(tenant: Tenant,
             notice_board=notice_board,
             culture_skills_to_evaluate=culture_skills_to_evaluate,
             tag=tag,
-            score_config=score_config
+            score_config=score_config,
+            generate_feedback=generate_feedback
 
         )
 
@@ -616,7 +618,8 @@ def update_test(tenant: Tenant,
                 notice_board: str,
                 culture_skills_to_evaluate: dict,
                 tag: str,
-                score_config:dict
+                score_config:dict,
+                generate_feedback:bool
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -785,6 +788,9 @@ def update_test(tenant: Tenant,
             test.tag = tag
         if score_config and test.score_config != score_config:
             test.score_config = score_config
+
+        if generate_feedback and test.generate_feedback != generate_feedback:
+            test.generate_feedback = generate_feedback
             
         test.save()
 
@@ -2359,6 +2365,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         if test.scenario_case in [ScenarioCaseChoices.psychometric, ScenarioCaseChoices.process_training]:
             feedback_text = "No feedback..."
             go_for_feedback = False
+
+        if not test.generate_feedback:
+            feedback_text = ""
+            go_for_feedback = False
         
         if go_for_feedback:
             start = time.time()
@@ -2972,16 +2982,17 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         articles=test.articles,
                                         scenario_summary=test.scenario_summary,)
         
-        feedback_text = generic_completion(prompt=prompt,
-                                           tokens=1200, 
-                                           fallback_text="Feedback could not be generated",
-                                           is_free=test.is_free,
-                                           instruction="Please always respond within 150 tokens in summary format. Always respond in a Markdown language."
-                                           )
-            
-        test_question_response.feedback_text = feedback_text
-        update_fields.append("feedback_text")
-        logger.info(f"************dynamic discussion feedback : {feedback_text}")
+        if not test.generate_feedback:
+            feedback_text = generic_completion(prompt=prompt,
+                                            tokens=1200, 
+                                            fallback_text="Feedback could not be generated",
+                                            is_free=test.is_free,
+                                            instruction="Please always respond within 150 tokens in summary format. Always respond in a Markdown language."
+                                            )
+                
+            test_question_response.feedback_text = feedback_text
+            update_fields.append("feedback_text")
+            logger.info(f"************dynamic discussion feedback : {feedback_text}")
         
         user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
 
@@ -3624,17 +3635,19 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         logger.info(f"***************question text is {question_text}**************")
 
         if is_last_response:
-            get_feedback(question, test_question_response,question_text,test)
+            if test.generate_feedback:
+                get_feedback(question, test_question_response,question_text,test)
             if not test.is_free:
                 get_relevency_kls_klp(test_question_response, question_text, test)
         else:
-            threading.Thread(target=get_feedback,
-                                kwargs={
-                                        "question":question,
-                                        "test_question_response":test_question_response,
-                                        "question_text":question_text,
-                                        "test":test
-                                }).start()
+            if test.generate_feedback:
+                threading.Thread(target=get_feedback,
+                                    kwargs={
+                                            "question":question,
+                                            "test_question_response":test_question_response,
+                                            "question_text":question_text,
+                                            "test":test
+                                    }).start()
             
             if not test.is_free:
                 logger.info(f"@@@@@@@@@@@@@@@@ getting relevancy, kls, klp in THREAD @@@@@@@@@@@@@@@@@@@@@@")
@@ -4237,7 +4250,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
         test_data = []
         for test_response in test_responses:
-            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "Feedback couldn't be generated.",})
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "",})
         logger.info({"************test_responses":test_data})
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
@@ -4247,7 +4260,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     else:
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "")
                 
                 logger.info(f"############### get_meeting_report_from_test_attempt_session:  kls_klp_in_response: {test_response.kls_klp} ###############")
                 
@@ -7676,6 +7689,9 @@ def submit_feedback(
     test_attempt_session = TestAttemptSession.objects.filter(tenant_id=tenant_id,uid=session_id,deleted=0).first()
     question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
     test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
+
+    if not test.generate_feedback:
+        return ''
 
     test_question_response = TestQuestionResponse.objects.get_or_create(
                                 tenant_id=tenant_id,

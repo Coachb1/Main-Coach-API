@@ -120,6 +120,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "time_limit",
         "instruction_media_link",
         "notice_board",
+        "generate_feedback"
     )
     search_fields = (
         "test_code",
@@ -146,6 +147,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "time_limit",
         "instruction_media_link",
         "notice_board",
+        "generate_feedback"
     )
     list_filter = (
         "deleted",
@@ -155,6 +157,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "interaction_mode",
         "page_name",
         "client_name",
+        "generate_feedback",
         StartWithUserFilter,
         OnlyCompetencyFilter,
         HasDescriptionMediaFilter
