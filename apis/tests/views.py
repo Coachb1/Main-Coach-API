@@ -1954,19 +1954,7 @@ class CourseViewSet(ApiViewSet,
         try:
             # 1. Fetch by course_uid (highest priority)
             if course_uid:
-                course = Course.objects.filter(uid=course_uid).first()
-                if not course:
-                    return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
-                assessments = course.course.filter(module_name= Module.CHAPTER_TYPE_CHOICES)
-                data = {
-                    'id': course.id,
-                    'uid': course.uid,
-                    'title': course.title,
-                    'sub_title': course.sub_title,
-                    'client': course.client.client_name if course.client else None,
-                    "modules": [ModuleSerializer(module).data for module in course.course.filter(deleted=False) if module]
-                }
-                return Response({'course': data}, status=status.HTTP_200_OK)
+                courses = Course.objects.filter(uid=course_uid)
 
             # 2. Fetch all courses by client_name
             elif client_name:
@@ -1974,21 +1962,23 @@ class CourseViewSet(ApiViewSet,
                 if not client:
                     return Response({'error': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
                 courses = Course.objects.filter(client=client)
-
+            
+            elif client_name and course_uid:
+                client = ClientUserInfo.objects.filter(name__iexact=client_name).first()
+                if not client:
+                    return Response({'error': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
+                courses = Course.objects.filter(uid=course_uid, client=client)
+                
             # 3. Default: courses without any client
             else:
                 courses = Course.objects.filter(client__isnull=True)
 
-            course_list = [
-                {
-                    'id': c.id,
-                    'uid': c.uid,
-                    'title': c.title,
-                    'sub_title': c.sub_title,
-                    "modules": [ModuleSerializer(module).data for module in c.course.filter(deleted=False) if module]
-                } for c in courses
-            ]
-            return Response({'courses': course_list}, status=status.HTTP_200_OK)
+
+            if not courses.exists():
+                return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+ 
+            
+            return Response({'courses': CourseSerializer(courses).data}, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.exception(f"Error in fetch_courses: {e}")
