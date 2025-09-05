@@ -19,7 +19,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserTestMapping
+from .models import Course, Module, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -1146,3 +1146,19 @@ class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             "title": "Upload CSV for User Test Mappings",
         }
         return render(request, "admin/usertestmapping/csv_upload.html", context)
+    
+
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ('title','sub_title')
+
+@admin.register(Module)
+class ModuleAdmin(admin.ModelAdmin):
+    list_display = ('module_name','CHAPTER_TYPE_CHOICES','title','course', 'description','video_url','embed_link')
+    autocomplete_fields = ['test']
+
+@admin.register(UserProgress)
+class UserProgressAdmin(admin.ModelAdmin):
+    list_display = ('user','course', 'start_time', 'end_time','modules_completed')
+
