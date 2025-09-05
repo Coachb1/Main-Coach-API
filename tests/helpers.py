@@ -5352,7 +5352,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
-    if client:
+    if client and report_on == True:
         logger.info(f" << Client Name: {client.client_name}>>")
         report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
         if client.email_address_list:
@@ -5437,7 +5437,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
-    if client:
+    if client and report_on == True:
         logger.info(f" << Client Name: {client.client_name}>>")
         report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
 
