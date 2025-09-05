@@ -163,7 +163,6 @@ class DirectoryPageInfo(models.Model):
     deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
 
-    
     class Meta:
         db_table = "directory_information"
 
@@ -243,10 +242,20 @@ class LLMMappingTable(TenantAwareModel):
         default=LLMChoice.gpt,
         help_text="Third preference LLM provider."
     )
+    FEATURE_TYPE_CHOICES = [
+        ('scenario_generation', 'Scenario Generation'),
+    ]
+    feature_type = models.CharField(
+        max_length=255,
+        choices=FEATURE_TYPE_CHOICES,
+        null=True, 
+        blank=True,
+        default=None
+    )
 
     class Meta:
         db_table = "llm_mapping_table"
-        unique_together = ("bot_type", "tenant_id")
+        unique_together = ("bot_type", "tenant_id", "feature_type")
 
     def __str__(self):
         return f"{self.bot_type} (Tenant: {self.tenant_id})"
