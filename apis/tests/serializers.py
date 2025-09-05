@@ -445,12 +445,6 @@ class UserTestMappingSerializer(serializers.ModelSerializer):
         data['tests'] = ",".join([test.test_code for test in instance.tests.all()])
         return data
     
-
-class CourseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Course
-        fields = '__all__'
-
 class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
@@ -461,6 +455,12 @@ class ModuleSerializer(serializers.ModelSerializer):
         if instance.test:
             data["test"] = TestDisplaySerializer(instance.test).data
         return data
+    
+class CourseSerializer(serializers.ModelSerializer):
+    modules = ModuleSerializer(source="course", many=True, read_only=True)
+    class Meta:
+        model = Course
+        fields = '__all__'
 
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
