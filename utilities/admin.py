@@ -297,8 +297,8 @@ class LLMMappingModelsInline(admin.TabularInline):
 
 @admin.register(LLMMappingTable)
 class LLMMappingTableAdmin(TenantAwareModelAdmin):
-    list_display = ("bot_type", "tenant_id", "llm1", "llm2", "llm3")
-    list_filter = ("bot_type", "tenant_id")
+    list_display = ("feature_type","bot_type", "tenant_id", "llm1", "llm2", "llm3")
+    list_filter = ("feature_type","bot_type", "tenant_id")
     search_fields = ("bot_type",)
     inlines = [LLMMappingModelsInline]
 
