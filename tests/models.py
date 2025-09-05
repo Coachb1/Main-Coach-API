@@ -629,12 +629,15 @@ class Module(MyModel):
         ('TEXT', 'Text Lesson'),
         ('CHATBOT', 'Chatbot'),
         ('IMAGE', 'Image'),
+        ('BOOK', 'Book'),
+
     ], default='ASSESSMENT')
     test = models.ForeignKey(Test, related_name='tests', on_delete=models.CASCADE,blank=True,default=None)
     course = models.ForeignKey(Course,related_name='course', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     video_url = models.URLField(blank=True, null=True)
+    audio_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
 
     def __str__(self):
