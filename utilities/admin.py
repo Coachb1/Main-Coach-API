@@ -294,11 +294,36 @@ class LLMMappingModelsInline(admin.TabularInline):
     extra = 0
     fields = ("llm_type", "model_order")
 
+    def get_extra(self, request, obj=None, **kwargs):
+        # Show 3 predefined rows only when creating a new mapping table
+        if obj is None:  
+            return 3
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        FormSet = super().get_formset(request, obj, **kwargs)
+
+        class CustomFormSet(FormSet):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if obj is None and not self.forms[0].instance.pk:
+                    # Prepopulate only when creating new mapping table
+                    predefined = [
+                        {"llm_type": "gemini", "model_order": "gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-pro"},
+                        {"llm_type": "gpt", "model_order": "gpt-4o, gpt-4o-mini, gpt-3.5-turbo"},
+                        {"llm_type": "anthropic", "model_order": "claude-sonnet-4-20250514, claude-opus-4-20250514, claude-3-opus-20240229, claude-3-haiku-20240307"},
+                    ]
+                    for form, initial in zip(self.forms, predefined):
+                        form.initial.update(initial)
+
+        return CustomFormSet
+
+
 
 @admin.register(LLMMappingTable)
 class LLMMappingTableAdmin(TenantAwareModelAdmin):
-    list_display = ("bot_type", "tenant_id", "llm1", "llm2", "llm3")
-    list_filter = ("bot_type", "tenant_id")
+    list_display = ("id","feature_type","bot_type", "tenant_id", "llm1", "llm2", "llm3")
+    list_filter = ("feature_type","bot_type", "tenant_id")
     search_fields = ("bot_type",)
     inlines = [LLMMappingModelsInline]
 

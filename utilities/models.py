@@ -1,4 +1,5 @@
 from django.db import models
+from django.forms import ValidationError
 from commons.db.model import MyModel
 from tenants.models import TenantAwareModel
 from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice, LLMChoice
@@ -163,7 +164,6 @@ class DirectoryPageInfo(models.Model):
     deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
 
-    
     class Meta:
         db_table = "directory_information"
 
@@ -216,7 +216,10 @@ class LLMMappingTable(TenantAwareModel):
     bot_type = models.CharField(
         max_length=255,
         choices=BotTypeChoice,
-        help_text="Select the bot type this mapping applies to."
+        help_text="Select the bot type this mapping applies to.",
+        null=True, 
+        blank=True,
+        default=None
     )
 
     llm1 = models.CharField(
@@ -243,13 +246,61 @@ class LLMMappingTable(TenantAwareModel):
         default=LLMChoice.gpt,
         help_text="Third preference LLM provider."
     )
+    FEATURE_TYPE_CHOICES = [
+        ('scenario_generation', 'Scenario Generation'),
+    ]
+    feature_type = models.CharField(
+        max_length=255,
+        choices=FEATURE_TYPE_CHOICES,
+        null=True, 
+        blank=True,
+        default=None
+    )
 
     class Meta:
         db_table = "llm_mapping_table"
-        unique_together = ("bot_type", "tenant_id")
+
+    def clean(self):
+        super().clean()
+
+        # ✅ Require at least one of bot_type or feature_type
+        if not self.bot_type and not self.feature_type:
+            raise ValidationError("At least one of 'feature_type' or 'bot_type' must be provided.")
+
+        # ✅ Ensure feature_type uniqueness per tenant
+        if self.feature_type:
+            exists = (
+                LLMMappingTable.objects.filter(
+                    deleted=False,
+                    tenant_id=self.tenant_id,
+                    feature_type=self.feature_type,
+                )
+                .exclude(id=self.id)
+                .exists()
+            )
+            if exists:
+                raise ValidationError(
+                    {"feature_type": "Feature type must be unique per tenant."}
+                )
+
+        # ✅ Ensure bot_type uniqueness per tenant
+        if self.bot_type:
+            exists = (
+                LLMMappingTable.objects.filter(
+                    deleted=False,
+                    tenant_id=self.tenant_id,
+                    bot_type=self.bot_type,
+                )
+                .exclude(id=self.id)
+                .exists()
+            )
+            if exists:
+                raise ValidationError(
+                    {"bot_type": "Bot type must be unique per tenant."}
+                )
 
     def __str__(self):
-        return f"{self.bot_type} (Tenant: {self.tenant_id})"
+        return f"{self.bot_type or self.feature_type} LLM ORDER"
 
 
 class LLMMappingModels(MyModel):
