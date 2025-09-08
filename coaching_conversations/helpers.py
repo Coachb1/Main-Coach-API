@@ -1904,7 +1904,49 @@ def create_user_profile_and_bot(data,auth,tenant):
     discussion_topic = data.get("Discussion Topic".lower().strip(),None)
     custom_prompt = data.get("custom_prompt",None)
 
+    mandatory_fields = {
+        "name": name,
+        "email": email,
+        "about": about,
+        "experience": experience,
+        "area_domain": area_domain,
+        "profile_type": profile_type,
+        "client_name": client_name,
+        "department" : department,
+    }
+    OPTIONAL_FIELDS = [
+        "user_id",
+        "supported_outcome",
+        "coaching_for_fitment",
+        "coaching_level",
+        "coach_same_department",
+        "mentoring_preferences",
+        "mentoring_frameworks",
+        "dominant_point_of_view",
+        "problem_solving_approach",
+        "provided_links",
+        "admired_leaders",
+        "allow_coachee_to_create_session",
+        "significant_challenges_and_solutions",
+        "common_phrases_and_expressions",
+        "qna_for_coach_mentor",
+        "low_rating_characteristics",
+        "high_rating_characteristics",
+        "journey_and_background",
+        "voice_sample",
+        "mentorship_contribution",
+        "provide_answers_using_emojis",
+        "profile_image_url",
+    ]
 
+    missing_fields = [field for field, value in mandatory_fields.items() if not value]
+
+    if missing_fields:
+        return False, {
+            "email": email,
+            "user_id": "",
+            "error": f"Missing mandatory fields: {', '.join(missing_fields)}"
+        }
 
     if not client_name:
         return False, {"email": email,'user_id':"",'error': f"Client name is required"}
@@ -2062,6 +2104,16 @@ def create_user_profile_and_bot(data,auth,tenant):
         "provide_answers_using_emojis" : provide_answers_using_emojis.strip().lower() == 'yes' if provide_answers_using_emojis else False
 
     }
+
+    required_profile_fields = ["name", "user_id", "email", "about", "experience", "department", "area_domain", "profile_type"]
+
+    missing_profile_fields = [field for field in required_profile_fields if not form_data.get(field)]
+    if missing_profile_fields:
+        return False, {
+            "email": email,
+            "user_id": user_id,
+            "error": f"Missing profile fields: {', '.join(missing_profile_fields)}"
+        }
 
     url = f"{BACKEND}/api/v1/accounts/coach-coachee-mentor-mentee-profile/"
 
