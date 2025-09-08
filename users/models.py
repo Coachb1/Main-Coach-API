@@ -327,7 +327,7 @@ class ClientUserInfo(TenantAwareModel):
     email_address_list = models.TextField(null=True, blank=True, default=None)
     allow_access_to_platform = models.BooleanField(default=True)
     allow_access_to_snippet = models.BooleanField(default=True)
-    report_on = models.BooleanField(null=True,blank=True)
+    report_on = models.BooleanField(null=True,blank=True, help_text="to enable or disable reporting for the test.")
     show_recommendations = models.BooleanField(default=True)
     ask_access_code = models.BooleanField(default=True)
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
