@@ -1216,7 +1216,7 @@ def generate_email(name,suffix,domain='coachbots.com'):
     
     return email
 
-def get_llm_order(bot_type, tenant_id):
+def get_llm_order(bot_type, tenant_id, feature_type=None):
     """
     Returns LLM order in format:
     {
@@ -1244,9 +1244,13 @@ def get_llm_order(bot_type, tenant_id):
             "anthropic": "anthropic"
         }
 
-        query = LLMMappingTable.objects.filter(deleted=False, bot_type=bot_type)
-        if tenant_id:
-            query = query.filter(tenant_id=tenant_id)
+        query = LLMMappingTable.objects.filter(deleted=False, tenant_id=tenant_id)
+
+        if feature_type:
+            query = query.filter(feature_type=feature_type)
+        else:
+            query = query.filter(bot_type=bot_type)
+
 
         mapping = query.first()
         if not mapping:
