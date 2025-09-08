@@ -4701,3 +4701,39 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception("Error in get_mindmap_and_assessments_report")
             return Response({'error': f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(methods=["GET"], detail=False, url_path="get-llm-order")
+    def get_llm_order_request(self, request, *args, **kwargs):
+        """
+        Returns the preferred LLM order for a given bot_type and/or feature_type.
+        """
+        try:
+            bot_type = request.query_params.get("bot_type")
+            feat_type = request.query_params.get("feature_type")
+
+            if not bot_type and not feat_type:
+                return Response(
+                    {"error": "Either 'bot_type' or 'feature_type' must be provided."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            llm_order = get_llm_order(
+                bot_type=bot_type,
+                tenant_id=request.tenant.uid,
+                feature_type=feat_type,
+            )
+
+            # in this api we will send model order as string not list
+            for llm, models in llm_order['models'].items():
+                llm_order['models'][llm] = ",".join(models)
+
+
+            return Response({"data": llm_order}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in get_llm_order_request: {e}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

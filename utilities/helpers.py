@@ -1244,14 +1244,13 @@ def get_llm_order(bot_type, tenant_id, feature_type=None):
             "anthropic": "anthropic"
         }
 
-        query = LLMMappingTable.objects.filter(deleted=False, bot_type=bot_type)
+        query = LLMMappingTable.objects.filter(deleted=False, tenant_id=tenant_id)
 
         if feature_type:
             query = query.filter(feature_type=feature_type)
         else:
             query = query.filter(bot_type=bot_type)
-        if tenant_id:
-            query = query.filter(tenant_id=tenant_id)
+
 
         mapping = query.first()
         if not mapping:
