@@ -1920,11 +1920,11 @@ def create_user_profile_and_bot(data,auth,tenant):
 
     required_profile_fields = ["name", "email", "about","profile_type", "client_name", "area_domain"]
     if profile_type in ["coach", "mentor"]:
-        required_profile_fields += ["department","experience","low_rating_characteristics","high_rating_characteristics","discussion_topic"]
+        required_profile_fields += ["department","experience","discussion_topic"]
     elif profile_type == "icons_by_ai":
         required_profile_fields += ["discussion_topic"]   # only area_domain required
     elif profile_type in ["mentee", "coachee"]:
-        required_profile_fields += ["department","low_rating_characteristics","high_rating_characteristics"]    # only department required
+        required_profile_fields += ["department"]    # only department required
     missing_fields = [field for field in required_profile_fields if not input_data.get(field) ]
 
     if missing_fields:
