@@ -1904,7 +1904,35 @@ def create_user_profile_and_bot(data,auth,tenant):
     discussion_topic = data.get("Discussion Topic".lower().strip(),None)
     custom_prompt = data.get("custom_prompt",None)
 
+    input_data = {
+        "name": name,
+        "email": email,
+        "about": about,
+        "experience": experience,
+        "profile_type": profile_type,
+        "client_name": client_name,
+        "department" : department,
+        "area_domain" : area_domain,
+        "discussio_topic" : discussion_topic,
+        "low_rating_characteristics" : low_rating_characteristics,
+        "high_rating_characteristics" : high_rating_characteristics,
+    }
 
+    required_profile_fields = ["name", "email", "about","profile_type", "client_name", "area_domain"]
+    if profile_type in ["coach", "mentor"]:
+        required_profile_fields += ["department","experience","low_rating_characteristics","high_rating_characteristics","discussion_topic"]
+    elif profile_type == "icons_by_ai":
+        required_profile_fields += ["discussion_topic"]   # only area_domain required
+    elif profile_type in ["mentee", "coachee"]:
+        required_profile_fields += ["department","low_rating_characteristics","high_rating_characteristics"]    # only department required
+    missing_fields = [field for field in required_profile_fields if not input_data.get(field) ]
+
+    if missing_fields:
+        return False, {
+            "email": email,
+            "user_id": "",
+            "error": f"Missing mandatory fields: {', '.join(missing_fields)}"
+        }
 
     if not client_name:
         return False, {"email": email,'user_id':"",'error': f"Client name is required"}
@@ -2062,7 +2090,7 @@ def create_user_profile_and_bot(data,auth,tenant):
         "provide_answers_using_emojis" : provide_answers_using_emojis.strip().lower() == 'yes' if provide_answers_using_emojis else False
 
     }
-
+    
     url = f"{BACKEND}/api/v1/accounts/coach-coachee-mentor-mentee-profile/"
 
     payload = json.dumps(form_data)
