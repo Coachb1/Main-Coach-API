@@ -1151,11 +1151,11 @@ class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('title','sub_title')
+    list_display = ('title','sub_title','type')
 
 @admin.register(Module)
 class ModuleAdmin(admin.ModelAdmin):
-    list_display = ('module_name','CHAPTER_TYPE_CHOICES','title','course', 'description','video_url','embed_link')
+    list_display = ('module_name','CHAPTER_TYPE_CHOICES','title','course', 'description','video_url','image_link','embed_link')
     autocomplete_fields = ['test']
 
 @admin.register(UserProgress)

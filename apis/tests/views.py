@@ -1978,7 +1978,7 @@ class CourseViewSet(ApiViewSet,
                 return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
  
             
-            return Response({'courses': CourseSerializer(courses).data}, status=status.HTTP_200_OK)
+            return Response({'courses': CourseSerializer(courses, many=True).data}, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.exception(f"Error in fetch_courses: {e}")

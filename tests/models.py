@@ -618,11 +618,15 @@ class Course(TenantAwareModel):
     title = models.CharField(max_length=255)
     sub_title = models.CharField(max_length=255)
     client = models.ForeignKey(ClientUserInfo, related_name='clients', on_delete=models.CASCADE, blank=True,default=None)
+    type = models.CharField(max_length=20,choices=[
+        ('COURSE', 'course'),
+        ('LIBRARY', 'library'),
+    ], default='course')
     def __str__(self):
         return self.title
     
 class Module(MyModel):
-    module_name = models.CharField(max_length=30)
+    module_name = models.CharField(max_length=60)
     CHAPTER_TYPE_CHOICES = models.CharField(max_length=20,choices=[
         ('ASSESSMENT', 'Assessment'),
         ('VIDEO', 'Video Lesson'),
@@ -635,9 +639,12 @@ class Module(MyModel):
     test = models.ForeignKey(Test, related_name='tests', on_delete=models.CASCADE,blank=True,default=None)
     course = models.ForeignKey(Course,related_name='course', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255,default=None)
+    tag = models.CharField(max_length=55,default=None)
     description = models.TextField(blank=True)
     video_url = models.URLField(blank=True, null=True)
     audio_link = models.URLField(blank=True, null=True)
+    image_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
 
     def __str__(self):
