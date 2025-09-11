@@ -1,4 +1,5 @@
 from django.db import models
+from django.forms import ValidationError
 
 from tenants.models import TenantAwareModel
 from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices
@@ -614,33 +615,80 @@ class UserTestMapping(MyModel):
         return f"{self.user.name} Test Mapping"
     
 
-class Course(TenantAwareModel):
+class Course(MyModel):
+    """
+    Represents a course or library that can be linked to a specific client.
+    """
+
+    COURSE_TYPES = [
+        ("course", "Course"),
+        ("library", "Library"),
+    ]
+
     title = models.CharField(max_length=255)
-    sub_title = models.CharField(max_length=255)
-    client = models.ForeignKey(ClientUserInfo, related_name='clients', on_delete=models.CASCADE, blank=True,default=None)
-    type = models.CharField(max_length=20,choices=[
-        ('COURSE', 'course'),
-        ('LIBRARY', 'library'),
-    ], default='course')
+    sub_title = models.CharField(max_length=255, blank=True)
+    type = models.CharField(max_length=20, choices=COURSE_TYPES, default="course")
+
     def __str__(self):
         return self.title
-    
-class Module(MyModel):
-    module_name = models.CharField(max_length=60)
-    CHAPTER_TYPE_CHOICES = models.CharField(max_length=20,choices=[
-        ('ASSESSMENT', 'Assessment'),
-        ('VIDEO', 'Video Lesson'),
-        ('TEXT', 'Text Lesson'),
-        ('CHATBOT', 'Chatbot'),
-        ('IMAGE', 'Image'),
-        ('BOOK', 'Book'),
 
-    ], default='ASSESSMENT')
-    test = models.ForeignKey(Test, related_name='tests', on_delete=models.CASCADE,blank=True,default=None)
-    course = models.ForeignKey(Course,related_name='course', on_delete=models.CASCADE)
+class CoursePackage(TenantAwareModel):
+    client = models.ForeignKey(
+        ClientUserInfo,
+        related_name="client_courses",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
     title = models.CharField(max_length=255)
-    author = models.CharField(max_length=255,default=None)
-    tag = models.CharField(max_length=55,default=None)
+    sub_title = models.CharField(max_length=255, blank=True)
+    # Many-to-many relationship with Course
+    courses = models.ManyToManyField(
+        Course,
+        related_name="packages",
+        blank=True,
+    )
+
+
+    class Meta:
+        db_table = "course_package"
+        verbose_name = "Course Package"
+        verbose_name_plural = "Course Packages"
+        unique_together = ("client", "title")  # client cannot have two packages with same title
+
+
+    def __str__(self):
+        return self.title
+
+
+class Module(MyModel):
+    """
+    Represents a module inside a course, which can be of various types
+    (Assessment, Video, Text, etc).
+    """
+
+    CHAPTER_TYPE_CHOICES = [
+        ("ASSESSMENT", "Assessment"),
+        ("VIDEO", "Video Lesson"),
+        ("TEXT", "Text Lesson"),
+        ("CHATBOT", "Chatbot"),
+        ("IMAGE", "Image"),
+        ("BOOK", "Book"),
+    ]
+
+    module_name = models.CharField(max_length=60)
+    chapter_type = models.CharField(
+        max_length=20, choices=CHAPTER_TYPE_CHOICES, default="ASSESSMENT"
+    )
+    test = models.ForeignKey(
+        Test, related_name="modules", on_delete=models.CASCADE, blank=True, null=True
+    )
+    course = models.ForeignKey(
+        Course, related_name="modules", on_delete=models.CASCADE
+    )
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255, blank=True, null=True)
+    tag = models.CharField(max_length=55, blank=True, null=True)
     description = models.TextField(blank=True)
     video_url = models.URLField(blank=True, null=True)
     audio_link = models.URLField(blank=True, null=True)
@@ -649,16 +697,68 @@ class Module(MyModel):
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
-    
 
-    
+
 class UserProgress(MyModel):
-    user = models.ForeignKey(User, related_name='users', on_delete=models.CASCADE)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    """
+    Tracks a user's progress in a specific course.
+    """
+
+    user = models.ForeignKey(User, related_name="progress", on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, related_name="progress", on_delete=models.CASCADE)
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
     modules_completed = models.BooleanField(default=False)
 
+    class Meta:
+        verbose_name = 'Course User Progress'
+        verbose_name_plural = "Course User Progresses"
     def __str__(self):
         return f"{self.user.name} - {self.course.title} Progress"
+
+
+
+class ModuleProgress(MyModel):
+    """
+    Tracks a user's progress for a specific module inside a course.
+    """
+
+    STATUS_CHOICES = [
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+        ("not_started", "Not Started"),
+
+    ]
+
+    user_progress = models.ForeignKey(
+        "UserProgress",
+        related_name="module_progress",
+        on_delete=models.CASCADE,
+        db_index=True,
+    )
+    module = models.ForeignKey(
+        "Module",
+        related_name="progress",
+        on_delete=models.CASCADE,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="not_started", db_index=True
+    )
+    start_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    end_time = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        db_table = "module_progress"
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["module", "status"]),
+        ]
+        unique_together = ("user_progress", "module")
+        ordering = ["module__id"]
+
+    def __str__(self):
+        return f"{self.user_progress.user.name} - {self.module.title} ({self.status})"
+
+
 

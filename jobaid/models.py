@@ -59,6 +59,7 @@ class JobAidSession(MyModel):
     report_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     qna = models.JSONField(blank=True, null=True, help_text="Q&A data for the session")
+    like_count = models.IntegerField(default=0)
 
     class Meta:
         verbose_name = "Job Aid Session"

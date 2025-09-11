@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Course, Module, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -457,13 +457,49 @@ class ModuleSerializer(serializers.ModelSerializer):
         return data
     
 class CourseSerializer(serializers.ModelSerializer):
-    modules = ModuleSerializer(source="course", many=True, read_only=True)
+    modules = ModuleSerializer( many=True, read_only=True)
     class Meta:
         model = Course
         fields = '__all__'
 
+class CoursePackageSerializer(serializers.ModelSerializer):
+    # Nested representation of courses
+    courses = CourseSerializer(many=True, read_only=True)
+    course_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Course.objects.all(),
+        source="courses",   # maps to M2M
+        write_only=True
+    )
+
+    class Meta:
+        model = CoursePackage
+        fields = '__all__'
+
+
+class ModuleProgressSerializer(serializers.ModelSerializer):
+    module_title = serializers.ReadOnlyField(source="module.title")
+
+    class Meta:
+        model = ModuleProgress
+        fields = [
+            "id",
+            "module",
+            "module_title",
+            "status",
+            "start_time",
+            "end_time",
+        ]
+
+
 class UserProgressSerializer(serializers.ModelSerializer):
+    user_name = serializers.ReadOnlyField(source="user.name")
+    course_title = serializers.ReadOnlyField(source="course.title")
+    module_progress = ModuleProgressSerializer(many=True, read_only=True)
+
     class Meta:
         model = UserProgress
         fields = '__all__'
+
+
 
