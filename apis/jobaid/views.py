@@ -100,10 +100,13 @@ class JobAidViewSet(ApiViewSet,
                 return Response({'error': 'qna, useremail, and jobaid are required'}, status=status.HTTP_400_BAD_REQUEST)
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
-
-            prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
-            # Run your LLM or report generation logic here
-            generated_report_data = generic_completion(prompt)
+            
+            if jobaid.job_aid_type =='form':
+                generated_report_data = {}
+            else:
+                prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
+                # Run your LLM or report generation logic here
+                generated_report_data = generic_completion(prompt)
 
             # Save session
             session = JobAidSession.objects.create(
@@ -115,8 +118,9 @@ class JobAidViewSet(ApiViewSet,
                 generated_report_data=generated_report_data,
             )
 
-            session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
-            session.save(update_fields=['report_url'])
+            if jobaid.job_aid_type =='job_aid':
+                session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
+                session.save(update_fields=['report_url'])
 
             # send email to admin
             send_email_from_emailit(
