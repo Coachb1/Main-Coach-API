@@ -167,3 +167,56 @@ class JobAidViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Error in get_session_report: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(methods=['GET'], detail=False, url_path='job-aid-sessions')
+    def get_job_aid_sessions(self, request):
+
+        try:
+            jobaid_id = request.query_params.get('jobaid_id')
+            if not jobaid_id:
+                return Response({'error': 'JobAid ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            jobaid = get_object_or_404(JobAid, uid=jobaid_id)
+            jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid)
+            session_data = JobAidSessionSerializer(jobaid_sessions, many=True)
+            jobaid_data = JobAidSerializer(jobaid).data
+
+            return Response({
+                'session': session_data,
+                'jobaid': jobaid_data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f'Error in job-aid-sessions: {e}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=['POST', "GET"], detail=False, url_path='job-aid-likes')
+    def job_aid_likes(self, request):
+        try:
+            if request.method == 'GET':
+                session_id = request.query_params.get('session_id')
+                if not session_id:
+                    return Response({'error': 'session_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+                session = get_object_or_404(JobAidSession, deleted=False, uid=session_id)
+            elif request.method == "POST":
+                session_id = request.data.get('session_id')
+                like = request.data.get('like_count')
+                if not session_id and not like:
+                    return Response({'error': 'session_id and like_count are required'}, status=status.HTTP_400_BAD_REQUEST)
+                session = get_object_or_404(JobAidSession, deleted=False, uid=session_id)
+                if like >0:
+                    session.like_count += 1
+                else:
+                    if session.like_count != 0:
+                        session.like_count -= 1
+
+                session.save(update_fields=['like_count'])
+
+
+            serializer = JobAidSessionSerializer(session)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f'Error in get_job_aid: {e}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
