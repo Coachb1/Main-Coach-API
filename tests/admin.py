@@ -19,7 +19,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import Course, Module, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
+from .models import Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -1146,19 +1146,61 @@ class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
             "title": "Upload CSV for User Test Mappings",
         }
         return render(request, "admin/usertestmapping/csv_upload.html", context)
-    
 
 
+class ModuleInline(admin.TabularInline):
+    """Inline modules under Course (so Course can be created with modules)"""
+    model = Module
+    extra = 1
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('title','sub_title')
+    list_display = ("title", "sub_title", "type")
+    list_filter = ("type", )
+    search_fields = ("title", "sub_title")
+    ordering = ("title",)
+    inlines = [ModuleInline]
+
+class CourseInline(admin.TabularInline):
+    """
+    Inline to show/add courses inside a package.
+    Admin can either select existing courses (autocomplete)
+    or create new ones (with inline module support).
+    """
+    model = CoursePackage.courses.through  # M2M link
+    extra = 1
+    autocomplete_fields = ("course",)  # search existing courses
+
+
+@admin.register(CoursePackage)
+class CoursePackageAdmin(TenantAwareModelAdmin):  # keep TenantAwareModelAdmin if needed
+    list_display = ('id', 'uid', "title", "sub_title", "client")
+    list_filter = ("client",)
+    search_fields = ("title", "sub_title", "client__name")
+    ordering = ("title",)
+    inlines = [CourseInline]
+    autocomplete_fields = ("client",)  # enable search dropdown for clients
+    exclude = ("courses",)  # hide default M2M widget
+
 
 @admin.register(Module)
 class ModuleAdmin(admin.ModelAdmin):
-    list_display = ('module_name','CHAPTER_TYPE_CHOICES','title','course', 'description','video_url','embed_link')
-    autocomplete_fields = ['test']
+    list_display = ("title", "module_name", "course", "author", "tag")
+    list_filter = ("course", "author", "tag")
+    search_fields = ("title", "module_name", "course__title", "author")
+    ordering = ("course", "title")
+
 
 @admin.register(UserProgress)
 class UserProgressAdmin(admin.ModelAdmin):
-    list_display = ('user','course', 'start_time', 'end_time','modules_completed')
+    list_display = ("user", "course", "start_time", "end_time", "modules_completed")
+    list_filter = ("course", "modules_completed")
+    search_fields = ("user__name", "course__title")
+    ordering = ("-start_time",)
 
+
+@admin.register(ModuleProgress)
+class ModuleProgressAdmin(admin.ModelAdmin):
+    list_display = ("user_progress", "module", "status", "start_time", "end_time")
+    list_filter = ("status", "module__course")
+    search_fields = ("user_progress__user__name", "module__title", "module__course__title")
+    ordering = ("-start_time",)

@@ -1,3 +1,5 @@
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -5,7 +7,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CourseSerializer, CreateTestSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserTestMappingSerializer
+from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -15,7 +17,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Course, Module, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -1938,89 +1940,188 @@ class CourseViewSet(ApiViewSet,
                   mixins.ListModelMixin,
                   mixins.RetrieveModelMixin,
                   mixins.UpdateModelMixin):
+    """
+    API endpoints for managing Courses and tracking User progress.
+    """
+
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    @action(methods=['GET'], detail=False, url_path='fetch-courses')
-    def fetch_courses(self, request, *args, **kwargs):
+
+    def _error_response(self, message, code=status.HTTP_400_BAD_REQUEST):
+        """Helper to return consistent error responses."""
+        return Response({"error": message}, status=code)
+
+    @action(methods=["GET"], detail=False, url_path="fetch-course")
+    def fetch_course(self, request, *args, **kwargs):
         """
-        Unified endpoint to fetch:
-        - Courses by client name
-        - A specific course by UID
-        - All courses with no client (default)
+        Fetch courses based on query parameters:
+        - course_uid → Specific course
+        - client_name → Courses linked to client
+        - None → Courses without a client
         """
-        client_name = request.query_params.get('client_name')
-        course_uid = request.query_params.get('course_uid')
+        course_uid = request.query_params.get("course_uid")
 
         try:
-            # 1. Fetch by course_uid (highest priority)
-            if course_uid:
-                courses = Course.objects.filter(uid=course_uid)
+            if not course_uid:
+                return self._error_response('course_uid required!', status.HTTP_400_BAD_REQUEST)
 
-            # 2. Fetch all courses by client_name
-            elif client_name:
-                client = ClientUserInfo.objects.filter(name__iexact=client_name).first()
-                if not client:
-                    return Response({'error': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
-                courses = Course.objects.filter(client=client)
+            courses = Course.objects.filter(uid=course_uid)
             
-            elif client_name and course_uid:
-                client = ClientUserInfo.objects.filter(name__iexact=client_name).first()
-                if not client:
-                    return Response({'error': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
-                courses = Course.objects.filter(uid=course_uid, client=client)
-                
-            # 3. Default: courses without any client
-            else:
-                courses = Course.objects.filter(client__isnull=True)
-
-
             if not courses.exists():
-                return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
- 
+                return self._error_response("Course not found", status.HTTP_404_NOT_FOUND)
+
+            serializer = self.get_serializer(courses, many=True)
+            return Response({"courses": serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as exc:
+            logger.exception("Error in fetch_courses: %s", exc)
+            return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # @action(methods=["GET"], detail=False, url_path="fetch-user-progress")
+    # def fetch_user_progress(self, request, *args, **kwargs):
+    #     """
+    #     Fetch a user's progress in a specific course.
+    #     Requires: user_uid & course_id
+    #     """
+    #     user_uid = request.query_params.get("user_uid")
+    #     course_id = request.query_params.get("course_id")
+
+    #     if not user_uid or not course_id:
+    #         return self._error_response(
+    #             "Both user_uid and course_id are required", status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     try:
+    #         user = get_object_or_404(User, uid=user_uid)
+    #         course = get_object_or_404(Course, id=course_id)
+
+    #         progress = UserProgress.objects.filter(
+    #             user=user, course=course
+    #         ).first()
+    #         if not progress:
+    #             return Response(
+    #                 {"message": "No progress found for this user-course pair"},
+    #                 status=status.HTTP_404_NOT_FOUND,
+    #             )
+
+    #         data = {
+    #             "user": user.name,
+    #             "course": course.title,
+    #             "start_time": progress.start_time,
+    #             "end_time": progress.end_time,
+    #             "modules_completed": progress.modules_completed,
+    #         }
+
+    #         return Response({"progress": data}, status=status.HTTP_200_OK)
+
+    #     except Exception as exc:
+    #         logger.exception("Error in fetch_user_progress: %s", exc)
+    #         return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=False, methods=["GET", "POST"], url_path="course-progress")
+    def get_progress(self, request):
+        """
+        Get a user's progress in a specific course.
+        Requires: user_uid, course_id
+        """
+
+        if request.method == 'GET':
+            user_uid = request.query_params.get("user_uid")
+            course_id = request.query_params.get("course_id")
+
+            if not user_uid or not course_id:
+                return self._error_response('Both user_uid and course_id are required', status.HTTP_400_BAD_REQUEST)
+
+            user = get_object_or_404(User, uid=user_uid)
+            course = get_object_or_404(Course, uid=course_id)
+
+            progress, created = UserProgress.objects.get_or_create(user=user, course=course)
+
+            serializer = UserProgressSerializer(progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        elif request.method == 'POST':
+            user_uid = request.data.get("user_uid")
+            course_id = request.data.get("course_id")
+            module = request.data.get("module")
+
+            module_id = module.get('module_id', None)
+            status_value = module.get("status", "not_started")
+            logger.info(f" data: {request.data}, status= {status_value}")
             
-            return Response({'courses': CourseSerializer(courses).data}, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            logger.exception(f"Error in fetch_courses: {e}")
-            return Response({'error': 'Unexpected server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            if not all([user_uid, course_id, module_id, status_value]):
+                return Response(
+                    {"error": "user_uid, course_id, module_id, and status are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            if status_value not in ['in_progress', 'completed']:
+                return self._error_response("status must be within ['in_progress', 'completed']", status.HTTP_400_BAD_REQUEST)
 
+            user = get_object_or_404(User, uid=user_uid)
+            course = get_object_or_404(Course, uid=course_id)
+            module = get_object_or_404(Module, uid=module_id, course=course)
 
+            user_progress, _ = UserProgress.objects.get_or_create(user=user, course=course)
 
-
-    @action(methods=['GET'], detail=False, url_path='fetch-user-progress')
-    def fetch_user_progress(self, request, *args, **kwargs):
-        user_uid = request.query_params.get('user_uid')
-        course_id = request.query_params.get('course_id')
-
-        if not user_uid or not course_id:
-            return Response(
-                {'error': 'Both user_uid and course_id are required'},
-                status=status.HTTP_400_BAD_REQUEST
+            module_progress, _ = ModuleProgress.objects.get_or_create(
+                user_progress=user_progress, module=module
             )
 
-        try:
-            user = User.objects.filter(uid=user_uid).first()
-            if not user:
-                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            # Update status & timestamps
+            update_fields = []
+            module_progress.status = status_value
+            update_fields.append('status')
 
-            course = Course.objects.filter(id=course_id).first()
-            if not course:
-                return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+            if status_value == "in_progress" and not module_progress.start_time:
+                module_progress.start_time = timezone.now()
+                update_fields.append('start_time')
+            if status_value == "completed":
+                module_progress.end_time = timezone.now()
+                update_fields.append('end_time')
 
-            progress = UserProgress.objects.filter(user=user, course=course).first()
-            if not progress:
-                return Response({'message': 'No progress found for this user-course pair'}, status=status.HTTP_404_NOT_FOUND)
+            logger.info(f"updated_fields: {update_fields}, {module_progress.start_time}")
+            module_progress.save(update_fields=update_fields)
 
-            data = {
-                'user': user.name,
-                'course': course.title,
-                'start_time': progress.start_time,
-                'end_time': progress.end_time,
-                'modules_completed': progress.modules_completed
-            }
+            # Auto-update course-level completion
+            all_completed = user_progress.module_progress.filter(
+                status="completed"
+            ).count() == course.modules.count()
+            user_progress.modules_completed = all_completed
+            if all_completed:
+                user_progress.end_time = timezone.now()
+            user_progress.save()
 
-            return Response({'progress': data}, status=status.HTTP_200_OK)
+            serializer = UserProgressSerializer(user_progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            logger.exception(f"Error in fetch_user_progress: {e}")
-            return Response({'error': 'Unexpected server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(detail=False, methods=["GET"], url_path="course-package")
+    def get_course_package(self, request):
+
+        package_id = request.query_params.get("package_id")
+        client_name = request.query_params.get("client_name")
+
+        if not package_id:
+            return Response(
+                {"error": "package_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        client = None
+        if client_name:
+            client = ClientUserInfo.objects.filter(
+                name__iexact=client_name
+            ).first()
+            if not client:
+                return self._error_response("Client not found", status.HTTP_404_NOT_FOUND)
+
+            
+
+        package = get_object_or_404(
+            CoursePackage, uid=package_id, client=client, deleted=False
+        )
+
+        serializer = CoursePackageSerializer(package)
+        return Response(serializer.data, status=status.HTTP_200_OK)
