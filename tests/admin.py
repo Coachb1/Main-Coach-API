@@ -24,7 +24,7 @@ from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path
 from .models import TestPilotuser, TestPilotRecords
-from .forms import BulkUpdateForm, CSVUploadForm, CoursePackageForm, PsychometricAdminForm, PsychometricReportAdminForm
+from .forms import BulkUpdateForm, CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
