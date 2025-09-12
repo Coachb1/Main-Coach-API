@@ -6,7 +6,7 @@ from tenants.models import Tenant
 from tests.models import Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 import csv
-from .models import PsychometricReportSection, PsychometricReportSubsection, Test
+from .models import CoursePackage, PsychometricReportSection, PsychometricReportSubsection, Test
 from io import TextIOWrapper
 
 
