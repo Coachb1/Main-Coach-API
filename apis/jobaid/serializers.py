@@ -24,7 +24,8 @@ class JobAidSerializer(serializers.ModelSerializer):
             "questions",
             "report_header",
             "report_footer",
-            "job_aid_type"
+            "job_aid_type",
+            "is_validation"
         ]
 
 

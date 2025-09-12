@@ -101,7 +101,7 @@ class JobAidViewSet(ApiViewSet,
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
             
-            if jobaid.job_aid_type =='form':
+            if jobaid.job_aid_type =='form' or not jobaid.is_validation:
                 generated_report_data = {}
             else:
                 prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
@@ -118,7 +118,7 @@ class JobAidViewSet(ApiViewSet,
                 generated_report_data=generated_report_data,
             )
 
-            if jobaid.job_aid_type =='job_aid':
+            if jobaid.job_aid_type =='job_aid' or not jobaid.is_validation:
                 session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
                 session.save(update_fields=['report_url'])
 

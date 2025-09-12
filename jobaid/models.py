@@ -17,6 +17,14 @@ class JobAid(MyModel):
     validation_prompt = models.TextField(verbose_name="Validation Prompt", null=True, blank=True, default=get_prompt("validation"))
     report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt", null=True, blank=True, default=get_prompt("report_generation"))
     job_aid_type = models.CharField(max_length=50, verbose_name="Job Aid Type", blank=True, null=True, default='job_aid', choices=JOB_TYPE_CHOICES)
+    is_validation = models.BooleanField(default=True, verbose_name="Is Validation")
+    
+    def save(self, *args, **kwargs):
+        # Apply logic BEFORE saving
+        if self.job_aid_type == "form":
+            self.is_validation = False
+        super().save(*args, **kwargs)
+
 
     class Meta:
         verbose_name = "Job Aid"
