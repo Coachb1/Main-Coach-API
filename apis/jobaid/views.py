@@ -118,7 +118,7 @@ class JobAidViewSet(ApiViewSet,
                 generated_report_data=generated_report_data,
             )
 
-            if jobaid.job_aid_type =='job_aid' or not jobaid.is_validation:
+            if jobaid.job_aid_type =='job_aid' or jobaid.is_validation:
                 session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
                 session.save(update_fields=['report_url'])
 
