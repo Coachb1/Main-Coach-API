@@ -1158,7 +1158,7 @@ class CourseAdmin(admin.ModelAdmin):
     list_filter = ("type", )
     search_fields = ("title", "sub_title")
     ordering = ("title",)
-    inlines = [ModuleInline]
+    # inlines = [ModuleInline]
 
 class CourseInline(admin.TabularInline):
     """
