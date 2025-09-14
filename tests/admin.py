@@ -1188,6 +1188,7 @@ class ModuleAdmin(admin.ModelAdmin):
     list_filter = ("course", "author", "tag")
     search_fields = ("title", "module_name", "course__title", "author")
     ordering = ("course", "title")
+    list_per_page = 10
 
 
 @admin.register(UserProgress)
