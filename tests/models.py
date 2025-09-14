@@ -694,6 +694,9 @@ class Module(MyModel):
     audio_link = models.URLField(blank=True, null=True)
     image_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
+    list_name = models.CharField(max_length=255, blank=True, null=True) 
+    listen_later = models.BooleanField(default=False)
+    like = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
