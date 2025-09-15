@@ -694,9 +694,8 @@ class Module(MyModel):
     audio_link = models.URLField(blank=True, null=True)
     image_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
-    list_name = models.CharField(max_length=255, blank=True, null=True) 
-    listen_later = models.BooleanField(default=False)
-    like = models.BooleanField(default=False)
+    list_name = models.CharField(max_length=55, blank=True, null=True) 
+
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
@@ -765,3 +764,27 @@ class ModuleProgress(MyModel):
 
 
 
+class ModuleLike(MyModel):
+    user = models.ForeignKey(User, related_name="module_likes", on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, related_name="likes", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "module")  # One like per user
+        db_table = "module_likes"
+
+    def __str__(self):
+        return f"{self.user.name} liked {self.module.title}"
+
+
+class ModuleForLater(MyModel):
+    user = models.ForeignKey(User, related_name="module_for_later", on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, related_name="module_for_later", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "module")  # Prevent duplicates
+        db_table = "module_for_later"
+
+    def __str__(self):
+        return f"{self.user.name} saved {self.module.title} for later"
