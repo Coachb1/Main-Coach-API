@@ -144,6 +144,19 @@ class User(TenantAwareModel):
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
     test_per_month = models.IntegerField(default=None, null=True, blank=True)
 
+    def get_email(self):
+        """Returns the email of the user."""
+        user_attribute = UserAttribute.objects.filter(user_id=self.uid, deleted=False).first()
+        if user_attribute and user_attribute.attributes:
+            return user_attribute.attributes.get('email', None)
+        return None
+    
+    def get_mob_number(self):
+        """Returns the mobile number of the user."""
+        user_attribute = UserAttribute.objects.filter(user_id=self.uid, deleted=False).first()
+        if user_attribute and user_attribute.attributes:
+            return user_attribute.attributes.get('mob_number', None)
+        return None
     class Meta:
         db_table = "user"
         ordering = ("-id",)

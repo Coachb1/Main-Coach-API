@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -5,9 +6,10 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+from django.db.models import Max
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserTestMappingSerializer
+from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleForLaterSerializer, ModuleLikeSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserReportSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -17,7 +19,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Course, CoursePackage, Module, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -1947,6 +1949,7 @@ class CourseViewSet(ApiViewSet,
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
 
+
     def _error_response(self, message, code=status.HTTP_400_BAD_REQUEST):
         """Helper to return consistent error responses."""
         return Response({"error": message}, status=code)
@@ -2125,3 +2128,124 @@ class CourseViewSet(ApiViewSet,
 
         serializer = CoursePackageSerializer(package)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    def _get_user_and_module(self, request, module_id, from_query=False):
+        """Helper to fetch user and module"""
+        user_id = request.query_params.get("user_id") if from_query else request.data.get("user_id")
+        if not user_id:
+            raise ValidationError({"error": "user_id is required"})
+
+        user = get_object_or_404(User, uid=user_id, deleted=False)
+        module = get_object_or_404(Module, uid=module_id)
+        return user, module
+
+    # ---------- MODULE LIKE ----------
+    @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/like")
+    def module_like(self, request, module_id=None):
+        """
+        GET  -> Check if user liked the module
+        POST -> Toggle like (like/unlike)
+        """
+        if request.method == "GET":
+            user, module = self._get_user_and_module(request, module_id, from_query=True)
+            like = ModuleLike.objects.filter(module=module, user=user).first()
+            if not like:
+                return Response({"liked": False}, status=status.HTTP_200_OK)
+            return Response(ModuleLikeSerializer(like).data, status=status.HTTP_200_OK)
+
+        elif request.method == "POST":
+            user, module = self._get_user_and_module(request, module_id)
+            like, created = ModuleLike.objects.get_or_create(user=user, module=module)
+            if not created:
+                like.delete()
+                return Response({"message": "Unliked"}, status=status.HTTP_204_NO_CONTENT)
+            return Response(ModuleLikeSerializer(like).data, status=status.HTTP_201_CREATED)
+
+    # ---------- LISTEN LATER ----------
+    @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/later")
+    def listen_later(self, request, module_id=None):
+        """
+        GET  -> Check if module is in Listen Later
+        POST -> Toggle Listen Later (save/remove)
+        """
+        if request.method == "GET":
+            user, _ = self._get_user_and_module(request, module_id, from_query=True)
+            entry = ModuleForLater.objects.filter(user=user, module__uid=module_id).first()
+            if not entry:
+                return Response({"saved": False}, status=status.HTTP_200_OK)
+            return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_200_OK)
+
+        elif request.method == "POST":
+            user, module = self._get_user_and_module(request, module_id)
+            entry, created = ModuleForLater.objects.get_or_create(user=user, module=module)
+            if not created:
+                entry.delete()
+                return Response({"message": "Removed from Listen Later"}, status=status.HTTP_204_NO_CONTENT)
+            return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_201_CREATED)
+
+
+
+    @action(detail=False, methods=["get"], url_path="course-report")
+    def report(self, request):
+        """
+        Returns paginated report: name, email (via get_email), completed module names, last activity
+        """
+        course_id = request.query_params.get("course_id")
+        if not course_id:
+            return Response(
+                {"error": "course_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course = get_object_or_404(Course, uid=course_id, deleted=False)
+
+        # ✅ Prefetch related users for efficiency
+        progresses = (
+            ModuleProgress.objects.filter(user_progress__course=course)
+            .select_related("user_progress__user", "module")
+            .annotate(last_activity=Max("end_time"))
+        )
+
+        report_map = {}
+        for progress in progresses:
+            user = progress.user_progress.user
+            uid = user.id
+            if uid not in report_map:
+                report_map[uid] = {
+                    "id": uid,
+                    "name": user.name,
+                    "email": user.get_email(),  # ✅ using method
+                    "completed_modules": set(),
+                    "last_activity": progress.last_activity,
+                }
+
+            if progress.status == "completed":
+                report_map[uid]["completed_modules"].add(progress.module.title)
+
+            if progress.last_activity and (
+                not report_map[uid]["last_activity"]
+                or progress.last_activity > report_map[uid]["last_activity"]
+            ):
+                report_map[uid]["last_activity"] = progress.last_activity
+
+        # ✅ Finalize data
+        report_data = []
+        for user_data in report_map.values():
+            report_data.append(
+                {
+                    "id": user_data["id"],
+                    "name": user_data["name"],
+                    "email": user_data["email"],
+                    "completed_modules": ", ".join(user_data["completed_modules"]),
+                    "last_activity": user_data["last_activity"],
+                }
+            )
+
+        # ✅ Paginate
+        page = self.paginate_queryset(report_data)
+        if page is not None:
+            return self.get_paginated_response(page)
+
+        return Response(report_data)
+
