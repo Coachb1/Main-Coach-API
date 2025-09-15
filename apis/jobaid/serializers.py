@@ -43,6 +43,7 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
             "report_url",
             "generated_report_data",
             "qna",
-            "like_count"
+            "like_count",
+            "liked_by"
         ]
         read_only_fields = ["status", "created_at", "report_url", "generated_report_data"]

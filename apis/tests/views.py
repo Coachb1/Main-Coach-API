@@ -2051,8 +2051,8 @@ class CourseViewSet(ApiViewSet,
 
             module_id = module.get('module_id', None)
             status_value = module.get("status", "not_started")
-            logger.info(f" data: {request.data}, status= {status_value}")
-            
+            module_completion_percentage = module.get('completed_in_percentage', 0)
+            logger.info(f" data: {request.data}, status= {status_value}, completion= {module_completion_percentage}")
 
             if not all([user_uid, course_id, module_id, status_value]):
                 return Response(
@@ -2085,6 +2085,10 @@ class CourseViewSet(ApiViewSet,
                 module_progress.end_time = timezone.now()
                 update_fields.append('end_time')
 
+            if module_completion_percentage is not None:
+                module_progress.completed_in_percentage = module_completion_percentage
+                update_fields.append('completed_in_percentage')
+                
             logger.info(f"updated_fields: {update_fields}, {module_progress.start_time}")
             module_progress.save(update_fields=update_fields)
 
@@ -2189,7 +2193,7 @@ class CourseViewSet(ApiViewSet,
     @action(detail=False, methods=["get"], url_path="course-report")
     def report(self, request):
         """
-        Returns paginated report: name, email (via get_email), completed module names, last activity
+        Returns paginated report: name, email (via get_email), completed module names, last activity, and rank
         """
         course_id = request.query_params.get("course_id")
         if not course_id:
@@ -2200,7 +2204,6 @@ class CourseViewSet(ApiViewSet,
 
         course = get_object_or_404(Course, uid=course_id, deleted=False)
 
-        # ✅ Prefetch related users for efficiency
         progresses = (
             ModuleProgress.objects.filter(user_progress__course=course)
             .select_related("user_progress__user", "module")
@@ -2215,7 +2218,7 @@ class CourseViewSet(ApiViewSet,
                 report_map[uid] = {
                     "id": uid,
                     "name": user.name,
-                    "email": user.get_email(),  # ✅ using method
+                    "email": user.get_email(),
                     "completed_modules": set(),
                     "last_activity": progress.last_activity,
                 }
@@ -2229,7 +2232,7 @@ class CourseViewSet(ApiViewSet,
             ):
                 report_map[uid]["last_activity"] = progress.last_activity
 
-        # ✅ Finalize data
+        # Convert to list and sort by number of completed modules (descending)
         report_data = []
         for user_data in report_map.values():
             report_data.append(
@@ -2239,13 +2242,27 @@ class CourseViewSet(ApiViewSet,
                     "email": user_data["email"],
                     "completed_modules": ", ".join(user_data["completed_modules"]),
                     "last_activity": user_data["last_activity"],
+                    "module_count": len(user_data["completed_modules"]),  # temporary for ranking
                 }
             )
 
-        # ✅ Paginate
+        # Sort by module_count descending
+        report_data.sort(key=lambda x: x["module_count"], reverse=True)
+
+        # Assign rank (1 = most modules completed)
+        current_rank = 1
+        previous_count = None
+        for idx, user in enumerate(report_data):
+            if previous_count is None or user["module_count"] < previous_count:
+                current_rank = idx + 1
+            user["rank"] = current_rank
+            previous_count = user["module_count"]
+            # Remove temporary module_count
+            del user["module_count"]
+
+        # Paginate
         page = self.paginate_queryset(report_data)
         if page is not None:
             return self.get_paginated_response(page)
 
         return Response(report_data)
-

@@ -173,11 +173,14 @@ class JobAidViewSet(ApiViewSet,
 
         try:
             jobaid_id = request.query_params.get('jobaid_id')
+            email = request.query_params.get('email')
             if not jobaid_id:
                 return Response({'error': 'JobAid ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
             jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid)
+            if email:
+                jobaid_sessions = jobaid_sessions.filter(email=email)
             session_data = JobAidSessionSerializer(jobaid_sessions, many=True)
             jobaid_data = JobAidSerializer(jobaid).data
 
@@ -190,33 +193,59 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in job-aid-sessions: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(methods=['POST', "GET"], detail=False, url_path='job-aid-likes')
-    def job_aid_likes(self, request):
+    @action(methods=['POST', "GET"], detail=False, url_path='job-aid-leaderboard/like')
+    def job_aid_leaderboard_like(self, request):
         try:
-            if request.method == 'GET':
-                session_id = request.query_params.get('session_id')
-                if not session_id:
-                    return Response({'error': 'session_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-                session = get_object_or_404(JobAidSession, deleted=False, uid=session_id)
-            elif request.method == "POST":
+            if request.method == "POST":
                 session_id = request.data.get('session_id')
+                email = request.data.get('email')
                 like = request.data.get('like_count')
-                if not session_id and not like:
-                    return Response({'error': 'session_id and like_count are required'}, status=status.HTTP_400_BAD_REQUEST)
+                if not session_id and not like and not email:
+                    return Response({'error': 'session_id, email and like_count are required'}, status=status.HTTP_400_BAD_REQUEST)
                 session = get_object_or_404(JobAidSession, deleted=False, uid=session_id)
                 if like >0:
                     session.like_count += 1
+                    if session.liked_by:
+                        liked_by = session.liked_by.split(',')
+                        if email not in liked_by:
+                            liked_by.append(email)
+                            session.liked_by = ','.join(set(liked_by))
+                    else:
+                        session.liked_by = email
                 else:
                     if session.like_count != 0:
                         session.like_count -= 1
+                        if session.liked_by:
+                            liked_by = session.liked_by.split(',')
+                            if email in liked_by:
+                                liked_by.remove(email)
+                                session.liked_by = ','.join(set(liked_by))
+                        else:
+                            session.liked_by = ''
 
-                session.save(update_fields=['like_count'])
+                session.save(update_fields=['like_count', 'liked_by'])
 
 
             serializer = JobAidSessionSerializer(session)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.exception(f'Error in get_job_aid: {e}')
+            logger.exception(f'Error in job_aid_likes: {e}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=['GET'], detail=False, url_path='job-aid-leaderboard')
+    def job_aid_leaderboard(self, request):
+        try:
+            jobaid_id = request.query_params.get('jobaid_id')
+            if not jobaid_id:
+                return Response({'error': 'JobAid ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            jobaid = get_object_or_404(JobAid, uid=jobaid_id)
+            jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid).order_by('-like_count')
+
+            serializer = JobAidSessionSerializer(jobaid_sessions, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f'Error in job_aid_leaderboard: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

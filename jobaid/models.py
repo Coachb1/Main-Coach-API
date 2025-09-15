@@ -68,6 +68,7 @@ class JobAidSession(MyModel):
     created_at = models.DateTimeField(auto_now_add=True)
     qna = models.JSONField(blank=True, null=True, help_text="Q&A data for the session")
     like_count = models.IntegerField(default=0)
+    liked_by = models.TextField(blank=True, null=True, help_text="Comma-separated list of user emails who liked the session")
 
     class Meta:
         verbose_name = "Job Aid Session"
