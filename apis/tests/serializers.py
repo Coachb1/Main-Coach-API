@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Course, CoursePackage, Module, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from users.models import User
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -503,3 +504,24 @@ class UserProgressSerializer(serializers.ModelSerializer):
 
 
 
+
+class ModuleLikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModuleLike
+        fields = ["id", "user", "module", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
+
+class ModuleForLaterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModuleForLater
+        fields = ["id", "user", "module", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
+
+
+class UserReportSerializer(serializers.ModelSerializer):
+    completed_modules = serializers.CharField()  
+    last_activity = serializers.DateTimeField(allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "name", "email", "completed_modules", "last_activity"]
