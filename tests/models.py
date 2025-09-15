@@ -648,7 +648,13 @@ class CoursePackage(TenantAwareModel):
         related_name="packages",
         blank=True,
     )
-
+    job_aid = models.ForeignKey(
+        'jobaid.JobAid',
+        related_name="course_packages",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         db_table = "course_package"
@@ -749,7 +755,9 @@ class ModuleProgress(MyModel):
     )
     start_time = models.DateTimeField(null=True, blank=True, db_index=True)
     end_time = models.DateTimeField(null=True, blank=True, db_index=True)
-
+    completed_in_percentage = models.FloatField(
+        null=True, blank=True, default=0.0, help_text="Percentage of module completed"
+    )
     class Meta:
         db_table = "module_progress"
         indexes = [
