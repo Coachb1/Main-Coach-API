@@ -2133,6 +2133,25 @@ class CourseViewSet(ApiViewSet,
         serializer = CoursePackageSerializer(package)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["GET"], url_path="module-user-data")
+    def get_module(self, request):
+        try: 
+            module_id = request.query_params.get('module_id')
+            user_id = request.query_params.get('user_id')
+            if not module_id or not user_id:
+                return Response(
+                    {"error": "module_id and user_id are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            module = get_object_or_404(Module, uid=module_id, deleted=False)
+            progress = ModuleProgress.objects.filter(user_progress__user=user, module=module).first()
+            serializer = ModuleProgressSerializer(progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"failed to call [module-user-data], {e}")
+            return Response({'error': f"failed to call [module-user-data], {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _get_user_and_module(self, request, module_id, from_query=False):
         """Helper to fetch user and module"""
@@ -2163,7 +2182,7 @@ class CourseViewSet(ApiViewSet,
             like, created = ModuleLike.objects.get_or_create(user=user, module=module)
             if not created:
                 like.delete()
-                return Response({"message": "Unliked"}, status=status.HTTP_204_NO_CONTENT)
+                return Response({"message": "Unliked"}, status=status.HTTP_200_OK)
             return Response(ModuleLikeSerializer(like).data, status=status.HTTP_201_CREATED)
 
     # ---------- LISTEN LATER ----------
@@ -2185,10 +2204,30 @@ class CourseViewSet(ApiViewSet,
             entry, created = ModuleForLater.objects.get_or_create(user=user, module=module)
             if not created:
                 entry.delete()
-                return Response({"message": "Removed from Listen Later"}, status=status.HTTP_204_NO_CONTENT)
+                return Response({"message": "Removed from Listen Later"}, status=status.HTTP_200_OK)
             return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=["GET"], url_path=r"get-liked-and-for-later-modules")
+    def get_liked_and_later_modules(self, request):
+        try:
+            course_id = request.query_params.get("course_id")
+            user_id = request.query_params.get("user_id")
 
+            if not course_id or not user_id:
+                return Response(
+                    {"error": "course_id and user_id are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            course = get_object_or_404(Course, uid=course_id, deleted=False)
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            liked = ModuleLike.objects.filter(user=user, module__course=course)
+            later = ModuleForLater.objects.filter(user=user, module__course=course)
+
+            return Response({"liked": ModuleLikeSerializer(liked, many=True).data, "later": ModuleForLaterSerializer(later, many=True).data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching liked and saved modules: {e}")
+            return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=["get"], url_path="course-report")
     def report(self, request):

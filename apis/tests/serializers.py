@@ -483,14 +483,7 @@ class ModuleProgressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ModuleProgress
-        fields = [
-            "id",
-            "module",
-            "module_title",
-            "status",
-            "start_time",
-            "end_time",
-        ]
+        fields = "__all__"
 
 
 class UserProgressSerializer(serializers.ModelSerializer):
@@ -506,17 +499,25 @@ class UserProgressSerializer(serializers.ModelSerializer):
 
 
 class ModuleLikeSerializer(serializers.ModelSerializer):
+    module_uid = serializers.SerializerMethodField()
+
     class Meta:
         model = ModuleLike
-        fields = ["id", "user", "module", "created_at"]
+        fields = ["id", "user", "module", "module_uid", "created_at"]
         read_only_fields = ["id", "created_at", "user"]
+
+    def get_module_uid(self, obj):
+        return obj.module.uid if obj.module else None
 
 class ModuleForLaterSerializer(serializers.ModelSerializer):
+    module_uid = serializers.SerializerMethodField()
+
     class Meta:
         model = ModuleForLater
-        fields = ["id", "user", "module", "created_at"]
+        fields = ["id", "user", "module", "module_uid", "created_at"]
         read_only_fields = ["id", "created_at", "user"]
-
+    def get_module_uid(self, obj):
+            return obj.module.uid if obj.module else None
 
 class UserReportSerializer(serializers.ModelSerializer):
     completed_modules = serializers.CharField()  
