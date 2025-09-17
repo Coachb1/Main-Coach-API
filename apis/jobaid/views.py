@@ -212,8 +212,9 @@ class JobAidViewSet(ApiViewSet,
                             session.liked_by = ','.join(set(liked_by))
                     else:
                         session.liked_by = email
+
                 else:
-                    if session.like_count != 0:
+                    if session.like_count > 0:
                         session.like_count -= 1
                         if session.liked_by:
                             liked_by = session.liked_by.split(',')
