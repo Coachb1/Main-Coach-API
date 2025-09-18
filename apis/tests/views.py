@@ -2075,13 +2075,15 @@ class CourseViewSet(ApiViewSet,
 
             # Update status & timestamps
             update_fields = []
-            module_progress.status = status_value
-            update_fields.append('status')
+
+            if module_progress.status != 'completed':
+                module_progress.status = status_value
+                update_fields.append('status')
 
             if status_value == "in_progress" and not module_progress.start_time:
                 module_progress.start_time = timezone.now()
                 update_fields.append('start_time')
-            if status_value == "completed":
+            if status_value == "completed" and not module_progress.end_time:
                 module_progress.end_time = timezone.now()
                 update_fields.append('end_time')
 
@@ -2234,17 +2236,17 @@ class CourseViewSet(ApiViewSet,
         """
         Returns paginated report: name, email (via get_email), completed module names, last activity, and rank
         """
-        course_id = request.query_params.get("course_id")
-        if not course_id:
+        package_course_id = request.query_params.get("package_course_id")
+        if not package_course_id:
             return Response(
-                {"error": "course_id is required"},
+                {"error": "package_course_id is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        course = get_object_or_404(Course, uid=course_id, deleted=False)
+        course_package = get_object_or_404(CoursePackage, uid=package_course_id, deleted=False)
 
         progresses = (
-            ModuleProgress.objects.filter(user_progress__course=course)
+            ModuleProgress.objects.filter(user_progress__course__packages=course_package)
             .select_related("user_progress__user", "module")
             .annotate(last_activity=Max("end_time"))
         )
