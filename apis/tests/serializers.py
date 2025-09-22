@@ -480,7 +480,7 @@ class CoursePackageSerializer(serializers.ModelSerializer):
 
 class ModuleProgressSerializer(serializers.ModelSerializer):
     module_title = serializers.ReadOnlyField(source="module.title")
-
+    
     class Meta:
         model = ModuleProgress
         fields = "__all__"

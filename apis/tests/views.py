@@ -2052,6 +2052,7 @@ class CourseViewSet(ApiViewSet,
             module_id = module.get('module_id', None)
             status_value = module.get("status", "not_started")
             module_completion_percentage = module.get('completed_in_percentage', 0)
+            played_audio = module.get('played_audio', None)  # <-- NEW
             logger.info(f" data: {request.data}, status= {status_value}, completion= {module_completion_percentage}")
 
             if not all([user_uid, course_id, module_id, status_value]):
@@ -2090,6 +2091,10 @@ class CourseViewSet(ApiViewSet,
             if module_completion_percentage is not None:
                 module_progress.completed_in_percentage = module_completion_percentage
                 update_fields.append('completed_in_percentage')
+
+            if played_audio is not None:  # <-- NEW
+                module_progress.played_audio = played_audio
+                update_fields.append('played_audio')
                 
             logger.info(f"updated_fields: {update_fields}, {module_progress.start_time}")
             module_progress.save(update_fields=update_fields)
