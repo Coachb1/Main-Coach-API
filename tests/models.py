@@ -758,6 +758,9 @@ class ModuleProgress(MyModel):
     completed_in_percentage = models.FloatField(
         null=True, blank=True, default=0.0, help_text="Percentage of module completed"
     )
+    played_audio = models.FloatField(
+        null=True, blank=True, default=0.0, help_text="Percentage of audio played"
+    )
     class Meta:
         db_table = "module_progress"
         indexes = [

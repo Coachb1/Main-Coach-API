@@ -1904,6 +1904,7 @@ def create_user_profile_and_bot(data,auth,tenant):
     discussion_topic = data.get("Discussion Topic".lower().strip(),None)
     custom_prompt = data.get("custom_prompt",None)
 
+
     input_data = {
         "name": name,
         "email": email,
@@ -1913,11 +1914,12 @@ def create_user_profile_and_bot(data,auth,tenant):
         "client_name": client_name,
         "department" : department,
         "area_domain" : area_domain,
-        "discussio_topic" : discussion_topic,
+        "discussion_topic" : discussion_topic,
         "low_rating_characteristics" : low_rating_characteristics,
         "high_rating_characteristics" : high_rating_characteristics,
     }
 
+    print(f"input_data: {input_data}")
     required_profile_fields = ["name", "email", "about","profile_type", "client_name", "area_domain"]
     if profile_type in ["coach", "mentor"]:
         required_profile_fields += ["department","experience","discussion_topic"]
