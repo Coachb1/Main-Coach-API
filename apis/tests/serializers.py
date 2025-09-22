@@ -478,45 +478,12 @@ class CoursePackageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# class ModuleProgressSerializer(serializers.ModelSerializer):
-#     module_title = serializers.ReadOnlyField(source="module.title")
-    
-#     class Meta:
-#         model = ModuleProgress
-#         fields = "__all__"
-
 class ModuleProgressSerializer(serializers.ModelSerializer):
     module_title = serializers.ReadOnlyField(source="module.title")
-    total_audio_duration = serializers.SerializerMethodField()
-    listened_audio_duration = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = ModuleProgress
-        fields = [
-            "id",
-            "user_progress",
-            "module",
-            "status",
-            "start_time",
-            "end_time",
-            "completed_in_percentage",
-            "played_audio",  # this is percentage stored in DB
-            "module_title",
-            "total_audio_duration",
-            "listened_audio_duration",
-        ]
-
-    def get_total_audio_duration(self, obj):
-        """Assumes module has audio duration field in seconds."""
-        return getattr(obj.module, "audio_duration", None)
-
-    def get_listened_audio_duration(self, obj):
-        """Return how much audio the user listened in seconds."""
-        total_duration = getattr(obj.module, "audio_duration", None)
-        if total_duration and obj.played_audio:
-            return round((obj.played_audio / 100.0) * total_duration, 2)
-        return 0
-
+        fields = "__all__"
 
 
 class UserProgressSerializer(serializers.ModelSerializer):
