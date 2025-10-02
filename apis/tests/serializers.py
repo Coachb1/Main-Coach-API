@@ -34,6 +34,7 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     question_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_insight = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     que_explanation = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    que_marks = serializers.IntegerField(default=0)
     
 
 class OrchestratedConversationDetails(serializers.Serializer):
@@ -303,7 +304,8 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "updated",
                   "snippet_url",
                   "question_insight",
-                  "que_explanation"]
+                  "que_explanation",
+                  "que_marks"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

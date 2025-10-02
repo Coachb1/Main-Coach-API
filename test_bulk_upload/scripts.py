@@ -120,6 +120,7 @@ CULTURE_SKILLS =  "Culture Skills"
 MCQ_OPTIONS = "Option"
 IS_ASSESSMENT = "Is Assessment"
 QUE_EXPLANATION = 'Q Explanation'
+QUE_MARKS = "Q Marks"
 SCORE_VISIBLE = "Score Visible"
 EXPLANATION_VISIBLE = "Explanation Visible"
 
@@ -1607,6 +1608,8 @@ def format_test_data_slack(raw_data,tenant):
                     question["question_insight"] = input_dict.get(f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}", '')
                 if f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["que_explanation"] = input_dict.get(f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}", '')
+                if f"{QUE_MARKS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_MARKS} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["que_marks"] = input_dict.get(f"{QUE_MARKS} {key[len(QUESTION) + 1:]}", '')
                 
                 options_for_question = {}
                 q_number = key[len(QUESTION):].strip()
