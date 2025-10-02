@@ -232,7 +232,7 @@ class TestQuestion(TenantAwareModel):
     snippet_url = models.TextField(null=True, blank=True,default=None)
     question_insight = models.TextField(null=True, blank=True,default=None)
     que_explanation = models.TextField(null=True, blank=True,default=None)
-
+    que_marks = models.IntegerField(default=0)
 
     class Meta:
         db_table = "test_question"

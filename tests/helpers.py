@@ -521,7 +521,8 @@ def create_test(tenant: Tenant,
                 key_learning_skills=kls,
                 snippet_url=question.get('snippet_url'),
                 question_insight=question.get("question_insight"),
-                que_explanation=question.get("que_explanation")
+                que_explanation=question.get("que_explanation"),
+                que_marks=question.get('que_marks')
 
             )
 
@@ -811,6 +812,9 @@ def update_test(tenant: Tenant,
 
                     if question.get("que_explanation") and test_q.que_explanation != question.get("que_explanation"):
                         test_q.que_explanation = question.get("que_explanation")
+                    
+                    if question.get("que_marks") and test_q.que_marks != question.get("que_marks"):
+                        test_q.que_marks = question.get("que_marks")
 
                     if question.get("gpt_prompt_override") and test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
                         test_q.gpt_prompt_override = question.get("gpt_prompt_override")
@@ -887,6 +891,7 @@ def update_test(tenant: Tenant,
                     snippet_url=question.get('snippet_url'),
                     question_insight=question.get("question_insight"),
                     que_explanation=question.get('que_explanation'),
+                    que_marks=question.get('que_marks')
 
                 )
                 test_questions.append(test_q)
@@ -3395,7 +3400,8 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
                     'question': q.question,
                     'correct_answer': q.mcq_answer,
                     'user_answer': response.response_text,
-                    'que_explanation': q.que_explanation
+                    'que_explanation': q.que_explanation,
+                    'que_marks': q.que_marks
                 })
             
             score, feedback = generate_endgame_result(test.title, qna)
@@ -14648,14 +14654,21 @@ def generate_endgame_result(game_name, questions_with_answers):
         "question": "What is the purpose of a Project Charter?",
         "correct_answer": "To formally authorize a project or a phase",
         "user_answer": "To manage stakeholder expectations",
-        "que_explanation": "The Project Charter formally authorizes the project and gives the project manager authority to use resources."
+        "que_explanation": "The Project Charter formally authorizes the project and gives the project manager authority to use resources.",
+        "que_marks": "0" could be zero and greater
       },
       ...
     ]
     """
+    # que_marks coudl be zero and greter then 0
 
-    total = len(questions_with_answers)
-    correct = sum(1 for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+    if int(questions_with_answers[0]['que_marks']) == 0:
+        total = len(questions_with_answers)
+        correct = sum(1 for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+    else:
+        total = sum(int(q["que_marks"]) for q in questions_with_answers)
+        correct = sum(int(q["que_marks"]) for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+    
     score = int((correct / total) * 100) if total > 0 else 0
 
     # Collect only incorrect ones
@@ -14664,14 +14677,15 @@ def generate_endgame_result(game_name, questions_with_answers):
             "question": q["question"],
             "correct_answer": q["correct_answer"],
             "user_answer": q["user_answer"],
-            "que_explanation": q["que_explanation"]
+            "que_explanation": q["que_explanation"],
+            'que_marks': q['que_marks']
         }
         for q in questions_with_answers if q["user_answer"] != q["correct_answer"]
     ]
 
     # End Game Message
     end_message = f"""Congratulations 🎉. You have completed the {game_name}. \
-You have achieved a score of {score} out of 100."""
+    You have achieved a score of {score} out of 100."""
 
     # Feedback with incorrect Qs inside
     if len(incorrect) == 0:
@@ -14682,7 +14696,11 @@ You have achieved a score of {score} out of 100."""
         feedback_intro = (f"You answered {correct} out of {total} correctly. "
                           "Review the following incorrect answers with explanations to improve your understanding:\n\n")
         feedback_details = "\n".join(
-            f"❌ Question: {q['question']}\n   Your Answer: {q['user_answer']}\n   Correct Answer: {q['correct_answer']}\n   Explanation: {q['que_explanation']}\n"
+            f"❌ Question: {q['question']}\n"
+            f"   Your Answer: {q['user_answer']}\n"
+            f"   Correct Answer: {q['correct_answer']}\n"
+            f"   Explanation: {q['que_explanation']}\n"
+            f"   {'Marks: ' + str(q['que_marks']) if q['que_marks'] > 0 else ''}"
             for q in incorrect
         )
         feedback = feedback_intro + feedback_details
