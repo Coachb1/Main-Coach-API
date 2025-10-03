@@ -694,7 +694,7 @@ class Module(MyModel):
     )
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255, blank=True, null=True)
-    tag = models.CharField(max_length=55, blank=True, null=True)
+    tag = models.CharField(max_length=55,default="General")
     description = models.TextField(blank=True)
     video_url = models.URLField(blank=True, null=True)
     audio_link = models.URLField(blank=True, null=True)
