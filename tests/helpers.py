@@ -264,7 +264,8 @@ def create_test(tenant: Tenant,
                 culture_skills_to_evaluate:dict,
                 tag: str,
                 score_config:dict,
-                generate_feedback:bool) -> tuple[Test, list[TestQuestion]]:
+                generate_feedback:bool,
+                is_personality_game:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -479,7 +480,8 @@ def create_test(tenant: Tenant,
             culture_skills_to_evaluate=culture_skills_to_evaluate,
             tag=tag,
             score_config=score_config,
-            generate_feedback=generate_feedback
+            generate_feedback=generate_feedback,
+            is_personality_game=is_personality_game
 
         )
 
@@ -620,7 +622,8 @@ def update_test(tenant: Tenant,
                 culture_skills_to_evaluate: dict,
                 tag: str,
                 score_config:dict,
-                generate_feedback:bool
+                generate_feedback:bool,
+                is_personality_game:bool
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -792,6 +795,9 @@ def update_test(tenant: Tenant,
 
         if generate_feedback and test.generate_feedback != generate_feedback:
             test.generate_feedback = generate_feedback
+        
+        if is_personality_game and test.is_personality_game != is_personality_game:
+            test.is_personality_game = is_personality_game
             
         test.save()
 
@@ -3396,15 +3402,21 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
             qna = []
             for response in test_question_responses:
                 q = TestQuestion.objects.get(uid=response.question_id)
-                qna.append({
+                
+                temp_q = {
                     'question': q.question,
                     'correct_answer': q.mcq_answer,
                     'user_answer': response.response_text,
                     'que_explanation': q.que_explanation,
-                    'que_marks': q.que_marks
-                })
+                    'que_marks': q.que_marks,
+                }
+
+                if isinstance(q.mcq_options.get(q.mcq_answer.strip()), str) == False:
+                    marks = q.mcq_options.get(q.mcq_answer.strip()).get('marks')
+                    temp_q['marks'] = marks
+                qna.append(temp_q)
             
-            score, feedback = generate_endgame_result(test.title, qna)
+            score, feedback = generate_endgame_result(test, test.title, qna, test.is_personality_game)
             test_attempt_session.test_score = score
             test_attempt_session.finished_at = timezone.now()
             test_attempt_session.status = TestAttemptSessionStatusChoices.completed
@@ -14629,6 +14641,13 @@ def format_game_next_que(test:Test, question: TestQuestion):
     if is_single_select:
         instrunction = 'Choose one option from A, B, C or D'
         
+    mcq_options = {}
+    
+    for option_id, opt in question.mcq_options.items():
+        if isinstance(opt, dict):
+            mcq_options[option_id] = opt.get('opt')
+        elif isinstance(opt, str):
+            mcq_options[option_id] = opt
 
     question_info = {
           "context": {
@@ -14639,14 +14658,14 @@ def format_game_next_que(test:Test, question: TestQuestion):
           },
           'content': {
             'instruction': instruction ,
-            'options': question.mcq_options
+            'options': mcq_options
           }
         }
 
     return json.dumps(question_info)
 
 
-def generate_endgame_result(game_name, questions_with_answers):
+def generate_endgame_result(test: Test, game_name, questions_with_answers, is_personality_game=False):
     """
     questions_with_answers: list of dicts in format:
     [
@@ -14660,17 +14679,41 @@ def generate_endgame_result(game_name, questions_with_answers):
       ...
     ]
     """
-    # que_marks coudl be zero and greter then 0
 
+    if is_personality_game:
+        score = 0
+        logger.info(f"qna: {questions_with_answers}")
+        score_map = {chr(i): i - 64 for i in range(65, 91)}
+
+        for q in questions_with_answers:
+            que_score = q.get("marks",score_map.get(q.get('user_answer')))
+            score += que_score
+
+        logger.info(f"score: {score}, score_map: {score_map}, question: {questions_with_answers}")
+        
+
+        end_message =f"""Congratulations 🎉. You have completed the {game_name}."""
+
+        feedback = ""
+
+        return score, {
+            "end_message": end_message,
+            "feedback": feedback
+        }
+
+    total = 0
+    correct = 0
+    score = 0
     if int(questions_with_answers[0]['que_marks']) == 0:
         total = len(questions_with_answers)
         correct = sum(1 for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
     else:
         total = sum(int(q["que_marks"]) for q in questions_with_answers)
         correct = sum(int(q["que_marks"]) for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
-    
+
     score = int((correct / total) * 100) if total > 0 else 0
 
+    
     # Collect only incorrect ones
     incorrect = [
         {
@@ -14684,8 +14727,10 @@ def generate_endgame_result(game_name, questions_with_answers):
     ]
 
     # End Game Message
+    
     end_message = f"""Congratulations 🎉. You have completed the {game_name}. \
     You have achieved a score of {score} out of 100."""
+
 
     # Feedback with incorrect Qs inside
     if len(incorrect) == 0:

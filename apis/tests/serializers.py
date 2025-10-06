@@ -166,7 +166,8 @@ class UpdateTestSerializer(serializers.Serializer):
     score_config = serializers.JSONField(required=False, default=None)
     generate_feedback = serializers.BooleanField(
         required=False, default=True)
-
+    is_personality_game = serializers.BooleanField(
+        required=False, default=False)
     
 
 class CreateTestSerializer(serializers.Serializer):
@@ -284,6 +285,8 @@ class CreateTestSerializer(serializers.Serializer):
     score_config = serializers.JSONField(required=False, default=None)
     generate_feedback = serializers.BooleanField(
         required=False, default=True)
+    is_personality_game = serializers.BooleanField(
+        required=False, default=False)
     
 
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
@@ -392,7 +395,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "culture_skills_to_evaluate",
                   "tag",
                   "score_config",
-                  "generate_feedback"
+                  "generate_feedback",
+                  'is_personality_game'
                     ]
 
     def get_questions(self, instance):

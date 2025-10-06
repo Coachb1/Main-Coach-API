@@ -118,9 +118,11 @@ INSTRUCTION_MEDIA_LINK = "Instruction Media"
 NOTICE_BOARD = "Notice Board"
 CULTURE_SKILLS =  "Culture Skills"
 MCQ_OPTIONS = "Option"
+MCQ_OPTIONS_MARKS = "OPT Marks"
 IS_ASSESSMENT = "Is Assessment"
 QUE_EXPLANATION = 'Q Explanation'
 QUE_MARKS = "Q Marks"
+
 SCORE_VISIBLE = "Score Visible"
 EXPLANATION_VISIBLE = "Explanation Visible"
 
@@ -384,6 +386,10 @@ def format_test_orchestrated_conversation(raw_data):
 
 
             output_dict['description_media'] = ",".join(medias)
+
+        if output_dict.get('scenario_case') == 'personality_game':
+            output_dict['scenario_case'] = 'game'
+            output_dict['is_personality_game'] = True
 
         media_json = {}
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
@@ -1065,6 +1071,9 @@ def format_test_data_slack(raw_data,tenant):
 
             output_dict['description_media'] = ",".join(medias)
 
+        if output_dict.get('scenario_case') == 'personality_game':
+            output_dict['scenario_case'] = 'game'
+            output_dict['is_personality_game'] = True
             
         media_json = {}
 
@@ -1584,6 +1593,11 @@ def format_test_data_slack(raw_data,tenant):
             question_to_update = {str(question_number): uid for question_number, uid in question_to_update}
 
         score_config = {}
+        que_marks = {
+            k[-1]: v
+            for k, v in input_dict.items()
+            if k.startswith(MCQ_OPTIONS_MARKS)
+        }
         for key in input_dict:
             if key.startswith(RANGE):
 
@@ -1617,7 +1631,15 @@ def format_test_data_slack(raw_data,tenant):
                 for k, value in input_dict.items():
                     print(f"DEBUG: Looking for keys starting with '{mcq_key}', checking key '{k}'")
                     if k.startswith(mcq_key):
-                        options_for_question[k.strip()[-1]] = value.strip()
+                        t = {
+                            "opt": value
+                            }
+                        
+                        if k.strip()[-1] in que_marks:
+                            t['marks'] = que_marks[k.strip()[-1]]
+                                                
+                        options_for_question[k.strip()[-1]] = t
+                    
 
                 if options_for_question:
                     question["mcq_options"] = options_for_question
