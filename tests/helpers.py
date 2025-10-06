@@ -3411,8 +3411,8 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
                     'que_marks': q.que_marks,
                 }
 
-                if isinstance(q.mcq_options.get(q.mcq_answer.strip()), str) == False:
-                    marks = q.mcq_options.get(q.mcq_answer.strip()).get('marks')
+                if isinstance(q.mcq_options.get(response.response_text.strip()), str) == False:
+                    marks = q.mcq_options.get(response.response_text.strip()).get('marks')
                     temp_q['marks'] = marks
                 qna.append(temp_q)
             
