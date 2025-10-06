@@ -3413,7 +3413,7 @@ def process_game(test_question_response:TestQuestionResponse, test:Test
 
                 if isinstance(q.mcq_options.get(response.response_text.strip()), str) == False:
                     marks = q.mcq_options.get(response.response_text.strip()).get('marks')
-                    temp_q['marks'] = marks
+                    temp_q['marks'] = int(marks)
                 qna.append(temp_q)
             
             score, feedback = generate_endgame_result(test, test.title, qna, test.is_personality_game)
@@ -14687,7 +14687,7 @@ def generate_endgame_result(test: Test, game_name, questions_with_answers, is_pe
 
         for q in questions_with_answers:
             que_score = q.get("marks",score_map.get(q.get('user_answer')))
-            score += que_score
+            score += int(que_score)
 
         logger.info(f"score: {score}, score_map: {score_map}, question: {questions_with_answers}")
         
@@ -14698,7 +14698,8 @@ def generate_endgame_result(test: Test, game_name, questions_with_answers, is_pe
 
         return score, {
             "end_message": end_message,
-            "feedback": feedback
+            "feedback": feedback,
+            "score": score
         }
 
     total = 0
