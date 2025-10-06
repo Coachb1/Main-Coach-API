@@ -14698,7 +14698,8 @@ def generate_endgame_result(test: Test, game_name, questions_with_answers, is_pe
 
         return score, {
             "end_message": end_message,
-            "feedback": feedback
+            "feedback": feedback,
+            "score": score
         }
 
     total = 0
