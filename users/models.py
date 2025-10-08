@@ -150,6 +150,11 @@ class User(TenantAwareModel):
         if user_attribute and user_attribute.attributes:
             return user_attribute.attributes.get('email', None)
         return None
+
+    def get_client(self):
+        email = self.get_email()
+        client = ClientUserInfo.objects.filter(deleted=False, tenant_id=self.tenant_id, member_emails__contains=email).first()
+        return client
     
     def get_mob_number(self):
         """Returns the mobile number of the user."""
@@ -349,6 +354,7 @@ class ClientUserInfo(TenantAwareModel):
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
     is_active = models.BooleanField(default=True, blank=True)
+    assigned_tests = models.ManyToManyField('tests.Test', blank=True, related_name="client_users")
 
     class Meta:
         db_table = "client_user_info"
