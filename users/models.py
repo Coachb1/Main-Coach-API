@@ -346,6 +346,9 @@ class ClientUserInfo(TenantAwareModel):
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
     test_per_month = models.IntegerField(default=None, null=True, blank=True)
     button_controls = models.JSONField(default=dict, blank=True, help_text='for eg: {"mode_button": {"show": true}, "mindmap_button": {"show": true}, "assessment_button": {"show": true}}')
+    leaderboard_report_protected = models.BooleanField(default=True, blank=True)
+    leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
+    is_active = models.BooleanField(default=True, blank=True)
 
     class Meta:
         db_table = "client_user_info"
