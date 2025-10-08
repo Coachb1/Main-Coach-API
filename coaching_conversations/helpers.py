@@ -2818,7 +2818,10 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "report_on": client.report_on,
         "show_recommendations": client.show_recommendations,
         "ask_access_code": client.ask_access_code,
-        "button_controlls": client.button_controls
+        "button_controlls": client.button_controls,
+        "leaderboard_report_protected": client.leaderboard_report_protected,
+        "leaderboard_report_password": client.leaderboard_report_password,
+        "is_active": client.is_active
 
     }
 
