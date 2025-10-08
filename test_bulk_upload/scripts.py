@@ -1120,7 +1120,9 @@ def format_test_data_slack(raw_data,tenant):
         if output_dict['scenario_case'] in ['psychometric', 'game'] :
             output_dict['interaction_mode'] = 'text'
             
-        
+        if output_dict.get('scenario_case') == 'game':
+            output_dict['is_game_type'] = True
+
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
                 is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
@@ -1131,6 +1133,19 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_SINGLE_SELECT in input_dict:
+            if input_dict[IS_SINGLE_SELECT] and len(input_dict[IS_SINGLE_SELECT].strip()) > 0:
+                is_single_select = input_dict[IS_SINGLE_SELECT].strip().lower()
+
+                if is_single_select == "true":
+                    output_dict['is_single_select'] = True
+                elif is_single_select == "false":
+                    output_dict['is_single_select'] = False
+                else:
+                    output_dict['is_single_select'] = False
+
+
 
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
@@ -2020,7 +2035,7 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
                     columns_check = [TITLE, DESCRIPTION, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
                 elif scenario_case == 'game':
                     columns_check = [TITLE, DESCRIPTION,
-                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN, SCORE_VISIBLE, EXPLANATION_VISIBLE]
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN, SCORE_VISIBLE, EXPLANATION_VISIBLE, IS_SINGLE_SELECT]
                 else:
                     columns_check = [TITLE, DESCRIPTION,
                      INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]
