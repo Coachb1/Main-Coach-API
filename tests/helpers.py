@@ -14639,7 +14639,7 @@ def format_game_next_que(test:Test, question: TestQuestion):
     is_single_select = test.is_single_select
     instruction = 'Choose one or more options from A, B, C or D'
     if is_single_select:
-        instrunction = 'Choose one option from A, B, C or D'
+        instruction = 'Choose one option from A, B, C or D'
         
     mcq_options = {}
     
@@ -14649,9 +14649,10 @@ def format_game_next_que(test:Test, question: TestQuestion):
         elif isinstance(opt, str):
             mcq_options[option_id] = opt
 
+    section = f'Question {question.question_number}' if test.is_personality_game else f'Level {question.question_number}'  
     question_info = {
           "context": {
-            'section': f'Level {question.question_number}'
+            'section': section
           },
           'details': {
             'question': question.question
