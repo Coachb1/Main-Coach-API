@@ -1291,7 +1291,7 @@ class TestViewSet(ApiViewSet,
         if not user_id:
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-
+        user = get_object_or_404(User, uid=user_id)
         
         query = Q(assigned_to__isnull=False)
         query.add(Q(creator_user_id=user_id), Q.OR)
@@ -1302,7 +1302,26 @@ class TestViewSet(ApiViewSet,
         tests.filter(deleted=0)
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case, "description_media": test.description_media  } for test in tests]
 
-        return Response(data,status=status.HTTP_200_OK)
+        client = user.get_client()
+        if client:
+            for assigned_test in client.assigned_tests.all():
+                data.append({
+                    "title": assigned_test.title,
+                    "description": assigned_test.description,
+                    "test_code": assigned_test.test_code,
+                    "is_recommended": assigned_test.is_recommended,
+                    "assigned_to": user.uid,
+                    "is_assigned": True,
+                    "assigned_by": client.client_name,
+                    "creator_user_id": assigned_test.creator_user_id,
+                    "is_micro": assigned_test.is_micro,
+                    "interaction_mode": assigned_test.interaction_mode,
+                    "scenario_case": assigned_test.scenario_case,
+                    "description_media": assigned_test.description_media,
+                })
+
+        unique_data = {item["test_code"]: item for item in data}.values()
+        return Response(list(unique_data), status=status.HTTP_200_OK)
     
     @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
     def get_tests_by_tab_category(self,request,*args, **kwargs):
