@@ -101,12 +101,23 @@ class JobAidViewSet(ApiViewSet,
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
             
-            if jobaid.job_aid_type =='form' or not jobaid.is_validation:
+            if not jobaid.is_validation:
                 generated_report_data = {}
             else:
                 prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
                 # Run your LLM or report generation logic here
                 generated_report_data = generic_completion(prompt)
+
+
+            if jobaid.evaluate_jobaid:
+                eva_prompt = jobaid.evaluation_prompt
+                if eva_prompt:
+                    eva_prompt = "QNA : " + str(qna) + "\n\n" + eva_prompt
+                    innovation_rating = generic_completion(eva_prompt)
+                    if isinstance(innovation_rating, str):
+                        innovation_rating = json.loads(innovation_rating.replace('```', "").replace('json',""))
+
+                    qna['Innovation Score'] = innovation_rating.get('rating')
 
             # Save session
             session = JobAidSession.objects.create(
@@ -118,7 +129,7 @@ class JobAidViewSet(ApiViewSet,
                 generated_report_data=generated_report_data,
             )
 
-            if jobaid.job_aid_type =='job_aid' or jobaid.is_validation:
+            if jobaid.is_validation:
                 session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
                 session.save(update_fields=['report_url'])
 

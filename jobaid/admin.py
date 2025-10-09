@@ -13,7 +13,7 @@ class JobAidQuestionInline(admin.TabularInline):
 
 @admin.register(JobAid)
 class JobAidAdmin(admin.ModelAdmin):
-    list_display = ("title", "description", "validation_prompt_short", "report_generation_prompt_short", "report_header", "report_footer")
+    list_display = ("title", "description", "validation_prompt_short", "report_generation_prompt_short", 'evaluation_prompt', "report_header", "report_footer")
     search_fields = ("title", "description")
     inlines = [JobAidQuestionInline]
 
