@@ -483,6 +483,12 @@ class CoursePackageSerializer(serializers.ModelSerializer):
         model = CoursePackage
         fields = '__all__'
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['jobaid_uid'] = instance.job_aid.uid if instance.job_aid else None
+
+        return data
+
 
 class ModuleProgressSerializer(serializers.ModelSerializer):
     module_title = serializers.ReadOnlyField(source="module.title")
