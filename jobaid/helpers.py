@@ -190,6 +190,20 @@ The JSON structure must look like this:
 
 
         """
+    elif type == 'evaluation_prompt':
+        return '''
+          Please rate the following Idea submitted on the innovation portal, prioritizing commercial potential. 
+          Please only give the response as H, M, or L. (High, medium, and low) in a Json structure.
+
+          For example:
+           {
+           "rating" : "M"
+           }
+          OUtput Must be in Json:
+          {
+            "rating": "[Please only give the response as H, M, or L. (High, medium, and low)]"
+          }
+      '''
     else:
         raise ValueError(f"Unknown job aid type: {type}")
     
