@@ -118,8 +118,17 @@ class JobAidViewSet(ApiViewSet,
             # ✅ If jobaid has evaluation enabled
             if jobaid.evaluate_jobaid:
                 eva_prompt = jobaid.evaluation_prompt
+                questions = [q for q, ans in qna.items()]
+                jobaid_questions = jobaid.questions.filter(question_type='text',deleted=False, question__in=questions)
+
+                queAns = ""
+                for question in jobaid_questions:
+                    queAns +=f"""
+                        Q: {question.question}\n Ans: {qna.get(question.question)}\n\n
+                        """
                 if eva_prompt:
-                    eva_prompt = "QNA : " + str(qna) + "\n\n" + eva_prompt
+                    eva_prompt = queAns + eva_prompt
+                    print('prompt', eva_prompt)
                     innovation_rating = generic_completion(eva_prompt)
                     if isinstance(innovation_rating, str):
                         innovation_rating = json.loads(
