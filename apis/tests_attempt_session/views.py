@@ -112,6 +112,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
         is_idp_discussion_opted = serializer.validated_data.get("is_idp_discussion_opted")
         intake_id = serializer.validated_data.get("intake_id")
+        signature_session_id = serializer.validated_data.get("signature_session_id")
 
         print("is_signature_bot =========>", is_signature_bot, "is_idp", is_idp_discussion_opted)
 
@@ -123,6 +124,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
             is_signature_bot=is_signature_bot,
             is_idp_discussion_opted = is_idp_discussion_opted,
             intake_id = intake_id,
+            signature_session_id=signature_session_id
         )
 
         return Response(data=TestAttemptSessionSerializer(instance=session).data, status=status.HTTP_201_CREATED)
@@ -437,7 +439,7 @@ class TestAttemptSessionViewSet(ApiViewSet,
                 if response.feedback_text:
                     feedbacks += response.feedback_text + '\n'
 
-            if len(feedbacks.strip()) >0:
+            if len(feedbacks.strip()) >0 and test.generate_feedback:
                 feedbacks_summary = feedback_summary(test_attempt_session,feedbacks,is_free)
                 logger.info({"************************feedbacks_summary in submit email ********************":feedbacks_summary})
                 if len(feedbacks_summary) > 0:
@@ -777,9 +779,11 @@ class TestAttemptSessionViewSet(ApiViewSet,
         """
         test_attempt_session_id = request.query_params.get('test_attempt_session_id')
         submitted_email = request.query_params.get('submitted_email')
-        access_token = request.headers.get('Authorization')
         session_qna_data = request.data.get('session_qna_data')
         submitted_name = request.query_params.get('submitted_name')
+        send_email = request.query_params.get('send_email', None)
+        send_email = send_email.lower() == 'true' if send_email else None
+        logger.info(f">>>>>>>>>>>>>>>>>>>>>> test_attempt_session_id: {test_attempt_session_id}, submitted_email: {submitted_email}, session_qna_data: {session_qna_data}, send_email: {send_email}")
         
         logger.info(f">>>>>>>>>>>>>>>>>{request.data} ")
 
@@ -796,6 +800,10 @@ class TestAttemptSessionViewSet(ApiViewSet,
         try:
             signature_bot = SignatureBot.objects.get(deleted=False,tenant_id=self.request.tenant.uid, uid=test_attempt_session.test_id)
             bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
+            
+            if  send_email == None:
+                logger.info(f'************** send_email is None, checking {signature_bot.send_bot_transcript}')
+                send_email = signature_bot.send_bot_transcript 
         except Exception as e:
             logger.error({"!!!!!!!!!!!!!!!ERROR": e},exc_info=True)
             return Response({"status": "error"}, status=status.HTTP_400_BAD_REQUEST)
@@ -867,8 +875,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
         test_attempt_session.conversation_summary = conversation_summary
         test_attempt_session.save(update_fields=["conversation_summary"]) # saving session summary
         
-        # created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
         created_scenarios = None
+        # created_scenarios = create_scenario_from_transcript(conv, access_token,tenant.uid,participant_id)
+
         
         logger.info({"********************* created_scenarios":created_scenarios})
 
@@ -876,7 +885,9 @@ class TestAttemptSessionViewSet(ApiViewSet,
 
         # for email in [submitted_email, bot_owner_email,"coachbots@googlegroups.com"]:
             # send_bot_conversation_email(candidate_name, conv, recepients)
-        recepients = [submitted_email if submitted_email else user_email]
+
+        
+        recepients = [submitted_email if submitted_email else user_email] if send_email else []
         if connected or signature_bot.bot_type == 'deep_dive':
             recepients.append(bot_owner_email)
 
@@ -888,7 +899,13 @@ class TestAttemptSessionViewSet(ApiViewSet,
         elif signature_bot.bot_type == 'user_bot':
             coach_name = f"""{bot_att.bot_name.capitalize()}"""
 
+        client_obj = get_client_info_from_user_detail(tenant.uid, submitted_email if submitted_email else user_email)
+        if client_obj and client_obj.email_address_list:
+            client_emails = [email for email in client_obj.email_address_list.split(',') if len(email.strip()) > 0]
+            logger.info(f"client emails, {client_emails}")
+            recepients.extend(client_emails)
 
+        logger.info(f"************** recepients: {recepients}")
         # recepients = ['bagoriarajan@gmail.com']
         
         logger.info(f"************** session_qna_data conv: {conv}")

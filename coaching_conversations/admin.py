@@ -1,6 +1,6 @@
 from django.contrib import admin 
 from import_export.admin import ExportActionMixin
-from coaching_conversations.models import CoachingConversation
+from coaching_conversations.models import BotResponsePrompt, CoachingConversation
 from tests.models import TestAttemptSession
 from identities.models import Identity
 import logging
@@ -91,3 +91,22 @@ class CoachingConversationAdmin(ExportActionMixin, TenantAwareModelAdmin):
     
     
 admin.site.register(CoachingConversation, CoachingConversationAdmin)
+
+@admin.register(BotResponsePrompt)
+class BotResponsePromptAdmin(TenantAwareModelAdmin):
+    list_display = ('name', 'normalized_name_short', 'prompt_preview')
+    search_fields = ('name', 'normalized_name', 'prompt')
+    list_filter = ('normalized_name',)
+    ordering = ('name',)
+    readonly_fields = ('normalized_name',)
+
+
+    def normalized_name_short(self, obj):
+        """Short display for normalized name."""
+        return obj.normalized_name
+    normalized_name_short.short_description = 'Normalized Name'
+
+    def prompt_preview(self, obj):
+        """Preview first 60 chars of the prompt."""
+        return (obj.prompt[:60] + '...') if len(obj.prompt) > 60 else obj.prompt
+    prompt_preview.short_description = 'Prompt Preview'

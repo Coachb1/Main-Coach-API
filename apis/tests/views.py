@@ -1,11 +1,15 @@
+from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+from django.db.models import Max
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CreateTestSerializer, TestMappingSerializer, UpdateTestSerializer
+from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleForLaterSerializer, ModuleLikeSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserReportSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -15,7 +19,7 @@ from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserTestConfigs, TestRecommendation
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -743,9 +747,10 @@ class TestViewSet(ApiViewSet,
             questions = TestQuestion.objects.filter(test_id=test.uid)
 
 
-            num_questions = int(num_questions)
-            if questions.count() == num_questions :
-                
+            question_count = int((int(questions.count()) + int(bots)) / 2)
+            print(f"question count: {question_count}, num_questions: {num_questions}, test_code: {test.test_code}")
+            if question_count == int(num_questions) :
+                print(f"test_code: {test.test_code}, question count: {question_count}, num_questions: {num_questions}")
                 temp["Test Code"] = test.test_code
                 temp["Title"] = test.title
                 temp["Context"] = test.description
@@ -899,10 +904,16 @@ class TestViewSet(ApiViewSet,
         is_micro = request.data.get("is_micro",True)
         regeneration = request.data.get("regeneration",False)
         is_fetch = request.data.get("is_fetch",False)
-        use_anthropic = request.data.get("use_anthropic",True)
+        use_anthropic = request.data.get("use_anthropic",False)
         flavour = request.data.get('flavour',None)
         previous_session_id = request.data.get('previous_session_id',None)
         custom_prompt = request.data.get('custom_prompt',None)
+        llm_order = request.data.get('llm_order', None)
+        model_order = request.data.get('model_order', {})
+
+        if model_order and isinstance(model_order, str):
+            model_order = json.loads(model_order)
+
 
         is_micro = False if is_micro in ['False','false',0,False] else True
         use_anthropic = False if use_anthropic in ['False','false',0,False] else True
@@ -914,8 +925,15 @@ class TestViewSet(ApiViewSet,
             available_case_lists = [case.strip() for case in available_case_lists.split(',')]
 
         is_fetch = False if regeneration else is_fetch
+        logger.info(f'LLM: {llm_order}, {model_order}, {use_anthropic}')
+        if llm_order:
+            llm_order = [llm.strip() for llm in llm_order.split(',')]
+            if use_anthropic:
+                llm_order = ['anthropic', 'gemini', 'gpt']
+        else:
+            llm_order = ['anthropic', 'gemini', 'gpt']
 
-        logger.info(f"{'>>>'*100}use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
+        logger.info(f"{'>>>'*100}llmorder: {llm_order}- {model_order} use anth: {use_anthropic} url : {url}, mode : {mode}, access_token : {access_token}, context : {context}, source : {source}, creator_user_id : {creator_user_id}, competency : {competency}, is_static : {is_static}, is_dynamic : {is_dynamic}, assign_to: {assign_to}, assigned_by: {assigned_by}, is_micro: {is_micro}, regeneration: {regeneration}, flavour: {flavour} {'>>>'*100}")
 
         if mode == 'A':
             logger.info("************************* MODE A *************************")
@@ -952,11 +970,13 @@ class TestViewSet(ApiViewSet,
                                                              origin=source, competency=competency, 
                                                              creator_user_id=creator_user_id, assign_to=assign_to, 
                                                              assigned_by=assigned_by, is_micro=is_micro,
-                                                             regeneration=regeneration,use_anthropic=use_anthropic,
+                                                             regeneration=regeneration,
                                                              flavour=flavour,
                                                              previous_session_id=previous_session_id,
                                                              custom_prompt=custom_prompt,
-                                                             available_case=available_case_lists
+                                                             available_case=available_case_lists,
+                                                             llm_order=llm_order,
+                                                             model_order=model_order
                                                              )
                 if scenario:
                     resp_data.append(scenario)
@@ -970,7 +990,10 @@ class TestViewSet(ApiViewSet,
                                                                         creator_user_id=creator_user_id,assign_to=assign_to,
                                                                         assigned_by=assigned_by,is_micro=is_micro,
                                                                         previous_session_id=previous_session_id,
-                                                                        custom_prompt=custom_prompt)
+                                                                        custom_prompt=custom_prompt,
+                                                                        available_case=available_case_lists,
+                                                                        llm_order=llm_order,
+                                                                        model_order=model_order)
                 if scenario:
                     resp_data.append(dynamic_discussion)
                 else:
@@ -1138,7 +1161,7 @@ class TestViewSet(ApiViewSet,
 
         logger.info(f">>>>>>>>>>>>> raw_scenario_data : {raw_scenario_data}")
         resp_data = []
-        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),use_anthropic=True,creator_user_id=creator_user_id,scenario_summary=raw_scenario_data)
+        scenario = create_scenario_from_site_context('', access_token, tenant_id, json.dumps({'title': "",'data':{'information': raw_scenario_data}}),creator_user_id=creator_user_id,scenario_summary=raw_scenario_data)
         
         resp_data.append(scenario)
         dynamic_discussion = create_scenario_from_site_context(url="", access_token=access_token, tenant_id=tenant_id,context=json.dumps({'title': "",'data':{'information': raw_scenario_data}}),type_of_test=TestTypeChoices.dynamic_discussion_thread, 
@@ -1268,7 +1291,7 @@ class TestViewSet(ApiViewSet,
         if not user_id:
             return Response({"Error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-
+        user = get_object_or_404(User, uid=user_id)
         
         query = Q(assigned_to__isnull=False)
         query.add(Q(creator_user_id=user_id), Q.OR)
@@ -1279,7 +1302,26 @@ class TestViewSet(ApiViewSet,
         tests.filter(deleted=0)
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case, "description_media": test.description_media  } for test in tests]
 
-        return Response(data,status=status.HTTP_200_OK)
+        client = user.get_client()
+        if client:
+            for assigned_test in client.assigned_tests.all():
+                data.append({
+                    "title": assigned_test.title,
+                    "description": assigned_test.description,
+                    "test_code": assigned_test.test_code,
+                    "is_recommended": assigned_test.is_recommended,
+                    "assigned_to": user.uid,
+                    "is_assigned": True,
+                    "assigned_by": client.client_name,
+                    "creator_user_id": assigned_test.creator_user_id,
+                    "is_micro": assigned_test.is_micro,
+                    "interaction_mode": assigned_test.interaction_mode,
+                    "scenario_case": assigned_test.scenario_case,
+                    "description_media": assigned_test.description_media,
+                })
+
+        unique_data = {item["test_code"]: item for item in data}.values()
+        return Response(list(unique_data), status=status.HTTP_200_OK)
     
     @action(methods=['GET'],detail=False, url_path="get-tests-by-tab-category")
     def get_tests_by_tab_category(self,request,*args, **kwargs):
@@ -1878,3 +1920,414 @@ class TestViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f"Failed to [test_mappings]: {e}")
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+    @action(methods=['GET'],detail=False, url_path="user-test-mappings")
+    def user_test_mappings(self, request, *args, **kwargs):
+        """
+        Retrieves the test mappings for a specific user.
+
+        This view expects a 'user_id' query parameter in the request. It attempts to find a user with the given ID
+        who is not marked as deleted. If the user is found, it fetches the first UserTestMapping associated with the user,
+        serializes it, and returns the serialized data in the response.
+
+        Returns:
+            - 200 OK: Serialized UserTestMapping data for the user.
+            - 404 Not Found: If the user with the given user_id does not exist.
+            - 500 Internal Server Error: For any unexpected errors during processing.
+
+        Query Parameters:
+            user_id (str): The unique identifier of the user.
+
+        Exceptions:
+            Logs and returns appropriate error messages for user not found and unexpected errors.
+        """
+
+        try:
+            user_id = request.query_params.get('user_id')
+            try:
+                user = User.objects.get(deleted=False, uid=user_id)
+            except Exception as e:
+                logger.exception(f'{e}')
+                return Response({'error': f"User not found with user_id : {user_id}"}, status=status.HTTP_404_NOT_FOUND)
+            serializer = UserTestMappingSerializer(UserTestMapping.objects.filter(user=user).first())
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Failed to [test_mappings]: {e}")
+            return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class CourseViewSet(ApiViewSet,
+                  mixins.ListModelMixin,
+                  mixins.RetrieveModelMixin,
+                  mixins.UpdateModelMixin):
+    """
+    API endpoints for managing Courses and tracking User progress.
+    """
+
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+
+    def _error_response(self, message, code=status.HTTP_400_BAD_REQUEST):
+        """Helper to return consistent error responses."""
+        return Response({"error": message}, status=code)
+
+    @action(methods=["GET"], detail=False, url_path="fetch-course")
+    def fetch_course(self, request, *args, **kwargs):
+        """
+        Fetch courses based on query parameters:
+        - course_uid → Specific course
+        - client_name → Courses linked to client
+        - None → Courses without a client
+        """
+        course_uid = request.query_params.get("course_uid")
+
+        try:
+            if not course_uid:
+                return self._error_response('course_uid required!', status.HTTP_400_BAD_REQUEST)
+
+            courses = Course.objects.filter(uid=course_uid)
+            
+            if not courses.exists():
+                return self._error_response("Course not found", status.HTTP_404_NOT_FOUND)
+
+            serializer = self.get_serializer(courses, many=True)
+            return Response({"courses": serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as exc:
+            logger.exception("Error in fetch_courses: %s", exc)
+            return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # @action(methods=["GET"], detail=False, url_path="fetch-user-progress")
+    # def fetch_user_progress(self, request, *args, **kwargs):
+    #     """
+    #     Fetch a user's progress in a specific course.
+    #     Requires: user_uid & course_id
+    #     """
+    #     user_uid = request.query_params.get("user_uid")
+    #     course_id = request.query_params.get("course_id")
+
+    #     if not user_uid or not course_id:
+    #         return self._error_response(
+    #             "Both user_uid and course_id are required", status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     try:
+    #         user = get_object_or_404(User, uid=user_uid)
+    #         course = get_object_or_404(Course, id=course_id)
+
+    #         progress = UserProgress.objects.filter(
+    #             user=user, course=course
+    #         ).first()
+    #         if not progress:
+    #             return Response(
+    #                 {"message": "No progress found for this user-course pair"},
+    #                 status=status.HTTP_404_NOT_FOUND,
+    #             )
+
+    #         data = {
+    #             "user": user.name,
+    #             "course": course.title,
+    #             "start_time": progress.start_time,
+    #             "end_time": progress.end_time,
+    #             "modules_completed": progress.modules_completed,
+    #         }
+
+    #         return Response({"progress": data}, status=status.HTTP_200_OK)
+
+    #     except Exception as exc:
+    #         logger.exception("Error in fetch_user_progress: %s", exc)
+    #         return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=False, methods=["GET", "POST"], url_path="course-progress")
+    def get_progress(self, request):
+        """
+        Get a user's progress in a specific course.
+        Requires: user_uid, course_id
+        """
+
+        if request.method == 'GET':
+            user_uid = request.query_params.get("user_uid")
+            course_id = request.query_params.get("course_id")
+
+            if not user_uid or not course_id:
+                return self._error_response('Both user_uid and course_id are required', status.HTTP_400_BAD_REQUEST)
+
+            user = get_object_or_404(User, uid=user_uid)
+            course = get_object_or_404(Course, uid=course_id)
+
+            progress, created = UserProgress.objects.get_or_create(user=user, course=course)
+
+            serializer = UserProgressSerializer(progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        elif request.method == 'POST':
+            user_uid = request.data.get("user_uid")
+            course_id = request.data.get("course_id")
+            module = request.data.get("module")
+
+            module_id = module.get('module_id', None)
+            status_value = module.get("status", "not_started")
+            module_completion_percentage = module.get('completed_in_percentage', 0)
+            played_audio = module.get('played_audio', None)  # <-- NEW
+            logger.info(f" data: {request.data}, status= {status_value}, completion= {module_completion_percentage}")
+
+            if not all([user_uid, course_id, module_id, status_value]):
+                return Response(
+                    {"error": "user_uid, course_id, module_id, and status are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            if status_value not in ['in_progress', 'completed']:
+                return self._error_response("status must be within ['in_progress', 'completed']", status.HTTP_400_BAD_REQUEST)
+
+            user = get_object_or_404(User, uid=user_uid)
+            course = get_object_or_404(Course, uid=course_id)
+            module = get_object_or_404(Module, uid=module_id, course=course)
+
+            user_progress, _ = UserProgress.objects.get_or_create(user=user, course=course)
+
+            module_progress, _ = ModuleProgress.objects.get_or_create(
+                user_progress=user_progress, module=module
+            )
+
+            # Update status & timestamps
+            update_fields = []
+
+            if module_progress.status != 'completed':
+                module_progress.status = status_value
+                update_fields.append('status')
+
+            if status_value == "in_progress" and not module_progress.start_time:
+                module_progress.start_time = timezone.now()
+                update_fields.append('start_time')
+            if status_value == "completed" and not module_progress.end_time:
+                module_progress.end_time = timezone.now()
+                update_fields.append('end_time')
+
+            if module_completion_percentage is not None:
+                module_progress.completed_in_percentage = module_completion_percentage
+                update_fields.append('completed_in_percentage')
+
+            if played_audio is not None:  # <-- NEW
+                module_progress.played_audio = played_audio
+                update_fields.append('played_audio')
+                
+            logger.info(f"updated_fields: {update_fields}, {module_progress.start_time}")
+            module_progress.save(update_fields=update_fields)
+
+            # Auto-update course-level completion
+            all_completed = user_progress.module_progress.filter(
+                status="completed"
+            ).count() == course.modules.count()
+            user_progress.modules_completed = all_completed
+            if all_completed:
+                user_progress.end_time = timezone.now()
+            user_progress.save()
+
+            serializer = UserProgressSerializer(user_progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["GET"], url_path="course-package")
+    def get_course_package(self, request):
+
+        package_id = request.query_params.get("package_id")
+        client_name = request.query_params.get("client_name")
+
+        if not package_id:
+            return Response(
+                {"error": "package_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        client = None
+        if client_name:
+            client = ClientUserInfo.objects.filter(
+                name__iexact=client_name
+            ).first()
+            if not client:
+                return self._error_response("Client not found", status.HTTP_404_NOT_FOUND)
+
+            
+
+        package = get_object_or_404(
+            CoursePackage, uid=package_id, client=client, deleted=False
+        )
+
+        serializer = CoursePackageSerializer(package)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["GET"], url_path="module-user-data")
+    def get_module(self, request):
+        try: 
+            module_id = request.query_params.get('module_id')
+            user_id = request.query_params.get('user_id')
+            if not module_id or not user_id:
+                return Response(
+                    {"error": "module_id and user_id are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            module = get_object_or_404(Module, uid=module_id, deleted=False)
+            progress = ModuleProgress.objects.filter(user_progress__user=user, module=module).first()
+            serializer = ModuleProgressSerializer(progress)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"failed to call [module-user-data], {e}")
+            return Response({'error': f"failed to call [module-user-data], {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _get_user_and_module(self, request, module_id, from_query=False):
+        """Helper to fetch user and module"""
+        user_id = request.query_params.get("user_id") if from_query else request.data.get("user_id")
+        if not user_id:
+            raise ValidationError({"error": "user_id is required"})
+
+        user = get_object_or_404(User, uid=user_id, deleted=False)
+        module = get_object_or_404(Module, uid=module_id)
+        return user, module
+
+    # ---------- MODULE LIKE ----------
+    @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/like")
+    def module_like(self, request, module_id=None):
+        """
+        GET  -> Check if user liked the module
+        POST -> Toggle like (like/unlike)
+        """
+        if request.method == "GET":
+            user, module = self._get_user_and_module(request, module_id, from_query=True)
+            like = ModuleLike.objects.filter(module=module, user=user).first()
+            if not like:
+                return Response({"liked": False}, status=status.HTTP_200_OK)
+            return Response(ModuleLikeSerializer(like).data, status=status.HTTP_200_OK)
+
+        elif request.method == "POST":
+            user, module = self._get_user_and_module(request, module_id)
+            like, created = ModuleLike.objects.get_or_create(user=user, module=module)
+            if not created:
+                like.delete()
+                return Response({"message": "Unliked"}, status=status.HTTP_200_OK)
+            return Response(ModuleLikeSerializer(like).data, status=status.HTTP_201_CREATED)
+
+    # ---------- LISTEN LATER ----------
+    @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/later")
+    def listen_later(self, request, module_id=None):
+        """
+        GET  -> Check if module is in Listen Later
+        POST -> Toggle Listen Later (save/remove)
+        """
+        if request.method == "GET":
+            user, _ = self._get_user_and_module(request, module_id, from_query=True)
+            entry = ModuleForLater.objects.filter(user=user, module__uid=module_id).first()
+            if not entry:
+                return Response({"saved": False}, status=status.HTTP_200_OK)
+            return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_200_OK)
+
+        elif request.method == "POST":
+            user, module = self._get_user_and_module(request, module_id)
+            entry, created = ModuleForLater.objects.get_or_create(user=user, module=module)
+            if not created:
+                entry.delete()
+                return Response({"message": "Removed from Listen Later"}, status=status.HTTP_200_OK)
+            return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["GET"], url_path=r"get-liked-and-for-later-modules")
+    def get_liked_and_later_modules(self, request):
+        try:
+            course_id = request.query_params.get("course_id")
+            user_id = request.query_params.get("user_id")
+
+            if not course_id or not user_id:
+                return Response(
+                    {"error": "course_id and user_id are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            course = get_object_or_404(Course, uid=course_id, deleted=False)
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            liked = ModuleLike.objects.filter(user=user, module__course=course)
+            later = ModuleForLater.objects.filter(user=user, module__course=course)
+
+            return Response({"liked": ModuleLikeSerializer(liked, many=True).data, "later": ModuleForLaterSerializer(later, many=True).data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching liked and saved modules: {e}")
+            return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=["get"], url_path="course-report")
+    def report(self, request):
+        """
+        Returns paginated report: name, email (via get_email), completed module names, last activity, and rank
+        """
+        package_course_id = request.query_params.get("package_course_id")
+        if not package_course_id:
+            return Response(
+                {"error": "package_course_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course_package = get_object_or_404(CoursePackage, uid=package_course_id, deleted=False)
+
+        progresses = (
+            ModuleProgress.objects.filter(user_progress__course__packages=course_package)
+            .select_related("user_progress__user", "module")
+            .annotate(last_activity=Max("end_time"))
+        )
+
+        report_map = {}
+        for progress in progresses:
+            user = progress.user_progress.user
+            uid = user.id
+            if uid not in report_map:
+                report_map[uid] = {
+                    "id": uid,
+                    "name": user.name,
+                    "email": user.get_email(),
+                    "completed_modules": set(),
+                    "last_activity": progress.last_activity,
+                }
+
+            if progress.status == "completed":
+                report_map[uid]["completed_modules"].add(progress.module.title)
+
+            if progress.last_activity and (
+                not report_map[uid]["last_activity"]
+                or progress.last_activity > report_map[uid]["last_activity"]
+            ):
+                report_map[uid]["last_activity"] = progress.last_activity
+
+        # Convert to list and sort by number of completed modules (descending)
+        report_data = []
+        for user_data in report_map.values():
+            report_data.append(
+                {
+                    "id": user_data["id"],
+                    "name": user_data["name"],
+                    "email": user_data["email"],
+                    "completed_modules": ", ".join(user_data["completed_modules"]),
+                    "last_activity": user_data["last_activity"],
+                    "module_count": len(user_data["completed_modules"]),  # temporary for ranking
+                }
+            )
+
+        # Sort by module_count descending
+        report_data.sort(key=lambda x: x["module_count"], reverse=True)
+
+        # Assign rank (1 = most modules completed)
+        current_rank = 1
+        previous_count = None
+        for idx, user in enumerate(report_data):
+            if previous_count is None or user["module_count"] < previous_count:
+                current_rank = idx + 1
+            user["rank"] = current_rank
+            previous_count = user["module_count"]
+            # Remove temporary module_count
+            del user["module_count"]
+
+        # Paginate
+        page = self.paginate_queryset(report_data)
+        if page is not None:
+            return self.get_paginated_response(page)
+
+        return Response(report_data)

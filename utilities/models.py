@@ -1,4 +1,6 @@
 from django.db import models
+from django.forms import ValidationError
+from commons.db.model import MyModel
 from tenants.models import TenantAwareModel
 from users.choices import ProfileTypeChoice, BotTypeChoice, StatusChoice, LLMChoice
 from utilities.choices import UserCanJoinAsChoices
@@ -162,7 +164,6 @@ class DirectoryPageInfo(models.Model):
     deep_dive_bot_url = models.TextField(null=True,blank=True,default=None)
     deep_dive_bot_id = models.TextField(null=True,blank=True,default=None)
 
-    
     class Meta:
         db_table = "directory_information"
 
@@ -212,16 +213,121 @@ class EmailSentDetails(TenantAwareModel):
 
 # Table to store llm name to be used in different sections
 class LLMMappingTable(TenantAwareModel):
-    bot_type = models.CharField(max_length=255,choices=BotTypeChoice)
-    llm1 = models.CharField(max_length=255,null=True,blank=True,choices=LLMChoice,default=LLMChoice.gemini)
-    llm2 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.anthropic)
-    llm3 = models.CharField(max_length=255, null=True, blank=True, choices=LLMChoice, default=LLMChoice.gpt)
+    bot_type = models.CharField(
+        max_length=255,
+        choices=BotTypeChoice,
+        help_text="Select the bot type this mapping applies to.",
+        null=True, 
+        blank=True,
+        default=None
+    )
+
+    llm1 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.gemini,
+        help_text="First preference LLM provider."
+    )
+    llm2 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.anthropic,
+        help_text="Second preference LLM provider."
+    )
+    llm3 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        choices=LLMChoice,
+        default=LLMChoice.gpt,
+        help_text="Third preference LLM provider."
+    )
+    FEATURE_TYPE_CHOICES = [
+        ('scenario_generation', 'Scenario Generation'),
+    ]
+    feature_type = models.CharField(
+        max_length=255,
+        choices=FEATURE_TYPE_CHOICES,
+        null=True, 
+        blank=True,
+        default=None
+    )
 
     class Meta:
         db_table = "llm_mapping_table"
-        unique_together = ('bot_type', 'tenant_id')
+
+    def clean(self):
+        super().clean()
+
+        # ✅ Require at least one of bot_type or feature_type
+        if not self.bot_type and not self.feature_type:
+            raise ValidationError("At least one of 'feature_type' or 'bot_type' must be provided.")
+
+        # ✅ Ensure feature_type uniqueness per tenant
+        if self.feature_type:
+            exists = (
+                LLMMappingTable.objects.filter(
+                    deleted=False,
+                    tenant_id=self.tenant_id,
+                    feature_type=self.feature_type,
+                )
+                .exclude(id=self.id)
+                .exists()
+            )
+            if exists:
+                raise ValidationError(
+                    {"feature_type": "Feature type must be unique per tenant."}
+                )
+
+        # ✅ Ensure bot_type uniqueness per tenant
+        if self.bot_type:
+            exists = (
+                LLMMappingTable.objects.filter(
+                    deleted=False,
+                    tenant_id=self.tenant_id,
+                    bot_type=self.bot_type,
+                )
+                .exclude(id=self.id)
+                .exists()
+            )
+            if exists:
+                raise ValidationError(
+                    {"bot_type": "Bot type must be unique per tenant."}
+                )
+
+    def __str__(self):
+        return f"{self.bot_type or self.feature_type} LLM ORDER"
 
 
+class LLMMappingModels(MyModel):
+    mapping = models.ForeignKey(
+        LLMMappingTable,
+        related_name="models",
+        on_delete=models.CASCADE,
+        help_text="Link to the LLM Mapping Table entry."
+    )
+    llm_type = models.CharField(
+        max_length=55,
+        choices=LLMChoice,
+        default=LLMChoice.gemini
+    )
+    model_order = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        default="gpt-4o-mini",
+        help_text="Model names (comma separated, in order)"
+    )
+
+    class Meta:
+        db_table = "llm_mapping_models"
+
+    def __str__(self):
+        return f"{self.llm_type} Models for {self.mapping.bot_type}"
 
 class GlobalPrompts(TenantAwareModel):
     resourse_id = models.CharField(max_length=64, null=True,blank=True)

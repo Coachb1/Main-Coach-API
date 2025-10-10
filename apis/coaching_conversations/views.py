@@ -3,13 +3,14 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter
+import json
 
 from apis.coaching_conversations.filtersets import CoachingConversationFilterSet
 from apis.coaching_conversations.serializers import CoachingConversationDisplaySerializer, \
     InitializeCoachingConversationSerializer, ReplyCoachingConversationSerializer, CoachingConversationReportDataSerializer
 from clients.permissions import IsAuthenticatedClient
-from coaching_conversations.helpers import initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
-from coaching_conversations.models import CoachingConversation
+from coaching_conversations.helpers import get_bot_chat_history, initialize_coaching_conversation, continue_coaching_conversation, get_bot_conversation_data_user
+from coaching_conversations.models import BotResponsePrompt, CoachingConversation
 from commons.viewset import ApiViewSet
 from users.permissions import IsAuthenticatedUser
 from tests.models import TestAttemptSession, Test
@@ -218,6 +219,8 @@ class CoachingConversationViewSet(ApiViewSet,
             "participant_message_url")
         is_signature_bot = serializer.validated_data.get("is_signature_bot", False)
         is_prompt_only = serializer.validated_data.get("is_prompt_only", False)
+        only_current_session = serializer.validated_data.get("only_current_session", False)
+
         
         logger.info("************************** is_prompt_only: {}".format(is_prompt_only))
 
@@ -227,7 +230,8 @@ class CoachingConversationViewSet(ApiViewSet,
             participant_message_text=participant_message_text,
             participant_message_url=participant_message_url,
             is_signature_bot=is_signature_bot,
-            is_prompt_only = is_prompt_only
+            is_prompt_only = is_prompt_only,
+            only_current_session=only_current_session
         )
 
         return Response(
@@ -356,11 +360,13 @@ class CoachingConversationViewSet(ApiViewSet,
         mode = request.query_params.get('for', None)
         user_id = request.query_params.get('user_id', None)
         user_bot_id = request.query_params.get('bot_id', None)
+        refresh = request.query_params.get('refresh', False)
         
         cache_key = generate_cache_key("bot-conversation-data",tenant_id=tenant.uid, mode=mode, user_id=user_id, user_bot_id=user_bot_id)
         cached_data = get_cache(cache_key)
         
-        if cached_data:
+        if cached_data and not refresh:
+            logger.info(f"got cached data:  {cached_data}")
             return Response(cached_data, status=status.HTTP_200_OK)
         
         client_infos = ClientUserInfo.objects.all()
@@ -426,6 +432,33 @@ class CoachingConversationViewSet(ApiViewSet,
                     data_conv['bot_type'] = signature_bot.bot_type
                     data_conv['bot_scenario_case'] = signature_bot.bot_scenario_case
                     data.append(data_conv)
+            set_cache(cache_key,data)
+            return Response(data, status=status.HTTP_200_OK)
+        elif mode == 'user-chat-history':
+            filtered_history = request.query_params.get('filtered_history', False)
+            data = []
+            bot_ids = []
+            if user_bot_id:
+                bot_ids = [SignatureBot.objects.get(deleted=False,bot_id=user_bot_id).uid]
+            else:
+                bot_ids = list(set(SignatureBot.objects.filter(deleted=0).values_list('uid', flat=True)))
+            
+            for b_id in bot_ids:
+                
+                sessions = TestAttemptSession.objects.filter(deleted=0, tenant_id=tenant.uid, test_id=b_id,
+                                                              participant_id=user_id)
+                if sessions.count() == 0:
+                    continue
+
+                bot_att = BotAttribute.objects.get(deleted=0, tenant_id=tenant.uid, bot_id=b_id)
+                signature_bot = SignatureBot.objects.get(deleted=False,uid=b_id)
+                data = get_bot_chat_history(sessions, tenant, b_id, filtered_history=filtered_history)
+                # if len(data_conv) > 0:
+                #     data_conv['bot_name'] = bot_att.bot_name
+                #     data_conv['bot_id'] = signature_bot.bot_id
+                #     data_conv['bot_type'] = signature_bot.bot_type
+                #     data_conv['bot_scenario_case'] = signature_bot.bot_scenario_case
+                #     data.append(data_conv)
             set_cache(cache_key,data)
             return Response(data, status=status.HTTP_200_OK)
 
@@ -1036,3 +1069,60 @@ class CoachingConversationViewSet(ApiViewSet,
                 return Response(data,status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'msg': f'failed with error {e}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    @action(methods=['GET'], detail=False, url_path='get-response-style-list')
+    def get_response_style_list(self, request, *args, **kwargs):
+        try:
+            names = BotResponsePrompt.objects.filter(
+                deleted=False,
+                tenant_id=request.tenant.uid
+            ).values_list('name', 'normalized_name')
+
+            data = {name: normalized for name, normalized in names}
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception("Error in get_response_style_list")
+            return Response(
+                {'msg': f'failed with error {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    @action(methods=['GET', 'POST'], detail=False, url_path='coaching-intake')
+    def coaching_intake(self, request, *args, **kwargs):
+        try:
+            # here we will consider intake for a participant 
+            if request.method == 'GET':
+                user_id = request.query_params.get('user_id')
+                if not user_id:
+                    return Response(f"user_id required.", status=status.HTTP_400_BAD_REQUEST)
+
+                qna = BotQnA.objects.filter(deleted=False, participant_id=user_id, qna_type='coaching_intake').first()
+                if not qna:
+                    return Response(f"Intake not found for the user- {user_id}!", status=status.HTTP_404_NOT_FOUND)
+                data={
+                    'qna': qna.participant_qna,
+                    'intake_summary': qna.intake_summary,
+                    'qna_type': 'coaching_intake'
+                }
+                return Response(data, status=status.HTTP_200_OK)
+            elif request.method == 'POST':
+                user_id = request.data.get('user_id')
+                qna = request.data.get('qna')
+                qna = BotQnA.objects.create(
+                    tenant_id=request.tenant.uid,
+                    participant_id=user_id,
+                    qna_type='coaching_intake',
+                    participant_qna=qna
+                )
+                return Response(f"coaching intake submitted!", status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.exception("Error in coaching_intake")
+            return Response(
+                {'msg': f'failed with error {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

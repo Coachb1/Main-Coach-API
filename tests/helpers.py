@@ -248,6 +248,8 @@ def create_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
+                score_visible:bool,
+                explanation_visible:bool,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
@@ -257,7 +259,13 @@ def create_test(tenant: Tenant,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
                 time_limit:int,
-                instruction_media_link: str) -> tuple[Test, list[TestQuestion]]:
+                instruction_media_link: str,
+                notice_board: str,
+                culture_skills_to_evaluate:dict,
+                tag: str,
+                score_config:dict,
+                generate_feedback:bool,
+                is_personality_game:bool) -> tuple[Test, list[TestQuestion]]:
     """
     This function creates a new test and its associated questions in the database.
 
@@ -456,6 +464,8 @@ def create_test(tenant: Tenant,
             report_description=report_description,
             category=category,
             is_single_select=is_single_select,
+            score_visible=score_visible,
+            explanation_visible=explanation_visible,
             psychometric_report_config=psychometric_report_config,
             personality_model=personality_model,
             skill_domain=skill_domain,
@@ -465,7 +475,14 @@ def create_test(tenant: Tenant,
             video_script=video_script,
             feedback_video_script_template=feedback_video_script_template,
             time_limit=time_limit,
-            instruction_media_link=instruction_media_link
+            instruction_media_link=instruction_media_link,
+            notice_board=notice_board,
+            culture_skills_to_evaluate=culture_skills_to_evaluate,
+            tag=tag,
+            score_config=score_config,
+            generate_feedback=generate_feedback,
+            is_personality_game=is_personality_game
+
         )
 
         test_questions = []
@@ -506,6 +523,8 @@ def create_test(tenant: Tenant,
                 key_learning_skills=kls,
                 snippet_url=question.get('snippet_url'),
                 question_insight=question.get("question_insight"),
+                que_explanation=question.get("que_explanation"),
+                que_marks=question.get('que_marks')
 
             )
 
@@ -587,6 +606,8 @@ def update_test(tenant: Tenant,
                 report_description:str,
                 category: str,
                 is_single_select:bool,
+                score_visible:bool,
+                explanation_visible:bool,
                 psychometric_report_config:str,
                 personality_model: str,
                 skill_domain: str,
@@ -596,7 +617,13 @@ def update_test(tenant: Tenant,
                 feedback_script_video_link:str,
                 feedback_video_script_template:str,
                 time_limit:int,
-                instruction_media_link:str
+                instruction_media_link:str,
+                notice_board: str,
+                culture_skills_to_evaluate: dict,
+                tag: str,
+                score_config:dict,
+                generate_feedback:bool,
+                is_personality_game:bool
                 ) -> tuple[Test, list[TestQuestion]]:
     
     try:
@@ -733,6 +760,10 @@ def update_test(tenant: Tenant,
             test.category = category
         if is_single_select and test.is_single_select != is_single_select:
             test.is_single_select = is_single_select
+        if score_visible and test.score_visible != score_visible:
+            test.score_visible = score_visible
+        if explanation_visible and test.explanation_visible != explanation_visible:
+            test.explanation_visible = explanation_visible
         if psychometric_report_config and test.psychometric_report_config != psychometric_report_config:
             test.psychometric_report_config = psychometric_report_config
         if personality_model and test.personality_model != personality_model:
@@ -752,6 +783,22 @@ def update_test(tenant: Tenant,
             test.time_limit = time_limit
         if instruction_media_link and test.instruction_media_link != instruction_media_link:
             test.instruction_media_link = instruction_media_link
+        if notice_board and test.notice_board != notice_board:
+            test.notice_board = notice_board
+        if culture_skills_to_evaluate and test.culture_skills_to_evaluate != culture_skills_to_evaluate:
+            test.culture_skills_to_evaluate = culture_skills_to_evaluate
+
+        if tag and test.tag != tag:
+            test.tag = tag
+        if score_config and test.score_config != score_config:
+            test.score_config = score_config
+
+        if generate_feedback and test.generate_feedback != generate_feedback:
+            test.generate_feedback = generate_feedback
+        
+        if is_personality_game and test.is_personality_game != is_personality_game:
+            test.is_personality_game = is_personality_game
+            
         test.save()
 
         # Update or create test questions
@@ -768,6 +815,12 @@ def update_test(tenant: Tenant,
                     
                     if question.get("question_insight") and test_q.question_insight != question.get("question_insight"):
                         test_q.question_insight = question.get("question_insight")
+
+                    if question.get("que_explanation") and test_q.que_explanation != question.get("que_explanation"):
+                        test_q.que_explanation = question.get("que_explanation")
+                    
+                    if question.get("que_marks") and test_q.que_marks != question.get("que_marks"):
+                        test_q.que_marks = question.get("que_marks")
 
                     if question.get("gpt_prompt_override") and test_q.gpt_prompt_override != question.get("gpt_prompt_override"):
                         test_q.gpt_prompt_override = question.get("gpt_prompt_override")
@@ -843,6 +896,8 @@ def update_test(tenant: Tenant,
                     ),
                     snippet_url=question.get('snippet_url'),
                     question_insight=question.get("question_insight"),
+                    que_explanation=question.get('que_explanation'),
+                    que_marks=question.get('que_marks')
 
                 )
                 test_questions.append(test_q)
@@ -915,7 +970,8 @@ def create_test_question_answer_session(tenant: Tenant,
                                         participant_id: str,
                                         is_signature_bot: bool,
                                         is_idp_discussion_opted:bool,
-                                        intake_id: str) -> TestAttemptSession:
+                                        intake_id: str,
+                                        signature_session_id: str) -> TestAttemptSession:
     """
     Creates a test question answer session for a participant.
 
@@ -990,42 +1046,62 @@ def create_test_question_answer_session(tenant: Tenant,
     if is_signature_bot:
         signature_bot = SignatureBot.objects.get(tenant_id=tenant.uid, bot_id=test_id, deleted=0)
         test_id = signature_bot.uid
-    
-    test_attempt_session = TestAttemptSession.objects.create(
-        tenant_id=tenant.uid,
-        test_id=test_id,
-        participant_id=participant_id,
-        test_invite_id=test_invite_id,
-        started_at=now,
-        expires_at=now + datetime.timedelta(minutes=30),
-        is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
-        is_idp_discussion_opted=is_idp_discussion_opted,
-        intake_id=intake_id,
-        is_signature_bot=is_signature_bot
-    )
+
+        
+    test_attempt_session = None
+    if signature_session_id:
+        test_attempt_session = TestAttemptSession.objects.filter(deleted=False, uid=signature_session_id).first()
+    if not test_attempt_session:
+        test_attempt_session = TestAttemptSession.objects.create(
+            tenant_id=tenant.uid,
+            test_id=test_id,
+            participant_id=participant_id,
+            test_invite_id=test_invite_id,
+            started_at=now,
+            expires_at=now + datetime.timedelta(minutes=30),
+            is_checkin_type= test.is_checkin_type if not is_signature_bot else False,
+            is_idp_discussion_opted=is_idp_discussion_opted,
+            intake_id=intake_id,
+            is_signature_bot=is_signature_bot
+        )
 
     logger.info("created test_attempt_session for tenant %s", tenant.uid)
 
     if test and  test.scenario_case == ScenarioCaseChoices.game:
         # initializing first question
+        first_question_text = ''
+        if test.test_type == TestTypeChoices.test:
+            question = TestQuestion.objects.filter(deleted=False, test_id=test.uid).first()
+            first_question_text = format_game_next_que(test, question)
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=question.uid,
+                question_text = first_question_text
+            )
+        else:
+            for i in range(3):
+                logger.info("generating first question for test %s, attempt %d", test_id, i+1)
+                first_question_text = gemini_chat_completion(
+                                        prompt=test.gpt_prompt_override,
+                                        previous_conv=[{
+                                            "role": "user",
+                                            "text": "START"
+                                        }],
+                                        temperature=0,
+                                        top_p=0,
+                                    )
+                if not validate_llm_output_minimal(first_question_text):
+                    logger.warning("LLM output did not meet minimal requirements")
+                    continue
+                break
 
-        first_question_text = gemini_chat_completion(
-                                prompt=test.gpt_prompt_override,
-                                previous_conv=[{
-                                    "role": "user",
-                                    "text": "START"
-                                }],
-                                temperature=0,
-                                top_p=0,
-                                # models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
-                            )
-
-        TestQuestionResponse.objects.create(
-            tenant_id=test_attempt_session.tenant_id,
-            test_attempt_session_id=test_attempt_session.uid,
-            question_id=str(test_attempt_session.uid) + f'-1',
-            question_text = first_question_text
-        )
+            TestQuestionResponse.objects.create(
+                tenant_id=test_attempt_session.tenant_id,
+                test_attempt_session_id=test_attempt_session.uid,
+                question_id=str(test_attempt_session.uid) + f'-1',
+                question_text = first_question_text
+            )
 
     return test_attempt_session
 
@@ -1089,7 +1165,6 @@ def create_test_question_answer(tenant: Tenant,
         if not test_question_response:
             raise serializers.ValidationError("no question response found for this test attempt session")
         # saving response text or response file
-
         test_question_response.response_file = response_file
         test_question_response.response_text = response_text
         test_question_response.evaluation_status = TestQuestionResponseEvaluationStatusChoices.success
@@ -1100,7 +1175,7 @@ def create_test_question_answer(tenant: Tenant,
         test_question_response.refresh_from_db()
 
         print(test_question_response.response_text)
-        return process_dynamic_game(
+        return process_game(
             test=test,
             test_question_response=test_question_response,
             test_attempt_session=test_attempt_session
@@ -1485,6 +1560,75 @@ def process_dynamic_mcq_response(test_question_response: TestQuestionResponse, i
         
 
 #*********************** Process Dynamic MCQ response end *******************************
+
+def process_static_mcq_response(test_question_response: TestQuestionResponse, is_whatsapp: bool = False):
+    """This function processes the response of a static multiple-choice question (MCQ) in a test session.
+    The function retrieves the related test question and test attempt session from the database. It checks if the test session is already completed, and if so, it returns the test question response without further processing.
+    The function then updates the metadata of the test question response with the question from the test attempt session's feedback summary. It also retrieves the related test from the database.
+    The function generates a comment on the user's decision using the `generic_completion` function and updates the test question response with this comment. It also sets the `mcq_skill` field to 'NA' and the `evaluation_status` field to 'success'.
+    If the current question is the last question in the test, the function marks the test session as completed and generates a summary of the user's decisions throughout the test. It also generates a list of skills using the `get_dynamic_mcq_skills_prompt` and `generic_completion` functions.
+    The function then generates a session report link and updates the `SkillsRating` object related to the participant with the total number of questions attempted and total tests attempted.
+    Parameters:
+    test_question_response (TestQuestionResponse): The test question response object to be processed.
+    is_whatsapp (bool, optional): A flag indicating whether the test is conducted on WhatsApp. Defaults to False.
+    Returns:
+    TestQuestionResponse: The updated test question response object.
+    Example:
+    >>> process_static_mcq_response(test_question_response_obj)
+    <TestQuestionResponse: TestQuestionResponse object (1)>
+    """     
+    
+    test_attempt_session = TestAttemptSession.objects.get(uid=test_question_response.test_attempt_session_id)
+
+    logger.info(f"[process_static_mcq_response]: {test_question_response.uid}, and test_attempt_session: {test_attempt_session.uid}")
+    
+    if test_attempt_session.status == TestAttemptSessionStatusChoices.completed:
+        logger.info(f"Static MCQ Test Session is already completed: {test_attempt_session.uid}")
+        return test_question_response
+
+    # Check if it's the last question
+    test = Test.objects.get(uid=test_attempt_session.test_id)
+    total_responses = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid, deleted=0).order_by("created")
+    is_last_question = test.total_question == total_responses.count()
+
+    if is_last_question:
+        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+        test_attempt_session.finished_at = timezone.now()
+
+        # Summarize attempt
+        decision_map = ""
+        for response in total_responses:
+            q = TestQuestion.objects.get(uid=response.question_id)
+            decision_map += f"Q: {q.question}\nA: {response.response_text}\n\n"
+
+        prompt = f"""
+            \n\nHuman:
+            conversation: {decision_map}
+
+            Evaluate the user's choice. Was it correct or not? Comment briefly on what the correct choice is, why it's correct, and what learning the user should take away. Keep it under 100 words.
+            
+
+            Return the response as a JSON with two keys:
+            "congratulations" → Congratulation. You have completed the [Title]. You have achieved a score of [x out of 100].
+            "feedback" → Provide 50 words of feedback regarding the answers of the options chosen by the user, and suggest if they could have done anything better.
+            \n\nAssistant:
+            """
+
+        session_summary_json = generic_completion(prompt, 400)
+        try:
+            # import json
+            session_summary_data = json.loads(session_summary_json)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON returned from generic_completion")
+            session_summary_data = {
+                "congratulations": "",
+                "feedback": session_summary_json
+            }
+
+        test_attempt_session.mcq_summary = json.dumps(session_summary_data)
+        test_attempt_session.save(update_fields=["status", "finished_at", "mcq_summary", "updated"])
+
+    return test_question_response
 
 
 
@@ -1911,6 +2055,9 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
     if test.test_type == TestTypeChoices.dynamic_mcq:
         return process_dynamic_mcq_response(test_question_response)
+    
+    if test.scenario_case == 'game':
+        return process_static_mcq_response(test_question_response)
 
     test_attempt_session.current_question_idx = question.question_number
 
@@ -2228,6 +2375,10 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
 
         if test.scenario_case in [ScenarioCaseChoices.psychometric, ScenarioCaseChoices.process_training]:
             feedback_text = "No feedback..."
+            go_for_feedback = False
+
+        if not test.generate_feedback:
+            feedback_text = ""
             go_for_feedback = False
         
         if go_for_feedback:
@@ -2842,16 +2993,17 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         articles=test.articles,
                                         scenario_summary=test.scenario_summary,)
         
-        feedback_text = generic_completion(prompt=prompt,
-                                           tokens=1200, 
-                                           fallback_text="Feedback could not be generated",
-                                           is_free=test.is_free,
-                                           instruction="Please always respond within 150 tokens in summary format. Always respond in a Markdown language."
-                                           )
-            
-        test_question_response.feedback_text = feedback_text
-        update_fields.append("feedback_text")
-        logger.info(f"************dynamic discussion feedback : {feedback_text}")
+        if not test.generate_feedback:
+            feedback_text = generic_completion(prompt=prompt,
+                                            tokens=1200, 
+                                            fallback_text="Feedback could not be generated",
+                                            is_free=test.is_free,
+                                            instruction="Please always respond within 150 tokens in summary format. Always respond in a Markdown language."
+                                            )
+                
+            test_question_response.feedback_text = feedback_text
+            update_fields.append("feedback_text")
+            logger.info(f"************dynamic discussion feedback : {feedback_text}")
         
         user_info = UserAttribute.objects.get(user_id=test_attempt_session.participant_id)
 
@@ -3112,7 +3264,7 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
         test_question_response.relevance = relevance
         update_fields.append("relevance")
 
-        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence"
+        kls_prompt = f"pick most suitable 2 skills for this question: {question_text} from the list of these skills : {test.skills_to_evaluate}. please separate them with comma. do not add extra sentence.         NOTE : Always detact language of the question and entire output must be in same language."
         logger.info(f"************dynamic discussion kls prompt : {kls_prompt}")
         kls = generic_completion(kls_prompt, 50, 'no kls',test.is_free)
         
@@ -3123,6 +3275,8 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
             Question: {question_text}
 
             For given "Question" and the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single sentence with maximum 25 words, do not append it with "Key Learning:"
+                    NOTE : Always detact language of the TestTitle and entire output must be in same language.
+
             """
 
         logger.info(f"************dynamic discussion klp prompt : {klp_prompt}")
@@ -3143,9 +3297,62 @@ def get_relevency_kls_klp(test_question_response, question_text, test):
     except Exception as e:
         logger.error(f"@@@@@@@@@@@!!!!!!!!!!!!!!!!Error while getting relevancy, kls, klp: {e}", exc_info=True)
 
+@timeit
+def validate_llm_output_minimal(output: dict) -> bool:
+    required_fields = {
+        "context": {
+            "section": str
+        },
+        "details": {
+            "question": str
+        },
+        "content": {
+            "instruction": str,
+            "options": {
+                "A": str,
+                "B": str,
+                "C": str,
+                "D": str
+            }
+        }
+    }
+
+    def check_min_required(obj, required):
+        if not isinstance(obj, dict):
+            try:
+                obj = json.loads(obj)
+            except (ValueError, TypeError):
+                return False
+        for key, expected in required.items():
+            if key not in obj:
+                return False
+            if isinstance(expected, dict):
+                if not isinstance(obj[key], dict):
+                    return False
+                if not check_min_required(obj[key], expected):
+                    return False
+            elif not isinstance(obj[key], expected):
+                return False
+        return True
+
+    return check_min_required(output, required_fields)
+
+def sanitize_llm_output(output: dict) -> dict:
+    """
+    Removes the 'options' key from 'details' if it exists.
+    """
+    if not isinstance(output, dict):
+        try:
+            output = json.loads(output)
+        except (ValueError, TypeError):
+            return output
+    if isinstance(output, dict) and "details" in output:
+        if isinstance(output["details"], dict) and "options" in output["details"]:
+            del output["details"]["options"]
+    return json.dumps(output)
 
 @timeit
-def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
+def process_game(test_question_response:TestQuestionResponse, test:Test
                          ,test_attempt_session:TestAttemptSession):
     
     logger.info("$$$$$$$$$$$$$$$$$$$$$$$$4 Handled by dynamic game thred $$$$$$$$$$$")
@@ -3178,78 +3385,136 @@ def process_dynamic_game(test_question_response:TestQuestionResponse, test:Test
                                     "role": "user",
                                     "text": "START"
                                 }]
-    for question_response in TestQuestionResponse.objects.filter(
+    
+    test_question_responses = TestQuestionResponse.objects.filter(
         test_attempt_session_id=test_attempt_session.uid,
         deleted=False
-    ):
-        print(question_response.question_text)
-        print(question_response.response_text)
-        previous_conversation.append({
-            "text": question_response.question_text,
-            "role": "model"
-        })
-        previous_conversation.append({
-            "text": question_response.response_text,
-            "role": "user"
-        })
-
-
-    next_question = gemini_chat_completion(
-        prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
-        previous_conv=previous_conversation,
-        temperature=0,
-        top_p=0,
-        # models=["gemini-1.5-flash-001","gemini-1.5-pro-001","gemini-1.0-pro"],
     )
+    
+    next_question = ''
+    score_match = ''
+    question_id = ''
+    if test.test_type == TestTypeChoices.test:
+        previous_question = TestQuestion.objects.get(uid=test_question_response.question_id)
+        next_qu_instance = TestQuestion.objects.filter(deleted=False, test_id=test.uid, question_number = previous_question.question_number + 1).first()
+        is_last_question = test.total_question == test_question_responses.count()
+        if is_last_question:
+            qna = []
+            for response in test_question_responses:
+                q = TestQuestion.objects.get(uid=response.question_id)
+                
+                temp_q = {
+                    'question': q.question,
+                    'correct_answer': q.mcq_answer,
+                    'user_answer': response.response_text,
+                    'que_explanation': q.que_explanation,
+                    'que_marks': q.que_marks,
+                }
 
-    print(next_question)
-    # now checking if the next_question is last/end conversation with score
+                if isinstance(q.mcq_options.get(response.response_text.strip()), str) == False:
+                    marks = q.mcq_options.get(response.response_text.strip()).get('marks')
+                    temp_q['marks'] = int(marks)
+                qna.append(temp_q)
+            
+            score, feedback = generate_endgame_result(test, test.title, qna, test.is_personality_game)
+            test_attempt_session.test_score = score
+            test_attempt_session.finished_at = timezone.now()
+            test_attempt_session.status = TestAttemptSessionStatusChoices.completed
 
-    score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
-    if score_match:
-        score = int(score_match.group(1))  # Extract the achieved score
-        # total_score = int(score_match.group(2))  # Extract the total score
-        test_attempt_session.test_score = score
-        test_attempt_session.finished_at = timezone.now()
-        test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+            test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
+            print("Test completed")
 
-        test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
-        print("Test completed")
+            next_question = json.dumps(feedback)
+            
+        else: 
+            next_question = format_game_next_que(test, next_qu_instance)
+            if next_qu_instance:
+                question_id = next_qu_instance.uid
+            
+    else:
+        for question_response in test_question_responses:
+            print(question_response.question_text)
+            print(question_response.response_text)
+            previous_conversation.append({
+                "text": question_response.question_text,
+                "role": "model"
+            })
+            previous_conversation.append({
+                "text": question_response.response_text,
+                "role": "user"
+            })
 
-        start_time = time.time()
-        while True:
-            end_time = time.time()
-            if end_time - start_time > 92:
-                logger.error(
-                    f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
-                raise ValueError("unable to evaluate response: %s",
-                                 test_question_response.uid)
+        question_id = str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}'
+        
+        for i in range(3):
+            logger.info(f"Attempt {i+1} to generate next question")
+            next_question = gemini_chat_completion(
+                prompt = test.gpt_prompt_override, # we are saving custom prompt in this field
+                previous_conv=previous_conversation,
+                temperature=0,
+                top_p=0,
+            )
+            score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
 
-            time.sleep(4)
+            if not score_match and not validate_llm_output_minimal(next_question):
+                logger.error(f"Invalid LLM output: {next_question}")
+                continue
 
-            not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
-                test_attempt_session_id=test_attempt_session.uid,
-                deleted=0
-            ).exclude(
-                uid=test_question_response.uid
-            ).exclude(
-                evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
-            ).count()
+            if not score_match:
+                next_question = sanitize_llm_output(next_question)
 
-            if not_evaluated_test_responses_count == 0:
-                end = time.time()
-                logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
-                break
+            break
+
+        print(next_question, type(next_question))
+        
+        
+        # now checking if the next_question is last/end conversation with score
+
+        score_match = re.search(r'achieved a score of (\d+) out of (\d+)', next_question)
+        if score_match:
+            score = int(score_match.group(1))  # Extract the achieved score
+            # total_score = int(score_match.group(2))  # Extract the total score
+            test_attempt_session.test_score = score
+            test_attempt_session.finished_at = timezone.now()
+            test_attempt_session.status = TestAttemptSessionStatusChoices.completed
+
+            test_attempt_session.save(update_fields=['test_score', 'finished_at', 'status'])
+            print("Test completed")
+
+            start_time = time.time()
+            while True:
+                end_time = time.time()
+                if end_time - start_time > 92:
+                    logger.error(
+                        f"[Time Limit] Unable to evaluate response: {test_question_response.uid}")
+                    raise ValueError("unable to evaluate response: %s",
+                                    test_question_response.uid)
+
+                time.sleep(4)
+
+                not_evaluated_test_responses_count = TestQuestionResponse.objects.filter(
+                    test_attempt_session_id=test_attempt_session.uid,
+                    deleted=0
+                ).exclude(
+                    uid=test_question_response.uid
+                ).exclude(
+                    evaluation_status=TestQuestionResponseEvaluationStatusChoices.success
+                ).count()
+
+                if not_evaluated_test_responses_count == 0:
+                    end = time.time()
+                    logger.info(f"####################### process_test_response: processing LAST QUESTION took {end - start_time:.2f} #######################")
+                    break
 
 
-            return test_question_response
+                return test_question_response
 
 
 
     new_test_question_response = TestQuestionResponse.objects.create(
         tenant_id=test_attempt_session.tenant_id,
         test_attempt_session_id=test_attempt_session.uid,
-        question_id=str(test_attempt_session.uid) + f'-{len(previous_conversation) + 1}',
+        question_id=question_id,
         question_text = next_question
     )
     
@@ -3388,17 +3653,19 @@ def process_dynamic_threads_response_by_user(test_question_response: TestQuestio
         logger.info(f"***************question text is {question_text}**************")
 
         if is_last_response:
-            get_feedback(question, test_question_response,question_text,test)
+            if test.generate_feedback:
+                get_feedback(question, test_question_response,question_text,test)
             if not test.is_free:
                 get_relevency_kls_klp(test_question_response, question_text, test)
         else:
-            threading.Thread(target=get_feedback,
-                                kwargs={
-                                        "question":question,
-                                        "test_question_response":test_question_response,
-                                        "question_text":question_text,
-                                        "test":test
-                                }).start()
+            if test.generate_feedback:
+                threading.Thread(target=get_feedback,
+                                    kwargs={
+                                            "question":question,
+                                            "test_question_response":test_question_response,
+                                            "question_text":question_text,
+                                            "test":test
+                                    }).start()
             
             if not test.is_free:
                 logger.info(f"@@@@@@@@@@@@@@@@ getting relevancy, kls, klp in THREAD @@@@@@@@@@@@@@@@@@@@@@")
@@ -4001,7 +4268,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
 
         test_data = []
         for test_response in test_responses:
-            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "Feedback couldn't be generated.",})
+            test_data.append({'response':test_response.response_text,'responder_type':test_response.responder_type,'feedback':test_response.feedback_text or "",})
         logger.info({"************test_responses":test_data})
         for test_response in test_responses:
             if test_response.responder_type == QuestionForChoices.user:
@@ -4011,7 +4278,7 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
                     else:
                         data[f"question"] = chat_conversation[0].split(":", 1)[1].strip('" \'')
                 data["response"] = test_response.response_text.strip('" \'')
-                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "Feedback couldn't be generated.")
+                data["feedback"] = re.sub(r'\([^)]*\)', '',  test_response.feedback_text or "")
                 
                 logger.info(f"############### get_meeting_report_from_test_attempt_session:  kls_klp_in_response: {test_response.kls_klp} ###############")
                 
@@ -4120,7 +4387,8 @@ def get_meeting_report_from_test_attempt_session(test_attempt_session: TestAttem
         'feedback_video_script': test_attempt_session.feedback_video_script if test_attempt_session.feedback_video_script else test.feedback_video_script_template,
         'video_script': test.video_script,
 
-        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link
+        'feedback_video_link': test_attempt_session.feedback_video_link if test_attempt_session.feedback_video_link else test.feedback_script_video_link,
+        'notice_board': test.notice_board,
 
     }
     
@@ -5102,7 +5370,7 @@ def send_report_link_to_email(test: Test, test_attempt_session: TestAttemptSessi
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
-    if client:
+    if client and report_on == True:
         logger.info(f" << Client Name: {client.client_name}>>")
         report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
         if client.email_address_list:
@@ -5187,7 +5455,7 @@ def send_report_link_to_email_orch(test: Test, test_attempt_session: TestAttempt
     # fatchin client information if any and adding its email address list to test's emailaddress list.
     report_on = test.email_candidate
     client = get_client_info_from_user_detail(tenant_id=test_attempt_session.tenant_id,email=participant_email)
-    if client:
+    if client and report_on == True:
         logger.info(f" << Client Name: {client.client_name}>>")
         report_on = client.report_on if (client.report_on is not None and test.scenario_case not in ['assessment']) else report_on
 
@@ -5607,6 +5875,7 @@ def get_interview_feedback(title,description,background, question_text,candidate
             NOTE: Always assume a senior executive candidate interviewing for a critical role. 
             NOTE: When appropriate, provide feedback on executive presence and other attritbutes specific for a executive interview.
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
             \n\nAssistant
                 """).substitute(
                     title=title,
@@ -5664,6 +5933,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 ${format_prompt}
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5690,6 +5960,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                 ${format_prompt}
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5717,6 +5988,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                  
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5745,6 +6017,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
                  
                 ${user_feedback_prompt}
                 NOTE : Always maintain high grammar and spelling accuracy.
+                NOTE : Always(must) detect language of the Title only and provide feedback in same language.
                 \n\nAssistant:
                 """
             )
@@ -5804,6 +6077,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                     NOTE : If the Manager Comment is a question provide feedback on how the manager can ask better questions.
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+                    NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
                 """
                         )
@@ -5829,6 +6104,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
             NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
             \n\nAssistant:
             ''')
 
@@ -5857,6 +6134,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -5883,6 +6162,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -5910,6 +6191,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE : Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -5934,6 +6217,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
                 NOTE : If the Sales rep Comment is a question, provide feedback on how the Sales rep can ask better questions.
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -5961,6 +6246,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                     NOTE: Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                     NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                     \n\nAssistant:
 
                 """
@@ -5986,6 +6273,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the feedback and only provide the feedback.
                 NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always detact language of the title and entire output must be in same language.
+
                 \n\nAssistant:
 
             ''')
@@ -6023,6 +6312,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6051,6 +6342,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6081,6 +6374,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6112,6 +6407,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6142,6 +6439,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6173,6 +6472,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
                 '''
                 )
@@ -6200,6 +6501,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+            NOTE : Always detact language of the main_context and entire output must be in same language.
+
                 \n\nAssistant:
 
                 '''
@@ -6229,6 +6532,8 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 NOTE: Do not show the word count.
 
                 NOTE: Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                    NOTE : Always detact language of the context and entire output must be in same language.
+
                 \n\nAssistant:
 
                 '''
@@ -6457,6 +6762,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 NOTE: Do not show the word count.
 
                 NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output.
+                
+                    NOTE : Always detact language of the context and entire output must be in same language.
                 \n\nAssistant
 
                 """
@@ -6532,6 +6839,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                     NOTE: Always follow the format but never mention in the response.
                     NOTE: Never give brackets to show the response.
                     Note: Never ask a question that has been asked before. Never repeat the same response.
+                    NOTE : Always detact language of the context and entire output must be in same language.
+
                     \n\nAssistant:
                 """).substitute(
                     test_main_context=main_context,
@@ -6563,6 +6872,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                         NOTE: Do not show the word count.
 
                         NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the question and only provide the question.
+                            NOTE : Always detact language of the context and entire output must be in same language.
+
                         \n\nAssistant:
                         '''
                     ).substitute(test_main_context=test_main_context,
@@ -6584,6 +6895,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             NOTE: Please respond as ${question_for} only. Do not respond as any other persona.
             NOTE: Please respond in not more than 180 words. The total number of words should not be more than 150 words.
             NOTE: Always directly start responding without name in front.
+            NOTE : Always detact language of the context and entire output must be in same language.
+
             \n\nAssistant:
             """
         ).substitute(test_main_context=test_main_context,
@@ -6657,6 +6970,8 @@ def get_overridden_prompt(prompt_template: str,
             ${format_prompt}
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
+
             \n\nAssistant:            
 
             """
@@ -6685,6 +7000,8 @@ def get_overridden_prompt(prompt_template: str,
 
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
+
             \n\nAssistant:
             """
         )
@@ -6760,6 +7077,7 @@ def get_journaling_feedback_prompt(prompt_template: str,
             ${format_prompt}
             ${user_feedback_prompt}
             NOTE : Always maintain high grammar and spelling accuracy.
+            NOTE : Always(must) detect language of the Title only and provide feedback in same language.
             \n\nAssistant:
             """
         )
@@ -6801,6 +7119,7 @@ def emplyee_feedback_prompt(prompt_template: str,
         
         ${user_feedback_prompt}
         NOTE : Always maintain high grammar and spelling accuracy.
+        NOTE : Always(must) detect language of the Title only and provide feedback in same language.
         \n\nAssistant:
         """
     )
@@ -6837,6 +7156,7 @@ def get_question_key_learning_point(test_title,
         Question: ${question_text}
 
         For given "Question" for the "TestTitle" extract a key learning from an ideal answer to the "Question"  as "Output". The "Output" should be a single paragraph using full words and sentences, do not append it with "Key Learning:".
+        NOTE : Always detact language of the TestTitle and entire output must be in same language.
 
         Output:
         \n\nAssistant:
@@ -6890,6 +7210,8 @@ For given "Question" for the "TestTitle" extract skills that can be learned from
 Choose skills from this list only: ${skills_name_list}
 NOTE: Choose only one or two skills from the list. Do not choose more than two skills.
 NOTE: Do not provide any help text or any other text in the "Output" other than the skills.
+        NOTE : Always detact language of the TestTitle and entire output must be in same language.
+
 Output:
 \n\nAssistant:
 """
@@ -7386,6 +7708,9 @@ def submit_feedback(
     question = TestQuestion.objects.filter(tenant_id=tenant_id,uid=question_id).first()
     test = Test.objects.filter(tenant_id=tenant_id,uid=test_attempt_session.test_id).first()
 
+    if not test.generate_feedback:
+        return ''
+
     test_question_response = TestQuestionResponse.objects.get_or_create(
                                 tenant_id=tenant_id,
                                 test_attempt_session_id=session_id,
@@ -7634,6 +7959,28 @@ def get_scenario_prompt(scenario_type,information,skill_count=2,question_count=3
         \n\nAssistant:
 
     """
+
+    elif scenario_type == 'normal_transcript_static':
+        prompt = """
+        \n\nHuman:
+        Analyze the Coaching session summary below between a user and an AI Coach. 
+        {Summary} -
+        %s -
+
+        Based on the summary above, create a 50-100-word scenario, Title, and %s associated questions that can test the skills, OR the limiting the beliefs of the user.   
+
+
+        The Question should be numbered.
+        Here the format looks like :
+        "Title:",
+        "Description:”,
+        "Question 1:",
+        'The Question should be numbered.'
+        NOTE: The title should NEVER be less than 8 words. Make the title detailed for the description.
+        NOTE: must Follow the OUTPUT Format.
+        \n\nAssistant:
+        """
+        return prompt % (information, question_count)
 
     elif scenario_type == 'observation_static':
         prompt = """
@@ -8618,6 +8965,100 @@ def extract_text_only(input_text):
     cleaned_text = ' '.join([st.replace("-","").strip().capitalize()  for st in text_without_digits.replace("."," ").strip().split()])
     return cleaned_text
 
+def extract_transcript_test(text):
+    text = text.replace("KLS", "Skills")
+    text = text.replace("KLP", "Takeaway")
+    text = text.replace("Custom prompt", "Prompt")
+    text = text.replace("*","")
+
+    title_pattern = re.compile(r'Title\s*:\s*(.+)')
+    description_pattern = re.compile(r'Description\s*:\s*(.+)')
+    statement_pattern = re.compile(r'Statement\s*:\s*(.+)')
+    # background_pattern = re.compile(r'Background\s*:\s*(.+)')
+
+    question_pattern = re.compile(r'Question\s*(\d*)\s*:\s*(.+)')
+    prompt_pattern = re.compile(r'Prompt\s*(\d*)\s*:\s*(.+)')
+    takeaway_pattern = re.compile(r'Takeaway\s*(\d*)\s*:\s*(.+)')
+    skills_pattern = re.compile(r'Skills\s*(\d*)\s*:\s*(.+)')
+    rating_pattern = re.compile(r'Rating\s*:\s*(\d+)')
+
+    # Extracting information using regular expressions
+    title_match = title_pattern.search(text)
+    description_match = description_pattern.search(text)
+    rating_match = rating_pattern.search(text)
+    statement_match = statement_pattern.search(text)
+    # background_match = background_pattern.search(text)
+
+
+
+
+    # If title_pattern doesn't match, try to find the title as the first line before the description
+    if not title_match:
+        pattern = re.compile(r'^(?:Title\s*:\s*)?(?:"(.*?)"|([^"\n]*))\n*Description\s*:')
+        title_match = pattern.search(text)
+        if not title_match:
+            # Extract title (first quoted string or first line before description)
+            title_match = re.search(r'^"([^"]+)"', text)
+            title = title_match.group(1) if title_match else None
+            if not title:
+                raise ValueError("Invalid format. Unable to extract the title.")
+
+
+    if not (title_match and description_match and  question_pattern.findall(text)):
+        invalid_fields = []
+
+        if not title_match:
+            invalid_fields.append("title")
+
+        if not description_match:
+            invalid_fields.append("description")
+        if not question_pattern.findall(text):
+            invalid_fields.append("question pattern")
+
+        raise ValueError(f"Invalid format. Unable to extract necessary information. Invalid fields: {', '.join(invalid_fields)}")
+
+    title = title_match.group(1) if title_match.group(1) else title_match.group()
+    description = f'{clean_text(description_match.group(1))}'
+    questions = []
+    for match in question_pattern.finditer(text):
+        question_number = match.group(1) if match.group(1) else len(questions) + 1
+        question_text = clean_text(match.group(2))
+        question_data = {
+            'text': question_text,
+            'prompt': "",
+        }
+        questions.append(question_data)
+
+    informations = {
+        'title': title.replace('"',''),
+        'description': description,
+        'questions': questions
+    }
+
+    title = informations['title']
+
+    question_info = []
+    skill_to_evaluate = set()
+
+    for que in informations['questions']:
+        question_info.append({
+            "question": que["text"],
+            "question_type": "subjective",
+            "gpt_prompt_override": clean_text(que["prompt"]),
+            "subjective_answer": "",
+            "key_learning_point": "no key learning point for this",
+            "key_learning_skills": 'communication skills'
+        })
+
+    
+
+    skill_to_evaluate = ', '.join(['communication skills'])
+
+    informations['skill_to_evaluate'] = skill_to_evaluate
+    informations['is_transcript_only'] = True
+ 
+    return title, description, question_info, skill_to_evaluate, 8, informations
+
 # for static scenarios
 def extract_information(text):
     """
@@ -8723,7 +9164,7 @@ def extract_information(text):
         questions.append(question_data)
 
     informations = {
-        'title': title,
+        'title': title.replace('"',''),
         'description': description,
         'rating': rating,
         'questions': questions
@@ -8826,7 +9267,7 @@ def extract_information_dynamic_scenario(text,candidate_type="Manager",num_quest
             orchestrated_conversation_details['start_with_user'] = start_with_user
 
       infomation = {
-        'title': title,
+        'title': title.replace('"',''),
         'description': description,
         'question_info': question_info,
         "candidate_type": data['Candidate Type'].capitalize(),
@@ -9910,7 +10351,9 @@ def create_scenario_from_site_context(url,
                                       previous_session_id=None,
                                       by_pass_access_token=False,
                                       game_single_select=False,
-                                      available_case=None
+                                      available_case=None,
+                                      llm_order = ['gemini', 'anthropic', 'gpt'],
+                                      model_order= {}
                                       ):
     """
     This function generates a scenario based on the meta information of a given URL.
@@ -9989,9 +10432,12 @@ def create_scenario_from_site_context(url,
     elif type_of_test == TestTypeChoices.test:
         available_case_types = static_case_types
 
+
     if previous_session_id:
         available_case_types = ['previous_normal_test']
 
+    if flavour == 'normal_transcript_static':
+        available_case_types = ['normal_transcript_static']
     if available_case:
         available_case_types = available_case # it will override 
 
@@ -10065,16 +10511,32 @@ def create_scenario_from_site_context(url,
             title, description, question_info, skill_to_evalaute, scenario_information = "","","","", {}
             orchestrated_details = ""
             rating = 0 
-            for j in range(1):
+            for j, llm in enumerate(llm_order):
+                
+                if j != 0:
+                    case_type = select_other_element(available_case_types,case_type)
                 try:
-
                     logger.info(f"============================flavour:  {case_type} ===================================")
-                    if use_anthropic:
+                    if llm == 'anthropic':
                         logger.info(f'trying scenario creation anthropic for {i +1} time')
-                        scenario = anthropic_completion(prompt,5000)
+                        models = model_order.get('anthropic', 'claude-sonnet-4-20250514')
+                        scenario = anthropic_completion(prompt,5000,models=models)
+                    elif llm == 'gpt':
+                        logger.info(f'trying scenario creation gpt for {i +1} time')
+                        models = model_order.get('gpt', 'gpt-4.1-mini')
+
+                        scenario = gpt3_completion(prompt=prompt, 
+                                                   stop=['User', "coachbots"],
+                                                   engine=models).text
                     else:
                         logger.info(f'trying scenario creation gemini for {i +1} time')
-                        scenario = gemini_completion(prompt)
+                        models = model_order.get('gemini', None)
+                        if models:
+                            models  = [model.strip() for model in models.split(',')]
+                            scenario = gemini_completion(prompt, models=models)
+                        else:
+                            scenario = gemini_completion(prompt)
+
                         scenario = re.sub(r'[#*]', '', scenario)
 
                     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
@@ -10085,78 +10547,88 @@ def create_scenario_from_site_context(url,
                     elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
                         title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_information_dynamic_scenario(text=scenario, 
                                                                                                                                                                    num_questions=3 if is_micro else 6,
-                                                                                                                                                                   start_with_user=start_with_user 
-                                                                                                                                                                   )
+                                                                                                                                                                   start_with_user=start_with_user )
                     else:
-                        title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
+                        if case_type == 'normal_transcript_static':
+                            title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
+                        else:
+                            title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
 
                 except Exception as e:
-                    logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
+                    garbage_scenarios.append(scenario)
+                    rating = 0
+                    logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                        
+                    # logger.exception(f"{'#'*100}  failed to extract information from bison scenario {'#'*100} : {e} ")
                     scd = ScenarioCreationDetails.objects.create(
                             tenant_id=tenant_id,
                             creator_id = creator_user_id if creator_user_id else "system",
                             input = f"{title} : {des}",
                             output = scenario,
                             status = "failed",
-                            reason_of_failure = f"failed to extract information from bison. Reason : {e}"
+                            reason_of_failure = f"failed to extract information from {llm}. Reason : {e}"
                         )
-                    logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
-                    try:
-                        case_type = select_other_element(available_case_types,case_type)
-                        logger.info(f"============================flavour 2:  {case_type} ===================================")
-                        if start_with_user:
-                            site_information += f'\nStart With User: {start_with_user}'
-                        elif case_type == 'dynamic_start_with_user':
-                            start_with_user = random.choice(start_with_user_opt)
-                            site_information += f'\nStart With User: {start_with_user}'
+                    # logger.info(f"{'#'*100}  failed to generate scenario from bison, retrying {'#'*100} ")
+                    # try:
+                    #     case_type = select_other_element(available_case_types,case_type)
+                    #     logger.info(f"============================flavour 2:  {case_type} ===================================")
+                    #     if start_with_user:
+                    #         site_information += f'\nStart With User: {start_with_user}'
+                    #     elif case_type == 'dynamic_start_with_user':
+                    #         start_with_user = random.choice(start_with_user_opt)
+                    #         site_information += f'\nStart With User: {start_with_user}'
 
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
-                            prompt = get_game_prompt(
-                                industry=industry,
-                                information=site_information,
-                                num_of_questions=10,
-                                question_type= 'single' if game_single_select else 'multiple',
-                                candidate_type='manager'
-                                )
-                        else:
-                            prompt = get_scenario_prompt(
-                                information=site_information,
-                                scenario_type=case_type,
-                                question_count=3 if is_micro else 6,
-                            )
-                        if use_anthropic:
-                            logger.info(f'**retrying scenario creation anthropic for {i +1} time')
-                            scenario = anthropic_completion(prompt,5000)
-                        else:
-                            logger.info(f'**retrying scenario creation gemini for {i +1} time')
-                            scenario = gemini_completion(prompt)
+                    #     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                    #         prompt = get_game_prompt(
+                    #             industry=industry,
+                    #             information=site_information,
+                    #             num_of_questions=10,
+                    #             question_type= 'single' if game_single_select else 'multiple',
+                    #             candidate_type='manager'
+                    #             )
+                    #     else:
+                    #         prompt = get_scenario_prompt(
+                    #             information=site_information,
+                    #             scenario_type=case_type,
+                    #             question_count=3 if is_micro else 6,
+                    #         )
+                    #     if use_anthropic:
+                    #         logger.info(f'**retrying scenario creation anthropic for {i +1} time')
+                    #         scenario = anthropic_completion(prompt,5000)
+                    #     else:
+                    #         logger.info(f'**retrying scenario creation gemini for {i +1} time')
+                    #         scenario = gemini_completion(prompt)
                         
-                        if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
-                                                                                                                                                    case_type=case_type,
-                                                                                                                                                    question_count=10,
-                                                                                                                                                    candidate_type='Manager')
-                        elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
-                            title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
-                                                                                                                                                                    num_questions=3 if is_micro else 6,
-                                                                                                                                                                    start_with_user=start_with_user
-                                                                                                                                                                    )
-                        else:
-                            title, description, question_info, skill_to_evalaute,rating,scenario_information = extract_information(scenario)
-                    
+                    #     if type_of_test == TestTypeChoices.dynamic_discussion_thread and scenario_case == ScenarioCaseChoices.game:
+                    #         title,description,question_info,rating,skill_to_evalaute,orchestrated_details, scenario_information = extract_game_type(text=scenario,
+                    #                                                                                                                                 case_type=case_type,
+                    #                                                                                                                                 question_count=10,
+                    #                                                                                                                                 candidate_type='Manager')
+                    #     elif type_of_test == TestTypeChoices.dynamic_discussion_thread:
+                    #         title,description,question_info,rating,skill_to_evalaute,orchestrated_details,scenario_information = extract_information_dynamic_scenario(text=scenario,
+                    #                                                                                                                                                 num_questions=3 if is_micro else 6,
+                    #                                                                                                                                                 start_with_user=start_with_user
+                    #                                                                                                                                           )
 
-                    except Exception as e:
-                        garbage_scenarios.append(scenario)
-                        rating = 0
-                        logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
-                        scd = ScenarioCreationDetails.objects.create(
-                                tenant_id=tenant_id,
-                                creator_id = creator_user_id if creator_user_id else "system",
-                                input = f"{title} : {des}",
-                                output = scenario,
-                                status = "failed",
-                                reason_of_failure = f"failed to generate scenario for following reason : {e}"
-                            )
+                    #     else:
+                    #         if case_type == 'normal_transcript_static':
+                    #             title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_transcript_test(scenario)
+                    #         else:
+                    #             title, description, question_info, skill_to_evalaute,rating, scenario_information = extract_information(scenario)
+
+
+                    # except Exception as e:
+                    #     garbage_scenarios.append(scenario)
+                    #     rating = 0
+                    #     logger.exception(f"{'#'*100}  failed to generate scenario for following reason {'#'*100} : {e} ")
+                    #     scd = ScenarioCreationDetails.objects.create(
+                    #             tenant_id=tenant_id,
+                    #             creator_id = creator_user_id if creator_user_id else "system",
+                    #             input = f"{title} : {des}",
+                    #             output = scenario,
+                    #             status = "failed",
+                    #             reason_of_failure = f"failed to generate scenario for following reason : {e}"
+                    #         )
 
                 if scenario == 'failed to generate scenario':
                     continue
@@ -10190,6 +10662,10 @@ def create_scenario_from_site_context(url,
                 'is_micro': is_micro,
                 'candidate_type': scenario_information.get("candidate_type","Manager"),
             }
+
+            if scenario_information.get('is_transcript_only') != None:
+                test_json['is_transcript_only'] = scenario_information.get('is_transcript_only')
+
             if scenario_information.get('custom_prompt'):
                 test_json['gpt_prompt_override'] = scenario_information.get('custom_prompt')
 
@@ -10995,7 +11471,6 @@ def test_scenario(scenario_case,test_type):
                                                                                                  access_token="",
                                                                                                 tenant_id="62d76be2-b439-4528-9ae4-2af389abb5f5",
                                                                                                 context='{"title":"","data":{"information":"discussing next steps in career ladder & career development stretegies"} }',
-                                                                                                use_anthropic=False,
                                                                                                 type_of_test=test_type,
                                                                                                 flavour=scenario_case,
                                                                                                 available_case = [scenario_case] ,# it will override
@@ -14158,3 +14633,126 @@ def update_ti_des():
 
         Test.objects.bulk_update(updated_test, ['description', 'orchestrated_conversation_details'])
         TestQuestion.objects.bulk_update(updated_question, ['question'])
+
+
+def format_game_next_que(test:Test, question: TestQuestion):
+    is_single_select = test.is_single_select
+    instruction = 'Choose one or more options from A, B, C or D'
+    if is_single_select:
+        instruction = 'Choose one option from A, B, C or D'
+        
+    mcq_options = {}
+    
+    for option_id, opt in question.mcq_options.items():
+        if isinstance(opt, dict):
+            mcq_options[option_id] = opt.get('opt')
+        elif isinstance(opt, str):
+            mcq_options[option_id] = opt
+
+    section = f'Question {question.question_number}' if test.is_personality_game else f'Level {question.question_number}'  
+    question_info = {
+          "context": {
+            'section': section
+          },
+          'details': {
+            'question': question.question
+          },
+          'content': {
+            'instruction': instruction ,
+            'options': mcq_options
+          }
+        }
+
+    return json.dumps(question_info)
+
+
+def generate_endgame_result(test: Test, game_name, questions_with_answers, is_personality_game=False):
+    """
+    questions_with_answers: list of dicts in format:
+    [
+      {
+        "question": "What is the purpose of a Project Charter?",
+        "correct_answer": "To formally authorize a project or a phase",
+        "user_answer": "To manage stakeholder expectations",
+        "que_explanation": "The Project Charter formally authorizes the project and gives the project manager authority to use resources.",
+        "que_marks": "0" could be zero and greater
+      },
+      ...
+    ]
+    """
+
+    if is_personality_game:
+        score = 0
+        logger.info(f"qna: {questions_with_answers}")
+        score_map = {chr(i): i - 64 for i in range(65, 91)}
+
+        for q in questions_with_answers:
+            que_score = q.get("marks",score_map.get(q.get('user_answer')))
+            score += int(que_score)
+
+        logger.info(f"score: {score}, score_map: {score_map}, question: {questions_with_answers}")
+        
+
+        end_message =f"""Congratulations 🎉. You have completed the {game_name}."""
+
+        feedback = ""
+
+        return score, {
+            "end_message": end_message,
+            "feedback": feedback,
+            "score": score
+        }
+
+    total = 0
+    correct = 0
+    score = 0
+    if int(questions_with_answers[0]['que_marks']) == 0:
+        total = len(questions_with_answers)
+        correct = sum(1 for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+    else:
+        total = sum(int(q["que_marks"]) for q in questions_with_answers)
+        correct = sum(int(q["que_marks"]) for q in questions_with_answers if q["user_answer"] == q["correct_answer"])
+
+    score = int((correct / total) * 100) if total > 0 else 0
+
+    
+    # Collect only incorrect ones
+    incorrect = [
+        {
+            "question": q["question"],
+            "correct_answer": q["correct_answer"],
+            "user_answer": q["user_answer"],
+            "que_explanation": q["que_explanation"],
+            'que_marks': q['que_marks']
+        }
+        for q in questions_with_answers if q["user_answer"] != q["correct_answer"]
+    ]
+
+    # End Game Message
+    
+    end_message = f"""Congratulations 🎉. You have completed the {game_name}. \
+    You have achieved a score of {score} out of 100."""
+
+
+    # Feedback with incorrect Qs inside
+    if len(incorrect) == 0:
+        feedback = ("Outstanding performance! You answered all questions correctly, showing excellent conceptual clarity and precision. "
+                    "This demonstrates strong preparation and confidence in applying project management knowledge. "
+                    "Continue practicing advanced scenarios to further refine your skills and ensure readiness for any real-world challenge.")
+    else:
+        feedback_intro = (f"You answered {correct} out of {total} correctly. "
+                          "Review the following incorrect answers with explanations to improve your understanding:\n\n")
+        feedback_details = "\n".join(
+            f"❌ Question: {q['question']}\n"
+            f"   Your Answer: {q['user_answer']}\n"
+            f"   Correct Answer: {q['correct_answer']}\n"
+            f"   Explanation: {q['que_explanation']}\n"
+            f"   {'Marks: ' + str(q['que_marks']) if q['que_marks'] > 0 else ''}"
+            for q in incorrect
+        )
+        feedback = feedback_intro + feedback_details
+
+    return score, {
+        "end_message": end_message,
+        "feedback": feedback
+    }

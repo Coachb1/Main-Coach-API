@@ -22,16 +22,16 @@ from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMento
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
                                         CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer, LLMMappingSerializer)
 from clients.permissions import IsAuthenticatedClient
-from tests.models import TestAttemptSession, Test
+from tests.models import TestAttemptSession, Test, TestQuestionResponse
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
 from pdf_generator.helpers import get_participant_report
 from users.helpers import upsert_user_attributes, get_client_info_from_user_detail, update_user_account, sync_user_low_high_skills
-from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection
+from users.models import CoachCoacheeMentorMenteeProfile, User, UserAttribute, CoachCoacheeConnection, UserMindmap
 from users.choices import BotTypeChoice, UserRoleChoice
 from tenants.models import Tenant
-from tests.choices import TestAttemptSessionStatusChoices
+from tests.choices import TagChoices, TestAttemptSessionStatusChoices
 from users.models import SignatureBot, BotAttribute, ClientUserInfo, CoachCoacheeRating, SnippetAccessCode, AccessCodeLog
 from users.choices import StatusChoice, ProfileTypeChoice, CoachCoacheeConnectionStatusChoice
 from tests.helpers import scrape_article_data, get_unique_deep_dive_access_code
@@ -45,7 +45,7 @@ import json
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from email_sender.helpers import send_generic_email, send_email_with_html_template
-from utilities.helpers import extract_fields
+from utilities.helpers import extract_fields, get_llm_order
 from commons.langchain import download_and_transcribe_audio, extract_text_from_pdf, extract_text_from_doc
 from coaching_conversations.helpers import signature_bot_default_prompt, get_client_user_data, update_member_client_id, create_or_assign_client_id, disable_or_enable_client, get_client_user_info
 from utilities.helpers import process_idp, regenerate_idp_or_scenarios, generate_email
@@ -464,6 +464,8 @@ class AccountsViewSet(ApiViewSet,
         llms = LLMMappingTable.objects.filter(deleted=False, bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id).first()
         if llms:
             data['selected_llms'] = LLMMappingSerializer(llms).data
+        data['llm_order'] = get_llm_order(bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id)
+        
 
         if client:
             data["allowed_ips"] = client.allowed_ips
@@ -1263,6 +1265,7 @@ class AccountsViewSet(ApiViewSet,
                 try:
             
                     bot_type = data.get('bot_type')
+                    custom_prompt = data.get('custom_prompt')
                     if bot_type is None or bot_type == '' or bot_type not in [choice[0] for choice in BotTypeChoice.choices]:
                         return Response({"error": "bot_type is required"},status=status.HTTP_400_BAD_REQUEST)
                     
@@ -1468,7 +1471,10 @@ class AccountsViewSet(ApiViewSet,
                         updated_fields.append("faqs")
 
                     if bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
-                        signature_bot.custom_prompt = signature_bot_default_prompt(bot_type=bot_type)
+                        prompt = signature_bot_default_prompt(bot_type=bot_type)
+                        if custom_prompt: 
+                            prompt = custom_prompt
+                        signature_bot.custom_prompt = prompt
                         updated_fields.append("custom_prompt")
 
                     if bot_type == BotTypeChoice.deep_dive:
@@ -4629,3 +4635,105 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f'Error in increase_test_attempts_in_accesscode: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=['GET'], detail=False, url_path='get-mindmap-and-assessments-report')
+    def get_mindmap_and_assessments_report(self, request, *args, **kwargs):
+        try:
+            user_id = request.query_params.get('user_id')
+            if not user_id:
+                return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.info(f"Request data: {request.query_params}")
+
+            user = User.objects.filter(uid=user_id).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Prepare base response
+            data = {"mindmaps": [], "assessments": []}
+
+            # Mindmaps
+            mindmap_entry = UserMindmap.objects.filter(user=user).first()
+            if mindmap_entry:
+                links = mindmap_entry.get_links_list() or []
+                data["mindmaps"] = [
+                    {"name": f"Mindmap {i+1}", "link": link} for i, link in enumerate(links)
+                ]
+
+            # Assessments
+            tests = Test.objects.filter(
+                deleted=False,
+                tenant_id=request.tenant.uid,
+                tag=TagChoices.assessment
+            ).values_list("uid", flat=True)
+
+
+            sessions = list(TestAttemptSession.objects.filter(
+                deleted=False,
+                participant_id=user.uid,
+                test_id__in=tests,
+                tenant_id=request.tenant.uid,
+                status=TestAttemptSessionStatusChoices.completed
+            ).exclude(finished_at=None))
+
+            # Prefetch all responses in one query
+            responses = TestQuestionResponse.objects.filter(
+                test_attempt_session_id__in=[s.uid for s in sessions],
+                relevance=False,
+            ).values_list("test_attempt_session_id", flat=True)
+
+            # Build lookup of "session_id -> has_irrelevant_response"
+            irrelevant_map = {sid: True for sid in responses}
+
+            # Collect only sessions without irrelevant responses
+            report_urls = [
+                session.report_url for session in sessions if session.uid not in irrelevant_map
+            ]
+
+
+
+            data["assessments"] = [
+                {"name": f"Assessment {i+1}", "link": url} for i, url in enumerate(report_urls)
+            ]
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception("Error in get_mindmap_and_assessments_report")
+            return Response({'error': f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(methods=["GET"], detail=False, url_path="get-llm-order")
+    def get_llm_order_request(self, request, *args, **kwargs):
+        """
+        Returns the preferred LLM order for a given bot_type and/or feature_type.
+        """
+        try:
+            bot_type = request.query_params.get("bot_type")
+            feat_type = request.query_params.get("feature_type")
+
+            if not bot_type and not feat_type:
+                return Response(
+                    {"error": "Either 'bot_type' or 'feature_type' must be provided."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            llm_order = get_llm_order(
+                bot_type=bot_type,
+                tenant_id=request.tenant.uid,
+                feature_type=feat_type,
+            )
+
+            # in this api we will send model order as string not list
+            for llm, models in llm_order['models'].items():
+                llm_order['models'][llm] = ",".join(models)
+
+
+            return Response({"data": llm_order}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in get_llm_order_request: {e}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

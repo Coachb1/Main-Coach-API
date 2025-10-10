@@ -1,0 +1,21 @@
+<style>
+  .container{
+    height: 150px;
+    width: 300px;
+    margin-left: 40%;
+    margin-top: 20%;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 5px;
+  }
+</style>
+
+<div class="container">
+    <h2>📄 Processing Results</h2>
+<ul>
+    {% for log in logs %}
+        <li>{{ log|safe }}</li>
+    {% endfor %}
+</ul>
+<a href="{% url 'bulk_test_upload' %}">Upload Another</a>
+</div>
