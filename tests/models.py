@@ -656,6 +656,7 @@ class CoursePackage(TenantAwareModel):
         blank=True,
         null=True,
     )
+    image_link = models.URLField(blank=True, null=True, default=None)
 
     class Meta:
         db_table = "course_package"
