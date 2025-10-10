@@ -93,33 +93,41 @@ class JobAidViewSet(ApiViewSet,
         try:
             qna = request.data.get('qna')
             user_email = request.data.get('useremail')
-            user_name = request.data.get('name')  # Optional, if available
+            user_name = request.data.get('name')  # Optional
             jobaid_id = request.data.get('jobaid')
 
             if not qna or not user_email or not jobaid_id:
-                return Response({'error': 'qna, useremail, and jobaid are required'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': 'qna, useremail, and jobaid are required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
-            
-            if not jobaid.is_validation:
-                generated_report_data = {}
-            else:
+
+            # Initialize empty report data
+            generated_report_data = {}
+
+            # ✅ Only generate report if jobaid.is_report == True
+            if jobaid.is_report:
                 prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
-                # Run your LLM or report generation logic here
                 generated_report_data = generic_completion(prompt)
+            else:
+                # If not validation, you might still want empty or skipped logic
+                generated_report_data = {}
 
-
+            # ✅ If jobaid has evaluation enabled
             if jobaid.evaluate_jobaid:
                 eva_prompt = jobaid.evaluation_prompt
                 if eva_prompt:
                     eva_prompt = "QNA : " + str(qna) + "\n\n" + eva_prompt
                     innovation_rating = generic_completion(eva_prompt)
                     if isinstance(innovation_rating, str):
-                        innovation_rating = json.loads(innovation_rating.replace('```', "").replace('json',""))
-
+                        innovation_rating = json.loads(
+                            innovation_rating.replace('```', "").replace('json', "")
+                        )
                     qna['Innovation Score'] = innovation_rating.get('rating')
 
-            # Save session
+            # ✅ Save session
             session = JobAidSession.objects.create(
                 job_aid=jobaid,
                 email=user_email,
@@ -129,21 +137,28 @@ class JobAidViewSet(ApiViewSet,
                 generated_report_data=generated_report_data,
             )
 
-            if jobaid.is_validation:
-                session.report_url =f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?sessionid={session.uid}&backend={settings.BACKEND}"
+            # ✅ Only set report_url if a report was generated
+            if jobaid.is_report:
+                session.report_url = (
+                    f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?"
+                    f"sessionid={session.uid}&backend={settings.BACKEND}"
+                )
                 session.save(update_fields=['report_url'])
 
-            # send email to admin
+            # ✅ Send email to admin
             send_email_from_emailit(
                 receiver_email="mail@coachbots.com",
                 subject=f"Job Aid - {jobaid.title}",
                 body=format_qna_body(jobaid, session),
             )
 
-            return Response({
-                'session_id': session.id,
-                'report_url': session.report_url
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    'session_id': session.id,
+                    'report_url': session.report_url if jobaid.is_report else None
+                },
+                status=status.HTTP_200_OK
+            )
 
         except Exception as e:
             logger.exception(f'Error in generate_report: {e}')
