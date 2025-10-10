@@ -16,4 +16,5 @@ urlpatterns = [
     path("", include("apis.test_bulk_upload.urls")),
     path("", include("apis.mail_box.urls")),
     path("", include("apis.legacybot.urls")),
+    path("", include("apis.jobaid.urls")),
 ]

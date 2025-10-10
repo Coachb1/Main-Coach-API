@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from tenants.models import Tenant
 from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
-                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog)
+                 ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
 from coaching_conversations.helpers import enforce_unique_emails_across_clients, shift_all_emails_to_domain_client
@@ -43,10 +43,10 @@ class SignaturebotAttributeAdmin(TenantAwareModelAdmin):
 
 class SignatureBotAdmin(TenantAwareModelAdmin):
     list_per_page = 10
-    list_display = ('id','uid','bot_id','bot_type','page_informations','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
+    list_display = ('id','uid','bot_id','bot_type','page_informations','send_bot_transcript','is_system_bot','is_sample_bot','use_google_context','use_personality_context','is_active','is_private','allow_public_access','integratable_widget_snippet')
     list_filter = ('is_system_bot','is_sample_bot','use_google_context','bot_type','is_private','allow_public_access')
     search_fields = ('bot_id','bot_type','uid')
-    list_editable = ('page_informations','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
+    list_editable = ('page_informations','send_bot_transcript','is_system_bot','is_sample_bot','use_google_context','is_active','use_personality_context','is_private','allow_public_access')
     ordering = ('-id',)
 
 class BotAndUserMappingAdmin(TenantAwareModelAdmin):
@@ -72,6 +72,7 @@ class CoachRecommendationsAdmin(TenantAwareModelAdmin):
         return obj.user_profile.email
     get_user_profile_email.admin_order_field = 'user_profile__email'
     get_user_profile_email.short_description = 'User Profile Email'
+    
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
     change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
@@ -81,6 +82,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name','is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
+    filter_horizontal = ('assigned_tests',)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -140,88 +142,90 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
         })
 
         return render(request, 'admin/clientdashboard.html', context)
-class ClientUserInfoAdmin(TenantAwareModelAdmin):
-    change_list_template = "admin/clientuserinfo/change_list.html"  # Custom template for extra button
-    list_per_page = 10
-    list_display = (
-        'id', 'uid', 'client_name', 'domain_name', 'widget_access_code', 'ask_access_code',
-        'is_repeat', 'member_emails', 'email_address_list', 'restricted_ids', 'demo_ids',
-        'accessed_bot_ids', 'coach_skills', 'coach_expertise', 'departments',
-        'restricted_pages', 'restricted_features', 'allowed_ips', 'ui_information',
-        'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
-        'use_skills_from_skill_bank', 'allow_audio_interactions', 'make_new_user_in_trail',
-        'allow_paste_answer', 'send_profile_for_reapproval'
-    )
-    list_editable = (
-        'domain_name', 'is_repeat', 'member_emails', 'ask_access_code', 'email_address_list',
-        'restricted_ids', 'demo_ids', 'accessed_bot_ids', 'coach_skills', 'coach_expertise',
-        'departments', 'restricted_pages', 'restricted_features', 'allowed_ips',
-        'allow_audio_interactions', 'make_new_user_in_trail', 'ui_information',
-        'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
-        'allow_paste_answer', 'use_skills_from_skill_bank', 'send_profile_for_reapproval'
-    )
-    list_filter = ('client_name',)
-    search_fields = ('client_name', 'domain_name', 'uid')
-    ordering = ('-id',)
 
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path('update-access-control/', self.admin_site.admin_view(self.client_dashboard), name='Update Access control'),
-        ]
-        return custom_urls + urls
 
-    def client_dashboard(self, request):
-        context = {
-            'title': 'Update Test Per Month / Is Repeat',
-        }
+# class ClientUserInfoAdmin(TenantAwareModelAdmin):
+#     change_list_template = "admin/clientuserinfo/change_list.html"  # Custom template for extra button
+#     list_per_page = 10
+#     list_display = (
+#         'id', 'uid', 'client_name', 'domain_name', 'widget_access_code', 'ask_access_code',
+#         'is_repeat', 'member_emails', 'email_address_list', 'restricted_ids', 'demo_ids',
+#         'accessed_bot_ids', 'coach_skills', 'coach_expertise', 'departments',
+#         'restricted_pages', 'restricted_features', 'allowed_ips', 'ui_information',
+#         'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
+#         'use_skills_from_skill_bank', 'allow_audio_interactions', 'make_new_user_in_trail',
+#         'allow_paste_answer', 'send_profile_for_reapproval'
+#     )
+#     list_editable = (
+#         'domain_name', 'is_repeat', 'member_emails', 'ask_access_code', 'email_address_list',
+#         'restricted_ids', 'demo_ids', 'accessed_bot_ids', 'coach_skills', 'coach_expertise',
+#         'departments', 'restricted_pages', 'restricted_features', 'allowed_ips',
+#         'allow_audio_interactions', 'make_new_user_in_trail', 'ui_information',
+#         'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
+#         'allow_paste_answer', 'use_skills_from_skill_bank', 'send_profile_for_reapproval'
+#     )
+#     list_filter = ('client_name',)
+#     search_fields = ('client_name', 'domain_name', 'uid')
+#     ordering = ('-id',)
 
-        type_ = request.GET.get('type')
-        obj_id = request.GET.get('id')
-        form = None
-        obj = None
+#     def get_urls(self):
+#         urls = super().get_urls()
+#         custom_urls = [
+#             path('update-access-control/', self.admin_site.admin_view(self.client_dashboard), name='Update Access control'),
+#         ]
+#         return custom_urls + urls
 
-        if request.method == "POST":
-            type_ = request.POST.get("type")
-            obj_id = request.POST.get("object_id")
+#     def client_dashboard(self, request):
+#         context = {
+#             'title': 'Update Test Per Month / Is Repeat',
+#         }
 
-            if type_ == 'tenant':
-                obj = get_object_or_404(Tenant, pk=obj_id)
-                form = TenantForm(request.POST, instance=obj)
-            elif type_ == 'client':
-                obj = get_object_or_404(ClientUserInfo, pk=obj_id)
-                form = ClientForm(request.POST, instance=obj)
-            elif type_ == 'user':
-                obj = get_object_or_404(User, pk=obj_id)
-                form = UserForm(request.POST, instance=obj)
+#         type_ = request.GET.get('type')
+#         obj_id = request.GET.get('id')
+#         form = None
+#         obj = None
 
-            if form and form.is_valid():
-                form.save()
-                messages.success(request, f"{type_.capitalize()} updated successfully.")
-                return HttpResponseRedirect(request.path)
+#         if request.method == "POST":
+#             type_ = request.POST.get("type")
+#             obj_id = request.POST.get("object_id")
 
-        else:
-            if type_ and obj_id:
-                if type_ == 'tenant':
-                    obj = get_object_or_404(Tenant, pk=obj_id)
-                    form = TenantForm(instance=obj)
-                elif type_ == 'client':
-                    obj = get_object_or_404(ClientUserInfo, pk=obj_id)
-                    form = ClientForm(instance=obj)
-                elif type_ == 'user':
-                    obj = get_object_or_404(User, pk=obj_id)
-                    form = UserForm(instance=obj)
+#             if type_ == 'tenant':
+#                 obj = get_object_or_404(Tenant, pk=obj_id)
+#                 form = TenantForm(request.POST, instance=obj)
+#             elif type_ == 'client':
+#                 obj = get_object_or_404(ClientUserInfo, pk=obj_id)
+#                 form = ClientForm(request.POST, instance=obj)
+#             elif type_ == 'user':
+#                 obj = get_object_or_404(User, pk=obj_id)
+#                 form = UserForm(request.POST, instance=obj)
 
-        context.update({
-            'type': type_,
-            'object_id': obj_id,
-            'form': form,
-            'tenants': Tenant.objects.all(),
-            'clients': ClientUserInfo.objects.all(),
-            'users': User.objects.all(),
-        })
+#             if form and form.is_valid():
+#                 form.save()
+#                 messages.success(request, f"{type_.capitalize()} updated successfully.")
+#                 return HttpResponseRedirect(request.path)
 
-        return render(request, 'admin/clientdashboard.html', context)
+#         else:
+#             if type_ and obj_id:
+#                 if type_ == 'tenant':
+#                     obj = get_object_or_404(Tenant, pk=obj_id)
+#                     form = TenantForm(instance=obj)
+#                 elif type_ == 'client':
+#                     obj = get_object_or_404(ClientUserInfo, pk=obj_id)
+#                     form = ClientForm(instance=obj)
+#                 elif type_ == 'user':
+#                     obj = get_object_or_404(User, pk=obj_id)
+#                     form = UserForm(instance=obj)
+
+#         context.update({
+#             'type': type_,
+#             'object_id': obj_id,
+#             'form': form,
+#             'tenants': Tenant.objects.all(),
+#             'clients': ClientUserInfo.objects.all(),
+#             'users': User.objects.all(),
+#         })
+
+#         return render(request, 'admin/clientdashboard.html', context)
 
 
 class SnippetAccessCodeForm(forms.ModelForm):
@@ -280,6 +284,13 @@ class SnippetAccessCodeResource(resources.ModelResource):
     def dehydrate_is_temporary(self, snippet):
         return "Temporary" if snippet.is_temporary else "Permanent"
 
+@admin.register(UserMindmap)
+class UserMindmapAdmin(TenantAwareModelAdmin):
+    list_display = ('id','user', 'mindmap_links')
+    search_fields = ('user__username', 'mindmap_links')
+    list_editable = ('mindmap_links',)
+
+    autocomplete_fields = ['user']
 
 @admin.register(SnippetAccessCode)
 class SnippetAccessCodeAdmin(ExportActionMixin,admin.ModelAdmin):

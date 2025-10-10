@@ -6,7 +6,7 @@ import hashlib
 import datetime
 import os
 from dotenv import load_dotenv
-from .models import SessionNotesRecommendations, MentorDetails, UserActionInfo, UserIDP
+from .models import LLMMappingTable, SessionNotesRecommendations, MentorDetails, UserActionInfo, UserIDP
 from tests.helpers import create_scenario_from_site_context
 import json
 import logging
@@ -1215,3 +1215,75 @@ def generate_email(name,suffix,domain='coachbots.com'):
     email = name + str(suffix) + f'@{domain}'
     
     return email
+
+def get_llm_order(bot_type, tenant_id, feature_type=None):
+    """
+    Returns LLM order in format:
+    {
+      "providers": ["gemini", "openai", "anthropic"],
+      "models": {
+        "gemini": ["gemini-2.5-flash", "gemini-2.0-flash"],
+        "openai": ["gpt-4o", "gpt-4o-mini"],
+        "anthropic": ["claude-3-sonnet"]
+      }
+    }
+    """
+    try:
+        default = {
+            "providers": ['gemini', 'gpt', 'anthropic'],
+            "models": {
+                "gemini": ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite-001'],
+                "gpt": ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
+                "anthropic": ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-haiku-20240307']
+            }
+        }
+
+        provider_alias = {
+            "gpt": "gpt",
+            "gemini": "gemini",
+            "anthropic": "anthropic"
+        }
+
+        query = LLMMappingTable.objects.filter(deleted=False, tenant_id=tenant_id)
+
+        if feature_type:
+            query = query.filter(feature_type=feature_type)
+        else:
+            query = query.filter(bot_type=bot_type)
+
+
+        mapping = query.first()
+        if not mapping:
+            logger.error('No mapping found')
+            return default
+
+        # Get providers from mapping table (order preserved)
+        raw_providers = [mapping.llm1, mapping.llm2, mapping.llm3]
+        providers = []
+        for p in raw_providers:
+            if p:
+                provider = provider_alias.get(p, p)
+                if provider not in providers:
+                    providers.append(provider)
+
+        # Get models for each provider from related LLMMappingModels table
+        models_map = {}
+        related_models = mapping.models.all()  # related_name="models"
+
+        for provider in providers:
+            models_map[provider] = []
+            # Find rows for this provider
+            for m in related_models.filter(llm_type__in=[provider, provider_alias.get(provider, provider)]):
+                if m.model_order:
+                    # Split comma-separated string and strip spaces
+                    ordered_models = [model.strip() for model in m.model_order.split(",") if model.strip()]
+                    models_map[provider].extend(ordered_models)
+
+        return {
+            "providers": providers,
+            "models": models_map
+        }
+
+    except Exception as e:
+        logger.exception(f"[get_llm_order] {e}")
+        return default

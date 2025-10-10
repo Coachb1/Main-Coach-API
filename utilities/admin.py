@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SessionNotesRecommendations, DirectoryPageInfo, UserIDP ,\
+from .models import LLMMappingModels, SessionNotesRecommendations, DirectoryPageInfo, UserIDP ,\
         ScenarioCreationDetails, UserActionInfo, EmailSentDetails, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalPrompts, GlobalSystemInstructions, \
             Widgets
 from import_export.admin import ExportActionMixin
@@ -92,11 +92,7 @@ class CoachCoacheeJoiningPreviledAdmin(ExportActionMixin, TenantAwareModelAdmin)
     search_fields = ('client_name','email',"can_join_as")
     list_editable = ('client_name','email',"can_join_as")
 
-class LLMMappingAdmin(ExportActionMixin, TenantAwareModelAdmin):
-    list_display = ('id','bot_type','llm1',"llm2","llm3")
-    list_filter = ('bot_type',)
-    search_fields = ('bot_type',)
-    list_editable = ('llm1',"llm2","llm3",)
+
 
 class IDPAdmin(ExportActionMixin, TenantAwareModelAdmin):
     list_per_page = 10
@@ -134,7 +130,7 @@ admin.site.register(ScenarioCreationDetails, ScenarioCreationDetailsAdmin)
 admin.site.register(UserActionInfo)
 admin.site.register(EmailSentDetails, EmailSentDetailsAdmin)
 admin.site.register(CoachCoacheeJoiningPreviledge, CoachCoacheeJoiningPreviledAdmin)
-admin.site.register(LLMMappingTable, LLMMappingAdmin)
+
 admin.site.register(GlobalPrompts, GlobalPromptsAdmin)
 admin.site.register(GlobalSystemInstructions, GlobalSystemInstructionsAdmin)
 admin.site.register(Widgets, WidgetsAdmin)
@@ -288,3 +284,53 @@ def save_and_send_approval_email_post_save(sender, instance:DirectoryPageInfo, *
 
 post_save.connect(save_and_send_approval_email_post_save, sender=DirectoryPageInfo)
 # post_save.connect(generate_widget_snippet, sender=Widgets)
+
+
+
+
+
+class LLMMappingModelsInline(admin.TabularInline):
+    model = LLMMappingModels
+    extra = 0
+    fields = ("llm_type", "model_order")
+
+    def get_extra(self, request, obj=None, **kwargs):
+        # Show 3 predefined rows only when creating a new mapping table
+        if obj is None:  
+            return 3
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        FormSet = super().get_formset(request, obj, **kwargs)
+
+        class CustomFormSet(FormSet):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if obj is None and not self.forms[0].instance.pk:
+                    # Prepopulate only when creating new mapping table
+                    predefined = [
+                        {"llm_type": "gemini", "model_order": "gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-pro"},
+                        {"llm_type": "gpt", "model_order": "gpt-4o, gpt-4o-mini, gpt-3.5-turbo"},
+                        {"llm_type": "anthropic", "model_order": "claude-sonnet-4-20250514, claude-opus-4-20250514, claude-3-opus-20240229, claude-3-haiku-20240307"},
+                    ]
+                    for form, initial in zip(self.forms, predefined):
+                        form.initial.update(initial)
+
+        return CustomFormSet
+
+
+
+@admin.register(LLMMappingTable)
+class LLMMappingTableAdmin(TenantAwareModelAdmin):
+    list_display = ("id","feature_type","bot_type", "tenant_id", "llm1", "llm2", "llm3")
+    list_filter = ("feature_type","bot_type", "tenant_id")
+    search_fields = ("bot_type",)
+    inlines = [LLMMappingModelsInline]
+
+
+@admin.register(LLMMappingModels)
+class LLMMappingModelsAdmin(admin.ModelAdmin):
+    list_display = ("mapping", "llm_type", "model_order")
+    list_filter = ("llm_type",)
+    search_fields = ("model_order",)
+

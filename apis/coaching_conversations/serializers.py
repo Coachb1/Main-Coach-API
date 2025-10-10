@@ -16,6 +16,8 @@ class ReplyCoachingConversationSerializer(serializers.Serializer):
         required=False, default="", allow_null=True, allow_blank=True)
     is_signature_bot = serializers.BooleanField(default=False,required=False)
     is_prompt_only = serializers.BooleanField(default=False,required=False)
+    only_current_session = serializers.BooleanField(default=False,required=False)
+
 
     def validate(self, attrs):
         if not attrs.get("participant_message_url") and not attrs.get("participant_message_text"):

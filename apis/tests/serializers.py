@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Test, TestMapping, TestQuestion, Psychometric, TestRecommendation
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from users.models import User
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -32,7 +33,9 @@ class CreateTestQuestionSerializer(serializers.Serializer):
     snippet_url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     question_insight = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-
+    que_explanation = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    que_marks = serializers.IntegerField(default=0)
+    
 
 class OrchestratedConversationDetails(serializers.Serializer):
     test_main_context = serializers.CharField()
@@ -141,6 +144,8 @@ class UpdateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
+    score_visible = serializers.BooleanField(required=False, default=True)
+    explanation_visible = serializers.BooleanField(required=False, default=True)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -153,6 +158,17 @@ class UpdateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     instruction_media_link = serializers.CharField(
         required=False, allow_null=True, default=None)
+    notice_board = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
+    culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
+    tag = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
+    score_config = serializers.JSONField(required=False, default=None)
+    generate_feedback = serializers.BooleanField(
+        required=False, default=True)
+    is_personality_game = serializers.BooleanField(
+        required=False, default=False)
+    
 
 class CreateTestSerializer(serializers.Serializer):
     creator_id = serializers.CharField(
@@ -247,6 +263,8 @@ class CreateTestSerializer(serializers.Serializer):
     category = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     is_single_select = serializers.BooleanField(
         required=False, default=False)
+    score_visible = serializers.BooleanField(required=False, default=True)
+    explanation_visible = serializers.BooleanField(required=False, default=True)
     psychometric_report_config = serializers.CharField(default=None,required=False, allow_blank=True)
     personality_model = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
     skill_domain = serializers.CharField(default=None, required=False, allow_null=True, allow_blank=True)
@@ -259,7 +277,18 @@ class CreateTestSerializer(serializers.Serializer):
         required=False, allow_null=True, default=None)
     instruction_media_link = serializers.CharField(
         required=False, allow_null=True, default=None)
+    notice_board = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
+    culture_skills_to_evaluate = serializers.JSONField(required=False, default=None)
+    tag = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None)
+    score_config = serializers.JSONField(required=False, default=None)
+    generate_feedback = serializers.BooleanField(
+        required=False, default=True)
+    is_personality_game = serializers.BooleanField(
+        required=False, default=False)
     
+
 class TestQuestionDisplaySerializer(serializers.ModelSerializer):
     class Meta:
         model = TestQuestion
@@ -277,9 +306,15 @@ class TestQuestionDisplaySerializer(serializers.ModelSerializer):
                   "created",
                   "updated",
                   "snippet_url",
-                  "question_insight"]
+                  "question_insight",
+                  "que_explanation",
+                  "que_marks"]
 
-
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.media_link:
+            data["media_link"] = ",".join([format_youtube_link(media.strip()) for media in instance.media_link.split(',')])
+        return data
 class TestDisplaySerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField(
         method_name="get_questions", read_only=True)
@@ -344,6 +379,8 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "report_description",
                   "category",
                   "is_single_select",
+                  "score_visible",
+                  "explanation_visible",
                   "psychometric_report_config",
                   "personality_model",
                   "skill_domain",
@@ -353,8 +390,14 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   "video_script",
                   "feedback_video_script_template",
                   "time_limit",
-                  "instruction_media_link"
-                  ]
+                  "instruction_media_link",
+                  "notice_board",
+                  "culture_skills_to_evaluate",
+                  "tag",
+                  "score_config",
+                  "generate_feedback",
+                  'is_personality_game'
+                    ]
 
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
@@ -396,3 +439,102 @@ class TestMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestMapping
         fields = '__all__'
+
+
+class UserTestMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserTestMapping
+        fields = ['id', 'user', 'tests', 'sticker']
+        read_only_fields = ('user', 'tests')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['tests'] = ",".join([test.test_code for test in instance.tests.all()])
+        return data
+    
+class ModuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Module
+        fields = '__all__'
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.test:
+            data["test"] = TestDisplaySerializer(instance.test).data
+        return data
+    
+class CourseSerializer(serializers.ModelSerializer):
+    modules = ModuleSerializer( many=True, read_only=True)
+    class Meta:
+        model = Course
+        fields = '__all__'
+
+class CoursePackageSerializer(serializers.ModelSerializer):
+    # Nested representation of courses
+    courses = CourseSerializer(many=True, read_only=True)
+    course_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Course.objects.all(),
+        source="courses",   # maps to M2M
+        write_only=True
+    )
+
+    class Meta:
+        model = CoursePackage
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['jobaid_uid'] = instance.job_aid.uid if instance.job_aid else None
+
+        return data
+
+
+class ModuleProgressSerializer(serializers.ModelSerializer):
+    module_title = serializers.ReadOnlyField(source="module.title")
+    
+    class Meta:
+        model = ModuleProgress
+        fields = "__all__"
+
+
+class UserProgressSerializer(serializers.ModelSerializer):
+    user_name = serializers.ReadOnlyField(source="user.name")
+    course_title = serializers.ReadOnlyField(source="course.title")
+    module_progress = ModuleProgressSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = UserProgress
+        fields = '__all__'
+
+
+
+
+class ModuleLikeSerializer(serializers.ModelSerializer):
+    module_uid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ModuleLike
+        fields = ["id", "user", "module", "module_uid", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
+
+    def get_module_uid(self, obj):
+        return obj.module.uid if obj.module else None
+
+class ModuleForLaterSerializer(serializers.ModelSerializer):
+    module_uid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ModuleForLater
+        fields = ["id", "user", "module", "module_uid", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
+    def get_module_uid(self, obj):
+            return obj.module.uid if obj.module else None
+
+class UserReportSerializer(serializers.ModelSerializer):
+    completed_modules = serializers.CharField()  
+    last_activity = serializers.DateTimeField(allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "name", "email", "completed_modules", "last_activity"]

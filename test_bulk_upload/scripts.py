@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 from io import TextIOWrapper
 import logging
 from django.http import HttpResponse
+
+from skills.helpers import generate_culture_map
 from .constants import get_skills
 from settings import BACKEND
 from skills.constants import skills as pre_defined_skills
 from tests.models import TestTypeChoices
 from users.models import  ClientUserInfo
 from tenants.helpers import tenant_from_subdomain_prefix
-from tests.models import Test, TestQuestion, Psychometric, PsychometricReportSection
 from commons.youtube_utils import format_youtube_link
 
 load_dotenv()
@@ -114,11 +115,29 @@ FEEDBACK_SCRIPT_VIDEO_LINK = 'Feedback Video Link'
 FEEDBACK_VIDEO_SCRIPT = 'Feedback Video Script'
 TIME_LIMIT = "Time Limit"
 INSTRUCTION_MEDIA_LINK = "Instruction Media"
+NOTICE_BOARD = "Notice Board"
+CULTURE_SKILLS =  "Culture Skills"
+MCQ_OPTIONS = "Option"
+MCQ_OPTIONS_MARKS = "OPT Marks"
+IS_ASSESSMENT = "Is Assessment"
+QUE_EXPLANATION = 'Q Explanation'
+QUE_MARKS = "Q Marks"
 
-def clean_text(text):
-    BRACKETS_QUOTES_REGEX =re.compile(r'[\[\]\(\)\{\}<>\"\'’]')
+SCORE_VISIBLE = "Score Visible"
+EXPLANATION_VISIBLE = "Explanation Visible"
 
-    return BRACKETS_QUOTES_REGEX.sub('', text).strip()
+# range and feedback associated with the range score it generally for game but can be used for all test
+
+RANGE = "Range"
+RANGE_FEEDBACK = "Feedback"
+
+GENERATE_FEEDBACK = "Generate Feedback"
+
+
+
+def clean_text(input_text):
+    # Remove all types of brackets except quotation marks
+    return re.sub(r'[\[\]\(\)\{\}<>]', '', input_text).strip()
 
 def limit_unique_skills_per_test(input_dict, max_unique_skills=8):
     """
@@ -368,6 +387,10 @@ def format_test_orchestrated_conversation(raw_data):
 
             output_dict['description_media'] = ",".join(medias)
 
+        if output_dict.get('scenario_case') == 'personality_game':
+            output_dict['scenario_case'] = 'game'
+            output_dict['is_personality_game'] = True
+
         media_json = {}
         if TEST_IMAGE_LINK in input_dict and TEST_IMAGE_PROPS in input_dict and TEST_NARRATION in input_dict and (len(input_dict[TEST_IMAGE_LINK].strip()) > 0) and (len(input_dict[TEST_IMAGE_PROPS].strip()) > 0) and (len(input_dict[TEST_NARRATION].strip()) > 0):
             image_link = input_dict[TEST_IMAGE_LINK].strip()
@@ -439,6 +462,9 @@ def format_test_orchestrated_conversation(raw_data):
 
         if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
             output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
+
+        if NOTICE_BOARD in input_dict and len(input_dict[NOTICE_BOARD].strip()) > 0:
+            output_dict['notice_board'] = input_dict[NOTICE_BOARD].strip()
 
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
@@ -533,6 +559,7 @@ def format_test_orchestrated_conversation(raw_data):
                 else:
                     output_dict['is_single_select'] = False
 
+
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
                 is_recommended = input_dict[IS_RECOMMENDED].strip().lower()
@@ -554,6 +581,17 @@ def format_test_orchestrated_conversation(raw_data):
                     output_dict['calculate_culture'] = False
                 else:
                     output_dict['calculate_culture'] = True 
+
+        if GENERATE_FEEDBACK in input_dict:
+            if input_dict[GENERATE_FEEDBACK] and len(input_dict[GENERATE_FEEDBACK].strip()) > 0:
+                generate_feedback = input_dict[GENERATE_FEEDBACK].strip().lower()
+
+                if generate_feedback == "true":
+                    output_dict['generate_feedback'] = True
+                elif generate_feedback == "false":
+                    output_dict['generate_feedback'] = False
+                else:
+                    output_dict['generate_feedback'] = True 
 
         if IS_IMMERSIVE in input_dict:
             if input_dict[IS_IMMERSIVE] and len(input_dict[IS_IMMERSIVE].strip()) > 0:
@@ -736,6 +774,14 @@ def format_test_orchestrated_conversation(raw_data):
         if CANDIDATE_TYPE in input_dict and len(input_dict[CANDIDATE_TYPE].strip()) > 0:
             candidate_type = input_dict[CANDIDATE_TYPE].strip().capitalize()
             output_dict['candidate_type'] = input_dict[CANDIDATE_TYPE].strip().lower()
+
+        if CULTURE_SKILLS in input_dict and len(input_dict[CULTURE_SKILLS]) > 0:
+            culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
+            output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
+
+
+        if IS_ASSESSMENT in input_dict and len(input_dict[IS_ASSESSMENT]) > 0:
+            output_dict["tag"] = 'assessment' if input_dict[IS_ASSESSMENT].strip().lower() == "true" else None
 
         skills_list = []
         if SKILLS_TO_EVALUATE in input_dict and len(input_dict[SKILLS_TO_EVALUATE]) > 0:
@@ -1025,6 +1071,9 @@ def format_test_data_slack(raw_data,tenant):
 
             output_dict['description_media'] = ",".join(medias)
 
+        if output_dict.get('scenario_case') == 'personality_game':
+            output_dict['scenario_case'] = 'game'
+            output_dict['is_personality_game'] = True
             
         media_json = {}
 
@@ -1068,10 +1117,12 @@ def format_test_data_slack(raw_data,tenant):
                 if key.startswith(QUESTIONUI):
                     output_dict['ui_information'][f"Question {key[len(QUESTIONUI) + 1:]}"] = input_dict.get(f"{QUESTIONUI} {key[len(QUESTIONUI) + 1:]}",None)
         
-        if output_dict['scenario_case'] in ['psychometric'] :
+        if output_dict['scenario_case'] in ['psychometric', 'game'] :
             output_dict['interaction_mode'] = 'text'
             
-        
+        if output_dict.get('scenario_case') == 'game':
+            output_dict['is_game_type'] = True
+
         if IS_GAME_TYPE in input_dict:
             if input_dict[IS_GAME_TYPE] and len(input_dict[IS_GAME_TYPE].strip()) > 0:
                 is_game_type = input_dict[IS_GAME_TYPE].strip().lower()
@@ -1082,6 +1133,19 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['is_game_type'] = False
                 else:
                     output_dict['is_game_type'] = False
+
+        if IS_SINGLE_SELECT in input_dict:
+            if input_dict[IS_SINGLE_SELECT] and len(input_dict[IS_SINGLE_SELECT].strip()) > 0:
+                is_single_select = input_dict[IS_SINGLE_SELECT].strip().lower()
+
+                if is_single_select == "true":
+                    output_dict['is_single_select'] = True
+                elif is_single_select == "false":
+                    output_dict['is_single_select'] = False
+                else:
+                    output_dict['is_single_select'] = False
+
+
 
         if IS_RECOMMENDED in input_dict:
             if input_dict[IS_RECOMMENDED] and len(input_dict[IS_RECOMMENDED].strip()) > 0:
@@ -1112,6 +1176,17 @@ def format_test_data_slack(raw_data,tenant):
                     output_dict['calculate_culture'] = False
                 else:
                     output_dict['calculate_culture'] = True
+                    
+        if GENERATE_FEEDBACK in input_dict:
+            if input_dict[GENERATE_FEEDBACK] and len(input_dict[GENERATE_FEEDBACK].strip()) > 0:
+                generate_feedback = input_dict[GENERATE_FEEDBACK].strip().lower()
+
+                if generate_feedback == "true":
+                    output_dict['generate_feedback'] = True
+                elif generate_feedback == "false":
+                    output_dict['generate_feedback'] = False
+                else:
+                    output_dict['generate_feedback'] = True 
 
         if IS_PITCH in input_dict:
             if input_dict[IS_PITCH] and len(input_dict[IS_PITCH].strip()) > 0:
@@ -1250,6 +1325,9 @@ def format_test_data_slack(raw_data,tenant):
         if PERSONALITY_MODEL in input_dict and len(input_dict[PERSONALITY_MODEL].strip()) > 0:
             output_dict['personality_model'] = input_dict[PERSONALITY_MODEL].strip().lower()
 
+        if NOTICE_BOARD in input_dict and len(input_dict[NOTICE_BOARD].strip()) > 0:
+            output_dict['notice_board'] = input_dict[NOTICE_BOARD].strip()
+
         if BOT_NAME in input_dict:
             if input_dict[BOT_NAME] and len(input_dict[BOT_NAME].strip()) > 0 :
                 output_dict['bot_name'] = input_dict[BOT_NAME].strip()
@@ -1341,6 +1419,14 @@ def format_test_data_slack(raw_data,tenant):
             if input_dict[FEEDBACK_VIDEO_SCRIPT] and len(input_dict[FEEDBACK_VIDEO_SCRIPT].strip()) > 0 :
                 output_dict["feedback_video_script_template"] = input_dict[FEEDBACK_VIDEO_SCRIPT].strip()
         
+
+        if CULTURE_SKILLS in input_dict and len(input_dict[CULTURE_SKILLS]) > 0:
+            culture = [ skill.strip() for skill in input_dict[CULTURE_SKILLS].strip().split(',') if skill.strip()]
+            output_dict["culture_skills_to_evaluate"] = generate_culture_map(culture)
+
+        if IS_ASSESSMENT in input_dict and len(input_dict[IS_ASSESSMENT]) > 0:
+            output_dict["tag"] = 'assessment' if input_dict[IS_ASSESSMENT].strip().lower() == "true" else None
+
         skills_list = set()
         if f'{KLS} 0' in input_dict.keys() or f'Skill 0'in input_dict:
             for key in input_dict:
@@ -1375,6 +1461,7 @@ def format_test_data_slack(raw_data,tenant):
                     return {"unmatched_skills": unmatched_skills, "Title": output_dict.get('Title')}, False
 
             unique_skill_count = len(set(skills_list))
+            print('skillist', unique_skill_count)
 
             if unique_skill_count < 6 and not(output_dict.get('scenario_case') == 'psychometric' or is_transcript_only or output_dict['is_pitch'] == True):
                 return {"unique_skills": set(skills_list), "Title": output_dict.get('Title')}, False
@@ -1414,7 +1501,7 @@ def format_test_data_slack(raw_data,tenant):
                         check_pass = True
 
 
-        if output_dict.get('scenario_case') in ['process_training','psychometric'] or is_transcript_only:
+        if output_dict.get('scenario_case') in ['process_training','psychometric', 'game'] or is_transcript_only:
             output_dict['skills_to_evaluate'] = "communication skills"
 
 
@@ -1492,13 +1579,50 @@ def format_test_data_slack(raw_data,tenant):
                 output_dict['max_test_allowed'] = int(input_dict[MAX_TEST_ALLOWED])
             else:
                 output_dict['max_test_allowed'] = None
+        
+        if SCORE_VISIBLE in input_dict:
+            if input_dict[SCORE_VISIBLE] and len(input_dict[SCORE_VISIBLE].strip()) > 0:
+                score_visible = input_dict[SCORE_VISIBLE].strip().lower()
+
+                if score_visible == "true":
+                    output_dict['score_visible'] = True
+                elif score_visible == "false":
+                    output_dict['score_visible'] = False
+                else:
+                    output_dict['score_visible'] = False
+
+        if EXPLANATION_VISIBLE in input_dict:
+            if input_dict[EXPLANATION_VISIBLE] and len(input_dict[EXPLANATION_VISIBLE].strip()) > 0:
+                explanation_visible = input_dict[EXPLANATION_VISIBLE].strip().lower()
+
+                if explanation_visible == "true":
+                    output_dict['explanation_visible'] = True
+                elif explanation_visible == "false":
+                    output_dict['explanation_visible'] = False
+                else:
+                    output_dict['explanation_visible'] = False
 
         question_to_update = None
         if test:
             question_to_update = TestQuestion.objects.filter(test_id=test.uid).order_by('question_number').values_list('question_number','uid')
             question_to_update = {str(question_number): uid for question_number, uid in question_to_update}
 
+        score_config = {}
+        que_marks = {
+            k[-1]: v
+            for k, v in input_dict.items()
+            if k.startswith(MCQ_OPTIONS_MARKS)
+        }
         for key in input_dict:
+            if key.startswith(RANGE):
+
+                score_range = str(input_dict.get(f"{RANGE} {key[len(RANGE) + 1:]}", ''))
+                feedback = str(input_dict.get(f"{RANGE_FEEDBACK} {key[len(RANGE) + 1:]}", ''))
+                score_config[score_range] = {
+                    'score': [r.strip() for r in score_range.split('-')],
+                    'feedback': feedback
+                }
+                
             if key.startswith(QUESTION):
                 question = {
                     "question": input_dict[key],
@@ -1511,12 +1635,39 @@ def format_test_data_slack(raw_data,tenant):
                 }
                 if f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}"]) > 0:
                     question["question_insight"] = input_dict.get(f"{QUESTION_INSIGHT} {key[len(QUESTION) + 1:]}", '')
+                if f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["que_explanation"] = input_dict.get(f"{QUE_EXPLANATION} {key[len(QUESTION) + 1:]}", '')
+                if f"{QUE_MARKS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{QUE_MARKS} {key[len(QUESTION) + 1:]}"]) > 0:
+                    question["que_marks"] = input_dict.get(f"{QUE_MARKS} {key[len(QUESTION) + 1:]}", '')
+                
+                options_for_question = {}
+                q_number = key[len(QUESTION):].strip()
+                mcq_key = f"{MCQ_OPTIONS} {q_number}"
+                for k, value in input_dict.items():
+                    print(f"DEBUG: Looking for keys starting with '{mcq_key}', checking key '{k}'")
+                    if k.startswith(mcq_key):
+                        t = {
+                            "opt": value
+                            }
+                        
+                        if k.strip()[-1] in que_marks:
+                            t['marks'] = que_marks[k.strip()[-1]]
+                                                
+                        options_for_question[k.strip()[-1]] = t
+                    
+
+                if options_for_question:
+                    question["mcq_options"] = options_for_question
+
+                print(f"options_for_question: {options_for_question} for key: {key} and question: {question}")
+                # if f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}" in input_dict and len(input_dict[f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}"]) > 0:
+                #     question["mcq_options"] = input_dict.get(f"{MCQ_OPTIONS} {key[len(QUESTION) + 1:]}", '')
 
                 if question_to_update:
                     print(question_to_update.get(key[len(QUESTION) + 1:]),question_to_update)
                     question['question_id'] = question_to_update.get(key[len(QUESTION) + 1:])
 
-                if output_dict.get('scenario_case') in ['process_training', 'psychometric'] or is_transcript_only:
+                if len(question.get('key_learning_point', '').strip()) == 0 and output_dict.get('scenario_case') in ['process_training', 'psychometric', 'game'] or is_transcript_only:
                     question['key_learning_point'] = "No key learning point for this question"
                     question['key_learning_skills'] = "communication skills"
 
@@ -1636,6 +1787,9 @@ def format_test_data_slack(raw_data,tenant):
             output_dict["questions"][-1]["is_view_only"] = False
 
         output_dict['total_question'] = int(len(output_dict['questions']))
+
+        if score_config:
+            output_dict['score_config'] = score_config
 
         if test_type == TestTypeChoices.dynamic_mcq:
             print(f"********************** total questions **********************: {input_dict}")
@@ -1874,10 +2028,14 @@ def create_test_slack(csv_file, email, password, subdomain_prefix):
             for row_data in all_rows:
                 scenario_case = row_data.get(SCENARIO_CASE, '').lower()
                 test_code = row_data.get(TEST_CODE, '').strip()
+                columns_check = []
                 if len(test_code) > 0:
                     columns_check = []
                 elif scenario_case == 'observation':
                     columns_check = [TITLE, DESCRIPTION, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE]
+                elif scenario_case == 'game':
+                    columns_check = [TITLE, DESCRIPTION,
+                     INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN, SCORE_VISIBLE, EXPLANATION_VISIBLE, IS_SINGLE_SELECT]
                 else:
                     columns_check = [TITLE, DESCRIPTION,
                      INTERACTION_MODE, EMAIL_ADDRESS_LIST, TEST_TYPE, SCENARIO_CASE, CERTIFICATE_TITLE, AREA_DOMAIN, SKILL_DOMAIN]
@@ -2117,7 +2275,7 @@ def create_test_orchestrated_conversation_slack(csv_file, email, password, subdo
                     columns_check = []
                 else:
                     if scenario_case == 'game':
-                        columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT])
+                        columns_check.extend([TEST_CUSTUM_PROMPT, IS_SINGLE_SELECT,SCORE_VISIBLE,EXPLANATION_VISIBLE])
                     elif scenario_case == 'interview':
                         columns_check.extend([AREA_DOMAIN, CERTIFICATE_TITLE, CANDIDATE_TYPE, BACKGROUND, SKILL_DOMAIN])
                     else:

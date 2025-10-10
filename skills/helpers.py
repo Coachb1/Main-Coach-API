@@ -8,8 +8,10 @@ from django.utils.text import slugify
 from commons.anthropic import anthropic_completion
 from commons.openai_gpt import gpt3_completion
 from external_apis.slack_alert_api import send_slack_message
+from identities.models import Identity
 from skills.choices import CultureMapSkillTypeChoices
 from skills.models import CultureMapSkill, SkillsRating, SkillIndex, CompetencySkillAndClientMapping
+from tests.models import TestAttemptSession
 from users.db import get_user_display_name
 from users.models import User
 import re
@@ -21,7 +23,7 @@ from pathlib import Path
 import pandas as pd
 from string import Template
 import json5
-from tests.choices import TestTypeChoices, ScenarioCaseChoices
+from tests.choices import TestAttemptSessionStatusChoices, TestTypeChoices, ScenarioCaseChoices
 
 
 
@@ -1348,6 +1350,8 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
     NOTE : Always provide the output in the given format.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : Always detact language of the conversation and entire output must be in same language.
+
     \n\nAssistant:
     """%(top_skill,low_skill,high_cult,low_cult)
 
@@ -1510,7 +1514,7 @@ def calulate_summary_for_culture_and_normal_skill(test_attempt_session,cultural_
 def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     prompt= """
     \n\nHuman:
-    {feedback} : %s
+    {feedbacks} : %s
 
     {Summary} : Summarize the entire feedback in a small single paragraph and provide feedback to the candidate. Focus on the areas that worked well and the areas the candidate can improve.
 
@@ -1523,6 +1527,7 @@ def feedback_summary(test_attempt_session,feedbacks,is_free=False):
     Always follow this output format in this exact manner. DO NOT add words or any other sentence on your own.
 
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the summary and only provide the summary.
+    NOTE : Always (must) detact language of the feedbacks context only and entire output must be in same language.
 
     \n\nAssistant:
     """%(feedbacks)
@@ -1851,12 +1856,16 @@ def evaluate_conversation(test_attempt_session, conversation, test, is_free=Fals
     test_title = test.title
     test_description = test.description
     # cultural_skills_and_desc, _ = get_culture_skills("ocean_model" if test.scenario_case == ScenarioCaseChoices.psychometric else "workplace_skills")
-    skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
-    if not skills.exists():
-        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+    if test.culture_skills_to_evaluate:
+        evaluation_criteria = test.culture_skills_to_evaluate
+        cultural_skills = test.culture_skills_to_evaluate.keys()
+    else:
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+        if not skills.exists():
+            skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
 
-    evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
-    cultural_skills = [skill.skill for skill in skills]
+        evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+        cultural_skills = [skill.skill for skill in skills]
 
     logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
 
@@ -1999,6 +2008,21 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
             "Long term focus",
             "Value Placed on Independence"
         ]
+    
+    if test.culture_skills_to_evaluate:
+        evaluation_criteria = test.culture_skills_to_evaluate
+        cultural_skills = test.culture_skills_to_evaluate.keys()
+    else:
+    
+        skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id, test_type=test.scenario_case)
+        if not skills.exists():
+            skills = CultureMapSkill.objects.filter(deleted=False, tenant_id=test_attempt_session.tenant_id,test_type=ScenarioCaseChoices.others)
+
+        evaluation_criteria = "\n".join([f"- {skill.skill}: {skill.description}" for skill in skills])
+        cultural_skills = [skill.skill for skill in skills]
+
+    logger.info(f"evaluation criteria: {evaluation_criteria} \n cultural skills: {cultural_skills}")
+
     # prompt = f'''
     # "Objective:" {objective};
 
@@ -2051,15 +2075,7 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         "user_persona": ${user_persona};
 
         "Evaluation Criteria:"
-                - Need for Structure: Does the conversation display a need for structure? Assesses the individual's preference for clear rules, procedures, and predictability versus ambiguity and flexibility.
-                - Orientation towards Authority: Does the conversation display orientation towards authority? Measures the individual's inherent approach to authority—respectful deference, active engagement, or challenging/resisting.
-                - Emphasis on Relationships: Does the conversation display emphasis on relationship?  Assesses the extent to which the individual prioritizes building and maintaining relationships versus focusing solely on tasks and outcomes.
-                - Direct Communication Style: How direct is the communication style displayed here in the conversation? While the manifestation of communication style will vary, the underlying preference for direct versus indirect communication tends to be more consistent.
-                - Long term focus: Does the conversation display long term focus? Assesses whether the individual's focus is primarily on immediate gratification or on long-term planning and future goals.
-                - Value Placed on Independence: Does the conversation display need for independence? Measures the individual's inherent preference for autonomy and self-reliance versus interdependence and collaboration.
-                - Propensity for Risk-Taking: Does the conversation display high-risk or low risk-taking style? Captures the individual's inherent inclination toward risk—high tolerance versus strong aversion.
-
-
+                ${evaluation_criteria}
         "REQUIRED FROM LLM:" 
             - Based on the above criteria please evaluate the "{user_persona}" only from a scale of 0.5-9.5. Use decimal values for more precision (e.g., 4.2, 7.3).
             - Evaluate the conversation for the participant: "{user_persona}" and this "{user_persona}" only, in this conversation for each behaviour trait in this 'cultural_list',ensuring that no two skills receive the same score.
@@ -2091,7 +2107,8 @@ def evaluate_group_discussion_conversation(test_attempt_session, conversation, u
         objective=objective,
         user_persona = user_persona,
         conversation = conversation,
-        cultural_skills = cultural_skills
+        cultural_skills = cultural_skills,
+        evaluation_criteria = evaluation_criteria
     )
 
     if is_free:
@@ -2348,6 +2365,9 @@ def evaluate_skills_explanation(title, description, conversation, skills_rating,
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+
+        NOTE : Always(must) detect language of the TITLE only and provide explanation in same language.
+
         \n\nAssistant:
     '''
 
@@ -2489,6 +2509,8 @@ def evaluate_culture_skills_explanation(title, description, conversation, cultur
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        
+        NOTE : Always(must) detect language of the  TITLE only and provide explanation in same language.
         \n\nAssistant:
         '''
 
@@ -2619,6 +2641,8 @@ def evaluate_skills_explanation_conversation(objective, conversation, user_perso
         NOTE : Output format should be Json example - {{"Collaboration": "Scored 8.0 as the manager actively sought to collaborate by gathering input from the team, thanking for diverse views, and aiming for mutually acceptable solutions. Could be more proactive in driving collaboration by directly inviting team members to jointly develop solutions and set goals."}}
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        NOTE : Always(must) detect language of the Objective only and provide explanation in same language.
+
         \n\nAssistant:
     '''
 
@@ -2757,6 +2781,7 @@ def evaluate_culture_skills_explanation_conversation(objective, conversation, us
         NOTE : Each skill explanation should have only one bullet point with a minimum of 60 words.
 
         NOTE : The minimum explanation length for each skill is 60 words. No skill explanation should EVER be less than 60 words.
+        NOTE : Always(must) detect language of the Objective only and provide explanation in same language.
         \n\nAssistant:
     '''
 
@@ -3296,3 +3321,305 @@ The feedback should be structured in the following format:
 
     print(result)
 
+def categorize_skill_scores(skills, leaderboard):
+    # Extract skill names
+    skill_names = [skill["skill"] for skill in skills]
+
+    # Initialize result dictionary
+    result = {skill: {"1-5": 0, "6-8": 0, "9-10": 0} for skill in skill_names}
+
+    # Categorize scores per skill
+    for user in leaderboard:
+        scores = user.get("scores", {})
+        for skill in skill_names:
+            if skill in scores:
+                score = scores[skill]
+                if 1 <= score <= 5:
+                    result[skill]["1-5"] += 1
+                elif 6 <= score <= 8:
+                    result[skill]["6-8"] += 1
+                elif 9 <= score <= 10:
+                    result[skill]["9-10"] += 1
+    
+
+    return result
+
+def evaluate_skills_data_client(client_users, tenant_id):
+    try:
+           
+            user_emails = client_users.member_emails
+            client_list = list(user_emails.split(","))
+            skill_data = {}
+
+            user_identities = Identity.objects.filter(
+                tenant_id=tenant_id,
+                identity_type="deepchat_unique_id",
+                value__in=client_list,
+                deleted=False
+            )
+
+            user_ids = list(user_identities.values_list('user_id', flat=True))
+            users = User.objects.filter(
+                tenant_id=tenant_id,
+                uid__in=user_ids,
+                deleted=False
+            )
+
+            user_leaderboard = []
+            user_score_distribution = {
+                "1-5": 0,
+                "5-8": 0,
+                "8-10": 0
+            }
+
+            for user in users:
+                total_score = 0
+                total_skills = 0
+                total_skills_score = {}
+
+                user_email = user_identities.filter(user_id=user.uid).values_list("value", flat=True).first()
+                user_ratings = SkillsRating.objects.filter(participant_id=user.uid)
+
+                for rating in user_ratings:
+                    skill_dict = rating.skills_info
+                    if not skill_dict:
+                        continue
+
+                    for skill_name, details in skill_dict.items():
+                        avg_score = details.get("average_score", 0)
+                        total_skills_score[skill_name] = avg_score
+                        
+
+                        if skill_name not in skill_data:
+                            skill_data[skill_name] = {
+                                "scores": []
+                            }
+
+                        skill_data[skill_name]["scores"].append(avg_score)
+                        total_score += avg_score
+                        total_skills += 1
+
+                if total_skills:
+                    user_avg = round(total_score / total_skills, 2)
+                    user_leaderboard.append({
+                        "user_id": str(user.uid),
+                        "email": user_email,
+                        "scores": total_skills_score,
+                    })
+
+                    if 1 <= user_avg <= 5:
+                        user_score_distribution["1-5"] += 1
+                    elif 5 < user_avg <= 8:
+                        user_score_distribution["5-8"] += 1
+                    elif 8 < user_avg <= 10:
+                        user_score_distribution["8-10"] += 1
+
+            
+            # user_leaderboard.sort(key=lambda x: x["average_score"], reverse=True)
+
+            response_skills = []
+            for skill, data in skill_data.items():
+                scores = data["scores"]
+                avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+
+                response_skills.append({
+                    "skill": skill,
+                    "average_score": avg_score
+                })
+
+            skill_category_distribution = categorize_skill_scores(response_skills, user_leaderboard)
+
+            return {
+                "client_users": client_list,
+                "skills": response_skills,
+                "leaderboard": user_leaderboard,
+                "user_score_distribution": user_score_distribution,
+                "skill_category_distribution": skill_category_distribution
+            }
+    except Exception as e:
+        logger.exception(f"Error in evaluate_skills_data_client: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to evaluate skills data for client users."
+        }
+    
+def evaluate_culture_skills_data_client(client_users, tenant_id):
+    try:
+            user_emails = client_users.member_emails
+            client_list = list(user_emails.split(","))
+            skill_data = {}
+        
+
+            user_id = Identity.objects.filter(
+            tenant_id=tenant_id,
+            identity_type="deepchat_unique_id",
+            value__in = client_list,
+            deleted=0
+            )
+
+            user_ids = list(user_id.values_list('user_id', flat=True))
+            users = User.objects.filter(
+                tenant_id=tenant_id,    
+                uid__in=user_ids,
+                deleted=0
+            )
+            print(user_ids)
+
+            user_leaderboard = []
+            user_skill_info = {}
+
+            user_score_distribution = {
+                "1-5": 0,
+                "5-8": 0,
+                "8-10": 0
+            }
+
+            for user in users:
+                total_score = 0
+                total_skills = 0
+                temp_user_skill_info = {}
+                culture_score_distribution = {}
+
+                test_attempt_sessions = TestAttemptSession.objects.filter(
+                    participant_id=user.uid,
+                    status=TestAttemptSessionStatusChoices.completed
+                ).exclude(finished_at=None)
+
+                for session in test_attempt_sessions:
+                    skill_dict = session.culture_skills_rating
+                    if not skill_dict:
+                        continue
+                    
+                    total_score += sum(skill_dict.values())
+                    total_skills += len(skill_dict)
+
+                    for skill_name, avg_score in skill_dict.items():
+                        # avg_score = details.get("average_score", 0)
+                        # temp_user_skill_info[skill_name] = temp_user_skill_info.get(skill_name, []).append(avg_score)
+                        if not isinstance(avg_score, (int, float)):
+                            continue  # or raise error if unexpected
+
+                        if skill_name not in temp_user_skill_info:
+                            temp_user_skill_info[skill_name] = []
+
+                        temp_user_skill_info[skill_name].append(avg_score)
+                        print("Skill_name:",skill_name, avg_score)
+                    
+                        if skill_name not in skill_data:
+                            skill_data[skill_name] = {
+                                "scores": [],                              
+                            }
+
+                        skill_data[skill_name]["scores"].append(avg_score)
+
+                        if skill_name not in culture_score_distribution:
+                            culture_score_distribution[skill_name] = {
+                                "1-5": 0,
+                                "6-8": 0,
+                                "9-10": 0
+                            }
+
+                        # Categorize
+                        if isinstance(avg_score, (int, float)):
+                            if 1 <= avg_score <= 5:
+                                culture_score_distribution[skill_name]["1-5"] += 1
+                            elif 6 <= avg_score <= 8:
+                                culture_score_distribution[skill_name]["6-8"] += 1
+                            elif 9 <= avg_score <= 10:
+                                culture_score_distribution[skill_name]["9-10"] += 1
+                        
+
+                if total_skills:
+                    user_email = user_id.filter(user_id=user.uid).values_list("value", flat=True).first()
+                    user_avg = round(total_score / total_skills, 2)
+                    user_leaderboard.append({
+                        "user_id": str(user.uid),
+                        "email": user_email,
+                        "average_score": user_avg,
+                        "scores": {skill : round(sum(ratings)/len(ratings),2)  for skill, ratings in temp_user_skill_info.items()}
+                    })
+                    if isinstance(user_avg, (int, float)):
+                        if 1 <= user_avg <= 5:
+                            user_score_distribution["1-5"] += 1
+                        elif 5 < user_avg <= 8:
+                            user_score_distribution["5-8"] += 1
+                        elif 8 < user_avg <= 10:
+                            user_score_distribution["8-10"] += 1
+
+            # user_skill_inf0[user_id] = {skill : sum(ratings)/len(ratings)  for skill, ratings in temp_user_skill_info.items()}
+            user_skill_info[str(user.uid)] = {
+                    skill: round(sum(ratings) / len(ratings), 2)
+                    for skill, ratings in temp_user_skill_info.items()
+                }  
+
+            # user_leaderboard.sort(key=lambda x: x["average_score"], reverse=True)
+
+
+            response_skills = []
+            for skill, data in skill_data.items():
+                scores = data["scores"]
+                avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+
+                response_skills.append({
+                    "skill": skill,
+                    "average_score": avg_score,                    
+                })
+
+            culture_category_distribution = categorize_skill_scores(response_skills, user_leaderboard)
+
+            return {
+                "client_users": client_list,
+                "skills": response_skills,
+                "leaderboard": user_leaderboard,
+                "user_score_distribution": user_score_distribution,
+                "culture_category_distribution": culture_category_distribution,
+            }
+    except Exception as e:
+        logger.exception(f"Error in evaluate_culture_skills_data_client: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to evaluate culture skills data for client users."
+        }
+    
+
+def get_culture_map_prompt(culture_map):
+  prompt =  '''
+    Culture Map: ${culture_map}
+    For the given list of cultural map or dimensions, generate a JSON object where:
+
+    The key is the cultural dimension name.
+
+    The value is a concise evaluative question describing the scoring scale.
+
+    Always make highest score of 10 mean the strongest presence of that trait, and score of 0 mean the opposite extreme.
+
+    Format the text as:
+    "Dimension": "Does the conversation look like the participants [description of high score 10] (highest score of 10) or [description of score 0] (score of 0)?"
+
+    Keep it short, clear, and focused on observable aspects of the conversation.
+
+    Example:
+
+    {
+      "Hierarchy": "Does the conversation look like the participants have a strict hierarchical relationship (highest score of 10) or a casual professional relationship (score of 0)?"
+    }
+    '''
+
+  return Template(prompt).substitute(culture_map=culture_map)
+
+
+def generate_culture_map(culture_map, llm_type='gemini'):
+    prompt = get_culture_map_prompt(culture_map)
+
+    if llm_type == 'gemini':
+        raw_response = gemini_completion(prompt)
+    else:
+        raw_response = anthropic_completion(prompt)
+
+    # Extract JSON from fenced code block
+    if "```json" in raw_response:
+        json_str = raw_response.split("```json")[1].split("```")[0].strip()
+    else:
+        json_str = raw_response.strip()
+
+    return json.loads(json_str)

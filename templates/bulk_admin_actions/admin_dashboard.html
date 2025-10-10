@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <div class="min-h-screen p-10">
+    <div class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-8">
+      <h1 class="text-3xl font-bold mb-6 flex items-center gap-2">
+        🛠 Admin Dashboard
+      </h1>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <a href="{% url 'upload_view' %}" class="block p-6 bg-blue-100 hover:bg-blue-200 rounded-xl transition">
+          📂 <span class="font-semibold">Upload & Generate Scenario CSV</span>
+        </a>
+
+        <a href="{% url 'Bulk_Prompt_Runner' %}" class="block p-6 bg-green-100 hover:bg-green-200 rounded-xl transition">
+          📊 <span class="font-semibold">Bulk Prompt Runner</span>
+        </a>
+
+        <a href="{% url 'get_static_test' %}" class="block p-6 bg-yellow-100 hover:bg-yellow-200 rounded-xl transition">
+          📄 <span class="font-semibold">Fetch Static Test</span>
+        </a>
+
+        <a href="{% url 'get_dynamic_test' %}" class="block p-6 bg-purple-100 hover:bg-purple-200 rounded-xl transition">
+          📂 <span class="font-semibold">Fetch Dynamic Test</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

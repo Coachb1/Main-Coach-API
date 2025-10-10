@@ -1,7 +1,8 @@
 from django.db import models
+from django.forms import ValidationError
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -13,6 +14,8 @@ from tests.choices import PersonalityModelChoices
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
 import string
+
+from users.models import ClientUserInfo, User
 
 ## psychometric section
 # class PsychometricItem(MyModel):    
@@ -112,7 +115,7 @@ class Test(TenantAwareModel):
     tedtalk_and_hbr_case = models.TextField(
         null=True, blank=True, default=None)
 
-    email_candidate = models.BooleanField(default=True, null=True, blank=True)
+    email_candidate = models.BooleanField(default=True, null=True, blank=True, help_text='Report at End and Email candidate')
     candidate_type = models.CharField(
         null=True, blank=True, max_length=255, default=None)
     orchestrated_conversation_details = models.JSONField(
@@ -166,6 +169,8 @@ class Test(TenantAwareModel):
     report_description = models.TextField(null=True, blank=True, default=None)
     category = models.CharField(max_length=255, null=True, blank=True, default=None)
     is_single_select = models.BooleanField(default=False, null=True, blank=True)
+    score_visible = models.BooleanField(default=True, null=True)
+    explanation_visible = models.BooleanField(default=True, null=True)
     psychometric_report_config= models.ForeignKey(
         'PsychometricReportSection',
         related_name='tests',
@@ -184,6 +189,14 @@ class Test(TenantAwareModel):
     feedback_video_script_template = models.TextField(null=True, blank=True, default=None)
     time_limit = models.IntegerField(null=True, blank=True, default=0)
     instruction_media_link = models.CharField(max_length=255, null=True, blank=True, default=None)
+    notice_board = models.TextField(null=True, blank=True, default= "Note: These are our standard curated simulation scenarios. For deeper learning opportunities using your team and company-specific scenarios, please contact your learning administrator.")
+    culture_skills_to_evaluate = models.JSONField(null=True, blank=True, default=None)
+    tag = models.CharField(
+        max_length=55, null=True, blank=True, choices=TagChoices, default=TagChoices.general)
+    score_config = models.JSONField(null=True, blank=True, default=None)
+    generate_feedback = models.BooleanField(blank=True,default=True)
+    is_personality_game = models.BooleanField(default=False)
+    
     class Meta:
         db_table = "test"
         ordering = ("-id",)
@@ -219,6 +232,8 @@ class TestQuestion(TenantAwareModel):
     mcq_path = models.TextField(null=True, blank=True,default=None)
     snippet_url = models.TextField(null=True, blank=True,default=None)
     question_insight = models.TextField(null=True, blank=True,default=None)
+    que_explanation = models.TextField(null=True, blank=True,default=None)
+    que_marks = models.IntegerField(default=0)
 
     class Meta:
         db_table = "test_question"
@@ -581,3 +596,208 @@ class TestMapping(MyModel):
         unique_together = (
             ('test', 'page_name', 'client', 'deleted')
         )
+
+
+class UserTestMapping(MyModel):
+    user = models.OneToOneField('users.User', on_delete=models.CASCADE)
+    tests = models.ManyToManyField(Test, related_name='user_test_mappings',null = True, blank=True)
+    sticker = models.CharField(max_length=55, null=True, blank=True)
+
+    class Meta:
+        db_table = "user_test_mappings"
+        verbose_name = "User Test Mapping"
+        verbose_name_plural = "User Test Mappings"
+        ordering = ("-id",)
+        unique_together = (
+            ('user', 'deleted')
+        )
+
+    def __str__(self):
+        return f"{self.user.name} Test Mapping"
+    
+
+class Course(MyModel):
+    """
+    Represents a course or library that can be linked to a specific client.
+    """
+
+    COURSE_TYPES = [
+        ("course", "Course"),
+        ("library", "Library"),
+    ]
+
+    title = models.CharField(max_length=255)
+    sub_title = models.CharField(max_length=255, blank=True)
+    type = models.CharField(max_length=20, choices=COURSE_TYPES, default="course")
+
+    def __str__(self):
+        return self.title
+
+class CoursePackage(TenantAwareModel):
+    client = models.ForeignKey(
+        ClientUserInfo,
+        related_name="client_courses",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    title = models.CharField(max_length=255)
+    sub_title = models.CharField(max_length=255, blank=True)
+    # Many-to-many relationship with Course
+    courses = models.ManyToManyField(
+        Course,
+        related_name="packages",
+        blank=True,
+    )
+    job_aid = models.ForeignKey(
+        'jobaid.JobAid',
+        related_name="course_packages",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    image_link = models.URLField(blank=True, null=True, default=None)
+
+    class Meta:
+        db_table = "course_package"
+        verbose_name = "Course Package"
+        verbose_name_plural = "Course Packages"
+        unique_together = ("client", "title")  # client cannot have two packages with same title
+
+
+    def __str__(self):
+        return self.title
+
+
+class Module(MyModel):
+    """
+    Represents a module inside a course, which can be of various types
+    (Assessment, Video, Text, etc).
+    """
+
+    CHAPTER_TYPE_CHOICES = [
+        ("ASSESSMENT", "Assessment"),
+        ("VIDEO", "Video Lesson"),
+        ("TEXT", "Text Lesson"),
+        ("CHATBOT", "Chatbot"),
+        ("IMAGE", "Image"),
+        ("BOOK", "Book"),
+    ]
+
+    module_name = models.CharField(max_length=60)
+    chapter_type = models.CharField(
+        max_length=20, choices=CHAPTER_TYPE_CHOICES, default="ASSESSMENT"
+    )
+    test = models.ForeignKey(
+        Test, related_name="modules", on_delete=models.CASCADE, blank=True, null=True
+    )
+    course = models.ForeignKey(
+        Course, related_name="modules", on_delete=models.CASCADE
+    )
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255, blank=True, null=True)
+    tag = models.CharField(max_length=55,default="General")
+    description = models.TextField(blank=True)
+    video_url = models.URLField(blank=True, null=True)
+    audio_link = models.URLField(blank=True, null=True)
+    image_link = models.URLField(blank=True, null=True)
+    embed_link = models.URLField(blank=True, null=True)
+    list_name = models.CharField(max_length=55, blank=True, null=True) 
+
+
+    def __str__(self):
+        return f"{self.title} ({self.course.title})"
+
+
+class UserProgress(MyModel):
+    """
+    Tracks a user's progress in a specific course.
+    """
+
+    user = models.ForeignKey(User, related_name="progress", on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, related_name="progress", on_delete=models.CASCADE)
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    modules_completed = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Course User Progress'
+        verbose_name_plural = "Course User Progresses"
+    def __str__(self):
+        return f"{self.user.name} - {self.course.title} Progress"
+
+
+
+class ModuleProgress(MyModel):
+    """
+    Tracks a user's progress for a specific module inside a course.
+    """
+
+    STATUS_CHOICES = [
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+        ("not_started", "Not Started"),
+
+    ]
+
+    user_progress = models.ForeignKey(
+        "UserProgress",
+        related_name="module_progress",
+        on_delete=models.CASCADE,
+        db_index=True,
+    )
+    module = models.ForeignKey(
+        "Module",
+        related_name="progress",
+        on_delete=models.CASCADE,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="not_started", db_index=True
+    )
+    start_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    end_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    completed_in_percentage = models.FloatField(
+        null=True, blank=True, default=0.0, help_text="Percentage of module completed"
+    )
+    played_audio = models.FloatField(
+        null=True, blank=True, default=0.0, help_text="Percentage of audio played"
+    )
+    class Meta:
+        db_table = "module_progress"
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["module", "status"]),
+        ]
+        unique_together = ("user_progress", "module")
+        ordering = ["module__id"]
+
+    def __str__(self):
+        return f"{self.user_progress.user.name} - {self.module.title} ({self.status})"
+
+
+
+class ModuleLike(MyModel):
+    user = models.ForeignKey(User, related_name="module_likes", on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, related_name="likes", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "module")  # One like per user
+        db_table = "module_likes"
+
+    def __str__(self):
+        return f"{self.user.name} liked {self.module.title}"
+
+
+class ModuleForLater(MyModel):
+    user = models.ForeignKey(User, related_name="module_for_later", on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, related_name="module_for_later", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "module")  # Prevent duplicates
+        db_table = "module_for_later"
+
+    def __str__(self):
+        return f"{self.user.name} saved {self.module.title} for later"

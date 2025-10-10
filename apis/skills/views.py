@@ -1,3 +1,4 @@
+import math
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -8,6 +9,13 @@ from django.http import HttpResponse
 from apis.skills.serializers import SkillIndexSerializer, CreateCustomSkillSerializer
 from apis.skills.serializers import SkillsDisplaySerializer, CustomRatingDisplaySerializer
 from clients.permissions import IsAuthenticatedClient
+from identities.helpers import get_user_via_identity
+from identities.models import Identity
+from tenants.models import Tenant
+from tests.choices import TestAttemptSessionStatusChoices
+from tests.models import TestAttemptSession
+from users.models import ClientUserInfo, User
+from skills.helpers import categorize_skill_scores, evaluate_culture_skills_data_client, evaluate_skills_data_client
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from pdf_generator.helpers import get_leaderboard_report
@@ -18,7 +26,8 @@ from skills.models import CustomRating
 from skills.helpers import save_the_custom_rating
 from skills.constants import skills
 from skills.models import CharacteristicsAndPrompts
-
+import logging
+logger = logging.getLogger(__name__)
 
 class SkillsIndexViewSet(ApiViewSet,
                          mixins.ListModelMixin,
@@ -115,6 +124,57 @@ class SkillsViewSet(ApiViewSet,
             return Response({"characteristic_list": charac_list }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': e}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=["GET"], detail=False, url_path="client-skills-list")
+    def get_client_skill_info(self, request, *args, **kwargs):
+        """
+        to retrieve client skills list 
+        """
+        client = self.request.query_params.get("client_id")
+        tenant_id = self.request.tenant.uid
+        logger.info(f"Client ID: {client}, Tenant ID: {tenant_id}")
+        try:
+            client_users = ClientUserInfo.objects.filter(uid=client, tenant_id=tenant_id, deleted=False).first()
+            if not client_users:
+                return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+            if not client_users.member_emails:
+                return Response({"error": "No users found for this client"}, status=status.HTTP_404_NOT_FOUND)
+            result = evaluate_skills_data_client(client_users, tenant_id)
+
+            if 'error' in result:
+                return Response({'error': str(result['error'])}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception("Error in get_client_skill_info: %s", str(e))
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        
+    @action(methods=["GET"], detail=False, url_path="client-cultures-list")
+    def get_client_culture_info(self, request, *args, **kwargs):
+        """
+        to retrive client culture list 
+        """
+        client = request.query_params.get("client_id")
+        tenant_id = self.request.tenant.uid
+        logger.info(f"[culture] Client ID: {client}, Tenant ID: {tenant_id}")
+        try:
+            client_users = ClientUserInfo.objects.filter(uid = client, tenant_id = tenant_id, deleted=False).first()
+            if not client_users:
+                return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+            if not client_users.member_emails:
+                return Response({"error": "No users found for this client"}, status=status.HTTP_404_NOT_FOUND)
+            
+            result = evaluate_culture_skills_data_client(client_users, tenant_id)
+            if 'error' in result:
+                return Response({'error': str(result['error'])}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(result, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.exception("Error in get_client_culture_info: %s", str(e))
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

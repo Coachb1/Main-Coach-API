@@ -20,3 +20,14 @@ class CoachingConversation(TenantAwareModel):
         db_table = "coaching_conversation"
 
         ordering = ("-id",)
+
+class BotResponsePrompt(TenantAwareModel):
+    name = models.CharField(max_length=50)
+    prompt = models.TextField()
+    normalized_name = models.CharField(max_length=255, editable=False, db_index=True)
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = self.name.strip().lower().replace(" ", "_")
+        super().save(*args, **kwargs)
+
+
