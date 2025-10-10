@@ -22,7 +22,7 @@ from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_t
 from .models import Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
-from django.urls import path
+from django.urls import path, reverse
 from .models import TestPilotuser, TestPilotRecords
 from .forms import BulkUpdateForm, CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
@@ -101,6 +101,7 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         "uid",
         "test_code",
         "deleted",
+        "questions_link",
         "title",
         "description",
         'description_media',
@@ -166,6 +167,14 @@ class TestAdmin(ExportActionMixin, TenantAwareModelAdmin):
         HasDescriptionMediaFilter
     )
     ordering = ("-id",)
+    def questions_link(self, obj):
+        url = (
+            reverse("admin:tests_testquestion_changelist")
+            + f"?test_id={obj.uid}"
+        )
+        return format_html('<a href="{}">View Questions</a>', url)
+
+    questions_link.short_description = "Questions"
 
     def start_with_user(self, obj):
         start_with_user_message = (
@@ -1176,7 +1185,7 @@ class CourseInline(admin.TabularInline):
 
 @admin.register(CoursePackage)
 class CoursePackageAdmin(TenantAwareModelAdmin):  # keep TenantAwareModelAdmin if needed
-    list_display = ('id', 'uid', "title", "sub_title", "client")
+    list_display = ('id', 'uid', "title", "sub_title", "client", 'image_link')
     list_filter = ("client",)
     search_fields = ("title", "sub_title", "client__name")
     ordering = ("title",)
