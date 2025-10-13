@@ -2,7 +2,7 @@ from django.db import models
 from django.forms import ValidationError
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices, default_page_config
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -657,6 +657,9 @@ class CoursePackage(TenantAwareModel):
         null=True,
     )
     image_link = models.URLField(blank=True, null=True, default=None)
+    page_config = models.JSONField(
+        default=default_page_config,
+        help_text="Configuration settings for the course package pages. eg: {'show_filters': true, 'show_lists': true, 'show_search': true, 'show_sorting': true}")
 
     class Meta:
         db_table = "course_package"
