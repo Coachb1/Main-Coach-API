@@ -659,7 +659,7 @@ class CoursePackage(TenantAwareModel):
     image_link = models.URLField(blank=True, null=True, default=None)
     page_config = models.JSONField(
         default=default_page_config,
-        help_text="Configuration settings for the course package pages. eg: {'show_filters': true, 'show_lists': true, 'show_search': true, 'show_sorting': true}")
+        help_text="Configuration settings for the course package pages. eg: {'show_filters': 'Industry, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players', 'show_lists': true, 'show_search': true}")
 
     class Meta:
         db_table = "course_package"

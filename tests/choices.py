@@ -114,9 +114,7 @@ class TestQuestionResponseEvaluationStatusChoices(DjangoChoices):
 
 
 def default_page_config():
-    return {
-        "show_filters": True,
-        "show_lists": True,
-        "show_search": True,
-        "show_sorting": True,
-    }
+    return {"show_lists": True, 
+            "show_search": True, 
+            "show_filters": "Industry, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players"
+            }
