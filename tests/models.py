@@ -706,7 +706,10 @@ class Module(MyModel):
     image_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
     list_name = models.CharField(max_length=55, blank=True, null=True) 
-
+    business_outcome = models.CharField(max_length=125, blank=True, null=True)
+    implementation_complexity = models.CharField(max_length=125, blank=True)
+    unexpected_outcome = models.CharField(max_length=125, blank=True)
+    emerging_player = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
