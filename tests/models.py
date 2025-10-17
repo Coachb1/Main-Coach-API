@@ -632,6 +632,12 @@ class Course(MyModel):
 
     def __str__(self):
         return self.title
+    
+    class Meta:
+        db_table = "course"
+        verbose_name = "Course"
+        verbose_name_plural = "Courses"
+        unique_together = ("title", "type")  # Ensure no duplicate titles for the same type
 
 class CoursePackage(TenantAwareModel):
     client = models.ForeignKey(
