@@ -6,7 +6,7 @@ from tenants.models import Tenant
 from tests.models import Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 import csv
-from .models import CoursePackage, PsychometricReportSection, PsychometricReportSubsection, Test
+from .models import Course, CoursePackage, PsychometricReportSection, PsychometricReportSubsection, Test
 from io import TextIOWrapper
 
 
@@ -206,3 +206,17 @@ class BulkUpdateForm(forms.Form):
     tab_type = forms.CharField(required=False)
     tab_difficulty = forms.CharField(required=False)
     tab_sticker = forms.CharField(required=False)
+
+
+class CourseAdminForm(forms.ModelForm):
+    """
+    Custom form for Course to include an upload CSV field.
+    """
+    upload_csv = forms.FileField(
+        required=False,
+        help_text="Upload a CSV file to bulk create/update modules for this course."
+    )
+
+    class Meta:
+        model = Course
+        fields = "__all__"
