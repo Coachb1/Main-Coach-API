@@ -693,7 +693,7 @@ class Module(MyModel):
         ("BOOK", "Book"),
     ]
 
-    module_name = models.CharField(max_length=60)
+    module_name = models.CharField(max_length=255)
     chapter_type = models.CharField(
         max_length=20, choices=CHAPTER_TYPE_CHOICES, default="ASSESSMENT"
     )
