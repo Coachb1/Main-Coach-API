@@ -1,5 +1,6 @@
 from django.db import models
 
+from coaching_conversations.models import BotResponsePrompt
 from tenants.models import TenantAwareModel
 from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
 from coaching_conversations.choices import BotScenarioCaseChoice
@@ -355,6 +356,11 @@ class ClientUserInfo(TenantAwareModel):
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
     is_active = models.BooleanField(default=True, blank=True)
     assigned_tests = models.ManyToManyField('tests.Test', blank=True, related_name="client_users")
+    assigned_bots = models.ManyToManyField(
+        'coaching_conversations.BotResponsePrompt',
+        related_name="client_users",
+        blank=True,
+    )
 
     class Meta:
         db_table = "client_user_info"
