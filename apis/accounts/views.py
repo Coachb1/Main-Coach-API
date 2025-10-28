@@ -204,6 +204,35 @@ class AccountsViewSet(ApiViewSet,
         data = get_participant_report(user, only_data=True)
 
         return Response({"data": data, "status": "completed"})
+    
+    @action(methods=["GET"], detail=False, url_path="client-participant-report-data")
+    def get_client_participant_report_frontend(self, request, *args, **kwargs):
+
+        client_name = request.query_params.get('client_name', None)
+        if not client_name:
+            return Response({"error": "client_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = ClientUserInfo.objects.get(
+                tenant_id=request.tenant.uid,
+                deleted=False,
+                client_name=client_name
+            )
+        except ClientUserInfo.DoesNotExist:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+        data = []
+
+        for email in [em.strip() for em in client.member_emails.split(',') if em.strip()]:
+            user = get_user_via_identity(tenant=request.tenant, identity_type="deepchat_unique_id", identity_value=email)
+            if user:
+                user_data = get_participant_report(user, only_data=True)
+                if user_data:
+                    user_data['user_id'] = user.uid
+                    user_data['user_name'] = user.name
+                    data.append(user_data)
+
+        return Response({"data": data, "status": "completed"})
 
 
     @action(methods=["GET"], detail=False, url_path="get-workspace-users")
