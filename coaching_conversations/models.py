@@ -29,5 +29,7 @@ class BotResponsePrompt(TenantAwareModel):
     def save(self, *args, **kwargs):
         self.normalized_name = self.name.strip().lower().replace(" ", "_")
         super().save(*args, **kwargs)
+    def __str__(self):
+        return self.name
 
 
