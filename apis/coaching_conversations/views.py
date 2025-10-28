@@ -1073,11 +1073,31 @@ class CoachingConversationViewSet(ApiViewSet,
 
     @action(methods=['GET'], detail=False, url_path='get-response-style-list')
     def get_response_style_list(self, request, *args, **kwargs):
+        """
+        Retrieves a list of response styles available for bots in the tenant.
+        """
+        names = []
         try:
-            names = BotResponsePrompt.objects.filter(
-                deleted=False,
-                tenant_id=request.tenant.uid
-            ).values_list('name', 'normalized_name')
+            client_name = request.query_params.get('client_name', None)
+            if client_name:
+                client = ClientUserInfo.objects.filter(
+                    tenant_id=request.tenant.uid,
+                    deleted=False,
+                    client_name=client_name
+                ).first()
+                if not client:
+                    return Response(
+                        {'msg': f'Client {client_name} not found!'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                names = client.assigned_bots.all().values_list('name', 'normalized_name')
+
+            if len(names) == 0:
+                names = BotResponsePrompt.objects.filter(
+                    deleted=False,
+                    tenant_id=request.tenant.uid
+                ).values_list('name', 'normalized_name')
 
             data = {name: normalized for name, normalized in names}
 
