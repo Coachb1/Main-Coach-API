@@ -871,7 +871,7 @@ def get_participant_report(user, only_data=False):
                  })
 
         participant_info['skills_info'] = skills_info
-
+        participant_email = user.get_email()
         test_attempt_sessions = TestAttemptSession.objects.filter(deleted=0, status = TestAttemptSessionStatusChoices.completed , participant_id = user.uid).exclude(finished_at=None).order_by('-finished_at')
         print(f"***** user_id : {user.uid}, 'sessions': {test_attempt_sessions.count()}")
         test_attempt_session_list = []
@@ -907,7 +907,7 @@ def get_participant_report(user, only_data=False):
         logger.info(f"participant_info : {participant_info}")
         
 
-        return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating}
+        return {'participant_name': participant_name, 'participant_info': participant_info, 'custom_rating': custom_rating,'participant_email': participant_email,}
 
     t = render_to_string(
         f"pdf_generator/reports/participant_report.html", {'participant_name': participant_name,
