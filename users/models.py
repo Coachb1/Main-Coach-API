@@ -361,6 +361,7 @@ class ClientUserInfo(TenantAwareModel):
         related_name="client_users",
         blank=True,
     )
+    bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "botid": "xyz"},"simulation": {"show":true}}')
 
     class Meta:
         db_table = "client_user_info"
