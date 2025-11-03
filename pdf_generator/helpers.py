@@ -892,7 +892,8 @@ def get_participant_report(user, only_data=False):
                     "slno" : cnt,
                     "title": test.title,
                     "link" : test_attempt_session.report_url,
-                    "date" : test_attempt_session.created.date()
+                    "date" : test_attempt_session.created.date(),
+                    "avg_score": test_attempt_session.avg_score,
                 }
                 test_attempt_session_list.append(session_info)
                 cnt += 1
