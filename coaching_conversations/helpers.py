@@ -27,7 +27,7 @@ from users.helpers import get_user_attribute
 from users.models import BotAndUserMapping, ClientUserInfo, UserAttribute, get_default_help_text
 from users.choices import ProfileTypeChoice
 from users.choices import BotTypeChoice
-from apis.accounts.serializers import UserIDPSerializers
+from apis.accounts.serializers import UserIDPSerializers, clientUserInfoSerializer
 from utilities.models import SessionNotesRecommendations
 import requests
 from utilities.prompts import get_intake_summary_prompt
@@ -2822,9 +2822,13 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "leaderboard_report_protected": client.leaderboard_report_protected,
         "leaderboard_report_password": client.leaderboard_report_password,
         "is_active": client.is_active,
-        "bot_config": client.bot_config 
-
+        "bot_config": client.bot_config
     }
+
+    client_dataa = clientUserInfoSerializer(client).data
+
+    if client_dataa:
+        user_info = {**user_info, **client_dataa}
 
     if client.restricted_features:
         user_info['restricted_features'] += ',Competencies'
