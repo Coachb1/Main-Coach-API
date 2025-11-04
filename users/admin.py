@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from tenants.models import Tenant
-from .models import (BotAttribute, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, LibraryBotConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
@@ -73,6 +73,19 @@ class CoachRecommendationsAdmin(TenantAwareModelAdmin):
     get_user_profile_email.admin_order_field = 'user_profile__email'
     get_user_profile_email.short_description = 'User Profile Email'
     
+class LibraryBotConfigInline(admin.StackedInline):
+    model = LibraryBotConfig
+    extra = 0
+    can_delete = True
+    show_change_link = True
+    fieldsets = (
+        ("Bot Configuration", {
+            "fields": ("bot_config", "show_certification_badge", "default_filters")
+        }),
+        ("Leaderboard Settings", {
+            "fields": ("leaderboard_report_protected", "leaderboard_report_password")
+        }),
+    )
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
     change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
@@ -83,6 +96,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_editable = ('domain_name','is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
     filter_horizontal = ('assigned_tests','assigned_bots')
+    inlines = [LibraryBotConfigInline]
 
     def get_urls(self):
         urls = super().get_urls()
