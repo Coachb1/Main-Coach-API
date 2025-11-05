@@ -358,8 +358,10 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
             data['report_config'] = ReportConfigSerializer(instance.report_config).data
         except:
             data['report_config'] = None
-
-        data['library_bot_config'] = LibraryBotConfigSerializer(instance.library_bot_config).data if instance.library_bot_config else {}  
+        try:
+            data['library_bot_config'] = LibraryBotConfigSerializer(instance.library_bot_config).data if instance.library_bot_config else {} 
+        except Exception as e:
+            data['library_bot_config'] = {} 
         return data
 
 
