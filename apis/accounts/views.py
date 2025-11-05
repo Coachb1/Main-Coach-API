@@ -1,4 +1,5 @@
 import datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.decorators import action
@@ -22,7 +23,8 @@ from apis.accounts.serializers import (SetupAccountSerializer, CoachCoacheeMento
                                         SignatureBotSerializer, BotAttributeSerializer,DirectoryInfoSErializer,
                                         CoachCoacheeJoiningPreviledgeSerializer, CoachCoacheeRatingSerializer, LLMMappingSerializer)
 from clients.permissions import IsAuthenticatedClient
-from tests.models import TestAttemptSession, Test, TestQuestionResponse
+from jobaid.models import JobAidSession
+from tests.models import ModuleProgress, TestAttemptSession, Test, TestQuestionResponse
 from users.permissions import IsAuthenticatedUser
 from commons.viewset import ApiViewSet
 from identities.helpers import get_user_via_identity
@@ -202,6 +204,35 @@ class AccountsViewSet(ApiViewSet,
         user = self.get_object()
 
         data = get_participant_report(user, only_data=True)
+
+        return Response({"data": data, "status": "completed"})
+    
+    @action(methods=["GET"], detail=False, url_path="client-participant-report-data")
+    def get_client_participant_report_frontend(self, request, *args, **kwargs):
+
+        client_name = request.query_params.get('client_name', None)
+        if not client_name:
+            return Response({"error": "client_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = ClientUserInfo.objects.get(
+                tenant_id=request.tenant.uid,
+                deleted=False,
+                client_name=client_name
+            )
+        except ClientUserInfo.DoesNotExist:
+            return Response({"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+        data = []
+
+        for email in [em.strip() for em in client.member_emails.split(',') if em.strip()]:
+            user = get_user_via_identity(tenant=request.tenant, identity_type="deepchat_unique_id", identity_value=email)
+            if user:
+                user_data = get_participant_report(user, only_data=True)
+                if user_data:
+                    user_data['user_id'] = user.uid
+                    user_data['user_name'] = user.name
+                    data.append(user_data)
 
         return Response({"data": data, "status": "completed"})
 
@@ -4733,6 +4764,55 @@ class AccountsViewSet(ApiViewSet,
 
         except Exception as e:
             logger.exception(f"Error in get_llm_order_request: {e}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+    @action(methods=["GET"], detail=False, url_path="actions-per-month")
+    def get_actions_per_month(self, request, *args, **kwargs):
+        try:
+            user_id = request.query_params.get('user_id')
+            if not user_id:
+                return Response(
+                    {"error": "user_id required!"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+             # --- Determine month range ---
+            now = timezone.now()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            next_month = (month_start + datetime.timedelta(days=32)).replace(day=1)
+
+            # --- 1️⃣ JobAid Sessions Created This Month ---
+            jobaid_sessions_count = JobAidSession.objects.filter(
+                email=user.get_email(),
+                created_at__gte=month_start,
+                created_at__lt=next_month
+            ).count()
+
+            # --- 2️⃣ Modules Completed This Month ---
+            module_completed_count = ModuleProgress.objects.filter(
+                user_progress__user=user,
+                status="completed",
+                end_time__isnull=False,
+                end_time__gte=month_start,
+                end_time__lt=next_month
+            ).count()
+
+
+            # --- 3️⃣ Return Results ---
+            response_data = {
+                "user_id": user.uid,
+                "month": now.strftime("%B %Y"),
+                "jobaid_sessions_created": jobaid_sessions_count,
+                "modules_completed": module_completed_count,
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in get_library_bot_actions_per_month: {e}")
             return Response(
                 {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
