@@ -2822,7 +2822,7 @@ def get_client_user_info(client:ClientUserInfo, email:str):
         "leaderboard_report_protected": client.leaderboard_report_protected,
         "leaderboard_report_password": client.leaderboard_report_password,
         "is_active": client.is_active,
-        "bot_config": client.bot_config
+        "universal_bot_config": client.universal_bot_config
     }
 
     client_dataa = clientUserInfoSerializer(client).data
