@@ -42,13 +42,13 @@ class AccountSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
-        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
-        data['client'] = clientUserInfoSerializer(client).data if client else None
+        
 
         user_att = UserAttribute.objects.get(deleted=False, user_id=instance.uid)
         if user_att.attributes.get('email'):
             data['email'] = user_att.attributes.get('email')
-
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
+        data['client'] = clientUserInfoSerializer(client).data if client else None
         data['user_allow_audio_interactions'] = user_att.allow_audio_interactions
         data['prioritize_user_audio_interaction'] = user_att.prioritize_user_audio_interaction
         data['user_restricted_pages'] = user_att.restricted_pages
