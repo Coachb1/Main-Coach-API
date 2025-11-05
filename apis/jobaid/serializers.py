@@ -48,3 +48,30 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
             "liked_by"
         ]
         read_only_fields = ["status", "created_at", "report_url", "generated_report_data"]
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        jobaid = instance.job_aid
+        ordered_questions = jobaid.questions.all().order_by('id')
+
+        qna = instance.qna or {}
+        ordered_qna = []
+        for q in ordered_questions:
+            if isinstance(qna, dict):
+                # If stored as a dict
+                answer = qna.get(str(q.id)) or qna.get(q.question)
+            elif isinstance(qna, list):
+                # If stored as list of {question, answer}
+                found = next((item for item in qna if item.get("question") == q.question), None)
+                answer = found.get("answer") if found else None
+            else:
+                answer = None
+            ordered_qna.append({
+                "question_id": q.id,
+                "question": q.question,
+                "answer": answer
+            })
+        
+        data["ordered_qna"] = ordered_qna
+        return data

@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.contrib import admin
 from import_export.admin import ExportActionMixin
 from identities.helpers import get_user_via_identity
@@ -24,7 +25,7 @@ from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path, reverse
 from .models import TestPilotuser, TestPilotRecords
-from .forms import BulkUpdateForm, CSVUploadForm, PsychometricAdminForm, PsychometricReportAdminForm
+from .forms import BulkUpdateForm, CSVUploadForm, CourseAdminForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
@@ -1159,18 +1160,147 @@ class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
         }
         return render(request, "admin/usertestmapping/csv_upload.html", context)
 
-
-class ModuleInline(admin.TabularInline):
-    """Inline modules under Course (so Course can be created with modules)"""
-    model = Module
-    extra = 1
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "sub_title", "type")
+    form = CourseAdminForm
+    list_display = ("title", "sub_title", "type", "view_modules_link")
     list_filter = ("type", )
     search_fields = ("title", "sub_title")
-    ordering = ("title",)
-    # inlines = [ModuleInline]
+    ordering = ("-id",)
+    actions = ["export_modules_to_csv"]
+
+
+    def view_modules_link(self, obj):
+        url = (
+            reverse("admin:tests_module_changelist")
+            + f"?course__id__exact={obj.id}"
+        )
+        return format_html('<a href="{}">View Modules</a>', url)
+
+    view_modules_link.short_description = "Modules"
+
+    def export_modules_to_csv(self, request, queryset):
+        """
+        Export all modules belonging to the selected courses as CSV.
+        """
+        # Prepare CSV response
+        response = HttpResponse(content_type="text/csv")
+        filename = f"modules_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Course Name",
+            "Name",
+            "Emerging Player",
+            "Author",
+            "Description",
+            "Implementation Complexity",
+            "Industry",
+            "Business Outcome",
+            "Unexpected Outcome",
+            "Function",
+            "Report Link",
+            "Image Link",
+            "Video Link",
+            "Audio Link",
+            "Category",
+            "Test Code",
+        ])
+
+        # Fetch and write rows
+        total_written = 0
+        for course in queryset:
+            modules = Module.objects.filter(course=course).select_related("test")
+            for module in modules:
+                writer.writerow([
+                    course.title,
+                    module.title or "",
+                    "TRUE" if module.emerging_player else "FALSE",
+                    module.author or "",
+                    module.description or "",
+                    module.implementation_complexity or "",
+                    module.tag or "",
+                    module.business_outcome or "",
+                    module.unexpected_outcome or "",
+                    module.function or "",
+                    module.embed_link or "",
+                    module.image_link or "",
+                    module.video_url or "",
+                    module.audio_link or "",
+                    module.list_name or "",
+                    module.test.test_code if module.test else "",
+                ])
+                total_written += 1
+
+
+        return response
+
+    def save_model(self, request, obj, form, change):
+        """
+        Overrides save to process CSV after saving course.
+        """
+        super().save_model(request, obj, form, change)
+
+        csv_file = form.cleaned_data.get("upload_csv")
+        if not csv_file:
+            return  # no CSV uploaded, skip
+
+        try:
+            decoded_file = csv_file.read().decode("utf-8-sig").splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            created_count, updated_count = 0, 0
+            for row in reader:
+                row = {k.strip().replace(" ", "_").lower(): v.strip() if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
+                print('row', row)
+                module_title = row.get("name").strip()
+                chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "TEXT"
+
+                if not module_title:
+                    continue
+                test = None
+                if row.get('test_code'):
+                    test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
+
+                module, created = Module.objects.update_or_create(
+                    title=module_title,
+                    course=obj,  # attach to this course
+                    defaults={
+                        "module_name": module_title,
+                        "test": test,
+                        "chapter_type": chapter_type,  # can be adjusted dynamically
+                        "author": row.get("author"),
+                        "tag": row.get("industry", "General"),
+                        "description": row.get("description"),
+                        "business_outcome": row.get("business_outcome"),
+                        "implementation_complexity": row.get("implementation_complexity"),
+                        "unexpected_outcome": row.get("unexpected_outcome"),
+                        "function": row.get("function"),
+                        "video_url": row.get("video_link"),
+                        "audio_link": row.get("audio_link"),
+                        "image_link": row.get("image_link"),
+                        "embed_link": row.get("report_link"),
+                        "list_name": row.get("category"),
+                        "emerging_player": str(row.get("emerging_player", "")).strip().upper() == "TRUE",
+                    }
+                )
+
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+
+            self.message_user(
+                request,
+                f"✅ {created_count} modules created and {updated_count} updated from CSV.",
+                level=messages.SUCCESS,
+            )
+
+        except Exception as e:
+            self.message_user(request, f"❌ CSV processing failed: {e}", level=messages.ERROR)
+
+    
 
 class CourseInline(admin.TabularInline):
     """

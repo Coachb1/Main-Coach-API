@@ -2,7 +2,7 @@ from django.db import models
 from django.forms import ValidationError
 
 from tenants.models import TenantAwareModel
-from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices
+from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices, default_page_config
 from tests.choices import QuestionForChoices
 from tests.choices import QuestionTypeChoices
 from tests.choices import TestAttemptSessionStatusChoices
@@ -600,7 +600,7 @@ class TestMapping(MyModel):
 
 class UserTestMapping(MyModel):
     user = models.OneToOneField('users.User', on_delete=models.CASCADE)
-    tests = models.ManyToManyField(Test, related_name='user_test_mappings',null = True, blank=True)
+    tests = models.ManyToManyField(Test, related_name='user_test_mappings' ,blank=True)
     sticker = models.CharField(max_length=55, null=True, blank=True)
 
     class Meta:
@@ -632,6 +632,12 @@ class Course(MyModel):
 
     def __str__(self):
         return self.title
+    
+    class Meta:
+        db_table = "course"
+        verbose_name = "Course"
+        verbose_name_plural = "Courses"
+        unique_together = ("title", "type")  # Ensure no duplicate titles for the same type
 
 class CoursePackage(TenantAwareModel):
     client = models.ForeignKey(
@@ -657,6 +663,9 @@ class CoursePackage(TenantAwareModel):
         null=True,
     )
     image_link = models.URLField(blank=True, null=True, default=None)
+    page_config = models.JSONField(
+        default=default_page_config,
+        help_text="Configuration settings for the course package pages. eg: {'show_filters': 'Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players', 'show_lists': true, 'show_search': true}")
 
     class Meta:
         db_table = "course_package"
@@ -684,7 +693,7 @@ class Module(MyModel):
         ("BOOK", "Book"),
     ]
 
-    module_name = models.CharField(max_length=60)
+    module_name = models.CharField(max_length=255)
     chapter_type = models.CharField(
         max_length=20, choices=CHAPTER_TYPE_CHOICES, default="ASSESSMENT"
     )
@@ -703,7 +712,11 @@ class Module(MyModel):
     image_link = models.URLField(blank=True, null=True)
     embed_link = models.URLField(blank=True, null=True)
     list_name = models.CharField(max_length=55, blank=True, null=True) 
-
+    business_outcome = models.CharField(max_length=125, blank=True, null=True)
+    implementation_complexity = models.CharField(max_length=125, blank=True)
+    unexpected_outcome = models.CharField(max_length=125, blank=True)
+    emerging_player = models.BooleanField(default=False)
+    function = models.CharField(max_length=125, blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"

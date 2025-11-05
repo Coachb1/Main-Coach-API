@@ -111,3 +111,10 @@ class TestQuestionResponseEvaluationStatusChoices(DjangoChoices):
     in_progress = ChoiceItem("in_progress")
     success = ChoiceItem("success")
     failed = ChoiceItem("failed")
+
+
+def default_page_config():
+    return {"show_lists": True, 
+            "show_search": True, 
+            "show_filters": "Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players"
+            }

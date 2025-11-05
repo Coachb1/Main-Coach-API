@@ -73,6 +73,12 @@ def get_default_ui_information():
         'read_text': None,
     }
 
+def get_default_library_bot_value(case):
+    if case == 'bot_config':
+        return {"coaching": {"show": "", "bot_id": ""}}
+    elif case == "default_filters":
+        return {"function": "", "industry": "", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""}
+    
 def get_default_help_text():
     help_text_json = {
         "network_directory": {
@@ -310,10 +316,12 @@ class ClientUserInfo(TenantAwareModel):
     member_user_ids = models.TextField(null=True, blank=True, default=None)
     avatar_bot_creation = models.BooleanField(null=True, default=False)
     feedback_bot_creation = models.BooleanField(null=True, default=False)
-    subject_matter_bot_creation = models.BooleanField(null=True, default=False)
-    number_of_conversation_per_month = models.IntegerField(null=True, blank=True, default=None)
+
+    subject_matter_bot_creation = models.BooleanField(null=True, default=False) # indicates that client member can create subject matter bot (not using)
     required_form_fields = models.JSONField(null=True, blank=True, default=None)
+    
     restricted_ids = models.TextField(null=True, blank=True, default=None)
+    number_of_conversation_per_month = models.IntegerField(null=True, blank=True, default=None)
     demo_ids = models.TextField(null=True, blank=True, default=None)
     accessed_bot_ids = models.TextField(null=True, blank=True, default=None)
     coach_skills = models.TextField(null=True, blank=True, default=get_default_values("skills"))
@@ -324,7 +332,9 @@ class ClientUserInfo(TenantAwareModel):
     restricted_pages = models.TextField(null=True, blank=True, default=None)
     restricted_features = models.TextField(null=True, blank=True, default=None)
     domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
+    
     deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
+    
     allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips)
     allow_audio_interactions = models.BooleanField(blank=True, default=True)
     make_new_user_in_trail = models.BooleanField(blank=True, default=True)
@@ -347,14 +357,30 @@ class ClientUserInfo(TenantAwareModel):
     allow_access_to_snippet = models.BooleanField(default=True)
     report_on = models.BooleanField(null=True,blank=True, help_text="to enable or disable reporting for the test.")
     show_recommendations = models.BooleanField(default=True)
-    ask_access_code = models.BooleanField(default=True)
-    is_repeat = models.BooleanField(default=None, null=True, blank=True)
-    test_per_month = models.IntegerField(default=None, null=True, blank=True)
     button_controls = models.JSONField(default=dict, blank=True, help_text='for eg: {"mode_button": {"show": true}, "mindmap_button": {"show": true}, "assessment_button": {"show": true}}')
-    leaderboard_report_protected = models.BooleanField(default=True, blank=True)
-    leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
     is_active = models.BooleanField(default=True, blank=True)
     assigned_tests = models.ManyToManyField('tests.Test', blank=True, related_name="client_users")
+    assigned_bots = models.ManyToManyField(
+        'coaching_conversations.BotResponsePrompt',
+        related_name="client_users",
+        blank=True,
+    )
+    # for snnipets
+    ask_access_code = models.BooleanField(default=True)
+
+
+    # for simulation bot
+    is_repeat = models.BooleanField(default=None, null=True, blank=True)
+    test_per_month = models.IntegerField(default=None, null=True, blank=True)
+
+
+    # for coaching conversations
+    coaching_credits_per_month = models.IntegerField(default=0, null=True, blank=True)
+
+    # for library bot config
+    leaderboard_report_protected = models.BooleanField(default=True, blank=True)
+    leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
+    universal_bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
 
     class Meta:
         db_table = "client_user_info"
@@ -371,6 +397,26 @@ class ClientUserInfo(TenantAwareModel):
 
     def __str__(self):
         return self.client_name
+    
+class LibraryBotConfig(MyModel):
+    client = models.OneToOneField(ClientUserInfo, on_delete=models.CASCADE, related_name="library_bot_config")
+    bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
+    show_certification_badge = models.BooleanField(default=True, blank=True, help_text="To show certification batch in library bot config")
+    default_filters = models.JSONField(
+        default=lambda: get_default_library_bot_value("default_filters"),
+        blank=True,
+        null=True,
+        help_text="""Default filters for the library bot, e.g., {"function": "", "industry": "Banking", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""} emerging_player can be true/false/empty keep empty any field to ignore filter """
+    )
+    leaderboard_report_protected = models.BooleanField(default=True, blank=True)
+    leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
+    
+
+    class Meta:
+        db_table = "library_bot_config"
+
+    def __str__(self):
+        return f"Library Bot Config - {self.client.client_name if self.client else 'No Client'}"
 
 class SnippetAccessCode(MyModel):
     client = models.ForeignKey(ClientUserInfo, on_delete=models.CASCADE, related_name="snippet_access_code")

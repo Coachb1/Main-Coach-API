@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
-from users.models import User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
+from users.models import LibraryBotConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -42,11 +42,13 @@ class AccountSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
+        
 
         user_att = UserAttribute.objects.get(deleted=False, user_id=instance.uid)
         if user_att.attributes.get('email'):
             data['email'] = user_att.attributes.get('email')
-
+        client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
+        data['client'] = clientUserInfoSerializer(client).data if client else None
         data['user_allow_audio_interactions'] = user_att.allow_audio_interactions
         data['prioritize_user_audio_interaction'] = user_att.prioritize_user_audio_interaction
         data['user_restricted_pages'] = user_att.restricted_pages
@@ -85,7 +87,6 @@ class AccountSerializer(serializers.ModelSerializer):
             pass
         
         if user_att.attributes.get('email'):
-            client = ClientUserInfo.objects.filter(deleted=False,tenant_id=instance.tenant_id,member_emails__contains=user_att.attributes.get('email')).last()
             if client:
                 data['client_allow_audio_interactions'] = client.allow_audio_interactions
                 data['send_profile_for_reapproval'] = client.send_profile_for_reapproval
@@ -340,6 +341,11 @@ class ReportConfigSerializer(serializers.ModelSerializer):
         model = ReportConfig
         fields = '__all__'
 
+class LibraryBotConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LibraryBotConfig
+        fields = '__all__'
+
 class clientUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientUserInfo
@@ -352,6 +358,10 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
             data['report_config'] = ReportConfigSerializer(instance.report_config).data
         except:
             data['report_config'] = None
+        try:
+            data['library_bot_config'] = LibraryBotConfigSerializer(instance.library_bot_config).data if instance.library_bot_config else {} 
+        except Exception as e:
+            data['library_bot_config'] = {} 
         return data
 
 

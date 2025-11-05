@@ -6,7 +6,7 @@ from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 class JobAidQuestionInline(admin.TabularInline):
     model = JobAidQuestion
-    extra = 1
+    extra = 0
     fields = ("question","validation_prompt", "question_type", "description", "dropdowns", "section")
     show_change_link = True
 
