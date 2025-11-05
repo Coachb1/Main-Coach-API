@@ -73,6 +73,12 @@ def get_default_ui_information():
         'read_text': None,
     }
 
+def get_default_library_bot_value(case):
+    if case == 'bot_config':
+        return {"coaching": {"show": "", "bot_id": ""}}
+    elif case == "default_filters":
+        return {"function": "", "industry": "", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""}
+    
 def get_default_help_text():
     help_text_json = {
         "network_directory": {
@@ -374,7 +380,7 @@ class ClientUserInfo(TenantAwareModel):
     # for library bot config
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
-    bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
+    universal_bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
 
     class Meta:
         db_table = "client_user_info"
@@ -397,10 +403,10 @@ class LibraryBotConfig(MyModel):
     bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
     show_certification_badge = models.BooleanField(default=True, blank=True, help_text="To show certification batch in library bot config")
     default_filters = models.JSONField(
-        default=None,
+        default=lambda: get_default_library_bot_value("default_filters"),
         blank=True,
         null=True,
-        help_text="Default filters for the library bot, e.g., {'industry': 'communication', 'business_outcome': 'beginner'}"
+        help_text="""Default filters for the library bot, e.g., {"function": "", "industry": "Banking", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""} emerging_player can be true/false/empty keep empty any field to ignore filter """
     )
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
