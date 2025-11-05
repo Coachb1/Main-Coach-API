@@ -600,7 +600,7 @@ class TestMapping(MyModel):
 
 class UserTestMapping(MyModel):
     user = models.OneToOneField('users.User', on_delete=models.CASCADE)
-    tests = models.ManyToManyField(Test, related_name='user_test_mappings',null = True, blank=True)
+    tests = models.ManyToManyField(Test, related_name='user_test_mappings' ,blank=True)
     sticker = models.CharField(max_length=55, null=True, blank=True)
 
     class Meta:

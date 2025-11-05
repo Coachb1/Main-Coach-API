@@ -79,12 +79,12 @@ class LibraryBotConfigInline(admin.StackedInline):
     can_delete = True
     show_change_link = True
     fieldsets = (
-        ("Bot Configuration", {
+        ("Configuration", {
             "fields": ("bot_config", "show_certification_badge", "default_filters")
         }),
-        ("Leaderboard Settings", {
-            "fields": ("leaderboard_report_protected", "leaderboard_report_password")
-        }),
+        # ("Leaderboard Settings", {
+        #     "fields": ("leaderboard_report_protected", "leaderboard_report_password")
+        # }),
     )
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
