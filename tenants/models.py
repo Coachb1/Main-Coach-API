@@ -17,11 +17,13 @@ class Tenant(MyModel):
     mobile_number_list = models.TextField(null=True,blank=True,default=None)
     web_test_code_json = models.JSONField(null=True,blank=True,default=None)
     use_skills_from_skill_bank = models.BooleanField(default=False, null=True, blank=False)
+    conversation_per_month = models.IntegerField(default=None, null=True, blank=True)
 
     @staticmethod
     def get_tenant_choices():
         choices = get_cache('tenant_choices')
         if not choices:
+            # choices = []
             choices = [(tenant.uid, f"{tenant.name} ({tenant.subdomain_prefix})") for tenant in Tenant.objects.all()]
             set_cache('tenant_choices', choices, timeout=3600)  # Cache for 1 hour
         return choices
