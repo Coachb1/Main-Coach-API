@@ -17,6 +17,7 @@ from clients.permissions import IsAuthenticatedClient
 from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
+from test_bulk_upload.test_export_helpers import CSVExportService, CSVRequestParams, TestFilterService, get_test_export_list
 from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
 from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
@@ -1957,6 +1958,64 @@ class TestViewSet(ApiViewSet,
             return Response({'error': f"An unexpected error occurred : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
+
+class TestCSVExportViewSet(ApiViewSet):
+    @action(methods=["GET"], detail=False, url_path="optimized_get_test_csv")
+    def opt_get_test_csv(self, request, *args, **kwargs):
+        params = CSVRequestParams.from_request(request)
+        # Filter tests
+        tests_qs = TestFilterService().filter_tests(params)
+        # Build csv mapping
+        csv_mapping = CSVExportService().generate_csv_mapping(tests_qs)
+        return Response({"csv": csv_mapping}, status=status.HTTP_200_OK)
+
+    @action(methods=['GET'], detail=False, url_path='get_test_csv')
+    def get_test_csv(self, request, *args, **kwargs):
+        tenant_id = getattr(self.request.tenant, "uid", None)
+        test_type = request.query_params.get('test_type', None)
+        scenario_case = request.query_params.get('scenario_case', None)
+        title = request.query_params.get('title', None)
+        test_codes = request.query_params.get('test_codes', None)
+        candidate_type = request.query_params.get('candidate_type', None)
+        client_name = request.query_params.get('client_name', None)
+        creator_email = request.query_params.get('creator_email', None)
+        download = request.query_params.get('download', 'false').lower() == 'true'
+
+        # Resolve creator user id if email provided
+        created_by_user_id = None
+        if creator_email:
+            identity = Identity.objects.filter(value=creator_email).last()
+            created_by_user_id = identity.user_id if identity else None
+
+        # --- Filter tests ---
+        tests = Test.objects.filter(deleted=0)
+        
+        if test_codes:
+            codes = [c.strip() for c in test_codes.split(",")]
+            tests = tests.filter(test_code__in=codes)
+        else:
+            if tenant_id:
+                tests = tests.filter(tenant_id=tenant_id)
+            if test_type:
+                tests = tests.filter(test_type=test_type)
+            if scenario_case:
+                tests = tests.filter(scenario_case=scenario_case)
+            if title:
+                tests = tests.filter(title=title)
+            if candidate_type:
+                tests = tests.filter(candidate_type=candidate_type)
+            if client_name:
+                tests = tests.filter(client_name=client_name)
+            if created_by_user_id:
+                tests = tests.filter(creator_user_id=created_by_user_id)
+
+        
+        test_lists_mapping = get_test_export_list(tests=tests)
+        
+        return Response({
+            "csv": test_lists_mapping
+        }, status=status.HTTP_200_OK)
+
 class CourseViewSet(ApiViewSet,
                   mixins.ListModelMixin,
                   mixins.RetrieveModelMixin,
@@ -2331,3 +2390,5 @@ class CourseViewSet(ApiViewSet,
             return self.get_paginated_response(page)
 
         return Response(report_data)
+
+    
