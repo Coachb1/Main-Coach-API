@@ -2212,7 +2212,7 @@ class CourseViewSet(ApiViewSet,
             
 
         package = get_object_or_404(
-            CoursePackage, uid=package_id, client=client, deleted=False
+            CoursePackage, uid=package_id, deleted=False
         )
 
         serializer = CoursePackageSerializer(package)
@@ -2391,4 +2391,77 @@ class CourseViewSet(ApiViewSet,
 
         return Response(report_data)
 
-    
+    @action(methods=["GET"], detail=False, url_path="ai-pulse-report-data")
+    def ai_pulse(self, request, *args, **kwargs):
+        try:
+            package_course_id = request.query_params.get("package_course_id")
+            client_name = request.query_params.get("client_name")
+
+            if not package_course_id or not client_name:
+                return Response(
+                    {"error": "package_course_id and client_name are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            client = get_object_or_404(ClientUserInfo, client_name=client_name.strip(),deleted=False).member_emails
+            modules_data = []
+            if  client:
+                users_ids = list(Identity.objects.filter(deleted=False, value__in=[email.strip() for email in client.split(',') if email.strip()]).values_list('user_id', flat=True))
+                users = User.objects.filter(uid__in=users_ids)
+                package = get_object_or_404(
+                                        CoursePackage, uid=package_course_id, deleted=False
+                                    )
+                # ✅ Get course list from the package properly
+                courses = package.courses.all()
+
+                # ✅ Get all "later" modules for all courses in the package
+                later_modules = (
+                    ModuleForLater.objects
+                    .select_related("module", "user", "module__course")  # optimization
+                    .filter(module__course__in=courses, user__in=users)
+                )
+
+                modules_data = defaultdict(lambda: {
+                    "case": None,
+                    "industry": None,
+                    "function": None,
+                    "businessOutcome": None,
+                    "requestUsers": set(),
+                })
+
+                for lm in later_modules:
+                    user_client = lm.user.get_client()
+                    if not user_client or user_client.client_name != client_name:
+                        continue  # Skip users from other clients
+
+                    module = lm.module
+                    uid = module.uid
+
+                    modules_data[uid]["case"] = module.title
+                    modules_data[uid]["industry"] = getattr(module, "tag", None)
+                    modules_data[uid]["function"] = getattr(module, "function", None)
+                    modules_data[uid]["businessOutcome"] = getattr(module, "business_outcome", None)
+
+                    modules_data[uid]["requestUsers"].add(lm.user.get_email())
+
+            # Convert to desired format
+            data = []
+            for module_info in modules_data.values():
+                users = list(module_info["requestUsers"])
+                data.append({
+                    "case": module_info["case"],
+                    "industry": module_info["industry"],
+                    "function": module_info["function"],
+                    "businessOutcome": module_info["businessOutcome"],
+                    "discussionRequests": len(users),
+                    "requestUsers": users
+                })
+
+            return Response({"data": data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in get_library_bot_actions_per_month: {e}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
