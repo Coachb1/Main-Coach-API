@@ -1,3 +1,6 @@
+import datetime
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -1146,3 +1149,70 @@ class CoachingConversationViewSet(ApiViewSet,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(methods=["GET"], detail=False, url_path="conversation-per-month")
+    def get_conversation_per_month(self, request, *args, **kwargs):
+        try:
+            user_id = request.query_params.get('user_id')
+            bot_id = request.query_params.get('bot_id')
+            if not user_id or not bot_id:
+                return Response(
+                    {"error": "user_id and bot_id are required!"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            bot = get_object_or_404(SignatureBot, deleted=False, tenant_id=request.tenant.uid, bot_id=bot_id)
+             # --- Determine month range ---
+            now = timezone.now()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            next_month = (month_start + datetime.timedelta(days=32)).replace(day=1)
+
+            conversation_per_month_limit = 0
+            if user.conversation_per_month:
+                conversation_per_month_limit = user.conversation_per_month
+            
+            client = user.get_client()
+            
+            if client and client.number_of_conversation_per_month:
+                conversation_per_month_limit = client.number_of_conversation_per_month 
+            if self.request.tenant.conversation_per_month:
+                conversation_per_month_limit = self.request.tenant.conversation_per_month
+
+
+            # --- 1️⃣ JobAid Sessions Created This Month ---
+            session_per_month = TestAttemptSession.objects.filter(
+                participant_id=user.uid,
+                deleted=False,
+                test_id=bot.uid,
+                created__gte=month_start,
+                created__lt=next_month
+            )
+         
+            session_uids = session_per_month.values_list('uid', flat=True)
+            conv_per_month = CoachingConversation.objects.filter(
+                deleted=False,
+                test_attempt_session_id__in=session_uids
+            ).exclude(participant_message_text=None)
+
+
+
+
+
+            # --- 3️⃣ Return Results ---
+            response_data = {
+                "user_id": user.uid,
+                "bot_id": bot.bot_id,
+                "month": now.strftime("%B %Y"),
+                "conversation_per_month": conv_per_month.count(),
+                "completed_session_per_month": session_per_month.count(),
+                "system_conversation_limit": conversation_per_month_limit
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"Error in get_conversation_per_month: {e}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

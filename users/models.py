@@ -73,10 +73,7 @@ def get_default_ui_information():
         'read_text': None,
     }
 
-def get_default_library_bot_value(case):
-    if case == 'bot_config':
-        return {"coaching": {"show": "", "bot_id": ""}}
-    elif case == "default_filters":
+def get_default_library_bot_value():
         return {"function": "", "industry": "", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""}
     
 def get_default_help_text():
@@ -149,6 +146,7 @@ class User(TenantAwareModel):
     is_excluded = models.BooleanField(null=True,default=False)
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
     test_per_month = models.IntegerField(default=None, null=True, blank=True)
+    conversation_per_month = models.IntegerField(default=None, null=True, blank=True)
 
     def get_email(self):
         """Returns the email of the user."""
@@ -403,7 +401,7 @@ class LibraryBotConfig(MyModel):
     bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
     show_certification_badge = models.BooleanField(default=True, blank=True, help_text="To show certification batch in library bot config")
     default_filters = models.JSONField(
-        default=lambda: get_default_library_bot_value("default_filters"),
+        default=get_default_library_bot_value,
         blank=True,
         null=True,
         help_text="""Default filters for the library bot, e.g., {"function": "", "industry": "Banking", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""} emerging_player can be true/false/empty keep empty any field to ignore filter """

@@ -713,8 +713,8 @@ class Module(MyModel):
     embed_link = models.URLField(blank=True, null=True)
     list_name = models.CharField(max_length=55, blank=True, null=True) 
     business_outcome = models.CharField(max_length=125, blank=True, null=True)
-    implementation_complexity = models.CharField(max_length=125, blank=True)
-    unexpected_outcome = models.CharField(max_length=125, blank=True)
+    implementation_complexity = models.CharField(max_length=125, blank=True, null=True)
+    unexpected_outcome = models.CharField(max_length=125, blank=True, null=True)
     emerging_player = models.BooleanField(default=False)
     function = models.CharField(max_length=125, blank=True, null=True)
 
