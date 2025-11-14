@@ -16,6 +16,7 @@ class LLMChoice(DjangoChoices):
     gpt = ChoiceItem("gpt")
     anthropic = ChoiceItem("anthropic")
     gemini = ChoiceItem("gemini")
+    caching_anthropic = ChoiceItem("caching_anthropic")
 
 
 class ProfileTypeChoice(DjangoChoices):
