@@ -312,6 +312,7 @@ class LLMMappingModelsInline(admin.TabularInline):
                         {"llm_type": "gemini", "model_order": "gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-pro"},
                         {"llm_type": "gpt", "model_order": "gpt-4o, gpt-4o-mini, gpt-3.5-turbo"},
                         {"llm_type": "anthropic", "model_order": "claude-sonnet-4-20250514, claude-opus-4-20250514, claude-3-opus-20240229, claude-3-haiku-20240307"},
+                        {"llm_type": "caching_anthropic", "model_order": "claude-sonnet-4-5-20250929"}
                     ]
                     for form, initial in zip(self.forms, predefined):
                         form.initial.update(initial)
