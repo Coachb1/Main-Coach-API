@@ -19,6 +19,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib import admin, messages
 from .forms import TenantForm, ClientForm, UserForm
+from django.db.models import Q
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
@@ -80,7 +81,7 @@ class LibraryBotConfigInline(admin.StackedInline):
     show_change_link = True
     fieldsets = (
         ("Configuration", {
-            "fields": ("bot_config", "show_certification_badge", "default_filters")
+            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls")
         }),
         # ("Leaderboard Settings", {
         #     "fields": ("leaderboard_report_protected", "leaderboard_report_password")
@@ -348,12 +349,38 @@ class ReportConfigAdmin(TenantAwareModelAdmin):
 
 
 class UserAdmin(TenantAwareModelAdmin):
+    # form = UserAdminForm
     list_per_page = 10
-    list_display = ('id','tenant_id','name','role','is_root','is_excluded','is_repeat','deleted')
+    list_display = ('id','tenant_id','name','email_display', 'client_display', 'role','is_root','is_excluded','is_repeat','deleted')
     list_filter = ('tenant_id','role','is_root','is_excluded')
     search_fields = ('name',)
     list_editable = ('name','role','is_root','is_excluded','is_repeat','deleted')
     ordering = ('-id',)
+
+    # ADVANCED SEARCH
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if search_term:
+            queryset = queryset.filter(
+                Q(userattribute__attributes__email__icontains=search_term) |
+                Q(userattribute__attributes__mob_number__icontains=search_term) |
+                Q(clientuserinfo__member_emails__icontains=search_term)
+            ).distinct()
+
+        return queryset, use_distinct
+
+
+    def email_display(self, obj):
+        return obj.get_email()
+    email_display.short_description = "Email"
+
+    def client_display(self, obj):
+        client = obj.get_client()
+        return client.client_name if client else None
+    client_display.short_description = "Client"
+
+
 # class UserAttributesAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','user_id','attributes','tag','deleted')
