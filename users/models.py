@@ -1,7 +1,7 @@
 from django.db import models
 
 from tenants.models import TenantAwareModel
-from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice
+from users.choices import UserRoleChoice, ProfileTypeChoice, BotTypeChoice, CoachCoacheeConnectionStatusChoice, get_default_library_bot_button_controls
 from coaching_conversations.choices import BotScenarioCaseChoice
 from commons.db.model import MyModel
 from django.utils.crypto import get_random_string
@@ -404,11 +404,15 @@ class LibraryBotConfig(MyModel):
         default=get_default_library_bot_value,
         blank=True,
         null=True,
-        help_text="""Default filters for the library bot, e.g., {"function": "", "industry": "Banking", "business_outcome": "", "emerging_players": "", "unexpected_outcomes": "", "implementation_complexity": ""} emerging_player can be true/false/empty keep empty any field to ignore filter """
+        help_text="""Default filters for the library bot, e.g., {"function": "", "industry": "Banking", "business_outcome": "", "emerging_players": "", "startup": "", "unexpected_outcomes": "", "implementation_complexity": ""} emerging_player can be true/false/empty keep empty any field to ignore filter """
     )
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
-    
+    feature_and_button_controls = models.JSONField(
+        default=get_default_library_bot_button_controls,
+        blank=True,
+        help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}}'
+    )
 
     class Meta:
         db_table = "library_bot_config"
