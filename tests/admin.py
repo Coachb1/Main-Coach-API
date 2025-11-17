@@ -1192,7 +1192,8 @@ class CourseAdmin(admin.ModelAdmin):
         writer.writerow([
             "Course Name",
             "Name",
-            "Emerging Player",
+            "Latest/Recent",
+            "Startup",
             "Author",
             "Description",
             "Implementation Complexity",
@@ -1217,6 +1218,7 @@ class CourseAdmin(admin.ModelAdmin):
                     course.title,
                     module.title or "",
                     "TRUE" if module.emerging_player else "FALSE",
+                    "TRUE" if module.startup else "FALSE",
                     module.author or "",
                     module.description or "",
                     module.implementation_complexity or "",
@@ -1282,7 +1284,9 @@ class CourseAdmin(admin.ModelAdmin):
                         "image_link": row.get("image_link"),
                         "embed_link": row.get("report_link"),
                         "list_name": row.get("category"),
-                        "emerging_player": str(row.get("emerging_player", "")).strip().upper() == "TRUE",
+                        "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
+                        "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
+
                     }
                 )
 
