@@ -1192,6 +1192,7 @@ class CourseAdmin(admin.ModelAdmin):
         writer.writerow([
             "Course Name",
             "Name",
+            "Keywords",
             "Latest/Recent",
             "Startup",
             "Author",
@@ -1217,6 +1218,7 @@ class CourseAdmin(admin.ModelAdmin):
                 writer.writerow([
                     course.title,
                     module.title or "",
+                    module.key_words or "",
                     "TRUE" if module.emerging_player else "FALSE",
                     "TRUE" if module.startup else "FALSE",
                     module.author or "",
@@ -1286,7 +1288,7 @@ class CourseAdmin(admin.ModelAdmin):
                         "list_name": row.get("category"),
                         "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
                         "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
-
+                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None
                     }
                 )
 
