@@ -163,6 +163,12 @@ class AccountsViewSet(ApiViewSet,
         )
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
 
+    @action(methods=['GET'], detail=False, url_path="me")
+    def me(self, request):
+        user = request.auth_user
+        return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
+
+
     @action(methods=["POST"], detail=True, url_path="upsert-attributes")
     def upsert_user_attributes_view(self, request, *args, **kwargs):
         """
