@@ -346,6 +346,12 @@ class LibraryBotConfigSerializer(serializers.ModelSerializer):
         model = LibraryBotConfig
         fields = '__all__'
 
+class PortalPageConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DirectoryPageInfo
+        fields = '__all__'
+
+
 class clientUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientUserInfo
@@ -362,6 +368,12 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
             data['library_bot_config'] = LibraryBotConfigSerializer(instance.library_bot_config).data if instance.library_bot_config else {} 
         except Exception as e:
             data['library_bot_config'] = {} 
+        try:
+            data['portal_page_config'] = PortalPageConfigSerializer(instance.portal_page_config).data if instance.portal_page_config else {}
+        except Exception as e:
+            logger.error(f"Error fetching portal_page_config: {e}")
+            data['portal_page_config'] = {}
+
         return data
 
 

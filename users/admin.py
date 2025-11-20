@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from identities.models import Identity
 from tenants.models import Tenant
-from .models import (BotAttribute, LibraryBotConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
@@ -84,9 +84,29 @@ class LibraryBotConfigInline(admin.StackedInline):
         ("Configuration", {
             "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls")
         }),
-        # ("Leaderboard Settings", {
-        #     "fields": ("leaderboard_report_protected", "leaderboard_report_password")
-        # }),
+        ("Leaderboard Settings", {
+            "fields": ("leaderboard_report_protected", "leaderboard_report_password")
+        }),
+        ("AI Pulse Settings", {
+            "fields": ("ai_pulse_report_protected", "ai_pulse_report_password")
+        }),
+        ("Ideaboard Settings", {
+            "fields": ("ideaboard_report_protected", "ideaboard_report_password")
+        }),
+    )
+
+class PortalPageConfigInline(admin.StackedInline):
+    model = PortalPageConfig
+    extra = 0
+    can_delete = True
+    show_change_link = True
+    fieldsets = (
+        ("Configuration", {
+            "fields": ("bot_config", "feature_and_button_controls")
+        }),
+        ("Report Settings", {
+            "fields": ("simulation_report_protected", "simulation_report_password")
+        }),
     )
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
@@ -98,7 +118,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_editable = ('domain_name','is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
     filter_horizontal = ('assigned_tests','assigned_bots')
-    inlines = [LibraryBotConfigInline]
+    inlines = [LibraryBotConfigInline, PortalPageConfigInline]
 
     def get_urls(self):
         urls = super().get_urls()
