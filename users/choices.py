@@ -16,6 +16,7 @@ class LLMChoice(DjangoChoices):
     gpt = ChoiceItem("gpt")
     anthropic = ChoiceItem("anthropic")
     gemini = ChoiceItem("gemini")
+    caching_anthropic = ChoiceItem("caching_anthropic")
 
 
 class ProfileTypeChoice(DjangoChoices):
@@ -51,3 +52,18 @@ class CoachCoacheeConnectionStatusChoice(DjangoChoices):
     rejected = ChoiceItem("rejected")
     blocked = ChoiceItem("blocked")
     removed = ChoiceItem("removed")
+
+
+
+
+def get_default_library_bot_button_controls():
+    return {
+        "leaderboard_button": {"label": "LeaderBoard", "show": True},
+        "idea_board_button": {"label": "IdeaBoard", "show": True},
+        "ai_pulse": {"label": "AI Pulse Report", "show": True}
+    }
+
+def get_default_portal_page_config():
+    return {
+        "sim_report": {"label": "Report", "show": True},
+    }

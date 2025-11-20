@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from identities.models import Identity
 from tenants.models import Tenant
-from .models import (BotAttribute, LibraryBotConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
@@ -18,7 +19,8 @@ from django.urls import path
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib import admin, messages
-from .forms import TenantForm, ClientForm, UserForm
+from .forms import TenantForm, ClientForm, UserAdminForm, UserForm
+from django.db.models import Q
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
     list_per_page = 10
@@ -80,11 +82,31 @@ class LibraryBotConfigInline(admin.StackedInline):
     show_change_link = True
     fieldsets = (
         ("Configuration", {
-            "fields": ("bot_config", "show_certification_badge", "default_filters")
+            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls")
         }),
-        # ("Leaderboard Settings", {
-        #     "fields": ("leaderboard_report_protected", "leaderboard_report_password")
-        # }),
+        ("Leaderboard Settings", {
+            "fields": ("leaderboard_report_protected", "leaderboard_report_password")
+        }),
+        ("AI Pulse Settings", {
+            "fields": ("ai_pulse_report_protected", "ai_pulse_report_password")
+        }),
+        ("Ideaboard Settings", {
+            "fields": ("ideaboard_report_protected", "ideaboard_report_password")
+        }),
+    )
+
+class PortalPageConfigInline(admin.StackedInline):
+    model = PortalPageConfig
+    extra = 0
+    can_delete = True
+    show_change_link = True
+    fieldsets = (
+        ("Configuration", {
+            "fields": ("bot_config", "feature_and_button_controls")
+        }),
+        ("Report Settings", {
+            "fields": ("simulation_report_protected", "simulation_report_password")
+        }),
     )
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
@@ -96,7 +118,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     list_editable = ('domain_name','is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
     filter_horizontal = ('assigned_tests','assigned_bots')
-    inlines = [LibraryBotConfigInline]
+    inlines = [LibraryBotConfigInline, PortalPageConfigInline]
 
     def get_urls(self):
         urls = super().get_urls()
@@ -347,13 +369,90 @@ class ReportConfigAdmin(TenantAwareModelAdmin):
 
 
 
-class UserAdmin(TenantAwareModelAdmin):
-    list_per_page = 10
-    list_display = ('id','tenant_id','name','role','is_root','is_excluded','is_repeat','deleted')
-    list_filter = ('tenant_id','role','is_root','is_excluded')
-    search_fields = ('name',)
-    list_editable = ('name','role','is_root','is_excluded','is_repeat','deleted')
-    ordering = ('-id',)
+# -----------------------------
+# USER ADMIN
+# -----------------------------
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    form = UserAdminForm
+
+    list_display = (
+        "uid",
+        "name",
+        "role",
+        "get_email",
+        "get_client",
+        "tenant_id",
+        "is_active",
+        "is_root",
+        "attribute_tag",
+        "identity_value",
+    )
+
+    list_filter = ("role", "is_root", "is_excluded", "tenant_id")
+    search_fields = ("name", "uid")
+
+    # ---------- JSON email search ----------
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if "@" in search_term:
+            # JSON search in attributes
+            user_ids = [
+                a.user_id
+                for a in UserAttribute.objects.filter(attributes__email__icontains=search_term)
+            ]
+            queryset |= User.objects.filter(uid__in=user_ids)
+
+        return queryset, use_distinct
+
+    # ---------- display helpers ----------
+    def attribute_tag(self, obj):
+        ua = UserAttribute.objects.filter(user_id=obj.uid, deleted=False).first()
+        return ua.tag if ua else None
+    attribute_tag.short_description = "Attribute Tag"
+
+    def identity_value(self, obj):
+        identity = Identity.objects.filter(user_id=obj.uid, deleted=False).first()
+        return identity.value if identity else "-"
+    identity_value.short_description = "Identity"
+
+    
+
+
+# class UserAdmin(TenantAwareModelAdmin):
+#     # form = UserAdminForm
+#     list_per_page = 10
+#     list_display = ('id','tenant_id','name','email_display', 'client_display', 'role','is_root','is_excluded','is_repeat','deleted')
+#     list_filter = ('tenant_id','role','is_root','is_excluded')
+#     search_fields = ('name',)
+#     list_editable = ('name','role','is_root','is_excluded','is_repeat','deleted')
+#     ordering = ('-id',)
+
+#     # ADVANCED SEARCH
+#     def get_search_results(self, request, queryset, search_term):
+#         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+#         if search_term:
+#             queryset = queryset.filter(
+#                 Q(userattribute__attributes__email__icontains=search_term) |
+#                 Q(userattribute__attributes__mob_number__icontains=search_term) |
+#                 Q(clientuserinfo__member_emails__icontains=search_term)
+#             ).distinct()
+
+#         return queryset, use_distinct
+
+
+#     def email_display(self, obj):
+#         return obj.get_email()
+#     email_display.short_description = "Email"
+
+#     def client_display(self, obj):
+#         client = obj.get_client()
+#         return client.client_name if client else None
+#     client_display.short_description = "Client"
+
+
 # class UserAttributesAdmin(TenantAwareModelAdmin):
 #     list_per_page = 10
 #     list_display = ('id','tenant_id','user_id','attributes','tag','deleted')
@@ -368,7 +467,7 @@ admin.site.register(SignatureBot, SignatureBotAdmin)
 admin.site.register(BotAndUserMapping, BotAndUserMappingAdmin)
 admin.site.register(ClientUserInfo,ClientUserInfoAdmin)
 admin.site.register(CoachRecommendationsForUser,CoachRecommendationsAdmin)
-admin.site.register(User,UserAdmin)
+# admin.site.register(User,UserAdmin)
 # admin.site.register(UserAttribute,UserAttributesAdmin)
 
 @receiver(post_save, sender=ClientUserInfo)

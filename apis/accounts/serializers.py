@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
-from users.models import LibraryBotConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
+from users.models import LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -346,6 +346,12 @@ class LibraryBotConfigSerializer(serializers.ModelSerializer):
         model = LibraryBotConfig
         fields = '__all__'
 
+class PortalPageConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PortalPageConfig
+        fields = '__all__'
+
+
 class clientUserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientUserInfo
@@ -362,6 +368,12 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
             data['library_bot_config'] = LibraryBotConfigSerializer(instance.library_bot_config).data if instance.library_bot_config else {} 
         except Exception as e:
             data['library_bot_config'] = {} 
+        try:
+            data['portal_page_config'] = PortalPageConfigSerializer(instance.portal_page_config).data if instance.portal_page_config else {}
+        except Exception as e:
+            logger.error(f"Error fetching portal_page_config: {e}")
+            data['portal_page_config'] = {}
+
         return data
 
 
