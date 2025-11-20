@@ -621,8 +621,11 @@ class AccountsViewSet(ApiViewSet,
             elif mode == 'only_client_data':
                 client = None
                 client_name = self.request.query_params.get('client_name')
+                client_id = self.request.query_params.get('client_id')
                 if client_name:
                     client = client_info.filter(client_name=client_name)
+                elif client_id:
+                    client = client_info.filter(uid=client_id)
                 else:
                     if user_id:
                         client = client_info.filter(member_user_ids__contains = user_id)
