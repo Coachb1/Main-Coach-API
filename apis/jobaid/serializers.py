@@ -72,6 +72,14 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 "question": q.question,
                 "answer": answer
             })
+            qna.pop(str(q.question), None)  # Remove processed question from qna dict
+
+        for q in qna:
+            ordered_qna.append({
+                "question_id": None,
+                "question": q,
+                "answer": qna.get(q) if isinstance(qna, dict) else None
+            })
         
         data["ordered_qna"] = ordered_qna
         return data
