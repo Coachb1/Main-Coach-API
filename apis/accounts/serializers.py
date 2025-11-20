@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
-from users.models import LibraryBotConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
+from users.models import LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -348,7 +348,7 @@ class LibraryBotConfigSerializer(serializers.ModelSerializer):
 
 class PortalPageConfigSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DirectoryPageInfo
+        model = PortalPageConfig
         fields = '__all__'
 
 
