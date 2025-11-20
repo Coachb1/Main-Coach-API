@@ -665,7 +665,7 @@ class CoursePackage(TenantAwareModel):
     image_link = models.URLField(blank=True, null=True, default=None)
     page_config = models.JSONField(
         default=default_page_config,
-        help_text="Configuration settings for the course package pages. eg: {'show_filters': 'Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players', 'show_lists': true, 'show_search': true}")
+        help_text="Configuration settings for the course package pages. eg: {'show_filters': 'Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players, Start Up', 'show_lists': true, 'show_search': true}")
 
     class Meta:
         db_table = "course_package"
@@ -717,6 +717,8 @@ class Module(MyModel):
     unexpected_outcome = models.CharField(max_length=125, blank=True, null=True)
     emerging_player = models.BooleanField(default=False)
     function = models.CharField(max_length=125, blank=True, null=True)
+    startup = models.BooleanField(default=False)
+    key_words = models.TextField(default=None, null=True, blank=True, help_text="Comma-separated keywords for search optimization")
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"

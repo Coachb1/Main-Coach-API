@@ -92,6 +92,76 @@ def anthropic_completion(prompt, max_tokens,temp=1 ,models=["claude-sonnet-4-202
                 time.sleep(random.randint(1,3))
 
 
+def anthropic_completion_with_caching(system_instruction, prompt, temp=1, max_token=8000, models=["claude-sonnet-4-5-20250929"]):
+    client = anthropic.Client(api_key=ANTHROPIC_KEY)
+
+    max_retries = 10
+    error_notification_sent = True
+
+    if isinstance(models, str):
+        models = [model.strip() for model in models.split(',')]
+
+    while True:
+        for model in models:
+            try:
+                logger.info({"****evaluate_response ":f"trying anthropic for {10 - max_retries + 1} time"})
+                response = client.messages.create(
+                            model=model,
+                            max_tokens=4096,
+                            temperature=temp,
+                            system=[
+                                {
+                                    "type": "text",
+                                    "text": system_instruction,
+                                    "cache_control":{
+                                            "type": "ephemeral",
+                                            # "ttl": "1h"
+                                        },
+                                        
+                                    
+                                }
+                            ],
+                            messages=[
+                                {
+                                    "role": "user",
+                                    "content": prompt
+                                }
+                            ]
+       
+                        )
+                logger.info("anthropic_completion response %s", response)
+                
+                return response.content[0].text, response
+            
+            except anthropic.APIError as e:
+                logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
+                if max_retries <= 0:
+                    logger.error("anthropic_completion error %s", e)
+                    raise e
+                else:
+                    max_retries -= 1
+
+                if e.status_code == 429:  # Handling quota exceeded or rate limit error
+                    logger.error("Quota exceeded or too many requests, retrying after delay...")
+                    if not error_notification_sent:
+                        send_error_notification('anthropic_completion', "429 error", e.args)
+                        error_notification_sent = True
+                    time.sleep(2 ** (10 - max_retries + 1))  # Exponential backoff
+                else:
+                    time.sleep(random.randint(1,3))
+
+            except Exception as e:
+                logger.error({"****evaluate_response ":f"failed anthropic for {10 - max_retries + 1} time", "error": e})
+                if max_retries <= 0:
+                    logger.error("anthropic_completion error %s", e)
+                    raise e
+                    break
+                else:
+                    max_retries -= 1
+
+                time.sleep(random.randint(1,3))
+
+
 prompt1 = '''
 "Question:" In the recent pandemic conditions, work from home has become common. How well do you find yourself prepared to lead a remote team? "Answer:" I’ll try to lead by Conducting one-on-one and group meetings for ongoing projects more frequently while keeping them precise.
 

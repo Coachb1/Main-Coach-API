@@ -461,6 +461,10 @@ class ModuleSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if instance.test:
             data["test"] = TestDisplaySerializer(instance.test).data
+
+            
+        data["key_words"] = instance.key_words.split(",") if instance.key_words else []
+        
         return data
     
 class CourseSerializer(serializers.ModelSerializer):

@@ -163,6 +163,12 @@ class AccountsViewSet(ApiViewSet,
         )
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
 
+    @action(methods=['GET'], detail=False, url_path="me")
+    def me(self, request):
+        user = request.auth_user
+        return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
+
+
     @action(methods=["POST"], detail=True, url_path="upsert-attributes")
     def upsert_user_attributes_view(self, request, *args, **kwargs):
         """
@@ -615,8 +621,11 @@ class AccountsViewSet(ApiViewSet,
             elif mode == 'only_client_data':
                 client = None
                 client_name = self.request.query_params.get('client_name')
+                client_id = self.request.query_params.get('client_id')
                 if client_name:
                     client = client_info.filter(client_name=client_name)
+                elif client_id:
+                    client = client_info.filter(uid=client_id)
                 else:
                     if user_id:
                         client = client_info.filter(member_user_ids__contains = user_id)

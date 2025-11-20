@@ -1163,11 +1163,21 @@ class UserTestMappingAdmin(admin.ModelAdmin, ExportActionMixin):
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
     form = CourseAdminForm
-    list_display = ("title", "sub_title", "type", "view_modules_link")
+    list_display = ("id", "course_package", "title", "sub_title", "type", "view_modules_link")
     list_filter = ("type", )
     search_fields = ("title", "sub_title")
     ordering = ("-id",)
     actions = ["export_modules_to_csv"]
+
+    def course_package(self, obj):
+        """
+        Returns the course package name if it exists.
+        """
+        package = ""
+        for pkage in obj.packages.all():
+            package += f"{pkage.title}, "
+        return package.rstrip(", ")
+    course_package.short_description = "Course Package"
 
 
     def view_modules_link(self, obj):
@@ -1192,7 +1202,9 @@ class CourseAdmin(admin.ModelAdmin):
         writer.writerow([
             "Course Name",
             "Name",
-            "Emerging Player",
+            "Keywords",
+            "Latest/Recent",
+            "Startup",
             "Author",
             "Description",
             "Implementation Complexity",
@@ -1216,7 +1228,9 @@ class CourseAdmin(admin.ModelAdmin):
                 writer.writerow([
                     course.title,
                     module.title or "",
+                    module.key_words or "",
                     "TRUE" if module.emerging_player else "FALSE",
+                    "TRUE" if module.startup else "FALSE",
                     module.author or "",
                     module.description or "",
                     module.implementation_complexity or "",
@@ -1282,7 +1296,9 @@ class CourseAdmin(admin.ModelAdmin):
                         "image_link": row.get("image_link"),
                         "embed_link": row.get("report_link"),
                         "list_name": row.get("category"),
-                        "emerging_player": str(row.get("emerging_player", "")).strip().upper() == "TRUE",
+                        "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
+                        "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
+                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None
                     }
                 )
 
@@ -1317,7 +1333,7 @@ class CourseInline(admin.TabularInline):
 class CoursePackageAdmin(TenantAwareModelAdmin):  # keep TenantAwareModelAdmin if needed
     list_display = ('id', 'uid', "title", "sub_title", "client", 'image_link')
     list_filter = ("client",)
-    search_fields = ("title", "sub_title", "client__name")
+    search_fields = ("title", "sub_title", "client__client_name")
     ordering = ("title",)
     inlines = [CourseInline]
     autocomplete_fields = ("client",)  # enable search dropdown for clients

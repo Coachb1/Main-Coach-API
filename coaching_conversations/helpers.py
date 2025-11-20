@@ -599,7 +599,7 @@ def continue_coaching_conversation(tenant: Tenant,
         flat=True
     )
 
-
+    prompt_meta_data = {}
     if is_signature_bot:
         
         current_conversation = CoachingConversation.objects.filter(deleted=0,tenant_id=tenant.uid,test_attempt_session_id=test_attempt_session.uid).count()
@@ -640,7 +640,7 @@ def continue_coaching_conversation(tenant: Tenant,
 
         # prompt = f"""\nHuman: info: {signature_bot.data} based on this information answer this question : {participant_message_text}"""
 
-        prompt = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid,only_current_session)
+        prompt, prompt_meta_data = get_signature_bot_prompt(signature_bot.data, participant_message_text, signature_bot.bot_type, tenant, test_attempt_session.participant_id, signature_bot,test_attempt_session.uid,only_current_session)
         logger.info(f"signature  bot prompt  {prompt}")
         response = anthropic_completion(prompt,50000) if not is_prompt_only else ""
     else:
@@ -677,6 +677,7 @@ def continue_coaching_conversation(tenant: Tenant,
                 logger.info(f"<<<<<<<<<<<<<<<<<< response style : {response_style} >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 if response_style:
                     prompt = prompt + f" {response_style}"
+                    prompt_meta_data['prompt'] += f" \n{response_style}"
         except Exception as e:
             logger.exception(f"got error: {e}")
             
@@ -685,7 +686,7 @@ def continue_coaching_conversation(tenant: Tenant,
         tenant_id=tenant.uid,
         test_attempt_session_id=reply_to_conversation.test_attempt_session_id,
         coach_message_text=gpt_feedback.text if not is_signature_bot else response,
-        coach_message_metadata=coach_message_metadata if not is_signature_bot else {"prompt": prompt}
+        coach_message_metadata=coach_message_metadata if not is_signature_bot else {"prompt": prompt, "prompt_meta_data": prompt_meta_data},
     )
 
     return next_conversation
@@ -727,7 +728,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
     NOTE : Never start with any kind of introductory sentence. Do not provide any kind of heading or introduction text in the output. Start directly with the response and only provide the response.
 
     \n\nAssistant:"""
-
+    prompt_meta_data = {}
     sessions = TestAttemptSession.objects.filter(deleted=0,tenant_id=tenant.uid,test_id=signature_bot.uid,participant_id=participant_id)
     conversation_data = get_bot_conversation_data_user(sessions,tenant,participant_id,only_converation=True)
     conversation_history = [{"coach": i['coach_message_text'], "user":i['participant_message_text']} for i in conversation_data]
@@ -916,13 +917,33 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
             #     logger.exception(f"global prompt not defined: {e}")
             if signature_bot.bot_type == BotTypeChoice.avatar_bot:
                 if signature_bot.bot_scenario_case == "icons_by_ai" and response_style:
-                    prompt = f'Current conversation : {current_conv}' + '\n\n' + get_bot_response_prompt(response_style, tenant.uid)
+                    resp_prompt = get_bot_response_prompt(response_style, tenant.uid)
+                    prompt = f'Current conversation : {current_conv}' + '\n\n' + resp_prompt
                     intake_qna = BotQnA.objects.filter(deleted=False, participant_id=participant_id, qna_type='coaching_intake').first()
                     if intake_qna:
                         qna = [f"{que}: {ans} \n" for que, ans in intake_qna.participant_qna.items()]
                         qna = "\n".join(qna)
-                        prompt = prompt + f"User Information: {qna} "
+                        prompt = prompt + f"\nUser Information: {qna} "
+                        resp_prompt += f"\nUser Information: {qna} "
+                    
+                    prompt_meta_data['user_data'] = f'Current conversation : {current_conv}'
+                    prompt_meta_data['prompt'] = resp_prompt
+
                 else:
+                    try:
+                        input_var, static_prompt = prompt.split("${context}")
+                        input_var = Template(input_var + "${context}").substitute(
+                            coach_info = coach_info,
+                            conversation_history = conv_history_data,
+                            current_conversation = current_conv,
+                            context = initial_que_ans,
+                            coachee_info = coachee_info,
+                        )
+                        prompt_meta_data['user_data'] = input_var
+                        prompt_meta_data['prompt'] = static_prompt
+                    except Exception as e:
+                        logger.exception(f"Error while splitting prompt: {e}")
+
                     prompt = Template(prompt).substitute(
                         coach_info = coach_info,
                         conversation_history = conv_history_data,
@@ -932,6 +953,20 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     )
 
             elif signature_bot.bot_type == BotTypeChoice.subject_specific_bot:
+                try:
+                    input_var, static_prompt = prompt.split("${context}")
+                    input_var = Template(input_var + "${context}").substitute(
+                        bot_info = coach_info, # it will contains only bot data not coach data
+                        conversation_history = conv_history_data,
+                        current_conversation = current_conv,
+                        context = initial_que_ans,
+                        coachee_info = coachee_info,
+                    )
+                    prompt_meta_data['user_data'] = input_var
+                    prompt_meta_data['prompt'] = static_prompt
+                except Exception as e:
+                        logger.exception(f"Error while splitting prompt: {e}")
+
                 prompt = Template(prompt).substitute(
                     bot_info = coach_info, # it will contains only bot data not coach data
                     conversation_history = conv_history_data,
@@ -959,6 +994,18 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
                     logger.exception(f"got error: {e}")
                     personality = None
 
+            try:
+                input_var, static_prompt = prompt.split("${user_context}")
+                input_var = Template(input_var + "${user_context}").substitute(
+                    user_intake = initial_que_ans,
+                    user_context = current_conv,
+                    user_personality = personality
+                )
+                prompt_meta_data['user_data'] = input_var
+                prompt_meta_data['prompt'] = static_prompt
+            except Exception as e:
+                        logger.exception(f"Error while splitting prompt: {e}")
+
             prompt = Template(prompt).safe_substitute(
                 user_intake = initial_que_ans,
                 user_context = current_conv,
@@ -975,6 +1022,17 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
                 for que, ans in faq.items():
                     coach_info += f"Question: {que}, Answer: {ans}\n"
+
+            try:
+                input_var, static_prompt = prompt.split("${user_context}")
+                input_var = Template(input_var + "${user_context}").substitute(
+                    user_info = coach_info,
+                    user_context = current_conv
+                )
+                prompt_meta_data['user_data'] = input_var
+                prompt_meta_data['prompt'] = static_prompt
+            except Exception as e:
+                        logger.exception(f"Error while splitting prompt: {e}")
 
             prompt = Template(prompt).safe_substitute(
                 user_info = coach_info,
@@ -1351,7 +1409,7 @@ def get_signature_bot_prompt(page_info, candidate_data_str, bot_type, tenant, pa
 
                     prompt = prompt_info[0] + "Human:\n"+ "\n {Attempted Scenario}: " + f"{scenario}" + prompt_info[1]
 
-    return prompt
+    return prompt, prompt_meta_data
 
 
 
