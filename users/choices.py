@@ -62,3 +62,8 @@ def get_default_library_bot_button_controls():
         "idea_board_button": {"label": "IdeaBoard", "show": True},
         "ai_pulse": {"label": "AI Pulse Report", "show": True}
     }
+
+def get_default_portal_page_config():
+    return {
+        "sim_report": {"label": "Report", "show": True},
+    }
