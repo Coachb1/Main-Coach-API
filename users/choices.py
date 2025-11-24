@@ -60,7 +60,8 @@ def get_default_library_bot_button_controls():
     return {
         "leaderboard_button": {"label": "LeaderBoard", "show": True},
         "idea_board_button": {"label": "IdeaBoard", "show": True},
-        "ai_pulse": {"label": "AI Pulse Report", "show": True}
+        "ai_pulse": {"label": "AI Pulse Report", "show": True},
+        "transform_iq_feature": {"label": "Transform IQ", "show": False}
     }
 
 def get_default_portal_page_config():

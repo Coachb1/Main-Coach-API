@@ -719,6 +719,7 @@ class Module(MyModel):
     function = models.CharField(max_length=125, blank=True, null=True)
     startup = models.BooleanField(default=False)
     key_words = models.TextField(default=None, null=True, blank=True, help_text="Comma-separated keywords for search optimization")
+    transform_iq = models.JSONField(default=None, null=True, blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"

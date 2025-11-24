@@ -1199,7 +1199,7 @@ class CourseAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
         writer = csv.writer(response)
-        writer.writerow([
+        header = [
             "Course Name",
             "Name",
             "Keywords",
@@ -1218,14 +1218,24 @@ class CourseAdmin(admin.ModelAdmin):
             "Audio Link",
             "Category",
             "Test Code",
-        ])
+        ]
 
         # Fetch and write rows
         total_written = 0
+        rows = []
         for course in queryset:
             modules = Module.objects.filter(course=course).select_related("test")
             for module in modules:
-                writer.writerow([
+                roles = []
+                overview = None
+                if module.transform_iq:
+                    header.append("Transform IQ Overview")
+                    overview = module.transform_iq.get('overview')
+                    for key, value in module.transform_iq.get('roles',{}).items():
+                        header.append(f"IQ-{key.replace('_', ' ').title()}")
+                        roles.append(value)
+                    
+                row_item = [
                     course.title,
                     module.title or "",
                     module.key_words or "",
@@ -1244,10 +1254,17 @@ class CourseAdmin(admin.ModelAdmin):
                     module.audio_link or "",
                     module.list_name or "",
                     module.test.test_code if module.test else "",
-                ])
+                ]
+
+                if "Transform IQ Overview" in header or overview:
+                    row_item.append(overview)
+                    row_item += roles
+
+                rows.append(row_item)
                 total_written += 1
 
-
+        writer.writerow(header)
+        writer.writerows(rows)
         return response
 
     def save_model(self, request, obj, form, change):
@@ -1276,7 +1293,18 @@ class CourseAdmin(admin.ModelAdmin):
                 test = None
                 if row.get('test_code'):
                     test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
-
+                iq = None
+                if row.get('transform_iq_overview'):
+                    iq_overview = row.get('transform_iq_overview')
+                    iq = {
+                        "overview": iq_overview,
+                        "roles": {}
+                    }
+                    for key, value in row.items():
+                        if key.startswith('iq-'):
+                            role = key.split('-')[1].strip().replace("_", ' ').title()
+                            iq['roles'][f"{role}"] = value
+                    
                 module, created = Module.objects.update_or_create(
                     title=module_title,
                     course=obj,  # attach to this course
@@ -1298,7 +1326,8 @@ class CourseAdmin(admin.ModelAdmin):
                         "list_name": row.get("category"),
                         "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
                         "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
-                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None
+                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
+                        "transform_iq": iq
                     }
                 )
 
