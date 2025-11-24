@@ -415,7 +415,7 @@ class LibraryBotConfig(MyModel):
     feature_and_button_controls = models.JSONField(
         default=get_default_library_bot_button_controls,
         blank=True,
-        help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}}'
+        help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}, "transform_iq_feature": {"label": "Transform IQ", "show": true}}'
     )
 
     class Meta:
