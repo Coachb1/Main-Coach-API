@@ -1278,8 +1278,8 @@ class CourseAdmin(admin.ModelAdmin):
             return  # no CSV uploaded, skip
 
         try:
-            decoded_file = csv_file.read().decode("utf-8-sig").splitlines()
-            reader = csv.DictReader(decoded_file)
+            decoded_file = csv_file.read().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(decoded_file))
 
             created_count, updated_count = 0, 0
             for row in reader:
