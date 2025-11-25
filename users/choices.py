@@ -61,7 +61,8 @@ def get_default_library_bot_button_controls():
         "leaderboard_button": {"label": "LeaderBoard", "show": True},
         "idea_board_button": {"label": "IdeaBoard", "show": True},
         "ai_pulse": {"label": "AI Pulse Report", "show": True},
-        "transform_iq_feature": {"label": "Transform IQ", "show": False}
+        "transform_iq_feature": {"label": "Transform IQ", "show": False},
+        "metadata_filters": {"label": "", "show": True}
     }
 
 def get_default_portal_page_config():
