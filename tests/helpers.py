@@ -14756,3 +14756,30 @@ def generate_endgame_result(test: Test, game_name, questions_with_answers, is_pe
         "end_message": end_message,
         "feedback": feedback
     }
+
+
+
+
+def merge_user_progress(package_data, progress_data):
+    """
+    Merges module-level user progress into package data.
+    
+    package_data = CoursePackageSerializer output
+    progress_data = UserProgressSerializer output (list)
+    """
+
+    # Build module_id → progress map for fast lookup
+    module_progress_map = {}
+
+    for course_progress in progress_data:
+        for mp in course_progress.get("module_progress", []):
+            module_id = mp["module"]
+            module_progress_map[module_id] = mp
+
+    # Attach progress to each module in each course
+    for course in package_data.get("courses", []):
+        for module in course.get("modules", []):
+            mid = module["id"]
+            module["progress"] = module_progress_map.get(mid, None)
+
+    return package_data

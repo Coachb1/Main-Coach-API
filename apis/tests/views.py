@@ -18,7 +18,7 @@ from commons.viewset import ApiViewSet
 from mindmap.helpers import get_mindmap_url_from_test
 from pdf_generator.helpers import get_flash_cards_from_test
 from test_bulk_upload.test_export_helpers import CSVExportService, CSVRequestParams, TestFilterService, get_test_export_list
-from tests.helpers import (create_test, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
+from tests.helpers import (create_test, merge_user_progress, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
 from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
@@ -2194,7 +2194,7 @@ class CourseViewSet(ApiViewSet,
 
         package_id = request.query_params.get("package_id")
         client_name = request.query_params.get("client_name")
-
+        user_id = request.query_params.get('user_id_for_progress')
         if not package_id:
             return Response(
                 {"error": "package_id is required"},
@@ -2215,8 +2215,23 @@ class CourseViewSet(ApiViewSet,
             CoursePackage, uid=package_id, deleted=False
         )
 
-        serializer = CoursePackageSerializer(package)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = CoursePackageSerializer(package).data
+
+        data = {
+            "package_data": serializer
+        }
+        
+        if user_id:
+            user = get_object_or_404(User, uid=user_id, deleted=False)
+            courses = package.courses.all()
+
+            progress = UserProgress.objects.filter(user=user, course__in=courses)
+
+            progress_serializer = UserProgressSerializer(progress, many=True).data
+            data['package_data'] = merge_user_progress(serializer, progress_serializer)
+
+
+        return Response(data['package_data'], status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["GET"], url_path="module-user-data")
     def get_module(self, request):
