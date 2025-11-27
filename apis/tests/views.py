@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.db.models import Max
 
 from apis.tests.filtersets import TestFilterSet
-from apis.tests.serializers import CollectionSerializer, CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleForLaterSerializer, ModuleLikeSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserReportSerializer, UserTestMappingSerializer
+from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleForLaterSerializer, ModuleLikeSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserReportSerializer, UserTestMappingSerializer
 from apis.tests.serializers import TestDisplaySerializer
 from apis.tests.serializers import LearnerPathSerializer
 from apis.tests.serializers import TestFromObjectiveSerializer
@@ -20,7 +20,7 @@ from pdf_generator.helpers import get_flash_cards_from_test
 from test_bulk_upload.test_export_helpers import CSVExportService, CSVRequestParams, TestFilterService, get_test_export_list
 from tests.helpers import (create_test, merge_user_progress, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Collection, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -2480,4 +2480,3 @@ class CourseViewSet(ApiViewSet,
                 {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-    

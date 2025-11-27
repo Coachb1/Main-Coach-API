@@ -354,6 +354,8 @@ class PortalPageConfigSerializer(serializers.ModelSerializer):
 
 
 class clientUserInfoSerializer(serializers.ModelSerializer):
+    collections = CollectionSerializer(many=True)
+    
     class Meta:
         model = ClientUserInfo
         fields = '__all__'
@@ -374,11 +376,6 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Error fetching portal_page_config: {e}")
             data['portal_page_config'] = {}
-        try:
-            data['collection_config'] = CollectionSerializer(instance.collection_config).data if instance.collection_config else None
-        except Exception as e:
-            logger.error(f"Error fetching collection_config: {e}")
-            data['collection_config'] = None
 
         return data
 
