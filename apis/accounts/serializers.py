@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apis.tests.serializers import CollectionSerializer
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
 from users.models import LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
@@ -353,6 +354,8 @@ class PortalPageConfigSerializer(serializers.ModelSerializer):
 
 
 class clientUserInfoSerializer(serializers.ModelSerializer):
+    collections = CollectionSerializer(many=True)
+    
     class Meta:
         model = ClientUserInfo
         fields = '__all__'
