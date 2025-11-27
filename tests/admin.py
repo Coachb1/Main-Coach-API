@@ -20,7 +20,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
+from .models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path, reverse
@@ -1392,3 +1392,23 @@ class ModuleProgressAdmin(admin.ModelAdmin):
     list_filter = ("status", "module__course")
     search_fields = ("user_progress__user__name", "module__title", "module__course__title")
     ordering = ("-start_time",)
+
+class CaseMappingsInline(admin.TabularInline):
+    model = CaseMappings
+    extra = 1
+    fields = ('tab_name', 'embed_link')  # fields shown inline
+
+
+@admin.register(CaseMappings)
+class CaseMappingsAdmin(admin.ModelAdmin):
+    list_display = ('tab_name', 'collection')
+    search_fields = ('tab_name',)
+    list_filter = ('collection',)
+
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ('collection_name', 'client')
+    search_fields = ('collection_name', 'client')
+    list_filter = ('client',)
+    inlines = [CaseMappingsInline]

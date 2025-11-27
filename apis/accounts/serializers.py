@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apis.tests.serializers import CollectionSerializer
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
 from users.models import LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
@@ -373,6 +374,11 @@ class clientUserInfoSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Error fetching portal_page_config: {e}")
             data['portal_page_config'] = {}
+        try:
+            data['collection_config'] = CollectionSerializer(instance.collection_config).data if instance.collection_config else None
+        except Exception as e:
+            logger.error(f"Error fetching collection_config: {e}")
+            data['collection_config'] = None
 
         return data
 
