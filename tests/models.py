@@ -817,3 +817,29 @@ class ModuleForLater(MyModel):
 
     def __str__(self):
         return f"{self.user.name} saved {self.module.title} for later"
+    
+class Collection(MyModel):
+    client = models.ForeignKey(
+        'users.ClientUserInfo',
+        on_delete=models.CASCADE,
+        related_name="collections",
+        null=True,
+        blank=True
+    )
+    collection_name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.collection_name} ({self.client})"
+
+
+class CaseMappings(MyModel):
+    collection = models.ForeignKey(
+        Collection,
+        on_delete=models.CASCADE,
+        related_name="case_items"
+    )
+    tab_name = models.CharField(max_length=255)
+    embed_link = models.URLField(max_length=500)
+
+    def __str__(self):
+        return f"{self.tab_name} ({self.collection.collection_name})"

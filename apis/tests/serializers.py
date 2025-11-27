@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from tests.models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
 from users.models import User
 
 
@@ -542,3 +542,16 @@ class UserReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "name", "email", "completed_modules", "last_activity"]
+
+class CaseMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CaseMappings
+        fields = ['tab_name', 'embed_link']
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    case_items = CaseMappingSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Collection
+        fields = ['id', 'collection_name', 'case_items']
