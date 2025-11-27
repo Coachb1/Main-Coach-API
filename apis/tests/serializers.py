@@ -546,7 +546,7 @@ class UserReportSerializer(serializers.ModelSerializer):
 class CaseMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaseMappings
-        fields = ['tab_name', 'embed_link']
+        fields = ['tab_name', 'embed_link', 'transform_iq']
 
 
 class CollectionSerializer(serializers.ModelSerializer):

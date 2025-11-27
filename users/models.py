@@ -379,7 +379,11 @@ class ClientUserInfo(TenantAwareModel):
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
     universal_bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
-
+    collections = models.ManyToManyField(
+            "tests.Collection",
+            blank=True,
+            related_name="client_users"
+        )
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
