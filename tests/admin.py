@@ -20,7 +20,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
-from .models import Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
+from .models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path, reverse
@@ -1199,7 +1199,7 @@ class CourseAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
         writer = csv.writer(response)
-        writer.writerow([
+        header = [
             "Course Name",
             "Name",
             "Keywords",
@@ -1218,14 +1218,24 @@ class CourseAdmin(admin.ModelAdmin):
             "Audio Link",
             "Category",
             "Test Code",
-        ])
+        ]
 
         # Fetch and write rows
         total_written = 0
+        rows = []
         for course in queryset:
             modules = Module.objects.filter(course=course).select_related("test")
             for module in modules:
-                writer.writerow([
+                roles = []
+                overview = None
+                if module.transform_iq:
+                    header.append("Transform IQ Overview")
+                    overview = module.transform_iq.get('overview')
+                    for key, value in module.transform_iq.get('roles',{}).items():
+                        header.append(f"IQ-{key.replace('_', ' ').title()}")
+                        roles.append(value)
+                    
+                row_item = [
                     course.title,
                     module.title or "",
                     module.key_words or "",
@@ -1244,10 +1254,17 @@ class CourseAdmin(admin.ModelAdmin):
                     module.audio_link or "",
                     module.list_name or "",
                     module.test.test_code if module.test else "",
-                ])
+                ]
+
+                if "Transform IQ Overview" in header or overview:
+                    row_item.append(overview)
+                    row_item += roles
+
+                rows.append(row_item)
                 total_written += 1
 
-
+        writer.writerow(header)
+        writer.writerows(rows)
         return response
 
     def save_model(self, request, obj, form, change):
@@ -1261,8 +1278,8 @@ class CourseAdmin(admin.ModelAdmin):
             return  # no CSV uploaded, skip
 
         try:
-            decoded_file = csv_file.read().decode("utf-8-sig").splitlines()
-            reader = csv.DictReader(decoded_file)
+            decoded_file = csv_file.read().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(decoded_file))
 
             created_count, updated_count = 0, 0
             for row in reader:
@@ -1276,7 +1293,18 @@ class CourseAdmin(admin.ModelAdmin):
                 test = None
                 if row.get('test_code'):
                     test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
-
+                iq = None
+                if row.get('transform_iq_overview'):
+                    iq_overview = row.get('transform_iq_overview')
+                    iq = {
+                        "overview": iq_overview,
+                        "roles": {}
+                    }
+                    for key, value in row.items():
+                        if key.startswith('iq-'):
+                            role = key.split('-')[1].strip().replace("_", ' ').title()
+                            iq['roles'][f"{role}"] = value
+                    
                 module, created = Module.objects.update_or_create(
                     title=module_title,
                     course=obj,  # attach to this course
@@ -1298,7 +1326,8 @@ class CourseAdmin(admin.ModelAdmin):
                         "list_name": row.get("category"),
                         "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
                         "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
-                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None
+                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
+                        "transform_iq": iq
                     }
                 )
 
@@ -1363,3 +1392,115 @@ class ModuleProgressAdmin(admin.ModelAdmin):
     list_filter = ("status", "module__course")
     search_fields = ("user_progress__user__name", "module__title", "module__course__title")
     ordering = ("-start_time",)
+
+class CaseMappingsInline(admin.TabularInline):
+    model = CaseMappings
+    extra = 1
+    fields = ('tab_name', 'embed_link', "transform_iq")  # fields shown inline
+
+@admin.register(CaseMappings)
+class CaseMappingAdmin(admin.ModelAdmin):
+    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq")
+    search_fields = ("tab_name",)
+    ordering = ("-id",)
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ("id", "collection_name", "client_name", "view_case_items_link")
+    search_fields = ("collection_name",)
+    ordering = ("-id",)
+    inlines = [CaseMappingsInline]
+    # 🔹 File upload field
+    change_list_template = "admin/collections/collections_change_list.html"
+
+    def client_name(self, obj):
+        # Case 1: M2M (client_users)
+        if hasattr(obj, "client_users"):
+            clients = obj.client_users.all()
+            if clients:
+                return ", ".join(str(c.client_name) for c in clients)
+            return "—"
+
+        return "—"
+
+    client_name.short_description = "Client"
+
+    def view_case_items_link(self, obj):
+        url = (
+            reverse("admin:tests_casemappings_changelist")
+            + f"?collection__id__exact={obj.id}"
+        )
+        return format_html('<a href="{}">View Items</a>', url)
+    view_case_items_link.short_description = "Case Items"
+
+    # -------------------------------------------------------------------
+    # 🔹 EXPORT CSV
+    # -------------------------------------------------------------------
+    actions = ["export_to_csv"]
+
+    def export_to_csv(self, request, queryset):
+        response = HttpResponse(content_type="text/csv")
+        filename = "collections_export.csv"
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+
+        writer = csv.writer(response)
+        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ"])
+
+        for collection in queryset:
+            for item in collection.case_items.all():
+                writer.writerow([collection.collection_name, item.tab_name, item.embed_link, item.transform_iq])
+
+        return response
+
+    export_to_csv.short_description = "Export selected collections to CSV"
+
+    # -------------------------------------------------------------------
+    # 🔹 IMPORT CSV (in change_list)
+    # -------------------------------------------------------------------
+    def changelist_view(self, request, extra_context=None):
+        if request.method == "POST" and "upload_csv" in request.FILES:
+            file = request.FILES["upload_csv"]
+            decoded = file.read().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(decoded))
+
+            created_collections = 0
+            created_cases = 0
+            updated_cases = 0
+
+            for row in reader:
+                row = {key.strip().lower().replace(' ', "_") : value for key, value in row.items()}
+                collection_name = row["collection_name"].strip()
+                tab_name = row["tab_name"].strip()
+                embed_link = row["embed_link"].strip()
+                transform_iq = row['transform_iq'].strip() if 'transform_iq' in row else None
+
+                # Get or create Collection
+                collection, c_created = Collection.objects.get_or_create(
+                    collection_name=collection_name
+                )
+                if c_created:
+                    created_collections += 1
+
+                # Get or update CaseMappings
+                case, created = CaseMappings.objects.update_or_create(
+                    collection=collection,
+                    tab_name=tab_name,
+                    defaults={"embed_link": embed_link, "transform_iq": transform_iq}
+                )
+
+                if created:
+                    created_cases += 1
+                else:
+                    updated_cases += 1
+
+            self.message_user(
+                request,
+                f"✔ Imported successfully — {created_collections} collections, "
+                f"{created_cases} new items, {updated_cases} updated.",
+                level=messages.SUCCESS
+            )
+
+        return super().changelist_view(request, extra_context)
+
+
+

@@ -379,7 +379,11 @@ class ClientUserInfo(TenantAwareModel):
     leaderboard_report_protected = models.BooleanField(default=True, blank=True)
     leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
     universal_bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
-
+    collections = models.ManyToManyField(
+            "tests.Collection",
+            blank=True,
+            related_name="client_users"
+        )
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
@@ -415,7 +419,7 @@ class LibraryBotConfig(MyModel):
     feature_and_button_controls = models.JSONField(
         default=get_default_library_bot_button_controls,
         blank=True,
-        help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}}'
+        help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}, "transform_iq_feature": {"label": "Transform IQ", "show": true}, "metadata_filters": {"label": "", "show": true}}'
     )
 
     class Meta:
