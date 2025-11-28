@@ -109,6 +109,7 @@ class PortalPageConfigInline(admin.StackedInline):
         }),
     )
 
+
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
     change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
     list_per_page = 10
@@ -117,7 +118,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name','is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
-    filter_horizontal = ('assigned_tests','assigned_bots')
+    filter_horizontal = ('assigned_tests','assigned_bots', 'collections')
     inlines = [LibraryBotConfigInline, PortalPageConfigInline]
 
     def get_urls(self):
