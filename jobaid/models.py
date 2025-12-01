@@ -9,6 +9,7 @@ class JobAid(MyModel):
     JOB_TYPE_CHOICES = [
         ('job_aid', 'Job Aid'),
         ('form', 'Form'),
+        ('prompt_generator', 'Prompt Generator'),
     ]
     title = models.CharField(max_length=255, verbose_name="Title")
     description = models.TextField(verbose_name="Description")
@@ -16,9 +17,11 @@ class JobAid(MyModel):
     report_footer = models.TextField(verbose_name="Report Footer")
     validation_prompt = models.TextField(verbose_name="Validation Prompt", null=True, blank=True, default=get_prompt("validation"))
     report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt", null=True, blank=True, default=get_prompt("report_generation"))
+    prompt_generation_prompt = models.TextField(verbose_name="Prompt Generation", null=True, blank=True, default=get_prompt("prompt_generation"))
     job_aid_type = models.CharField(max_length=50, verbose_name="Job Aid Type", blank=True, null=True, default='job_aid', choices=JOB_TYPE_CHOICES)
     is_validation = models.BooleanField(default=True, verbose_name="Is Validation")
     is_report = models.BooleanField(default=True, verbose_name="Is Report")
+    is_prompt_generation = models.BooleanField(default=True, verbose_name="Is Prompt Generation")
     evaluation_prompt = models.TextField(verbose_name="Evaluation Prompt", null=True, blank=True, default=get_prompt("evaluation_prompt"))
     evaluate_jobaid = models.BooleanField(default=False, verbose_name="Evaluation Jobaid")
     def save(self, *args, **kwargs):
@@ -66,6 +69,7 @@ class JobAidSession(MyModel):
     full_name = models.CharField(max_length=255, verbose_name="Full Name", blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="in_progress", verbose_name="Status")
     generated_report_data = models.JSONField(blank=True, null=True)
+    generated_prompt = models.TextField(blank=True, null=True, default=None)
     report_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     qna = models.JSONField(blank=True, null=True, help_text="Q&A data for the session")
