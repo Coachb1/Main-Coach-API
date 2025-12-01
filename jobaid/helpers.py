@@ -204,6 +204,25 @@ The JSON structure must look like this:
             "rating": "[Please only give the response as H, M, or L. (High, medium, and low)]"
           }
       '''
+    elif type == 'prompt_generation':
+        return """
+      You are the Prompt Generator Engine.
+
+Based on the fields the user provided, generate a single optimized prompt for an AI system.
+
+
+Generate a **final prompt** that:
+
+1. Starts with a **clear role instruction** (e.g., “Act as an expert in ___”).
+2. Reflects the **objective** as the primary anchor.
+3. Uses contextual details only if provided.
+4. Incorporates user role, audience, task type, tone, constraints, and output format naturally.
+5. Does *not* force information that was not provided.
+6. Ends with a short checklist: “Make sure to…” aligned to the success criteria.
+
+The output should be only the final optimized prompt — no explanations.
+
+        """
     else:
         raise ValueError(f"Unknown job aid type: {type}")
     
