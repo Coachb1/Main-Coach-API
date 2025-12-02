@@ -490,7 +490,9 @@ class CoursePackageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['jobaid_uid'] = instance.job_aid.uid if instance.job_aid else None
-
+        data['prompt_job_aid_uid'] = (
+            instance.prompt_job_aid.uid if instance.prompt_job_aid else None
+        )
         return data
 
 
