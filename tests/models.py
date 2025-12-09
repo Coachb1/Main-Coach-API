@@ -662,6 +662,13 @@ class CoursePackage(TenantAwareModel):
         blank=True,
         null=True,
     )
+    prompt_job_aid = models.ForeignKey(
+        'jobaid.JobAid',
+        related_name="prompt_course_packages",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
     image_link = models.URLField(blank=True, null=True, default=None)
     page_config = models.JSONField(
         default=default_page_config,
