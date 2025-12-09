@@ -106,6 +106,7 @@ class JobAidViewSet(ApiViewSet,
 
             # Initialize empty report data
             generated_report_data = {}
+            generated_prompt_output = None
 
             # ✅ Only generate report if jobaid.is_report == True
             if jobaid.is_report:
@@ -114,6 +115,10 @@ class JobAidViewSet(ApiViewSet,
             else:
                 # If not validation, you might still want empty or skipped logic
                 generated_report_data = {}
+            # ✅ Only generate prompt if jobaid.is_prompt_generation == True
+            if jobaid.is_prompt_generation:
+                prompt = "Here are the user inputs : " + str(qna) + "\n\n" + jobaid.prompt_generation_prompt
+                generated_prompt_output = generic_completion(prompt)
 
             # ✅ If jobaid has evaluation enabled
             if jobaid.evaluate_jobaid:
@@ -144,6 +149,7 @@ class JobAidViewSet(ApiViewSet,
                 full_name=user_name,
                 status="completed",
                 generated_report_data=generated_report_data,
+                generated_prompt=generated_prompt_output,
             )
 
             # ✅ Only set report_url if a report was generated
@@ -164,7 +170,8 @@ class JobAidViewSet(ApiViewSet,
             return Response(
                 {
                     'session_id': session.id,
-                    'report_url': session.report_url if jobaid.is_report else None
+                    'report_url': session.report_url if jobaid.is_report else None,
+                    'generated_prompt': generated_prompt_output
                 },
                 status=status.HTTP_200_OK
             )
