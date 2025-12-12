@@ -109,19 +109,18 @@ class JobAidViewSet(ApiViewSet,
             generated_prompt_output = None
 
             # ✅ Only generate report if jobaid.is_report == True
-            if jobaid.is_report:
+            if jobaid.is_report and jobaid.report_generation_prompt:
                 prompt = "QNA : " + str(qna) + "\n\n" + jobaid.report_generation_prompt
                 generated_report_data = generic_completion(prompt)
-            else:
-                # If not validation, you might still want empty or skipped logic
-                generated_report_data = {}
+        
+
             # ✅ Only generate prompt if jobaid.is_prompt_generation == True
-            if jobaid.is_prompt_generation:
+            if jobaid.is_prompt_generation and jobaid.prompt_generation_prompt:
                 prompt = "Here are the user inputs : " + str(qna) + "\n\n" + jobaid.prompt_generation_prompt
                 generated_prompt_output = generic_completion(prompt)
 
             # ✅ If jobaid has evaluation enabled
-            if jobaid.evaluate_jobaid:
+            if jobaid.evaluate_jobaid and jobaid.evaluation_prompt:
                 eva_prompt = jobaid.evaluation_prompt
                 questions = [q for q, ans in qna.items()]
                 jobaid_questions = jobaid.questions.filter(question_type='text',deleted=False, question__in=questions)
@@ -153,7 +152,7 @@ class JobAidViewSet(ApiViewSet,
             )
 
             # ✅ Only set report_url if a report was generated
-            if jobaid.is_report:
+            if jobaid.is_report and generated_report_data:
                 session.report_url = (
                     f"{settings.FRONTEND_BASE_URL}/actionPlannerReport?"
                     f"sessionid={session.uid}&backend={settings.BACKEND}"
