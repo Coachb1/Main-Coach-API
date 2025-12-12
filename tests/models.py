@@ -828,6 +828,7 @@ class ModuleForLater(MyModel):
 
 class Collection(MyModel):
     collection_name = models.CharField(max_length=255)
+    heading = models.CharField(max_length=255, null=True, blank=True, default=None)
     def __str__(self):
         return f"{self.collection_name}"
 
