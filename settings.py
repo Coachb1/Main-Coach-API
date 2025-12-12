@@ -53,7 +53,6 @@ INSTALLED_APPS = [
     'legacybot.apps.LegacybotConfig',
     'django_celery_beat',
     'celeryapp',
-    'bulk_admin_action',
     'jobaid.apps.JobaidConfig'
     
 ]
