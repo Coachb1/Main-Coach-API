@@ -1,0 +1,68 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="content">
+
+  <h1>Upload CompanyIQ CSV</h1>
+
+  <div class="module aligned">
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <fieldset class="module aligned">
+        <h2>Select CSV File</h2>
+
+        <div class="form-row">
+          <div>
+            <input type="file"
+                   name="csv_file"
+                   accept=".csv"
+                   required />
+            <p class="help">
+              Upload a CSV file containing CompanyIQ records.
+            </p>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="submit-row">
+        <input type="submit"
+               value="Upload CSV"
+               class="default" />
+        <a href="../" class="button cancel-link">Cancel</a>
+      </div>
+
+    </form>
+
+  </div>
+
+  <div class="module">
+    <h2>Import Rules</h2>
+    <ul>
+      <li><strong>Use LLM = TRUE</strong> → metadata & outlook generated automatically</li>
+      <li><strong>Use LLM = FALSE</strong> → CSV values are used as-is</li>
+      <li><strong>Approved</strong> is ignored when Use LLM is TRUE</li>
+      <li>Approved records are <strong>never overwritten</strong></li>
+      <li>Revenue must be an <strong>integer (US Millions)</strong></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h2>Recommended CSV Headers</h2>
+    <pre style="white-space: pre-wrap; font-size: 12px;">
+Company,Industry,HQ,Revenue (US Millions),Employees (Full-Time),
+Use LLM,Approved,
+AI/Cloud Leadership Roles,AI / Digital Initiatives,
+Cloud / Tech Stack Signals,AI Use Cases,
+Transformation IQ Outlook
+    </pre>
+    <h2>Example CSV</h2>
+    <a href="https://docs.google.com/spreadsheets/d/1g9OQjotPV7p1j0eLisPySVyQiSyom-DUtQPg1TlDqKo/edit?gid=1839873079#gid=1839873079">View Example CSV</a>
+  </div>
+
+</div>
+
+{% endblock %}
