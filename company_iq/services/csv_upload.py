@@ -45,10 +45,6 @@ CSV_FIELD_MAP = {
 
 REQUIRED_FIELDS = [
     "Company",
-    "Industry",
-    "HQ",
-    "Revenue (US Millions)",
-    "Employees (Full-Time)",
     "Use LLM",
 ]
 
