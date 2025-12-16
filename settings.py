@@ -53,8 +53,8 @@ INSTALLED_APPS = [
     'legacybot.apps.LegacybotConfig',
     'django_celery_beat',
     'celeryapp',
-    'jobaid.apps.JobaidConfig'
-    
+    'jobaid.apps.JobaidConfig',
+    'company_iq.apps.CompanyIqConfig'
 ]
 
 MIDDLEWARE = [
