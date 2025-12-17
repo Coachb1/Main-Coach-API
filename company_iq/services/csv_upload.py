@@ -3,15 +3,16 @@ from io import TextIOWrapper
 import json
 from string import Template
 from django.core.exceptions import ValidationError
-from pyparsing import line
-from vine import transform
 from commons.utils import generic_completion
 from company_iq.models import CompanyIQ
-from django.db import IntegrityError
 
 import logging
 
-logger = logging.getLogger(__name__)
+from company_iq.prompts import company_iq_prompts
+
+logger = logging.getLogger("main")
+
+MAX_CSV_ROWS = 50
 
 def get_existing_company_iq(company_name, industry=None, hq=None):
     company_iq = CompanyIQ.objects.filter(
@@ -43,9 +44,21 @@ CSV_FIELD_MAP = {
 }
 
 
-REQUIRED_FIELDS = [
+LLM_REQUIRED_FIELDS = [
     "Company",
     "Use LLM",
+]
+CSV_REQUIRED_FIELDS = [
+    "Use LLM",
+    "Company",
+    "Industry",
+    "HQ",
+    "Revenue (US Millions)",
+    "Employees (Full-Time)",
+    "AI/Cloud Leadership Roles",
+    "AI / Digital Initiatives",
+    "Cloud / Tech Stack Signals",
+    "AI Use Cases",
 ]
 
 def normalize_csv_row(row):
@@ -92,150 +105,6 @@ def normalize_csv_row(row):
     return normalized
 
 
-def get_company_iq_prompt(type_of_prompt):
-    if type_of_prompt == 'outlook':
-        return '''Role & Stance
-You are acting as an Enterprise AI Adoption Analyst advising C-suite leaders and cloud GTM teams.
-Your task is not to summarize the past.
-Your task is to predict the next 12 months of AI direction for a specific company, grounded in public signals, industry patterns, and adoption constraints.
-
-You must be opinionated, selective, and falsifiable.
-
-
----
-
-Inputs : ${input_data}
-
-
-
-
----
-
-Output Requirements
-
-Produce a 12-Month AI Outlook with the following structure.
-Do not exceed 400–500 words.
-
-
----
-
-1. Executive Prediction (Non-Obvious)
-
-State one clear prediction about how this organization’s AI journey will evolve in the next 12 months.
-
-This must be a directional bet, not a hedge
-
-Use phrases like:
-
-“The most likely outcome is…”
-
-“The critical inflection will occur when…”
-
-“The risk leadership is underestimating is…”
-
-
-
-Avoid generic optimism.
-
-
----
-
-2. What Will Move Forward (3 items max)
-
-Identify up to three AI initiatives or themes that are most likely to progress meaningfully.
-
-For each:
-
-Why this and not others
-
-What internal force supports it (regulatory, margin pressure, talent, customer behavior)
-
-
-
----
-
-3. What Will Stall or Be Abandoned
-
-Explicitly name:
-
-At least one AI initiative that is likely to stall, pause, or fail
-
-The real reason (political, operational, cultural — not “data quality”)
-
-
-This is where credibility is built.
-
-
----
-
-4. Cloud & Technology Implications
-
-Describe how this outlook translates into actual cloud behavior:
-
-Experimentation vs production
-
-Spend concentration vs fragmentation
-
-Central IT vs business-led motion
-
-
-No vendor hype. No product names unless justified.
-
-
----
-
-5. Executive Risk & Opportunity Window
-
-Close with:
-
-One risk leadership will face if they do nothing in the next 12 months
-
-One opportunity that compounds if acted on early
-
-
-This should read like advice someone would pay for.
-
-
----
-
-Style Constraints
-
-No marketing language
-
-No buzzword stacking
-
-No “AI will transform everything” statements
-
-Write like a trusted internal strategist, not a vendor
-
-'''
-    elif type_of_prompt == 'meta_data':
-        return '''
-            For the company, "${company_name}", find the following metadata from publicly available resources and adhere strictly to the format and constraint guidelines below: 
-**Constraint Guidelines:** 
-* **Output Format:** 
-Provide a direct, unadorned bulleted list. NO introductory or concluding sentences, NO descriptions, and NO symbols (e.g., $, %, etc.) unless specified.
- * **Revenue Constraint:** 
-Must be the most recent *Annual* Revenue figure, expressed ONLY as an integer count in **US Millions**. If the figure is $5.2 Billion, render it as 5200. 
-* **Employees Constraint:** 
-Must be the *most recent full-time* employee count, expressed ONLY as a single integer count. Exclude seasonal or contract staff. 
-* **Industry Constraint:** 
-Select the single best fit from this standard, comprehensive list: **Technology, Finance, Healthcare, Manufacturing, Retail, Consumer Services, Energy, Transportation/Logistics, Telecommunications, Government/Defense.
-** **Metadata Variables and Required Format must be in json:** 
-{
-  "company": "[Company registered Name]",
-  "industry": "[Standard Industry from list above]",
-  "hq": "[City, State or Country]",
-  "revenue_us_millions": [Integer Count],
-  "employees_full_time": [Integer Count],
-  "ai_cloud_leadership_roles": [List up to 5 key title/leader names with their focus (e.g., CIO/Alan Lowden - Technology Strategy)],
-  "ai_digital_initiatives": [List up to 5 major programs or strategies (e.g., Block Next Strategy, AI Tax Assist)],
-  "cloud_tech_stack_signals": [List up to 5 core technologies (e.g., Primary Cloud/Azure, Data/Cosmos DB, Languages/.NET Core)],
-  "ai_use_cases": [List up to 5 specific applications with their function (e.g., Predictive Maintenance - Reduces unplanned downtime)]
-
-}
-        '''
-
 
 def parse_list(value):
     if not value:
@@ -245,8 +114,8 @@ def parse_list(value):
     return value
 
 
-def validate_row(row):
-    missing = [f for f in REQUIRED_FIELDS if not row.get(f)]
+def validate_row(row, required_fields):
+    missing = [f for f in required_fields if not row.get(f)]
     if missing:
         raise ValidationError(f"Missing required fields: {missing}")
 
@@ -275,19 +144,29 @@ def upsert_companyiq(existing_obj, data, source, approved=False):
     )
     return "created"
 
-def import_companyiq_csv(file):
+def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
     reader = csv.DictReader(TextIOWrapper(file, encoding="utf-8"))
+    rows = list(reader)
+    if len(rows) > MAX_CSV_ROWS:
+        raise ValidationError(
+            f"CSV row limit exceeded. Maximum allowed is {MAX_CSV_ROWS}, "
+            f"but found {len(rows)} rows."
+        )
+    
     created = 0
     errors = []
 
-    for line_no, row in enumerate(reader):
+    for line_no, row in enumerate(rows):
         try:
-            validate_row(row)
+            logger.info(f"Processing line {line_no + 1}: {row.get('Company', 'Unknown')}")
+            use_llm = row.get("Use LLM", "").strip().lower() == "true"
+
+            validate_row(row, LLM_REQUIRED_FIELDS if use_llm else CSV_REQUIRED_FIELDS)
             data = normalize_csv_row(row)
 
             company_name = data["company"]
-            industry = data["industry"]
-            hq = data["hq"]
+            industry = data.get('industry')
+            hq = data.get('hq')
 
             existing = get_existing_company_iq(company_name, industry, hq)
 
@@ -297,20 +176,14 @@ def import_companyiq_csv(file):
             # LLM FLOW
             # --------------------
             if use_llm:
-                prompt = get_company_iq_prompt("meta_data")
-                prompt = Template(prompt).safe_substitute(company_name=company_name)
+                prompt = Template(company_iq_prompts.METADATAPROMPT).safe_substitute(company_name=company_name)
                 company_info = generic_completion(
                     prompt
                 )
-
-                outlook = generic_completion(
-                    Template(get_company_iq_prompt("outlook")).substitute(
-                        input_data=company_info
-                    )
-                )
+                
 
                 payload = {
-                    "company": company_info["company"].strip(),
+                    "company": company_name,
                     "industry": company_info["industry"].strip(),
                     "hq": company_info["hq"].strip(),
                     "revenue_us_millions": int(company_info["revenue_us_millions"]),
@@ -319,8 +192,18 @@ def import_companyiq_csv(file):
                     "ai_digital_initiatives": parse_list(company_info.get("ai_digital_initiatives")),
                     "cloud_tech_stack_signals": parse_list(company_info.get("cloud_tech_stack_signals")),
                     "ai_use_cases": parse_list(company_info.get("ai_use_cases")),
-                    "transformation_iq_outlook": outlook,
                 }
+                if generate_outlook:
+                    payload["transformation_iq_outlook"] = generic_completion(
+                        Template(company_iq_prompts.OUTLOOKPROMPT).substitute(
+                            input_data=company_info
+                        )
+                    )
+
+                if generate_score:
+                    score_prompt = Template(company_iq_prompts.SCOREGENERATIONPROMPT).safe_substitute(company_name=company_name, company_info=json.dumps(payload))
+                    score_data = generic_completion(score_prompt)
+                    payload["score"] = score_data
 
                 result = upsert_companyiq(
                     existing,
@@ -346,9 +229,9 @@ def import_companyiq_csv(file):
                 }
 
                 transformation_iq_outlook = data.get("transformation_iq_outlook", "").strip()
-                if not transformation_iq_outlook:
+                if not transformation_iq_outlook and generate_outlook:
                     transformation_iq_outlook = generic_completion(
-                            Template(get_company_iq_prompt("outlook")).substitute(
+                            Template(company_iq_prompts.OUTLOOKPROMPT).substitute(
                                 input_data=payload
                             )
                         )
@@ -373,9 +256,9 @@ def import_companyiq_csv(file):
                 )
 
         except Exception as e:
-            logger.exception(f"Error processing line {line_no}: {e}")
+            logger.exception(f"Error processing line {line_no+1}- {row.get('Company', 'Unknown')}: {e}")
             errors.append(
-                f"Line {line_no} ({row.get('Company')}): {str(e)}"
+                f"Line {line_no+1} ({row.get('Company')}): {str(e)}"
             )
 
     return created, errors
