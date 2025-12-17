@@ -40,6 +40,11 @@ class CompanyIQ(MyModel):
     source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="Manual")
     approved = models.BooleanField(default=False)
 
+    score = models.JSONField(
+        default=dict,
+        help_text="AI maturity scores and insights"
+    )
+
 
     class Meta:
         verbose_name = "CompanyIQ"
