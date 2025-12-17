@@ -5,6 +5,7 @@ from django.urls import path
 from company_iq.services.csv_upload import import_companyiq_csv
 from django.shortcuts import render, redirect
 from .models import CompanyIQ
+from django.utils.html import format_html
 
 
 @admin.register(CompanyIQ)
@@ -15,6 +16,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
     # ==========================
     list_display = (
         "id",
+        "created",
+        "updated",
         "deleted",
         "company",
         "industry",
@@ -22,8 +25,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
         "approved_badge",
         "revenue_us_millions",
         "employees_full_time",
-        "transformation_iq_outlook",
-        "created",
+        "get_score",
+        "why_score"
     )
 
     list_filter = (
@@ -39,7 +42,7 @@ class CompanyIQAdmin(admin.ModelAdmin):
 
     list_editable = ("deleted",)
 
-    ordering = ("-created",)
+    ordering = ("-updated",)
 
     actions = ["approve_selected", "export_as_csv"]
 
@@ -73,6 +76,7 @@ class CompanyIQAdmin(admin.ModelAdmin):
             "fields": (
                 "source",
                 "approved",
+                "score"
             )
         }),
         ("Audit", {
@@ -91,7 +95,26 @@ class CompanyIQAdmin(admin.ModelAdmin):
         "source",
         "created",
         "updated",
+        "score"
     )
+
+    def get_score(self, obj):
+        """
+        Display the AI maturity score as a percentage.
+        """
+        if obj.score and "score" in obj.score:
+            return f"{obj.score['score']}%"
+        return "N/A"
+    def why_score(self, obj):
+        if obj.score and "justification" in obj.score:
+            return format_html(
+                '<div style="max-height:120px; max-width:500px; '
+                'overflow:auto; white-space:pre-wrap;">{}</div>',
+                obj.score["justification"]
+            )
+        return "N/A"
+
+    why_score.short_description = "Why Score"
     change_list_template = "admin/companyiq/companyiq_changelist.html"
 
     def get_urls(self):
@@ -104,12 +127,13 @@ class CompanyIQAdmin(admin.ModelAdmin):
     def upload_csv(self, request):
         if request.method == "POST":
             csv_file = request.FILES.get("csv_file")
+            generate_score = request.POST.get("generate_score", "false").lower() == "true"
 
             if not csv_file:
                 messages.error(request, "No CSV file selected.")
                 return redirect(request.get_full_path())
 
-            created, errors = import_companyiq_csv(csv_file)
+            created, errors = import_companyiq_csv(csv_file,generate_score)
 
             messages.success(
                 request,
@@ -121,8 +145,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
                     request,
                     f"{len(errors)} rows failed. Check logs."
                 )
-                for err in errors[:5]:  # don’t spam admin
-                    messages.error(request, err)
+                all_errors = "\n".join(errors[:5])
+                messages.error(request, all_errors)
                 return redirect(request.get_full_path())
                 
 
@@ -186,6 +210,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
 
         # CSV headers (human-readable, stable contract)
         writer.writerow([
+            "Score",
+            "Score Justification",
             "Company",
             "Industry",
             "HQ",
@@ -204,6 +230,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
 
         for obj in queryset.iterator():
             writer.writerow([
+                obj.score.get("score", "N/A"),
+                obj.score.get("justification", "N/A"),
                 obj.company,
                 obj.industry,
                 obj.hq,

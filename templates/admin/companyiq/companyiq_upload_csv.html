@@ -1,66 +1,85 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
-
 {% block content %}
 
 <div class="content">
-
+  <!-- back button -->
+  <div class="breadcrumbs pb-2">
+    <a href="../">CompanyIQ</a> &rsaquo; <span>Upload CSV</span>
+  </div>
   <h1>Upload CompanyIQ CSV</h1>
 
   <div class="module aligned">
-
-    <form method="post" enctype="multipart/form-data" novalidate>
+    <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
+
+      <fieldset class="module aligned">
+        <h2>CSV Upload Rules</h2>
+
+        <ul class="help">
+          <p class="errornote">
+            Uploading more than 50 rows will fail.
+          </p>
+          <li><strong>Use LLM = TRUE</strong> → metadata & outlook generated automatically</li>
+          <li><strong>Use LLM = FALSE</strong> → CSV values are used as-is</li>
+          <p class="help">
+          for LLM creation only <strong>Use LLM</strong> and <strong>Company</strong> are required.
+          <br>
+          For manual CSV uploads, all fields are required except <strong>Approved</strong> and make <strong>Use LLM</strong> = FALSE.
+        </p>
+          <li><strong>Approved</strong> is ignored when Use LLM is TRUE</li>
+          <li>Revenue must be an <strong>integer (US Millions)</strong></li>
+          <li><strong>Maximum 50 rows per upload</strong></li>
+          <li>LLM-enabled rows may take longer to process</li>
+        </ul>
+      </fieldset>
+
+      <fieldset class="module aligned">
+        <h2>Example CSV</h2>
+        
+        <a target="_blank" href="https://docs.google.com/spreadsheets/d/1g9OQjotPV7p1j0eLisPySVyQiSyom-DUtQPg1TlDqKo/edit?gid=1839873079#gid=1839873079">View Example CSV</a>
+      </fieldset>
+
 
       <fieldset class="module aligned">
         <h2>Select CSV File</h2>
 
         <div class="form-row">
-          <div>
-            <input type="file"
-                   name="csv_file"
-                   accept=".csv"
-                   required />
-            <p class="help">
-              Upload a CSV file containing CompanyIQ records.
-            </p>
-          </div>
+          <input
+            type="file"
+            name="csv_file"
+            accept=".csv"
+            required
+          />
+          <p class="help">
+            Split large CSVs into chunks of 50 rows.
+          </p>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" name="generate_score" value="true"/>
+            Generate Score
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" required />
+            I understand the 50-row limit and import rules
+          </label>
         </div>
       </fieldset>
 
       <div class="submit-row">
-        <input type="submit"
-               value="Upload CSV"
-               class="default" />
+        <input
+          type="submit"
+          value="Upload CSV"
+          class="default"
+        />
         <a href="../" class="button cancel-link">Cancel</a>
       </div>
 
     </form>
-
-  </div>
-
-  <div class="module">
-    <h2>Import Rules</h2>
-    <ul>
-      <li><strong>Use LLM = TRUE</strong> → metadata & outlook generated automatically</li>
-      <li><strong>Use LLM = FALSE</strong> → CSV values are used as-is</li>
-      <li><strong>Approved</strong> is ignored when Use LLM is TRUE</li>
-      <li>Approved records are <strong>never overwritten</strong></li>
-      <li>Revenue must be an <strong>integer (US Millions)</strong></li>
-    </ul>
-  </div>
-
-  <div class="module">
-    <h2>Recommended CSV Headers</h2>
-    <pre style="white-space: pre-wrap; font-size: 12px;">
-Company,Industry,HQ,Revenue (US Millions),Employees (Full-Time),
-Use LLM,Approved,
-AI/Cloud Leadership Roles,AI / Digital Initiatives,
-Cloud / Tech Stack Signals,AI Use Cases,
-Transformation IQ Outlook
-    </pre>
-    <h2>Example CSV</h2>
-    <a href="https://docs.google.com/spreadsheets/d/1g9OQjotPV7p1j0eLisPySVyQiSyom-DUtQPg1TlDqKo/edit?gid=1839873079#gid=1839873079">View Example CSV</a>
   </div>
 
 </div>
