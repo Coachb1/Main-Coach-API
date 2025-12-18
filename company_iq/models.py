@@ -49,13 +49,6 @@ class CompanyIQ(MyModel):
     class Meta:
         verbose_name = "CompanyIQ"
         verbose_name_plural = "CompanyIQ"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["company_normalized"],
-                condition=models.Q(deleted=False),
-                name="uniq_active_companyiq"
-            )
-        ]
         ordering = ["-created"]
 
 
