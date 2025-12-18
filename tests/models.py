@@ -727,7 +727,9 @@ class Module(MyModel):
     startup = models.BooleanField(default=False)
     key_words = models.TextField(default=None, null=True, blank=True, help_text="Comma-separated keywords for search optimization")
     transform_iq = models.JSONField(default=None, null=True, blank=True)
-
+    total_likes = models.IntegerField(
+            default=0, help_text="Total likes received for the module"
+        )
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
@@ -800,7 +802,7 @@ class ModuleProgress(MyModel):
 
 
 
-class ModuleLike(MyModel):
+class ModuleLike(MyModel): # likes for user
     user = models.ForeignKey(User, related_name="module_likes", on_delete=models.CASCADE)
     module = models.ForeignKey(Module, related_name="likes", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
