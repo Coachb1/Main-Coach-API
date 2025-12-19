@@ -831,6 +831,7 @@ class ModuleForLater(MyModel):
 class Collection(MyModel):
     collection_name = models.CharField(max_length=255)
     heading = models.CharField(max_length=255, null=True, blank=True, default=None)
+    action_tab_info = models.JSONField(blank=True,null=True, default=None,help_text='{id: "internal-transformation", title: "Internal Transformation Projects", description: "Submit & View Project Themes", icon: <FolderPlus className="w-9 h-9 text-[#00c193]" />, buttons: [ { label: "ALIGN", action: "INTERNAL_TRANSFORMATION_ALIGN" }, { label: "PROPOSE", action: "INTERNAL_TRANSFORMATION_PROPOSE" },],}')
     def __str__(self):
         return f"{self.collection_name}"
 
@@ -844,6 +845,5 @@ class CaseMappings(MyModel):
     tab_name = models.CharField(max_length=255)
     embed_link = models.URLField(max_length=500)
     transform_iq = models.URLField(max_length=500, null=True, blank=True, default=None)
-
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
