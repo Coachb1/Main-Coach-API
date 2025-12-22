@@ -33,3 +33,13 @@ class CompanyIQViewSet(ApiViewSet,
     def get_queryset(self):
         """Override to ensure we only get approved, non-deleted CompanyIQs"""
         return super().get_queryset().filter(deleted=False, approved=True)
+
+    @action(detail=False, methods=["get"], url_path="all")
+    def list_all(self, request):
+        """
+        List all CompanyIQ records, regardless of approval status.
+        This is for internal use only.
+        """
+        queryset = CompanyIQ.objects.filter(deleted=False, approved=True)
+        serializer = CompanyIQSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
