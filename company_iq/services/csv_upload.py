@@ -147,11 +147,11 @@ def upsert_companyiq(existing_obj, data, source, approved=False):
 def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
     reader = csv.DictReader(TextIOWrapper(file, encoding="utf-8"))
     rows = list(reader)
-    if len(rows) > MAX_CSV_ROWS:
-        raise ValidationError(
-            f"CSV row limit exceeded. Maximum allowed is {MAX_CSV_ROWS}, "
-            f"but found {len(rows)} rows."
-        )
+    # if len(rows) > MAX_CSV_ROWS:
+    #     raise ValidationError(
+    #         f"CSV row limit exceeded. Maximum allowed is {MAX_CSV_ROWS}, "
+    #         f"but found {len(rows)} rows."
+    #     )
     
     created = 0
     errors = []
