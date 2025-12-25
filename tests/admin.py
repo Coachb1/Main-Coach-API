@@ -1406,7 +1406,7 @@ class CaseMappingAdmin(admin.ModelAdmin):
 
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ("id", "collection_name", "client_name", "view_case_items_link")
+    list_display = ("id", "collection_name", "client_name", "view_case_items_link",'action_tab_info','iframe_link')
     search_fields = ("collection_name",)
     ordering = ("-id",)
     inlines = [CaseMappingsInline]

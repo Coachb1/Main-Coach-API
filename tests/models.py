@@ -727,7 +727,9 @@ class Module(MyModel):
     startup = models.BooleanField(default=False)
     key_words = models.TextField(default=None, null=True, blank=True, help_text="Comma-separated keywords for search optimization")
     transform_iq = models.JSONField(default=None, null=True, blank=True)
-
+    total_likes = models.IntegerField(
+            default=0, help_text="Total likes received for the module"
+        )
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
@@ -800,7 +802,7 @@ class ModuleProgress(MyModel):
 
 
 
-class ModuleLike(MyModel):
+class ModuleLike(MyModel): # likes for user
     user = models.ForeignKey(User, related_name="module_likes", on_delete=models.CASCADE)
     module = models.ForeignKey(Module, related_name="likes", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -829,10 +831,12 @@ class ModuleForLater(MyModel):
 class Collection(MyModel):
     collection_name = models.CharField(max_length=255)
     heading = models.CharField(max_length=255, null=True, blank=True, default=None)
+    action_tab_info = models.JSONField(blank=True,null=True, default=None,help_text='always add CONCEPTS prefix in action.  eg: {id: "design-architecture",title: "Design & Architecture Guardrails",description: "Evaluation Heuristics for common cases",icon: "<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c193" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/><path d="m9 12 2 2 4-4"/></svg>",buttons: [{ label: "ALIGN", action: "DESIGN_ARCH_GUARDRAILS" }],}')
+    iframe_link = models.URLField(max_length=500,null=True, blank=True, default=None)
     def __str__(self):
         return f"{self.collection_name}"
 
-
+ 
 class CaseMappings(MyModel):
     collection = models.ForeignKey(
         Collection,
@@ -842,6 +846,5 @@ class CaseMappings(MyModel):
     tab_name = models.CharField(max_length=255)
     embed_link = models.URLField(max_length=500)
     transform_iq = models.URLField(max_length=500, null=True, blank=True, default=None)
-
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
