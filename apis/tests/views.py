@@ -2271,6 +2271,14 @@ class CourseViewSet(ApiViewSet,
         POST -> Toggle like (like/unlike)
         """
         if request.method == "GET":
+            client_only_likes = request.query_params.get("client_only_likes", False) # here we will increase decrease total_like  not user specific like
+            if client_only_likes:
+                # If client_only_likes is True, we return total likes for the module
+                module = get_object_or_404(Module, uid=module_id)
+                progress = ModuleProgress.objects.filter(module=module).first()
+                if not progress:
+                    return Response({"total_likes": 0}, status=status.HTTP_200_OK)
+                return Response({"total_likes": progress.total_likes}, status=status.HTTP_200_OK)
             user, module = self._get_user_and_module(request, module_id, from_query=True)
             like = ModuleLike.objects.filter(module=module, user=user).first()
             if not like:
@@ -2278,6 +2286,14 @@ class CourseViewSet(ApiViewSet,
             return Response(ModuleLikeSerializer(like).data, status=status.HTTP_200_OK)
 
         elif request.method == "POST":
+            client_only_likes = request.data.get("client_only_likes", False) # True for module-wide likes, False for user-specific likes
+            likes = request.data.get("likes", 1) # 1 for like, -1 for unlike            
+            if client_only_likes:
+                module = get_object_or_404(Module, uid=module_id)
+                module.total_likes = max(0, module.total_likes + likes)
+                module.save(update_fields=['total_likes'])
+                return Response({"message": "Total likes updated"}, status=status.HTTP_200_OK)
+            
             user, module = self._get_user_and_module(request, module_id)
             like, created = ModuleLike.objects.get_or_create(user=user, module=module)
             if not created:
