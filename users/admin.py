@@ -381,8 +381,8 @@ class UserAdmin(admin.ModelAdmin):
         "uid",
         "name",
         "role",
-        "get_email",
-        "get_client",
+        "email_display",
+        "client_display",
         "tenant_id",
         "is_active",
         "is_root",
@@ -392,6 +392,19 @@ class UserAdmin(admin.ModelAdmin):
 
     list_filter = ("role", "is_root", "is_excluded", "tenant_id")
     search_fields = ("name", "uid")
+    list_per_page = 10
+
+    def email_display(self, obj):
+        return obj.get_email() or "-"
+    email_display.short_description = "Email"
+
+    def client_display(self, obj):
+        try:
+            client = obj.get_client()
+        except:
+            return "-"
+        return client.client_name if client else "-"
+    client_display.short_description = "Client"
 
     # ---------- JSON email search ----------
     def get_search_results(self, request, queryset, search_term):

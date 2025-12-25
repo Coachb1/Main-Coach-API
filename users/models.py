@@ -156,9 +156,12 @@ class User(TenantAwareModel):
         return None
 
     def get_client(self):
-        email = self.get_email()
-        client = ClientUserInfo.objects.filter(deleted=False, tenant_id=self.tenant_id, member_emails__contains=email).first()
-        return client
+        try:
+            email = self.get_email()
+            client = ClientUserInfo.objects.filter(deleted=False, tenant_id=self.tenant_id, member_emails__contains=email).first()
+            return client
+        except:
+            return None
     
     def get_mob_number(self):
         """Returns the mobile number of the user."""
@@ -354,7 +357,7 @@ class ClientUserInfo(TenantAwareModel):
     allow_access_to_platform = models.BooleanField(default=True)
     allow_access_to_snippet = models.BooleanField(default=True)
     report_on = models.BooleanField(null=True,blank=True, help_text="to enable or disable reporting for the test.")
-    show_recommendations = models.BooleanField(default=True)
+    show_recommendations = models.BooleanField(default=False, help_text="to switch on/off the simualation recommandation after attempting a simulation/interction.")
     button_controls = models.JSONField(default=dict, blank=True, help_text='for eg: {"mode_button": {"show": true}, "mindmap_button": {"show": true}, "assessment_button": {"show": true}}')
     is_active = models.BooleanField(default=True, blank=True)
     assigned_tests = models.ManyToManyField('tests.Test', blank=True, related_name="client_users")
