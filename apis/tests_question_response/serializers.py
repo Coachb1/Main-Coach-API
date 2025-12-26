@@ -7,6 +7,7 @@ from tests.models import TestQuestionResponse, TestQuestion
 class TestQuestionResponseSerializer(serializers.ModelSerializer):
     question = serializers.SerializerMethodField(method_name="get_question", read_only=True)
     question_id = serializers.CharField(write_only=True)
+    context = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = TestQuestionResponse
@@ -22,6 +23,7 @@ class TestQuestionResponseSerializer(serializers.ModelSerializer):
                   "metadata",
                   "evaluation_status",
                   "question_text",
+                  "context",
                   "created",
                   "updated"]
 
