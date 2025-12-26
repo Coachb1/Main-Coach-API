@@ -57,6 +57,7 @@ class TestQuestionResponseViewSet(ApiViewSet,
         question_id = serializer.validated_data["question_id"]
         response_file = serializer.validated_data.get("response_file")
         response_text = serializer.validated_data.get("response_text")
+        context = serializer.validated_data.get('context')
 
         test_question_answer = create_test_question_answer(
             tenant=request.tenant,
@@ -64,7 +65,8 @@ class TestQuestionResponseViewSet(ApiViewSet,
             question_id=question_id,
             response_file=response_file,
             response_text=response_text,
-            is_whatsapp=is_whatsapp
+            is_whatsapp=is_whatsapp,
+            context=context
         )
 
         return Response(data=TestQuestionResponseSerializer(instance=test_question_answer).data,

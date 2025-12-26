@@ -2919,11 +2919,34 @@ def is_business_email(email):
         return True
 
 
+def get_client_from_domain(domain: str, tenant: Tenant):
+    domains = [d.strip().lower() for d in domain.split(',') if d.strip()]
+
+    query = Q()
+    for d in domains:
+        query |= Q(domain_name__regex=rf'(^|,)\s*{re.escape(d)}\s*(,|$)')
+
+    qs = ClientUserInfo.objects.filter(
+        deleted=False,
+        tenant_id=tenant.uid
+    ).filter(query)
+
+    client = qs.first()
+
+    if client:
+        print(f"domain_client: {client.domain_name}")
+    else:
+        print("domain_client: None")
+
+    return client
+
+
+
 def shift_all_emails_to_domain_client(tenant_id,domain):
     tenant = Tenant.objects.get(deleted=False,uid=tenant_id)
     print(f'tenant: {tenant.uid}')
-    domain_client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant.uid,domain_name=domain).first()
-    print(f"domain_client: {domain_client.domain_name}")
+    domain_client = get_client_from_domain(domain, tenant)
+    domains = [d.strip() for d in domain.split(',')]
     if domain_client:
         all_email_with_domain = []
         all_clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False)
@@ -2931,7 +2954,7 @@ def shift_all_emails_to_domain_client(tenant_id,domain):
             member_emails = client.member_emails.split(",") if client.member_emails else []
             for member_email in member_emails:
                 member_domain = member_email.strip().split('@')[-1]
-                if member_domain == domain:
+                if member_domain in domains:
                     print(f'member_domain: {member_domain} , domain: {domain}')
 
                     member_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False, member_emails__contains=member_email).first()
@@ -3254,8 +3277,8 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
 
     if is_business_email(email):
         domain = email.split('@')[-1]
-        already_exist_client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,domain_name=domain)
-        if already_exist_client.count() == 0:
+        already_exist_client = get_client_from_domain(domain=domain, tenant=tenant)
+        if not already_exist_client:
             if create_new_client:
                 client = create_client_id(
                     tenant_id=tenant.uid,
@@ -3263,7 +3286,7 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
                     client_name=domain.split(".")[0].capitalize()
                     )
         else:
-            client = already_exist_client.first()
+            client = already_exist_client
             
         if client:
 
@@ -3285,26 +3308,26 @@ def create_or_assign_client_id(email,tenant,create_new_client=False):
 
 
     if not assigned:
-        client = ClientUserInfo.objects.get(tenant_id=tenant.uid,deleted=False,uid='9f07b64c-2dee-4a92-9ac2-1d041ff26205')  # assigning to first-demo
-
-        add_or_remove_emails_from_client(
-                    client=client,
-                    field="member_emails",
-                    user_email=email
-                    )
-
-        # by default we will add it to demo ids
-        if client.make_new_user_in_trail:
-
+        client = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False,client_name='First-Demo').first()  # assigning to first-demo
+        if client:
             add_or_remove_emails_from_client(
-                    client=client,
-                    field="demo_ids",
-                    user_email=email
-                    )
+                        client=client,
+                        field="member_emails",
+                        user_email=email
+                        )
+
+            # by default we will add it to demo ids
+            if client.make_new_user_in_trail:
+
+                add_or_remove_emails_from_client(
+                        client=client,
+                        field="demo_ids",
+                        user_email=email
+                        )
 
 
     # === sending email to business team
-    if client.make_new_user_in_trail:
+    if client and client.make_new_user_in_trail:
         user = get_user_via_identity(
             tenant = tenant,
             identity_type = 'deepchat_unique_id',

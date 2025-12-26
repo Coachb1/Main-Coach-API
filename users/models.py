@@ -373,6 +373,7 @@ class ClientUserInfo(TenantAwareModel):
     # for simulation bot
     is_repeat = models.BooleanField(default=None, null=True, blank=True)
     test_per_month = models.IntegerField(default=None, null=True, blank=True)
+    session_context = models.BooleanField(default=False, help_text="Used to on/off context asking before any interaction")
 
 
     # for coaching conversations
@@ -424,6 +425,18 @@ class LibraryBotConfig(MyModel):
         blank=True,
         help_text='for eg: {"leadership_button": {"label": "Leadership", "show": true}, "idea_board_button": {"label": "IdeaBoard Report", "show": true}, "ai_pulse": {"label": "AI Pulse Report", "show": true}, "transform_iq_feature": {"label": "Transform IQ", "show": true}, "metadata_filters": {"label": "", "show": true}}'
     )
+    login_view = models.CharField(
+        max_length=55,
+        choices=[
+            ("no_login", "No Login"),
+            ("email_password", "Email + Password"),
+            ("email_only", "Only Email"),
+        ],
+        null=True,
+        blank=True,
+        default=None
+    )
+
 
     class Meta:
         db_table = "library_bot_config"
@@ -440,6 +453,17 @@ class PortalPageConfig(MyModel):
         default=get_default_portal_page_config,
         blank=True,
         help_text='for eg: {"sim_report": {"label": "Report", "show": true}}'
+    )
+    login_view = models.CharField(
+        max_length=55,
+        choices=[
+            ("no_login", "No Login"),
+            ("email_password", "Email + Password"),
+            ("email_only", "Only Email"),
+        ],
+        null=True,
+        blank=True,
+        default=None
     )
 
     class Meta:

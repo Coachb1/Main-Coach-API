@@ -304,6 +304,10 @@ class TestAttemptSession(TenantAwareModel):
     personality_model_data = models.JSONField(null=True, blank=True, default=None)
     feedback_video_script = models.TextField(null=True, blank=True, default=None)
     feedback_video_link = models.URLField(null=True, blank=True, default=None)
+    session_user_context = models.TextField(null=True, 
+                                            blank=True, 
+                                            default=None,
+                                            help_text="it will store user/bot context user will provide before attempting a session.")
 
     class Meta:
         db_table = "test_attempt_session"
