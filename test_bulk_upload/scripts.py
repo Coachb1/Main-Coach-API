@@ -1428,7 +1428,8 @@ def format_test_data_slack(raw_data,tenant):
             output_dict["tag"] = 'assessment' if input_dict[IS_ASSESSMENT].strip().lower() == "true" else None
 
         skills_list = set()
-        if f'{KLS} 0' in input_dict.keys() or f'Skill 0'in input_dict:
+        if any(key.startswith(f"{KLS} ") for key in input_dict) or \
+            any(key.startswith("Skill ") for key in input_dict):            
             for key in input_dict:
                 if key.startswith(KLS):
                     temp_skills = input_dict[key].split(',')
