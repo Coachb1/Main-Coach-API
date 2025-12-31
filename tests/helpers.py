@@ -1112,7 +1112,8 @@ def create_test_question_answer(tenant: Tenant,
                                 question_id: str,
                                 response_file: str = None,
                                 response_text: str = None,
-                                is_whatsapp: bool = False) -> TestQuestionResponse:
+                                is_whatsapp: bool = False,
+                                context: str = None) -> TestQuestionResponse:
     """
     Creates a TestQuestionResponse object for a given test attempt session and question.
 
@@ -1144,6 +1145,10 @@ def create_test_question_answer(tenant: Tenant,
     try:
         test_attempt_session = TestAttemptSession.objects.get(
             tenant_id=tenant.uid, uid=test_attempt_session_id, deleted=0)
+        if test_attempt_session.session_user_context == None and context:
+            test_attempt_session.session_user_context = context
+            test_attempt_session.save(update_fields=['session_user_context'])
+            test_attempt_session.refresh_from_db(fields=["session_user_context"])
     except TestAttemptSession.DoesNotExist as e:
         logger.exception("failed to get session, test attempt session with id %s does not exist",
                          test_attempt_session_id)
@@ -2290,13 +2295,17 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
         if user_info.custom_feedback_prompt_2:
             user_feedback_prompt = user_feedback_prompt + "\n" + user_info.custom_feedback_prompt_2
 
+        candidate_reply = test_question_response.response_text
+        if test_attempt_session.session_user_context:
+            candidate_reply = f"{candidate_reply}\n Context: {test_attempt_session.session_user_context}\n"
         if test.is_email_type:
             prompt = get_email_type_prompt(
                 test_title=test.title,
                 test_description=test.description,
                 question=question.question,
-                candidate_reply=test_question_response.response_text,
-                user_feedback_prompt=user_feedback_prompt)
+                candidate_reply=candidate_reply,
+                user_feedback_prompt=user_feedback_prompt,
+                )
             
         elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
             prompt = emplyee_feedback_prompt(
@@ -2304,7 +2313,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_title=test.title,
                     test_description=test.description,
                     question=question.question,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=user_feedback_prompt
             )
 
@@ -2314,7 +2323,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_title=test.title,
                     test_description=test.description,
                     question=question.question,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=user_feedback_prompt
             )
 
@@ -2324,7 +2333,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_title=test.title,
                     test_description=test.description,
                     question=question.question,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=user_feedback_prompt
             )
 
@@ -2334,7 +2343,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     description=test.description, 
                     background=None,
                     question_text=question.question,
-                    candidate_comment=test_question_response.response_text,
+                    candidate_comment=candidate_reply,
                     evaluation_criteria=question.gpt_prompt_override or ""
                     )
 
@@ -2346,7 +2355,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_description=test.description,
                     question=question.question,
                     question_context=question.subjective_answer,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=user_feedback_prompt
                 )
             else:
@@ -2355,7 +2364,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                     test_description=test.description,
                     question=question.question,
                     question_context=question.subjective_answer,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=user_feedback_prompt,
                     articles= test.articles,
                     scenario_summary=test.scenario_summary,
@@ -2401,7 +2410,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                 test_title=test.title,
                                 test_description=test.description,
                                 question=question.question,
-                                candidate_reply=test_question_response.response_text,
+                                candidate_reply=candidate_reply,
                                 user_feedback_prompt=user_feedback_prompt)
                             
                         elif test.scenario_case == ScenarioCaseChoices.employee_feedback:
@@ -2410,7 +2419,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     test_title=test.title,
                                     test_description=test.description,
                                     question=question.question,
-                                    candidate_reply=test_question_response.response_text,
+                                    candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt
                             )
                             
@@ -2420,7 +2429,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                                             test_title=test.title,
                                                             test_description=test.description,
                                                             question=question.question,
-                                                            candidate_reply=test_question_response.response_text,
+                                                            candidate_reply=candidate_reply,
                                                             user_feedback_prompt=user_feedback_prompt
                                                     )
                                     
@@ -2430,7 +2439,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     test_title=test.title,
                                     test_description=test.description,
                                     question=question.question,
-                                    candidate_reply=test_question_response.response_text,
+                                    candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt
                             )
                         elif test.scenario_case == ScenarioCaseChoices.interview:
@@ -2439,7 +2448,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     description=test.description, 
                                     background=None,
                                     question_text=question.question,
-                                    candidate_comment=test_question_response.response_text,
+                                    candidate_comment=candidate_reply,
                                     evaluation_criteria=question.gpt_prompt_override or ""
                                     )
 
@@ -2451,7 +2460,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     test_description=test.description,
                                     question=question.question,
                                     question_context=question.subjective_answer,
-                                    candidate_reply=response_text,
+                                    candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt
                                 )
                             else:
@@ -2460,7 +2469,7 @@ def __process_test_response(question: TestQuestion, test: Test, test_attempt_ses
                                     test_description=test.description,
                                     question=question.question,
                                     question_context=question.subjective_answer,
-                                    candidate_reply=response_text,
+                                    candidate_reply=candidate_reply,
                                     user_feedback_prompt=user_feedback_prompt,
                                     articles=test.articles,
                                     scenario_summary=test.scenario_summary,)
@@ -2956,19 +2965,24 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
             question_text = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session.uid).order_by("-created")[1].response_text
         logger.info(f"***************question text is {question_text}**************")
 
+
+        candidate_reply = test_question_response.response_text
+        if test_attempt_session.session_user_context:
+            candidate_reply = f"{candidate_reply}\n Context: {test_attempt_session.session_user_context}\n"
+        
         if start_with_user_message is not None:
-            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number, context=test_attempt_session.session_user_context)
 
         else:
             if test.scenario_case == ScenarioCaseChoices.interview:
-                prompt = get_interview_feedback(test.title, test.description, background,question_text,test_question_response.response_text)
+                prompt = get_interview_feedback(test.title, test.description, background,question_text,candidate_reply)
             elif test.scenario_case == ScenarioCaseChoices.journaling:
                 prompt = get_journaling_feedback_prompt(
                         prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
                         test_title=test.title,
                         test_description=test.description,
                         question=question.question,
-                        candidate_reply=test_question_response.response_text,
+                        candidate_reply=candidate_reply,
                         user_feedback_prompt=""
                 )
             else:
@@ -2979,7 +2993,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                         test_description=test.description,
                         question=question.question,
                         question_context=question.subjective_answer,
-                        candidate_reply=test_question_response.response_text,
+                        candidate_reply=candidate_reply,
                         user_feedback_prompt=""
                     )
                 else:
@@ -2988,7 +3002,7 @@ def process_orchestrated_test_response_by_user(test_question_response: TestQuest
                                         test_description=test.description,
                                         question=question_text,
                                         question_context=question.subjective_answer,
-                                        candidate_reply=test_question_response.response_text,
+                                        candidate_reply=candidate_reply,
                                         user_feedback_prompt="",
                                         articles=test.articles,
                                         scenario_summary=test.scenario_summary,)
@@ -3142,7 +3156,7 @@ def get_speech_metrics(test_question_response,transcript):
 
 
 @timeit
-def get_feedback(question, test_question_response, question_text, test):
+def get_feedback(question:TestQuestion, test_question_response:TestQuestionResponse, question_text:str, test:Test):
     """
     This function generates feedback for a given test question response.
 
@@ -3164,24 +3178,30 @@ def get_feedback(question, test_question_response, question_text, test):
         # This will generate feedback for the given question and save it to the `feedback_text` field of the `test_question_response_obj`.
     """
     # function implementation
+
+    candidate_reply = test_question_response.response_text
+    test_attempt_session = TestAttemptSession.objects.filter(deleted=False, uid=test_question_response.test_attempt_session_id).first()
+    if test_attempt_session.session_user_context:
+        candidate_reply = f"{candidate_reply}\n Context: {test_attempt_session.session_user_context}\n"
+        
     
     start_with_user_message = test.orchestrated_conversation_details.get('start_with_user')
     background = test.orchestrated_conversation_details.get('background')
 
     
     if start_with_user_message is not None:
-            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number)
+            prompt = get_user_first_dynamic_discussion_prompt(start_with_user_message, test.title, test.description, test_question_response.response_text,question_text, question.question_number, context=test_attempt_session.session_user_context)
 
     else:
         if test.scenario_case == ScenarioCaseChoices.interview:
-            prompt = get_interview_feedback(test.title, test.description, background, question_text, test_question_response.response_text)
+            prompt = get_interview_feedback(test.title, test.description, background, question_text, candidate_reply)
         elif test.scenario_case == ScenarioCaseChoices.journaling:
                 prompt = get_journaling_feedback_prompt(
                         prompt_template=question.gpt_prompt_override or test.gpt_prompt_override,
                         test_title=test.title,
                         test_description=test.description,
                         question=question.question,
-                        candidate_reply=test_question_response.response_text,
+                        candidate_reply=candidate_reply,
                         user_feedback_prompt=""
                 )
         else:
@@ -3192,7 +3212,7 @@ def get_feedback(question, test_question_response, question_text, test):
                     test_description=test.description,
                     question=question.question,
                     question_context=question.subjective_answer,
-                    candidate_reply=test_question_response.response_text,
+                    candidate_reply=candidate_reply,
                     user_feedback_prompt=""
                 )
             else:
@@ -3201,7 +3221,7 @@ def get_feedback(question, test_question_response, question_text, test):
                                     test_description=test.description,
                                     question=question_text,
                                     question_context=question.subjective_answer,
-                                    candidate_reply=test_question_response.response_text,
+                                    candidate_reply=candidate_reply,
                                     user_feedback_prompt="",
                                     articles=test.articles,
                                     scenario_summary=test.scenario_summary,)
@@ -6031,7 +6051,7 @@ def get_chat_conversation_prompt_v3(test_title: str,
 
 
 @timeit
-def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int):
+def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_description: str, comment: str, bot_response:str, question_number: int, context=None):
     """
     Generate a dynamic discussion prompt for providing feedback on manager, team member, or sales rep comments.
 
@@ -6058,7 +6078,8 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
     """
 
     format_prompt = get_feedback_output_format_prompt(prompt_type='text',test_type='normal')
-
+    if context:
+        test_description += f"\n Context: {context}\n"
     match scenareo:
         case 'manager-team':
             if question_number == 1:
@@ -6287,7 +6308,11 @@ def get_user_first_dynamic_discussion_prompt(scenareo, test_title: str, test_des
             return "nothing"
 
 @timeit
-def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,current_conversation, question_number):
+def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,current_conversation, question_number, context=None):
+    main_context = test.description
+    if context:
+        main_context = f"{main_context}\n Context: {context}\n"
+
     match scenareo:
         case 'manager-team':
             if question_number == 2:
@@ -6318,7 +6343,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
@@ -6348,7 +6373,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case 'team-manager':
             if question_number == 2:
@@ -6380,7 +6405,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
@@ -6413,7 +6438,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case 'sales-customer':
             if question_number == 2:
@@ -6445,7 +6470,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
@@ -6478,7 +6503,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case 'customer-sales':
             if question_number == 2:
@@ -6508,7 +6533,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text)
             else:
                 user_comment = TestQuestionResponse.objects.filter(test_attempt_session_id=test_attempt_session_id,
@@ -6539,7 +6564,7 @@ def get_user_first_question_promt(scenareo: str, test, test_attempt_session_id,c
                 '''
                 )
 
-                return template.substitute(test_main_context=test.description,
+                return template.substitute(test_main_context=main_context,
                                         user_comment=user_comment.response_text, current_conversation=current_conversation)
         case default:
             logger.warning("!!!!!!!!!!!!!!!!!! Invalid user_first scenareo type: %s", scenareo)
@@ -6660,7 +6685,7 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 "question_text": question_text})
 
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ] and start_with_user_message is not None:
-        return get_user_first_question_promt(start_with_user_message, test, test_attempt_session.uid, current_conversation, question.question_number)
+        return get_user_first_question_promt(start_with_user_message, test, test_attempt_session.uid, current_conversation, question.question_number, context=test_attempt_session.session_user_context)
         
         # logger.info("******************************************************************************* and now we are good")
         # # template = Template(
@@ -6730,6 +6755,9 @@ def get_orchestrated_test_conversation_prompt(test: Test,
         #     return template.substitute(test_main_context=test.description,
         #                             user_comment=user_comment.response_text, current_conversation=current_conversation)
     
+    if test_attempt_session.session_user_context:
+        test_main_context = f"{test_main_context}\n Context: {test_attempt_session.session_user_context}\n"
+
     if test.test_type in [ TestTypeChoices.dynamic_discussion, TestTypeChoices.dynamic_discussion_thread ]:
 
         if test.scenario_case == ScenarioCaseChoices.interview: # for interview type test
@@ -6745,6 +6773,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 background: ${background}
 
                 candidate_comment: ${user_comment}
+
+                Context: ${context}
 
                 Based on the Candidate response, and the main context ask the candidate the next question. The question should continue the Current conversation. Do not provide any feedback on the response.
                 Always ask a unique, different and specific question based on Candidate response. The question should be relevant to the information or response given in Candidate response. Always ask a question that helps understand the problem better or ask how to implement a solution to the problem.
@@ -6769,7 +6799,8 @@ def get_orchestrated_test_conversation_prompt(test: Test,
                 """
             ).substitute(test_main_context=test_main_context,
                          background=background if background else "",
-                         user_comment=user_comment.response_text)
+                         user_comment=user_comment.response_text,
+                         context=test_attempt_session.session_user_context)
 
         else:
 
@@ -6784,10 +6815,14 @@ def get_orchestrated_test_conversation_prompt(test: Test,
             current_conv = discussion_conversation[:-4] if len(discussion_conversation) > 4 else ""
             current_response = (discussion_conversation[-4:] if len(discussion_conversation) > 4 else discussion_conversation)[:-1]
             candidate_response = discussion_conversation[-1]
+            
             main_context = f"""
             Title: {test.title}
             Description: {test.description}
             """
+            if test_attempt_session.session_user_context:
+                main_context = f"{main_context}\n Context: {test_attempt_session.session_user_context}\n"
+        
 
             print(f"""
             main_context: {main_context}
