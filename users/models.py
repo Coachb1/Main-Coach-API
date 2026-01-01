@@ -1,3 +1,4 @@
+from tabnanny import verbose
 from django.db import models
 
 from tenants.models import TenantAwareModel
@@ -309,85 +310,338 @@ class BotAndUserMapping(TenantAwareModel):
 
 
 class ClientUserInfo(TenantAwareModel):
-    client_name = models.CharField(max_length=255)
-    owner_id = models.CharField(max_length=255,null=True, blank=True, default=None)
-    attributes = models.JSONField(null=True, blank=True, default=None)
-    member_emails = models.TextField(null=True, blank=True, default=None)
-    member_mob_numbers = models.TextField(null=True, blank=True, default=None)
-    member_user_ids = models.TextField(null=True, blank=True, default=None)
-    avatar_bot_creation = models.BooleanField(null=True, default=False)
-    feedback_bot_creation = models.BooleanField(null=True, default=False)
 
-    subject_matter_bot_creation = models.BooleanField(null=True, default=False) # indicates that client member can create subject matter bot (not using)
-    required_form_fields = models.JSONField(null=True, blank=True, default=None)
-    
-    restricted_ids = models.TextField(null=True, blank=True, default=None)
-    number_of_conversation_per_month = models.IntegerField(null=True, blank=True, default=None)
-    demo_ids = models.TextField(null=True, blank=True, default=None)
-    accessed_bot_ids = models.TextField(null=True, blank=True, default=None)
-    coach_skills = models.TextField(null=True, blank=True, default=get_default_values("skills"))
-    coach_expertise = models.TextField(null=True, blank=True, default=get_default_values('expertise'))
-    departments = models.TextField(null=True, blank=True, default=get_default_values("department"))
-    coach_mentor_previledge = models.TextField(null=True, blank=True, default=None)
-    is_coach_mentor_previledge = models.BooleanField(blank=True, default=False)
-    restricted_pages = models.TextField(null=True, blank=True, default=None)
-    restricted_features = models.TextField(null=True, blank=True, default=None)
-    domain_name = models.CharField(max_length=255,null=True, blank=True, default=None)
-    
-    deepdive_accessed_emails = models.TextField(null=True, blank=True, default=None)
-    
-    allowed_ips = models.JSONField(null=True, blank=True, default=get_default_allowed_ips)
-    allow_audio_interactions = models.BooleanField(blank=True, default=True)
-    make_new_user_in_trail = models.BooleanField(blank=True, default=True)
-    heading = models.CharField(max_length=255,null=True, blank=True, default=None)
-    sub_heading = models.CharField(max_length=255,null=True, blank=True, default=None)
-    tag_line = models.CharField(max_length=255,null=True, blank=True, default=None)
-    ui_information = models.JSONField(null=True, blank=True, default=get_default_ui_information)
-    widget_access_code = models.CharField(max_length=255,null=True, blank=True, default=None)
-    help_text = models.JSONField(null=True, blank=True, default=get_default_help_text)
-    allow_paste_answer = models.BooleanField(blank=True, default=False)
-    webhook_url = models.CharField(max_length=255,null=True, blank=True, default=None)
-    webhook_secret = models.CharField(max_length=255,null=True, blank=True, default=None)
-    webhook_token = models.CharField(max_length=255,null=True, blank=True, default=None)
-    webhook_enabled = models.BooleanField(blank=True, default=False)
-    excluded_users = models.TextField(null=True, blank=True, default=None)
-    use_skills_from_skill_bank = models.BooleanField(default=False, blank=True)
-    send_profile_for_reapproval = models.BooleanField(default=False, blank=True)
-    email_address_list = models.TextField(null=True, blank=True, default=None)
-    allow_access_to_platform = models.BooleanField(default=True)
-    allow_access_to_snippet = models.BooleanField(default=True)
-    report_on = models.BooleanField(null=True,blank=True, help_text="to enable or disable reporting for the test.")
-    show_recommendations = models.BooleanField(default=False, help_text="to switch on/off the simualation recommandation after attempting a simulation/interction.")
-    button_controls = models.JSONField(default=dict, blank=True, help_text='for eg: {"mode_button": {"show": true}, "mindmap_button": {"show": true}, "assessment_button": {"show": true}}')
-    is_active = models.BooleanField(default=True, blank=True)
-    assigned_tests = models.ManyToManyField('tests.Test', blank=True, related_name="client_users")
+    # ============================
+    # 📌 Core Identification
+    # ============================
+    client_name = models.CharField(
+        max_length=255,
+        help_text="Unique client identifier within a tenant (e.g., L&T, Client-Demo)."
+    )
+
+    owner_id = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Owner email or user ID. Used for auto-login in Library Bot."
+    )
+
+    attributes = models.JSONField(
+        null=True, blank=True, default=None,
+        help_text="Custom extensible metadata for the client (key-value JSON)."
+    )
+
+    is_active = models.BooleanField(
+        default=True, blank=True,
+        help_text="Enable or disable this client across the entire platform."
+    )
+
+    # ============================
+    # 👥 Client Membership
+    # ============================
+    member_emails = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated list of emails belonging to this client."
+    )
+
+    member_mob_numbers = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated list of mobile numbers (currently unused)."
+    )
+
+    member_user_ids = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated internal user IDs (currently unused)."
+    )
+
+    excluded_users = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated emails excluded from reports and analytics."
+    )
+
+    restricted_ids = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Emails explicitly restricted from using the platform."
+    )
+
+    demo_ids = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Emails treated as demo users (acts similar to restriction)."
+    )
+
+    # ============================
+    # 🧠 Bot Creation Permissions
+    # ============================
+    avatar_bot_creation = models.BooleanField(
+        null=True, default=False,
+        help_text="If enabled, members can create Avatar Bots."
+    )
+
+    feedback_bot_creation = models.BooleanField(
+        null=True, default=False,
+        help_text="If enabled, members can create Feedback Bots."
+    )
+
+    subject_matter_bot_creation = models.BooleanField(
+        null=True, default=False,
+        help_text="Allows Subject Matter Bot creation (currently unused)."
+    )
+
+    # ============================
+    # 🎯 Feature Controls
+    # ============================
+    required_form_fields = models.JSONField(
+        null=True, blank=True, default=None,
+        help_text="Form configuration for bot creation (currently unused)."
+    )
+
+    accessed_bot_ids = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated bot IDs accessible to all client members."
+    )
+
+    restricted_pages = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated list of restricted UI pages."
+    )
+
+    restricted_features = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Comma-separated list of disabled features."
+    )
+
+    domain_name = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Comma-separated domains mapped to this client (used for access control)."
+    )
+
+    # ============================
+    # 🎙 UX & Interaction
+    # ============================
+    allowed_ips = models.JSONField(
+        null=True, blank=True, default=get_default_allowed_ips,
+        help_text="IP whitelist. If set, access is allowed only from these IPs."
+    )
+
+    allow_audio_interactions = models.BooleanField(
+        blank=True, default=True,
+        help_text="Enable audio playback for bot questions and responses."
+    )
+
+    allow_paste_answer = models.BooleanField(
+        blank=True, default=False,
+        help_text="Allow users to paste answers during simulations."
+    )
+
+    session_context = models.BooleanField(
+        default=False,
+        help_text="Ask users for context before starting any interaction."
+    )
+
+    button_controls = models.JSONField(
+        default=dict, blank=True,
+        help_text='Controls widget buttons. Example: {"mode_button": {"show": true}, "mindmap_button": {"show": true}, "assessment_button": {"show": true}}'
+    )
+
+    # ============================
+    # 📊 Usage & Limits
+    # ============================
+    number_of_conversation_per_month = models.IntegerField(
+        null=True, blank=True, default=None,
+        help_text="Monthly conversation limit for this client (client-wide)."
+    )
+
+    coaching_credits_per_month = models.IntegerField(
+        default=0, null=True, blank=True,
+        help_text="Deprecated. Use number_of_conversation_per_month instead."
+    )
+
+    test_per_month = models.IntegerField(
+        default=None, null=True, blank=True,
+        help_text="Monthly test attempt cap for this client."
+    )
+
+    is_repeat = models.BooleanField(
+        default=None, null=True, blank=True,
+        help_text="Allow repeat test attempts. Overrides tenant-level setting."
+    )
+
+    # ============================
+    # 🧪 Simulation & Reporting
+    # ============================
+    report_on = models.BooleanField(
+        null=True, blank=True,
+        help_text="Enable or disable reports (email + UI) after test attempts."
+    )
+
+    show_recommendations = models.BooleanField(
+        default=False,
+        help_text="Show AI recommendations after simulation completion."
+    )
+
+    email_address_list = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Emails that receive simulation attempt reports."
+    )
+
+    # ============================
+    # 🧑‍🏫 Coach / Directory
+    # ============================
+    coach_skills = models.TextField(
+        null=True, blank=True, default=get_default_values("skills"),
+        help_text="Skills used for filtering in coach directory."
+    )
+
+    coach_expertise = models.TextField(
+        null=True, blank=True, default=get_default_values("expertise"),
+        help_text="Expertise areas used for directory filtering."
+    )
+
+    departments = models.TextField(
+        null=True, blank=True, default=get_default_values("department"),
+        help_text="Department names used for directory filtering."
+    )
+
+    coach_mentor_previledge = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Emails allowed to act as coach or mentor."
+    )
+
+    is_coach_mentor_previledge = models.BooleanField(
+        blank=True, default=False,
+        help_text="Enable coach/mentor privilege enforcement."
+    )
+
+    # ============================
+    # 🌐 Branding & Widgets
+    # ============================
+    heading = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Main heading shown on directory or widget pages."
+    )
+
+    sub_heading = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Subheading shown below the main heading."
+    )
+
+    tag_line = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Tagline text shown in UI."
+    )
+
+    ui_information = models.JSONField(
+        null=True, blank=True, default=get_default_ui_information,
+        help_text="UI configuration for headers, footers, and layout."
+    )
+
+    widget_access_code = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Auto-generated access code required for widgets."
+    )
+
+    help_text = models.JSONField(
+        null=True, blank=True, default=get_default_help_text,
+        help_text="Client-specific help or informational text."
+    )
+
+    ask_access_code = models.BooleanField(
+        default=True,
+        help_text="Require access code before allowing widget usage."
+    )
+
+    # ============================
+    # 🔔 Webhooks & Integrations
+    # ============================
+    webhook_url = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Webhook endpoint for pushing test and interaction data."
+    )
+
+    webhook_secret = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Secret used to validate webhook requests."
+    )
+
+    webhook_token = models.CharField(
+        max_length=255, null=True, blank=True, default=None,
+        help_text="Authorization token sent with webhook payloads."
+    )
+
+    webhook_enabled = models.BooleanField(
+        blank=True, default=False,
+        help_text="Enable or disable webhook delivery."
+    )
+
+    # ============================
+    # 📚 Library / Collections
+    # ============================
+    leaderboard_report_protected = models.BooleanField(
+        default=True, blank=True,
+        verbose_name="Universal Page protected",
+        help_text="Password-protect we are using it as universal page setting if not specified in library bot and portal page. "
+    )
+
+    leaderboard_report_password = models.CharField(
+        max_length=25, default='demobook#12345',
+        verbose_name="Universal Page Password",
+        help_text="Password used to access leaderboard reports."
+    )
+
+    universal_bot_config = models.JSONField(
+        default=dict, blank=True,
+        help_text='Controls bot visibility. Example: {"coaching": {"show": true}}'
+    )
+
+    collections = models.ManyToManyField(
+        "tests.Collection",
+        blank=True,
+        related_name="client_users",
+        help_text="Library collections accessible to this client."
+    )
+
+    assigned_tests = models.ManyToManyField(
+        'tests.Test',
+        blank=True,
+        related_name="client_users",
+        help_text="Tests assigned to this client."
+    )
+
     assigned_bots = models.ManyToManyField(
         'coaching_conversations.BotResponsePrompt',
         related_name="client_users",
         blank=True,
+        help_text="Response styles available to this client."
     )
-    # for snnipets
-    ask_access_code = models.BooleanField(default=True)
 
+    deepdive_accessed_emails = models.TextField(
+        null=True, blank=True, default=None,
+        help_text="Deprecated. Previously used for deep-dive bot access."
+    )
 
-    # for simulation bot
-    is_repeat = models.BooleanField(default=None, null=True, blank=True)
-    test_per_month = models.IntegerField(default=None, null=True, blank=True)
-    session_context = models.BooleanField(default=False, help_text="Used to on/off context asking before any interaction")
+    make_new_user_in_trail = models.BooleanField(
+        blank=True, default=True,
+        help_text="Place newly created users into trial mode. meaning (a demo user)"
+    )
 
+    use_skills_from_skill_bank = models.BooleanField(
+        default=False, blank=True,
+        help_text="Restrict skill uploads to centralized skill bank."
+    )
 
-    # for coaching conversations
-    coaching_credits_per_month = models.IntegerField(default=0, null=True, blank=True)
+    send_profile_for_reapproval = models.BooleanField(
+        default=False, blank=True,
+        help_text="Require re-approval after profile updates."
+    )
 
-    # for library bot config
-    leaderboard_report_protected = models.BooleanField(default=True, blank=True)
-    leaderboard_report_password = models.CharField(max_length=25, default='demobook#12345')
-    universal_bot_config = models.JSONField(default=dict, blank=True, help_text='for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}')
-    collections = models.ManyToManyField(
-            "tests.Collection",
-            blank=True,
-            related_name="client_users"
-        )
+    allow_access_to_platform = models.BooleanField(
+        default=True,
+        help_text="Deprecated."
+    )
+
+    allow_access_to_snippet = models.BooleanField(
+        default=True,
+        help_text="Deprecated."
+    )
+
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
@@ -396,13 +650,16 @@ class ClientUserInfo(TenantAwareModel):
         # Auto-generate access_code if blank
         if not self.widget_access_code:
             self.widget_access_code = get_unique_access_code(
-                ClientUserInfo, "widget_access_code", self.client_name[:3].upper(), length=6
+                ClientUserInfo,
+                "widget_access_code",
+                self.client_name[:3].upper(),
+                length=6
             )
-
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.client_name
+
     
 class LibraryBotConfig(MyModel):
     client = models.OneToOneField(ClientUserInfo, on_delete=models.CASCADE, related_name="library_bot_config")

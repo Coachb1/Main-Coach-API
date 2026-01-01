@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'celeryapp',
     'jobaid.apps.JobaidConfig',
-    'company_iq.apps.CompanyIqConfig'
+    'company_iq.apps.CompanyIqConfig',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -182,6 +183,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # AUTH_USER_MODEL = "users.User"

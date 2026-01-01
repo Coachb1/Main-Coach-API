@@ -332,32 +332,69 @@ class CoachingConversationViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="bot-conversation-data")
     def bot_conversation_data(self, request, *args, **kwargs):
         """
-        Handles bot conversation data retrieval based on the request parameters.
-        Args:
-            request (Request): The HTTP request object containing query parameters.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        Returns:
-            Response: A Response object containing bot conversation data or an error message.
-        Functionality:
-            - Retrieves tenant information from the request.
-            - Extracts query parameters: 'for', 'user_id', and 'bot_id'.
-            - Generates a cache key and checks for cached data.
-            - If cached data exists, returns it with a 200 status.
-            - Retrieves excluded user emails from ClientUserInfo objects.
-            - Handles two modes:
-                1. 'admin':
-                    - Fetches bots associated with the tenant and user.
-                    - Retrieves bot attributes and session data.
-                    - Filters out excluded participants based on email.
-                    - Constructs bot conversation data for each participant.
-                    - Caches the data and returns it with a 200 status.
-                2. 'user':
-                    - Fetches bot IDs based on the user or all bots.
-                    - Retrieves bot attributes and session data for the user.
-                    - Constructs bot conversation data for the user.
-                    - Caches the data and returns it with a 200 status.
-            - Returns a 400 status if the 'for' parameter is invalid.
+        Retrieve bot conversation information for a tenant, supporting admin, user, and user-chat-history modes.
+        This view method reads query parameters from the incoming request, optionally uses a cached
+        response, and returns structured conversation data for bots and participants.
+        Query parameters:
+            for (str): Mode of operation. One of:
+                - "admin": return conversation summaries for all participants of bots owned by the
+                  specified user (user_id) within the tenant.
+                - "user": return conversation summaries for the specified user (user_id) and
+                  optionally a single bot (bot_id).
+                - "user-chat-history": return chat history for the specified user and bot(s).
+            user_id (str): ID of the user whose data is being requested (used in all modes).
+            bot_id (str): Optional external bot identifier used to restrict results to a single bot.
+            refresh (bool or str): If provided and truthy, bypass cached results and recompute.
+            filtered_history (bool or str): (Only for user-chat-history) whether to return a filtered
+                chat history (value passed to get_bot_chat_history).
+        Behavior overview:
+            - tenant is obtained from request.tenant.
+            - A cache key is generated using tenant.uid, mode, user_id and bot_id; get_cache is checked
+              and returned if present and refresh is not requested.
+            - Excluded user emails are aggregated from all ClientUserInfo.objects entries. The
+              comma-separated strings found in ClientUserInfo.excluded_users are split and trimmed,
+              and participants with matching emails are filtered out in admin mode.
+            - Modes:
+                admin:
+                    - Fetch SignatureBot records for the tenant owned by the provided user_id.
+                    - For each bot, load its BotAttribute and all TestAttemptSession rows for that bot.
+                    - For each distinct participant in those sessions:
+                        - Skip participants whose UserAttribute.email is in the excluded list.
+                        - Build per-participant conversation data via get_bot_conversation_data_user().
+                        - Augment each conversation payload with bot metadata:
+                          bot_name, bot_id, bot_type, bot_scenario_case.
+                    - Cache and return the aggregated list (HTTP 200). If bot lookup fails, a 404
+                      is returned.
+                user:
+                    - Determine a list of bot internal IDs (uids): either the single bot specified by
+                      bot_id or all non-deleted bots.
+                    - For each bot, find TestAttemptSession rows for the tenant, bot and the specified
+                      participant (user_id). If none exist, skip the bot.
+                    - Produce a conversation payload via get_bot_conversation_data_user() for the user,
+                      attach bot metadata (bot_name, bot_id, bot_type, bot_scenario_case) and include
+                      only payloads with non-empty results.
+                    - Cache and return the list (HTTP 200).
+                user-chat-history:
+                    - Similar bot selection as "user".
+                    - For each bot, collect session rows for the tenant, bot and user and call
+                      get_bot_chat_history(sessions, tenant, b_id, filtered_history=filtered_history)
+                      to obtain chat history. The returned data is cached and returned (HTTP 200).
+            - If the "for" parameter is missing or not one of the supported values, a 400 error is returned.
+        Return:
+            Response with JSON-serializable payload and appropriate HTTP status:
+                - 200 OK with a list or dict of conversation/chat data on success.
+                - 404 Not Found when bot lookup fails during admin mode.
+                - 400 Bad Request for an invalid or missing "for" parameter.
+        Side effects and caveats:
+            - Uses get_cache(cache_key) and set_cache(cache_key, data) to cache results; the cache key
+              includes tenant_id, mode, user_id and user_bot_id.
+            - Aggregates excluded users from all ClientUserInfo objects; each entry's excluded_users
+              field is expected to be a comma-separated string of emails.
+            - Several ORM lookups (BotAttribute.get, SignatureBot.get) may raise DoesNotExist exceptions
+              if records are missing; only the initial SignatureBot filter in admin mode is explicitly
+              guarded to return a 404.
+            - The "refresh" and boolean query flags may be received as strings; caller should ensure
+              appropriate truthiness handling when constructing requests.
         """
         tenant = self.request.tenant
         mode = request.query_params.get('for', None)
@@ -1115,6 +1152,41 @@ class CoachingConversationViewSet(ApiViewSet,
         
     @action(methods=['GET', 'POST'], detail=False, url_path='coaching-intake')
     def coaching_intake(self, request, *args, **kwargs):
+        """
+        Handles retrieval and submission of coaching intake information for a participant.
+
+        This API supports both GET and POST methods:
+
+        GET:
+            - Retrieves the previously submitted coaching intake for a user.
+            - Intake data is fetched from BotQnA where qna_type = 'coaching_intake'.
+            - Each user can have only one coaching intake entry.
+
+        POST:
+            - Submits coaching intake data for a user.
+            - Stores the intake information in BotQnA with qna_type = 'coaching_intake'.
+            - Intake is captured only once per user and reused across coaching sessions.
+
+        Query / Body Parameters:
+            user_id (str): The unique identifier of the user.
+            qna (dict): Question–answer intake data submitted by the user (POST only).
+
+        Returns:
+            GET:
+                - Coaching intake QnA and intake summary if found.
+                - 404 if intake does not exist for the user.
+            POST:
+                - Confirmation message after successful submission.
+
+        Error Handling:
+            - Returns 400 if required parameters are missing.
+            - Returns 404 if intake data is not found.
+            - Returns 500 for unexpected server errors.
+
+        Use Case:
+            - Used before starting a coaching session to collect user background,
+            preferences, goals, and context.
+        """
         try:
             # here we will consider intake for a participant 
             if request.method == 'GET':

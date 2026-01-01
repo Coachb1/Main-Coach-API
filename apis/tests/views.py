@@ -2058,47 +2058,7 @@ class CourseViewSet(ApiViewSet,
             logger.exception("Error in fetch_courses: %s", exc)
             return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # @action(methods=["GET"], detail=False, url_path="fetch-user-progress")
-    # def fetch_user_progress(self, request, *args, **kwargs):
-    #     """
-    #     Fetch a user's progress in a specific course.
-    #     Requires: user_uid & course_id
-    #     """
-    #     user_uid = request.query_params.get("user_uid")
-    #     course_id = request.query_params.get("course_id")
-
-    #     if not user_uid or not course_id:
-    #         return self._error_response(
-    #             "Both user_uid and course_id are required", status.HTTP_400_BAD_REQUEST
-    #         )
-
-    #     try:
-    #         user = get_object_or_404(User, uid=user_uid)
-    #         course = get_object_or_404(Course, id=course_id)
-
-    #         progress = UserProgress.objects.filter(
-    #             user=user, course=course
-    #         ).first()
-    #         if not progress:
-    #             return Response(
-    #                 {"message": "No progress found for this user-course pair"},
-    #                 status=status.HTTP_404_NOT_FOUND,
-    #             )
-
-    #         data = {
-    #             "user": user.name,
-    #             "course": course.title,
-    #             "start_time": progress.start_time,
-    #             "end_time": progress.end_time,
-    #             "modules_completed": progress.modules_completed,
-    #         }
-
-    #         return Response({"progress": data}, status=status.HTTP_200_OK)
-
-    #     except Exception as exc:
-    #         logger.exception("Error in fetch_user_progress: %s", exc)
-    #         return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
 
     @action(detail=False, methods=["GET", "POST"], url_path="course-progress")
     def get_progress(self, request):

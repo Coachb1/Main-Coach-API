@@ -3345,6 +3345,69 @@ def categorize_skill_scores(skills, leaderboard):
     return result
 
 def evaluate_skills_data_client(client_users, tenant_id):
+    """
+    Evaluate skills-related data for a set of client users.
+    This function aggregates per-skill and per-user metrics for a group of client users
+    identified by a comma-separated list of "deepchat_unique_id" identity values found
+    on the provided client_users object. It queries Identity, User and SkillsRating
+    models to compute:
+    - Per-skill average scores across all collected ratings.
+    - A per-user leaderboard containing each user's id, email (the identity value),
+        and a mapping of skill -> last-seen average_score for that user.
+    - A distribution of users by their overall average score into three buckets:
+        "1-5", "5-8", "8-10".
+    - A skill category distribution computed by calling categorize_skill_scores(response_skills, user_leaderboard).
+    Behavior and details:
+    - client_users.member_emails is expected to be a string of comma-separated identity
+        values (e.g. "a@example.com,b@example.com"). It is split on commas and trimmed
+        visually (leading/trailing whitespace should be cleaned by the caller if needed).
+    - Identity objects are filtered by tenant_id, identity_type="deepchat_unique_id",
+        value in the parsed member_emails list, and deleted=False.
+    - Users are filtered by tenant_id, uid in the set of user_ids obtained from the
+        Identity records, and deleted=False.
+    - SkillsRating objects are queried by participant_id == user.uid. Each rating is
+        expected to have a skills_info mapping (dict) where each key is a skill name and
+        each value is a dict containing at least "average_score".
+    - For each user, the function:
+            - collects the skills' average_score values across all their ratings,
+            - computes the user's overall average (mean of skill average_scores) rounded to 2 decimals,
+            - appends a leaderboard entry with "user_id", "email" (identity.value), and "scores"
+                (a dict mapping skill -> last-seen average_score for that user across their ratings).
+        Note: if multiple ratings contain the same skill for a user, the leaderboard's
+        "scores" entry retains the last encountered average_score for that skill.
+    - For each skill, every encountered average_score is appended to a list and the skill's
+        overall average is computed as the mean of those collected scores (rounded to 2 decimals).
+    - The user score distribution buckets are inclusive/exclusive as implemented:
+            - "1-5": 1 <= avg <= 5
+            - "5-8": 5 < avg <= 8
+            - "8-10": 8 < avg <= 10
+    - The function returns data without sorting the leaderboard. Sorting can be done by
+        the caller if required.
+    - All arithmetic averages are rounded to two decimal places.
+    Args:
+            client_users: An object with attribute `member_emails` (comma-separated string
+                                        of identity values). Typically a client-related model instance.
+            tenant_id:   Tenant identifier used to scope Identity and User queries.
+    Returns:
+            dict on success with the following keys:
+                - "client_users": list[str] - parsed list of identity values from client_users.member_emails
+                - "skills": list[{"skill": str, "average_score": float}] - per-skill averages
+                - "leaderboard": list[{"user_id": str, "email": str or None, "scores": dict}] - per-user entries
+                - "user_score_distribution": {"1-5": int, "5-8": int, "8-10": int}
+                - "skill_category_distribution": result of categorize_skill_scores(response_skills, user_leaderboard)
+            dict on failure (exception caught) with keys:
+                - "error": str - exception string
+                - "message": str - human-readable failure message
+    Raises:
+            This function catches all exceptions internally, logs them, and returns an error dict.
+            It does not raise exceptions to the caller.
+    Notes:
+            - The function depends on the existence of Identity, User and SkillsRating models,
+                and a helper categorize_skill_scores; those are expected to be available in the
+                module scope.
+            - Caller should ensure member_emails is provided and formatted as expected.
+            - The function filters out ratings where skills_info is falsy.
+    """
     try:
            
             user_emails = client_users.member_emails

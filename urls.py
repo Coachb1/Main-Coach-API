@@ -4,6 +4,7 @@ from django.urls import path
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 
 ok = JsonResponse({"ok": True})
@@ -15,8 +16,9 @@ urlpatterns = [
     path("api/", include("apis.urls")),
     path('custom-admin/', admin.site.urls),
     path('admin/clearcache/', include('clearcache.urls')),
-
-    
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="schema")),
+    path("api/docs/redoc/", SpectacularRedocView.as_view(url_name="schema")),
 ]
 
 if not settings.DEBUG:

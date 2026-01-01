@@ -1,5 +1,4 @@
 from django.db import models
-from django.forms import ValidationError
 
 from tenants.models import TenantAwareModel
 from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices, default_page_config
@@ -619,6 +618,9 @@ class UserTestMapping(MyModel):
     def __str__(self):
         return f"{self.user.name} Test Mapping"
     
+
+
+# ================================================================================ Course Models.
 
 class Course(MyModel):
     """

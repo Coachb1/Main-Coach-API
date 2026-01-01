@@ -1,0 +1,227 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* ===============================
+   CSS VARIABLES (Admin-aware)
+================================ */
+:root {
+  --confirm-overlay-bg: rgba(0, 0, 0, 0.55);
+  --confirm-modal-bg: var(--body-bg, #fff);
+  --confirm-border: var(--hairline-color, #e5e7eb);
+  --confirm-header-bg: var(--header-bg, #f8fafc);
+  --confirm-hover-bg: var(--row-hover-bg, #f3f4f6);
+
+  --diff-old-bg: color-mix(in srgb, var(--error-fg, #dc2626) 12%, transparent);
+  --diff-old-fg: var(--error-fg, #b91c1c);
+
+  --diff-new-bg: color-mix(in srgb, var(--success-fg, #16a34a) 12%, transparent);
+  --diff-new-fg: var(--success-fg, #065f46);
+}
+
+/* ===============================
+   Overlay
+================================ */
+.admin-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--confirm-overlay-bg);
+  backdrop-filter: blur(2px);
+  z-index: 9998;
+}
+
+/* ===============================
+   Modal
+================================ */
+.admin-confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 760px;
+  max-width: 94%;
+  background: var(--confirm-modal-bg);
+  border-radius: 10px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+/* ===============================
+   Header
+================================ */
+.admin-confirm-header {
+  padding: 16px 20px;
+  background: var(--confirm-header-bg);
+  border-bottom: 1px solid var(--confirm-border);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--body-fg);
+}
+
+.field-cell{
+  color: var(--body-fg);
+}
+
+/* ===============================
+   Body
+================================ */
+.admin-confirm-body {
+  padding: 18px 20px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+/* ===============================
+   Table
+================================ */
+.admin-confirm-body table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-confirm-body th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--secondary-fg, #6b7280);
+  padding: 10px;
+  border-bottom: 2px solid var(--confirm-border);
+  text-align: left;
+}
+
+.admin-confirm-body td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--confirm-border);
+  vertical-align: top;
+  color: var(--body-fg);
+}
+
+.admin-confirm-body tr:hover {
+  background: rgb(185, 183, 183);
+}
+
+/* ===============================
+   Diff Cells
+================================ */
+.diff-cell {
+  max-width: 320px;
+  border-radius: 6px;
+}
+
+.diff-cell.old {
+  background: var(--diff-old-bg);
+  color: var(--diff-old-fg);
+}
+
+.diff-cell.new {
+  background: var(--diff-new-bg);
+  color: var(--diff-new-fg);
+}
+
+/* ===============================
+   Long Text Handling
+================================ */
+.diff-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.diff-text.expanded {
+  -webkit-line-clamp: unset;
+}
+
+/* ===============================
+   Show more
+================================ */
+.show-more {
+  font-size: 12px;
+  color: var(--link-fg, var(--primary));
+  cursor: pointer;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.show-more:hover {
+  text-decoration: underline;
+}
+
+/* ===============================
+   Footer
+================================ */
+.admin-confirm-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--confirm-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: var(--body-bg);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-confirm-overlay"></div>
+
+<div class="admin-confirm-modal">
+  <div class="admin-confirm-header">
+    Review & Confirm Changes
+  </div>
+
+  <div class="admin-confirm-body">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30%">Field</th>
+          <th style="width:35%">Previous</th>
+          <th style="width:35%">Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in changes %}
+        <tr>
+          <td class="field-cell"><strong>{{ c.field }}</strong></td>
+
+          <td class="diff-cell old">
+            <div class="diff-text">{{ c.old|default:"—" }}</div>
+            {% if c.old and c.old|length > 120 %}
+              <span class="show-more">Show more</span>
+            {% endif %}
+          </td>
+
+          <td class="diff-cell new">
+            <div class="diff-text">{{ c.new|default:"—" }}</div>
+            {% if c.new and c.new|length > 120 %}
+              <span class="show-more">Show more</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" class="admin-confirm-footer">
+    {% csrf_token %}
+    <input type="hidden" name="_confirm_save" value="1">
+    <button type="submit" class="default">Confirm & Save</button>
+    <a href=".." class="button cancel-link">Cancel</a>
+  </form>
+</div>
+
+<script>
+document.addEventListener("click", function (e) {
+  if (e.target.classList.contains("show-more")) {
+    const text = e.target.previousElementSibling;
+    text.classList.toggle("expanded");
+    e.target.textContent =
+      text.classList.contains("expanded") ? "Show less" : "Show more";
+  }
+});
+</script>
+{% endblock %}

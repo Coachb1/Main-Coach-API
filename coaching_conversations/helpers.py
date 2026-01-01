@@ -479,7 +479,8 @@ def initialize_coaching_conversation(tenant: Tenant,
                 signature_bot_question = anthropic_completion(custom_prompt,50000)
 
 
-    # fallback if there is already a coversation in session 
+    # fallback if there is already a coversation in session
+    # it will be used when we want to continue a existing session with conversation.
     last_conversation = CoachingConversation.objects.filter(
                                                         deleted=False,
                                                         tenant_id=tenant.uid,

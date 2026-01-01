@@ -114,8 +114,33 @@ class SkillsViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="get-characteristics-list")
     def get_characteristics_list(self, request, *args, **kwargs):
         """
-        to retrive characteractics list 
+        Retrieve a list of characteristic names for the current tenant.
+
+        This method queries the CharacteristicsAndPrompts model for records belonging
+        to the tenant available on self.request.tenant.uid and which are not marked
+        as deleted (deleted == 0). It returns only the 'name' attribute of each
+        matching record as a JSON list.
+
+        Args:
+            request (rest_framework.request.Request): The incoming request object.
+            *args: Additional positional arguments passed by the view framework.
+            **kwargs: Additional keyword arguments passed by the view framework.
+
+        Returns:
+            rest_framework.response.Response: A DRF Response object.
+                - On success: HTTP 200 with JSON body {"characteristic_list": [...str...]},
+                  where each item is a characteristic name.
+                - On failure: HTTP 400 with JSON body {"error": <exception>}. Exceptions
+                  originating from the database/query are caught and returned as the error
+                  value.
+
+        Notes:
+            - The tenant is read from self.request.tenant.uid; ensure the view is called
+              in a context where self.request.tenant is present.
+            - The method intentionally swallows exceptions to return a 400 Response rather
+              than allowing exceptions to propagate.
         """
+
         try:
             characteristics = CharacteristicsAndPrompts.objects.filter(tenant_id = self.request.tenant.uid,deleted=0)
             charac_list = []
@@ -128,8 +153,26 @@ class SkillsViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="client-skills-list")
     def get_client_skill_info(self, request, *args, **kwargs):
         """
-        to retrieve client skills list 
-        """
+    Retrieve skill information for a specific client.
+    This method fetches and evaluates skill data for a client based on the provided
+    client ID and the current tenant context.
+    Args:
+        request (Request): The HTTP request object containing query parameters and tenant information.
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+    Returns:
+        Response: A DRF Response object containing:
+            - On success (200): Evaluated skills data for the client
+            - On error (404): Error message if client not found or no users associated
+            - On error (400): Error message if evaluation fails or an exception occurs
+    Raises:
+        Logs exceptions but returns them as Response objects with 400 status code.
+    Query Parameters:
+        client_id (str): The unique identifier of the client to retrieve skill info for.
+    Side Effects:
+        Logs client ID, tenant ID, and any exceptions that occur during processing.
+    """
+       
         client = self.request.query_params.get("client_id")
         tenant_id = self.request.tenant.uid
         logger.info(f"Client ID: {client}, Tenant ID: {tenant_id}")
@@ -154,8 +197,37 @@ class SkillsViewSet(ApiViewSet,
     @action(methods=["GET"], detail=False, url_path="client-cultures-list")
     def get_client_culture_info(self, request, *args, **kwargs):
         """
-        to retrive client culture list 
+        Retrieve culture/skills information for a client within the current tenant.
+        This view method:
+        - Reads the query parameter "client_id" from the incoming request.
+        - Resolves the current tenant from self.request.tenant.uid.
+        - Looks up a ClientUserInfo record matching the provided client_id and tenant_id (and not deleted).
+        - If the client record is not found, returns a 404 Response with {"error": "Client not found"}.
+        - If the client record exists but has no associated member_emails, returns a 404 Response with {"error": "No users found for this client"}.
+        - Calls evaluate_culture_skills_data_client(client_users, tenant_id) to compute the culture/skills result.
+            - If the result contains an 'error' key, returns a 400 Response with the error message.
+            - Otherwise returns a 200 Response with the result payload.
+        - On any unexpected exception, logs the exception and returns a 400 Response containing the exception string.
+        Parameters:
+        - request: rest_framework.request.Request
+                The incoming HTTP request providing query parameters and authentication/tenant context.
+        - *args, **kwargs: tuple, dict
+                Additional positional and keyword arguments forwarded by the view dispatching mechanism.
+        Returns:
+        - rest_framework.response.Response
+                JSON Response with one of:
+                - 200 OK and the computed culture/skills data (dict) when successful.
+                - 404 Not Found with {"error": "..."} when the client or its users are not found.
+                - 400 Bad Request with {"error": "..."} for evaluation errors or unexpected exceptions.
+        Side effects:
+        - Reads from the ClientUserInfo model (database).
+        - Calls evaluate_culture_skills_data_client which may perform additional I/O or computation.
+        - Emits logs via the module logger.
+        Notes:
+        - The "client_id" query parameter is required; if omitted or invalid the lookup will result in a 404.
+        - The exact shape of the successful result is determined by evaluate_culture_skills_data_client.
         """
+        
         client = request.query_params.get("client_id")
         tenant_id = self.request.tenant.uid
         logger.info(f"[culture] Client ID: {client}, Tenant ID: {tenant_id}")
