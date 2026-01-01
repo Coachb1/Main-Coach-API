@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.utils.text import capfirst
+from django.utils.html import format_html, mark_safe, format_html_join
 
 
 class AdminChangePreviewMixin:
@@ -105,3 +106,45 @@ def change_preview(instance, request, obj):
 
 
 
+
+def render_scrollable_text(
+    value: str,
+    tooltip:str,
+    *,
+    width="380px",
+    height="90px",
+    empty_label="-",
+):
+    """
+    Render long text in a fixed-size scrollable box with tooltip.
+    """
+
+    if not value:
+        return empty_label
+
+    return format_html(
+        """
+        <div
+            style="
+                width: {width} !important;
+                height: {height} !important;
+                overflow-y: auto;
+                overflow-x: hidden;
+                white-space: pre-wrap;
+                word-break: break-word;
+                padding: 6px 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 12px;
+                line-height: 1.4;
+            "
+            title="{tooltip}"
+        >
+            {content}
+        </div>
+        """,
+        width=width,
+        height=height,
+        tooltip=tooltip,   # FULL TEXT on hover
+        content="\n".join([v.strip() for v in value.strip().split(",")]),   # visible text (scrollable)
+    )

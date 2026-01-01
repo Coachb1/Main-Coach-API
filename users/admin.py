@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from commons.db.utils import AdminChangePreviewMixin, change_preview
+from commons.db.utils import AdminChangePreviewMixin, render_scrollable_text
 from identities.models import Identity
 from tenants.models import Tenant
 from .models import (BotAttribute, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
@@ -181,12 +181,12 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
         "ask_access_code",
         "is_active",
         "is_repeat",
-        "member_emails",
-        "email_address_list",
-        "restricted_ids",
-        "demo_ids",
         "number_of_conversation_per_month",
         "test_per_month",
+        "member_emails_view",
+        "email_address_list_view",
+        "demo_ids_view",
+        "restricted_ids_view",
     )
 
     list_filter = ("client_name", "is_active")
@@ -201,10 +201,6 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
         "is_repeat",
         "ask_access_code",
         "is_active",
-        "member_emails",
-        "email_address_list",
-        "restricted_ids",
-        "demo_ids",
         "number_of_conversation_per_month",
         "test_per_month",
     )
@@ -225,6 +221,40 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
         LibraryBotConfigInline,
         PortalPageConfigInline,
     ]
+
+    
+    # -------- MEMBER EMAILS --------
+    def member_emails_view(self, obj):
+        return render_scrollable_text(
+            obj.member_emails,
+            tooltip="Emails of members who have access to this client"
+        )
+    member_emails_view.short_description = "Member Emails"
+
+    # -------- EMAIL ADDRESS LIST --------
+    def email_address_list_view(self, obj):
+        return render_scrollable_text(
+            obj.email_address_list,
+            tooltip="Allowed email addresses for login / access"
+        )
+    email_address_list_view.short_description = "Allowed Emails"
+
+    # -------- DEMO IDS --------
+    def demo_ids_view(self, obj):
+        return render_scrollable_text(
+            obj.demo_ids,
+            tooltip="Demo IDs mapped to this client"
+        )
+    demo_ids_view.short_description = "Demo IDs"
+
+    # -------- RESTRICTED IDS --------
+    def restricted_ids_view(self, obj):
+        return render_scrollable_text(
+            obj.restricted_ids,
+            tooltip="IDs explicitly restricted from access"
+        )
+    restricted_ids_view.short_description = "Restricted IDs"
+
 
     
 
@@ -301,7 +331,6 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
                     "number_of_conversation_per_month",
                     "test_per_month",
                     "is_repeat",
-                    "coaching_credits_per_month",
                 )
             }),
             ("🧪 Simulation & Reporting", {
