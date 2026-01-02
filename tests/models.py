@@ -839,12 +839,15 @@ class Collection(MyModel):
                                        help_text='''
                                        NOTE: Always Match action with the caseMapping.action_name to make it work.
                                        always add CONCEPTS prefix in action.  
-                                       eg: {id: "design-architecture",
-                                       title: "Design & Architecture Guardrails",
-                                       description: "Evaluation Heuristics for common cases",
-                                       icon: "<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c193" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/><path d="m9 12 2 2 4-4"/></svg>",
-                                       buttons: [{ label: "ALIGN", heading: "which will be shown header of button section", action: "DESIGN_ARCH_GUARDRAILS" }],
-                                       }''')
+                                       eg: {
+                                        id: "design-architecture",
+                                        title: "Design & Architecture Guardrails",description: "Evaluation Heuristics for common cases",icon: "<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c193" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/><path d="m9 12 2 2 4-4"/></svg>",                                      buttons: [
+                                        { 
+                                        label: "ALIGN", 
+                                        collection_name: “collecitonnaem”, # it will override box heading of collection
+                                        heading: "which will be shown header of button section", # if heading then it will override collection.heading in UI
+                                        action: "DESIGN_ARCH_GUARDRAILS" # should be matched with ccasemapping.action_name
+                                        }],''')
     iframe_link = models.URLField(max_length=500,null=True, blank=True, default=None)
     def __str__(self):
         return f"{self.collection_name}"
