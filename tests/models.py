@@ -835,7 +835,16 @@ class ModuleForLater(MyModel):
 class Collection(MyModel):
     collection_name = models.CharField(max_length=255)
     heading = models.CharField(max_length=255, null=True, blank=True, default=None)
-    action_tab_info = models.JSONField(blank=True,null=True, default=None,help_text='always add CONCEPTS prefix in action.  eg: {id: "design-architecture",title: "Design & Architecture Guardrails",description: "Evaluation Heuristics for common cases",icon: "<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c193" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/><path d="m9 12 2 2 4-4"/></svg>",buttons: [{ label: "ALIGN", action: "DESIGN_ARCH_GUARDRAILS" }],}')
+    action_tab_info = models.JSONField(blank=True,null=True, default=None,
+                                       help_text='''
+                                       NOTE: Always Match action with the caseMapping.action_name to make it work.
+                                       always add CONCEPTS prefix in action.  
+                                       eg: {id: "design-architecture",
+                                       title: "Design & Architecture Guardrails",
+                                       description: "Evaluation Heuristics for common cases",
+                                       icon: "<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c193" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/><path d="m9 12 2 2 4-4"/></svg>",
+                                       buttons: [{ label: "ALIGN", action: "DESIGN_ARCH_GUARDRAILS" }],
+                                       }''')
     iframe_link = models.URLField(max_length=500,null=True, blank=True, default=None)
     def __str__(self):
         return f"{self.collection_name}"
@@ -850,5 +859,19 @@ class CaseMappings(MyModel):
     tab_name = models.CharField(max_length=255)
     embed_link = models.URLField(max_length=500)
     transform_iq = models.URLField(max_length=500, null=True, blank=True, default=None)
+    action_name = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Action on the action button for a collection"
+    )
+
+    def save(self, *args, **kwargs):
+        # Auto-generate action_name only if not provided
+        if not self.action_name and self.collection:
+            self.action_name = f"CONCEPT_{self.collection.collection_name}".upper()
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
