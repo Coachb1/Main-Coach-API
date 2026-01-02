@@ -1396,18 +1396,20 @@ class ModuleProgressAdmin(admin.ModelAdmin):
 class CaseMappingsInline(admin.TabularInline):
     model = CaseMappings
     extra = 1
-    fields = ('tab_name', 'embed_link', "transform_iq")  # fields shown inline
+    fields = ('tab_name', "action_name", 'embed_link', "transform_iq")  # fields shown inline
 
 @admin.register(CaseMappings)
 class CaseMappingAdmin(admin.ModelAdmin):
-    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq")
+    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq", "action_name")
     search_fields = ("tab_name",)
+    list_filter  = ('action_name',)
     ordering = ("-id",)
 
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
     list_display = ("id", "collection_name", "client_name", "view_case_items_link",'action_tab_info','iframe_link')
     search_fields = ("collection_name",)
+    list_filter = ("collection_name",)
     ordering = ("-id",)
     inlines = [CaseMappingsInline]
     # 🔹 File upload field
