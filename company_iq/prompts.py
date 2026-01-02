@@ -1,4 +1,3 @@
-import company_iq
 
 
 class CompanyIQPrompts:

@@ -1257,35 +1257,63 @@ class TestViewSet(ApiViewSet,
     @action(methods=['GET'], detail=False, url_path="get-requested-tests")
     def get_requested_tests(self, request, *args, **kwargs):
         """
-        Retrieves the requested tests for a specific user.
+    Retrieve all tests requested, assigned, or available to a user.
 
-        Args:
-            request (HttpRequest): The HTTP request object.
-            user_id (str): The ID of the user for whom the tests are requested.
+    This API aggregates tests from two sources:
+    1. Tests created by the user OR explicitly assigned to the user
+    2. Tests assigned at the client (organization) level
 
-        Returns:
-            HttpResponse: The HTTP response object containing the requested tests data.
+    Duplicate tests (based on `test_code`) are automatically removed.
 
-        Raises:
-            ValueError: If the user_id is not provided.
+    ─────────────────────────────
+    Query Parameters
+    ─────────────────────────────
+    user_id (str) [required]
+        UID of the user for whom tests should be fetched.
 
-        Example Usage:
-            GET /api/tests/get-requested-tests?user_id=123456
+    ─────────────────────────────
+    Behavior
+    ─────────────────────────────
+    • Fetches tests where:
+        - creator_user_id == user_id OR
+        - assigned_to is not null
+        - tenant_id matches current tenant
+    • Also fetches client-assigned tests via ClientUserInfo.assigned_tests
+    • Merges both lists
+    • Deduplicates using test_code
+    • Returns final test list
 
-            Response:
-            [
-                {
-                    "title": "Test 1",
-                    "description": "This is test 1",
-                    "test_code": "TST001"
-                },
-                {
-                    "title": "Test 2",
-                    "description": "This is test 2",
-                    "test_code": "TST002"
-                }
-            ]
-        """
+    ─────────────────────────────
+    Example Request
+    ─────────────────────────────
+    GET /api/tests/get-requested-tests?user_id=abc123
+
+    ─────────────────────────────
+    Example Response
+    ─────────────────────────────
+    [
+        {
+            "title": "Leadership Simulation",
+            "description": "Evaluate leadership response",
+            "test_code": "LEAD_001",
+            "is_recommended": true,
+            "assigned_to": "abc123",
+            "is_assigned": true,
+            "assigned_by": "Client-Demo",
+            "creator_user_id": "system",
+            "is_micro": false,
+            "interaction_mode": "chat",
+            "scenario_case": "game",
+            "description_media": null
+        }
+    ]
+
+    ─────────────────────────────
+    Error Responses
+    ─────────────────────────────
+    400 → user_id missing
+    404 → user not found
+    """
         user_id = request.query_params.get("user_id",None)
         logger.info(f"<<<<<<<<<<<<<<<<<<<<<< user_id : {user_id} >>>>>>>>>>>>>>>>>>>>>>>")
 
@@ -1299,8 +1327,8 @@ class TestViewSet(ApiViewSet,
         query.add(Q(tenant_id=self.request.tenant.uid),Q.AND)
 
         
-        tests = Test.objects.filter(query)
-        tests.filter(deleted=0)
+        tests = Test.objects.filter(deleted=False).filter(query)
+
         data = [{"title": test.title,"description":test.description,"test_code": test.test_code, "is_recommended": test.is_recommended, "assigned_to": test.assigned_to, "is_assigned": test.is_assigned, "assigned_by": test.assigned_by, "creator_user_id": test.creator_user_id, "is_micro": test.is_micro,  'interaction_mode': test.interaction_mode, 'scenario_case': test.scenario_case, "description_media": test.description_media  } for test in tests]
 
         client = user.get_client()
