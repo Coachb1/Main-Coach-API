@@ -556,4 +556,4 @@ class CollectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ['id', 'collection_name', 'case_items', 'heading','action_tab_info','iframe_link']
+        fields = ['id', 'collection_name', 'case_items', 'heading','action_tab_info','iframe_link','iframe_title','iframe_subtitle']
