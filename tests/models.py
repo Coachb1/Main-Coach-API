@@ -848,6 +848,8 @@ class Collection(MyModel):
                                         heading: "which will be shown header of button section", # if heading then it will override collection.heading in UI
                                         action: "DESIGN_ARCH_GUARDRAILS" # should be matched with ccasemapping.action_name
                                         }],''')
+    iframe_title = models.CharField(max_length=255, null=True, blank=True, default=None)
+    iframe_subtitle = models.CharField(max_length=255, null=True, blank=True, default=None)
     iframe_link = models.URLField(max_length=500,null=True, blank=True, default=None)
     def __str__(self):
         return f"{self.collection_name}"
