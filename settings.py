@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'jobaid.apps.JobaidConfig',
     'company_iq.apps.CompanyIqConfig',
     'drf_spectacular',
+    "drf_spectacular_sidecar",
 ]
 
 MIDDLEWARE = [
