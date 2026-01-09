@@ -2920,7 +2920,14 @@ def is_business_email(email):
 
 
 def get_client_from_domain(domain: str, tenant: Tenant):
-    domains = [d.strip().lower() for d in domain.split(',') if d.strip()]
+    # ✅ Guard: no domain provided
+    if not domain or not isinstance(domain, str):
+        return None
+
+    # Normalize input domains
+    domains = [d.strip().lower() for d in domain.split(",") if d.strip()]
+    if not domains:
+        return None
 
     query = Q()
     for d in domains:
@@ -2946,8 +2953,9 @@ def shift_all_emails_to_domain_client(tenant_id,domain):
     tenant = Tenant.objects.get(deleted=False,uid=tenant_id)
     print(f'tenant: {tenant.uid}')
     domain_client = get_client_from_domain(domain, tenant)
-    domains = [d.strip() for d in domain.split(',')]
+    
     if domain_client:
+        domains = [d.strip() for d in domain_client.domain_name.split(',')]
         all_email_with_domain = []
         all_clients = ClientUserInfo.objects.filter(tenant_id=tenant.uid,deleted=False)
         for client in all_clients:

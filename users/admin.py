@@ -94,7 +94,7 @@ class LibraryBotConfigInline(admin.StackedInline):
             "fields": ("ideaboard_report_protected", "ideaboard_report_password")
         }),
         ("Login Settings", {
-            "fields": ("login_view",)
+            "fields": ("login_view", "login_dashboard")
         }),
     )
 
@@ -492,10 +492,11 @@ def new_create_client_info_activity(sender, instance, **kwargs):
     if kwargs['created']:
         client_domain = instance.domain_name
         print(f"client_domain: {client_domain}")
-        shift_all_emails_to_domain_client(
-            tenant_id= instance.tenant_id,
-            domain= client_domain
-        )
+        if client_domain:
+            shift_all_emails_to_domain_client(
+                tenant_id= instance.tenant_id,
+                domain= client_domain
+            )
 
         SnippetAccessCode.objects.create(
             client=instance,
